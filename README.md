@@ -48,3 +48,80 @@ paths:
   quadlet_dir: "/etc/containers/systemd"
 ```
 
+## Quadlet Manifests
+```yaml
+# Container unit
+name: web-app
+type: container
+systemd:
+  description: "Web application container"
+  after: ["network.target"]
+  restart_policy: "always"
+container:
+  image: nginx:latest
+  label:
+    - "traefik.enable=true"
+    - "app=web"
+  publish:
+    - "8080:80"
+
+---
+# Volume unit
+name: data-volume
+type: volume
+systemd:
+  description: "Persistent data volume"
+volume:
+  label:
+    - "backup=true"
+    - "environment=prod"
+
+---
+# Network unit
+name: app-network
+type: network
+systemd:
+  description: "Application network"
+network:
+  label:
+    - "network=internal"
+
+---
+# Pod unit
+name: app-pod
+type: pod
+systemd:
+  description: "Application pod"
+pod:
+  label:
+    - "environment=production"
+
+---
+# Kube unit
+name: k8s-deployment
+type: kube
+systemd:
+  description: "Kubernetes deployment"
+kube:
+  path: "/path/to/deployment.yaml"
+
+---
+# Image unit
+name: custom-image
+type: image
+systemd:
+  description: "Custom container image"
+image:
+  image: "registry.example.com/app:latest"
+
+---
+# Build unit
+name: app-build
+type: build
+systemd:
+  description: "Container build configuration"
+build:
+  context: "./src"
+  dockerfile: "Dockerfile"
+```
+

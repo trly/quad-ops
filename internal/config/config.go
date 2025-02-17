@@ -1,29 +1,66 @@
 package config
 
 import (
+	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	Git struct {
-		RepoURL string `yaml:"repo_url"`
-		Target  string `yaml:"target"`
-	} `yaml:"git"`
-	Paths struct {
-		ManifestsDir string `yaml:"manifests_dir"`
-		QuadletDir   string `yaml:"quadlet_dir"`
-	} `yaml:"paths"`
+type HostConfig struct {
+	Name    string `yaml:"name"`
+	Path    string `yaml:"path"`
+	Pattern string `yaml:"pattern"`
 }
 
-func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
+type Repository struct {
+	Name   string `yaml:"name"`
+	URL    string `yaml:"url"`
+	Target string `yaml:"target"`
+}
+
+type Config struct {
+	RepositoryDir string       `yaml:"repositoryDir"`
+	QuadletDir    string       `yaml:"quadletDir"`
+	Repositories  []Repository `yaml:"repositories"`
+}
+
+func LoadConfig(path string, userMode bool, verbose bool) (*Config, error) {
+	var cfg Config
+
+	if path != "" {
+		data, err := os.ReadFile(path)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, err
+		}
+
+		if err == nil {
+			if err := yaml.Unmarshal(data, &cfg); err != nil {
+				return nil, err
+			}
+		}
 	}
 
-	var config Config
-	err = yaml.Unmarshal(data, &config)
-	return &config, err
+	if cfg.QuadletDir == "" {
+		if userMode {
+			cfg.QuadletDir = os.ExpandEnv("${HOME}/.config/containers/systemd")
+		} else {
+			cfg.QuadletDir = "/etc/containers/systemd"
+		}
+	}
+
+	if cfg.RepositoryDir == "" {
+		if userMode {
+			cfg.RepositoryDir = os.ExpandEnv("${HOME}/.config/quad-ops/manifests")
+		} else {
+			cfg.RepositoryDir = "/opt/quad-ops/repositories"
+		}
+	}
+
+	if verbose {
+		yamlData, _ := yaml.Marshal(cfg)
+		log.Printf("Loaded config:\n%s", string(yamlData))
+	}
+
+	return &cfg, nil
 }

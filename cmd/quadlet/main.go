@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"flag"
 	"log"
 	"os"
 	"path/filepath"
@@ -9,51 +9,47 @@ import (
 	"quad-ops/internal/config"
 	"quad-ops/internal/git"
 	"quad-ops/internal/quadlet"
-
-	"gopkg.in/yaml.v3"
 )
 
+var verbose *bool
+
 func main() {
-	cfg, err := config.LoadConfig("configs/config.yaml")
+	configPath := flag.String("config", "configs/config.yaml", "Path to configuration file")
+	dryRun := flag.Bool("dry-run", false, "Print actions without executing them")
+	userMode := flag.Bool("user-mode", false, "Run quad-ops in user mode")
+	verbose = flag.Bool("verbose", false, "Enable verbose logging")
+	flag.Parse()
+
+	if *verbose {
+		log.Printf("Using config file: %s", *configPath)
+	}
+
+	cfg, err := config.LoadConfig(*configPath, *userMode, *verbose)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	repo := git.NewRepository(cfg.Paths.ManifestsDir, cfg.Git.RepoURL, cfg.Git.Target)
-	if err := repo.SyncRepository(); err != nil {
-		log.Fatal(err)
+	if err := os.MkdirAll(cfg.QuadletDir, 0755); err != nil {
+		log.Fatal("Failed to create quadlet directory:", err)
 	}
 
-	files, err := os.ReadDir(cfg.Paths.ManifestsDir)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, file := range files {
-		if filepath.Ext(file.Name()) != ".yaml" {
-			continue
+	for _, repoConfig := range cfg.Repositories {
+		if *verbose {
+			log.Printf("Processing repository: %s", repoConfig.Name)
 		}
 
-		data, err := os.ReadFile(filepath.Join(cfg.Paths.ManifestsDir, file.Name()))
-		if err != nil {
-			log.Printf("Error reading file %s: %v", file.Name(), err)
-			continue
+		if !*dryRun {
+			repo := git.NewRepository(filepath.Join(cfg.RepositoryDir, repoConfig.Name), repoConfig.URL, repoConfig.Target, *verbose)
+			if err := repo.SyncRepository(); err != nil {
+				log.Printf("Error syncing repository %s: %v", repoConfig.Name, err)
+				continue
+			}
+
+			manifestsPath := filepath.Join(cfg.RepositoryDir, repoConfig.Name)
+			if err := quadlet.ProcessManifests(manifestsPath, cfg.QuadletDir, *userMode, *verbose); err != nil {
+				log.Printf("Error processing manifests for %s: %v", repoConfig.Name, err)
+				continue
+			}
 		}
-
-		var unit quadlet.QuadletUnit
-		if err := yaml.Unmarshal(data, &unit); err != nil {
-			log.Printf("Error parsing YAML from %s: %v", file.Name(), err)
-			continue
-		}
-
-		content := quadlet.GenerateQuadletUnit(unit)
-		unitPath := filepath.Join(cfg.Paths.QuadletDir, fmt.Sprintf("%s.%s", unit.Name, unit.Type))
-
-		if err := os.WriteFile(unitPath, []byte(content), 0644); err != nil {
-			log.Printf("Error writing quadlet unit %s: %v", unitPath, err)
-			continue
-		}
-
-		fmt.Printf("Generated Quadlet %s definition for %s\n", unit.Type, unit.Name)
 	}
 }

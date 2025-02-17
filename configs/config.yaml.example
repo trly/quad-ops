@@ -1,0 +1,4 @@
+repositories:
+  - name: quad-ops-manifests
+    url: "https://github.com/trly/quad-ops-manifests.git"
+    target: "main"
