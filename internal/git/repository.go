@@ -48,10 +48,17 @@ func (r *Repository) SyncRepository() error {
 			if r.verbose {
 				log.Printf("Repository already exists, opening from %s", r.Path)
 			}
+
 			repo, err = git.PlainOpen(r.Path)
 			if err != nil {
 				return err
 			}
+
+			r.repo = repo
+			if err := r.pullLatest(); err != nil {
+				return err
+			}
+
 		} else {
 			return err
 		}
@@ -65,7 +72,7 @@ func (r *Repository) SyncRepository() error {
 		}
 		return r.checkoutTarget()
 	}
-	return r.pullLatest()
+	return nil
 }
 
 // checkoutTarget attempts to checkout the target reference, which can be a commit hash,

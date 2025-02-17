@@ -8,10 +8,10 @@ import (
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
-func ReloadAndRestartUnit(unitName string, userMode bool, verbose bool) error {
+func ReloadAndRestartUnit(unitName string, unitType string, userMode bool, verbose bool) error {
 	var conn *dbus.Conn
 	var err error
-	var quadletService = unitName + ".service"
+	var quadletService = unitName + "-" + unitType + ".service"
 	ctx := context.Background()
 
 	if verbose {

@@ -1,6 +1,7 @@
 package quadlet
 
-// QuadletUnit represents a unit configuration for Quadlet
+// QuadletUnit represents the configuration for a Quadlet unit, which can include
+// systemd, container, volume, network, pod, Kubernetes, image, and build settings.
 type QuadletUnit struct {
 	Name      string          `yaml:"name"`
 	Type      string          `yaml:"type"`
@@ -8,53 +9,91 @@ type QuadletUnit struct {
 	Container ContainerConfig `yaml:"container,omitempty"`
 	Volume    VolumeConfig    `yaml:"volume,omitempty"`
 	Network   NetworkConfig   `yaml:"network,omitempty"`
-	Pod       PodConfig       `yaml:"pod,omitempty"`
-	Kube      KubeConfig      `yaml:"kube,omitempty"`
 	Image     ImageConfig     `yaml:"image,omitempty"`
-	Build     BuildConfig     `yaml:"build,omitempty"`
 }
 
-// SystemdConfig represents systemd-specific configuration
+// SystemdConfig represents the configuration for a systemd unit.
+// It includes settings such as the unit description, dependencies,
+// restart policy, and other systemd-specific options.
 type SystemdConfig struct {
-	Description   string   `yaml:"description"`
-	After         []string `yaml:"after"`
-	RestartPolicy string   `yaml:"restart_policy"`
+	Description     string   `yaml:"description"`
+	Documentation   string   `yaml:"documentation"`
+	After           []string `yaml:"after"`
+	Before          []string `yaml:"before"`
+	Requires        []string `yaml:"requires"`
+	Wants           []string `yaml:"wants"`
+	Conflicts       []string `yaml:"conflicts"`
+	RestartPolicy   string   `yaml:"restart_policy"`
+	TimeoutStartSec int      `yaml:"timeout_start_sec"`
+	Type            string   `yaml:"type"`
+	RemainAfterExit bool     `yaml:"remain_after_exit"`
+	WantedBy        []string `yaml:"wanted_by"`
 }
 
-// ContainerConfig represents container-specific configuration
+// ContainerConfig represents the configuration for a container in a Quadlet unit.
+// It includes settings such as the container image, published ports, environment variables,
+// volumes, networks, command, entrypoint, user, and other container-specific options.
 type ContainerConfig struct {
-	Image       string   `yaml:"image"`
-	Label       []string `yaml:"label"`
-	PublishPort []string `yaml:"publish"`
+	Image           string            `yaml:"image"`
+	Label           []string          `yaml:"label"`
+	PublishPort     []string          `yaml:"publish"`
+	Environment     map[string]string `yaml:"environment"`
+	EnvironmentFile string            `yaml:"environment_file"`
+	Volume          []string          `yaml:"volume"`
+	Network         []string          `yaml:"network"`
+	Command         []string          `yaml:"command"`
+	Entrypoint      []string          `yaml:"entrypoint"`
+	User            string            `yaml:"user"`
+	Group           string            `yaml:"group"`
+	WorkingDir      string            `yaml:"working_dir"`
+	PodmanArgs      []string          `yaml:"podman_args"`
+	RunInit         bool              `yaml:"run_init"`
+	Notify          bool              `yaml:"notify"`
+	Privileged      bool              `yaml:"privileged"`
+	ReadOnly        bool              `yaml:"read_only"`
+	SecurityLabel   []string          `yaml:"security_label"`
+	HostName        string            `yaml:"hostname"`
+	Secrets         []SecretConfig    `yaml:"secrets"`
 }
 
-// VolumeConfig represents volume-specific configuration
 type VolumeConfig struct {
-	Label []string `yaml:"label"`
+	Label    []string `yaml:"label"`
+	Device   string   `yaml:"device"`
+	Options  []string `yaml:"options"`
+	UID      int      `yaml:"uid"`
+	GID      int      `yaml:"gid"`
+	Mode     string   `yaml:"mode"`
+	Chown    bool     `yaml:"chown"`
+	Selinux  bool     `yaml:"selinux"`
+	Copy     bool     `yaml:"copy"`
+	Group    string   `yaml:"group"`
+	Size     string   `yaml:"size"`
+	Capacity string   `yaml:"capacity"`
+	Type     string   `yaml:"type"`
 }
 
-// NetworkConfig represents network-specific configuration
 type NetworkConfig struct {
-	Label []string `yaml:"label"`
+	Label      []string `yaml:"label"`
+	Driver     string   `yaml:"driver"`
+	Gateway    string   `yaml:"gateway"`
+	IPRange    string   `yaml:"ip_range"`
+	Subnet     string   `yaml:"subnet"`
+	IPv6       bool     `yaml:"ipv6"`
+	Internal   bool     `yaml:"internal"`
+	DNSEnabled bool     `yaml:"dns_enabled"`
+	Options    []string `yaml:"options"`
 }
 
-// PodConfig represents pod-specific configuration
-type PodConfig struct {
-	Label []string `yaml:"label"`
-}
-
-// KubeConfig represents Kubernetes manifest configuration
-type KubeConfig struct {
-	Path string `yaml:"path"`
-}
-
-// ImageConfig represents image-specific configuration
 type ImageConfig struct {
-	Image string `yaml:"image"`
+	Image      string   `yaml:"image"`
+	PodmanArgs []string `yaml:"podman_args"`
 }
 
-// BuildConfig represents container build configuration
-type BuildConfig struct {
-	Context    string `yaml:"context"`
-	Dockerfile string `yaml:"dockerfile"`
+type SecretConfig struct {
+	Name   string `yaml:"name"`
+	Type   string `yaml:"type"`   // mount or env
+	Target string `yaml:"target"` // defaults to secret name
+	UID    int    `yaml:"uid"`    // defaults to 0, mount type only
+	GID    int    `yaml:"gid"`    // defaults to 0, mount type only
+	Mode   string `yaml:"mode"`   // defaults to 0444, mount type only
 }

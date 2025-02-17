@@ -14,7 +14,7 @@ import (
 var verbose *bool
 
 func main() {
-	configPath := flag.String("config", "configs/config.yaml", "Path to configuration file")
+	configPath := flag.String("config", "/etc/quad-ops/config.yaml", "Path to configuration file")
 	dryRun := flag.Bool("dry-run", false, "Print actions without executing them")
 	userMode := flag.Bool("user-mode", false, "Run quad-ops in user mode")
 	verbose = flag.Bool("verbose", false, "Enable verbose logging")

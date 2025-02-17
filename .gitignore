@@ -35,3 +35,6 @@ Thumbs.db
 # Build output directory
 bin/
 dist/
+
+configs/*
+!configs/config.yaml.example

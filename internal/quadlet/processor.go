@@ -68,8 +68,8 @@ func ProcessManifests(manifestsPath string, quadletDir string, userMode bool, ve
 				continue
 			}
 
-			if err := systemd.ReloadAndRestartUnit(unit.Name, userMode, verbose); err != nil {
-				log.Printf("Error reloading unit %s: %v", unit.Name, err)
+			if err := systemd.ReloadAndRestartUnit(unit.Name, unit.Type, userMode, verbose); err != nil {
+				log.Printf("Error reloading unit %s-%s: %v", unit.Name, unit.Type, err)
 				continue
 			}
 
