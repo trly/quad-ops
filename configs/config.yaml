@@ -1,0 +1,7 @@
+git:
+  repo_url: "https://github.com/your-org/your-repo.git"
+  target: "main"
+
+paths:
+  manifests_dir: "./manifests"
+  quadlet_dir: "/etc/containers/systemd"
