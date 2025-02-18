@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func ProcessManifests(manifestsPath string, quadletDir string, userMode bool, verbose bool) error {
+func ProcessManifests(manifestsPath string, quadletDir string, userMode bool, verbose bool, force bool) error {
 
 	if verbose {
 		log.Printf("Processing manifests from: %s", manifestsPath)
@@ -62,7 +62,7 @@ func ProcessManifests(manifestsPath string, quadletDir string, userMode bool, ve
 			unitPath := filepath.Join(quadletDir, fmt.Sprintf("%s.%s", unit.Name, unit.Type))
 
 			existingContent, err := os.ReadFile(unitPath)
-			if err == nil {
+			if err == nil && !force {
 				if getContentHash(string(existingContent)) == getContentHash(content) {
 					if verbose {
 						log.Printf("Unit %s.%s unchanged, skipping deployment", unit.Name, unit.Type)

@@ -21,6 +21,7 @@ func main() {
 	userMode := flag.Bool("user-mode", false, "Run quad-ops in user mode")
 	daemon := flag.Bool("daemon", false, "Run as a background daemon")
 	interval := flag.Int("interval", 300, "Update check interval in seconds when running as daemon")
+	force := flag.Bool("force", false, "Force deployment and restart of all units")
 	verbose = flag.Bool("verbose", false, "Enable verbose logging")
 	flag.Parse()
 
@@ -33,18 +34,18 @@ func main() {
 		return
 	}
 
-	runCheck(*configPath, *dryRun, *userMode)
+	runCheck(*configPath, *dryRun, *userMode, *force)
 }
 
 func runDaemon(configPath string, dryRun, userMode bool, interval int) {
 	log.Printf("Starting quad-ops daemon with %v second interval", interval)
 	for {
-		runCheck(configPath, dryRun, userMode)
+		runCheck(configPath, dryRun, userMode, false)
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
 }
 
-func runCheck(configPath string, dryRun, userMode bool) {
+func runCheck(configPath string, dryRun, userMode bool, force bool) {
 	if *verbose {
 		log.Printf("Using config file: %s", configPath)
 	}
@@ -70,7 +71,7 @@ func runCheck(configPath string, dryRun, userMode bool) {
 			}
 
 			manifestsPath := filepath.Join(cfg.RepositoryDir, repoConfig.Name)
-			if err := quadlet.ProcessManifests(manifestsPath, cfg.QuadletDir, userMode, *verbose); err != nil {
+			if err := quadlet.ProcessManifests(manifestsPath, cfg.QuadletDir, userMode, *verbose, force); err != nil {
 				log.Printf("Error processing manifests for %s: %v", repoConfig.Name, err)
 				continue
 			}
