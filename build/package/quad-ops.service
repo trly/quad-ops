@@ -1,15 +1,13 @@
 [Unit]
-Description=Quadlet Operations Manager
+Description=Quad-Ops Container Manager
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/quad-ops
+ExecStart=/usr/local/bin/quad-ops --daemon --interval 300
 Restart=always
 RestartSec=10
-WorkingDirectory=/etc/quad-ops
-Environment=CONFIG_PATH=/etc/quad-ops/config.yaml
 
 [Install]
 WantedBy=multi-user.target

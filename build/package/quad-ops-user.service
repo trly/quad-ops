@@ -1,13 +1,13 @@
 [Unit]
 Description=Quad-Ops Container Manager (User)
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-Environment=QUADLET_DIR=%h/.config/containers/systemd
-Environment=MANIFESTS_DIR=%h/.config/quad-ops/manifests
-ExecStart=/usr/local/bin/quad-ops
-Restart=on-failure
+ExecStart=/usr/local/bin/quad-ops --daemon --interval 300 --user-mode
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=default.target
