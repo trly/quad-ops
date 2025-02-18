@@ -1,6 +1,8 @@
 package quadlet
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -59,6 +61,16 @@ func ProcessManifests(manifestsPath string, quadletDir string, userMode bool, ve
 			content := GenerateQuadletUnit(unit, verbose)
 			unitPath := filepath.Join(quadletDir, fmt.Sprintf("%s.%s", unit.Name, unit.Type))
 
+			existingContent, err := os.ReadFile(unitPath)
+			if err == nil {
+				if getContentHash(string(existingContent)) == getContentHash(content) {
+					if verbose {
+						log.Printf("Unit %s.%s unchanged, skipping deployment", unit.Name, unit.Type)
+					}
+					continue
+				}
+			}
+
 			if verbose {
 				log.Printf("Writing quadlet unit to: %s", unitPath)
 			}
@@ -78,4 +90,10 @@ func ProcessManifests(manifestsPath string, quadletDir string, userMode bool, ve
 
 	}
 	return nil
+}
+
+func getContentHash(content string) string {
+	hash := sha256.New()
+	hash.Write([]byte(content))
+	return hex.EncodeToString(hash.Sum(nil))
 }
