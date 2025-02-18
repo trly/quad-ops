@@ -17,7 +17,7 @@ type QuadletUnit struct {
 // restart policy, and other systemd-specific options.
 type SystemdConfig struct {
 	Description     string   `yaml:"description"`
-	Documentation   string   `yaml:"documentation"`
+	Documentation   []string `yaml:"documentation"`
 	After           []string `yaml:"after"`
 	Before          []string `yaml:"before"`
 	Requires        []string `yaml:"requires"`

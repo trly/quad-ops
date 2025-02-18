@@ -64,14 +64,14 @@ func runCheck(configPath string, dryRun, userMode bool, force bool) {
 			if *verbose {
 				log.Printf("Processing repository: %s", repoConfig.Name)
 			}
+
 			repo := git.NewRepository(filepath.Join(cfg.RepositoryDir, repoConfig.Name), repoConfig.URL, repoConfig.Target, *verbose)
 			if err := repo.SyncRepository(); err != nil {
 				log.Printf("Error syncing repository %s: %v", repoConfig.Name, err)
 				continue
 			}
 
-			manifestsPath := filepath.Join(cfg.RepositoryDir, repoConfig.Name)
-			if err := quadlet.ProcessManifests(manifestsPath, cfg.QuadletDir, userMode, *verbose, force); err != nil {
+			if err := quadlet.ProcessManifests(repo, cfg.QuadletDir, userMode, *verbose, force); err != nil {
 				log.Printf("Error processing manifests for %s: %v", repoConfig.Name, err)
 				continue
 			}

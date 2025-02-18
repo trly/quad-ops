@@ -7,15 +7,17 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"quad-ops/internal/git"
 	"quad-ops/internal/systemd"
 
 	"gopkg.in/yaml.v3"
 )
 
-func ProcessManifests(manifestsPath string, quadletDir string, userMode bool, verbose bool, force bool) error {
+func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, verbose bool, force bool) error {
+	manifestsPath := repo.Path
 
 	if verbose {
-		log.Printf("Processing manifests from: %s", manifestsPath)
+		log.Printf("Processing manifests from repository: %s at path: %s", repo.URL, manifestsPath)
 		log.Printf("Output directory: %s", quadletDir)
 	}
 
@@ -56,6 +58,15 @@ func ProcessManifests(manifestsPath string, quadletDir string, userMode bool, ve
 				}
 				log.Printf("Error parsing YAML from %s: %v", file, err)
 				continue
+			}
+
+			relPath, err := filepath.Rel(manifestsPath, file)
+			if err == nil {
+				if unit.Systemd.Documentation == nil {
+					unit.Systemd.Documentation = make([]string, 0)
+				}
+				unit.Systemd.Documentation = append(unit.Systemd.Documentation, repo.URL)
+				unit.Systemd.Documentation = append(unit.Systemd.Documentation, fmt.Sprintf("file://%s", relPath))
 			}
 
 			content := GenerateQuadletUnit(unit, verbose)

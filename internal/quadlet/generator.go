@@ -16,8 +16,8 @@ func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
 	if unit.Systemd.Description != "" {
 		content += fmt.Sprintf("Description=%s\n", unit.Systemd.Description)
 	}
-	if unit.Systemd.Documentation != "" {
-		content += fmt.Sprintf("Documentation=%s\n", unit.Systemd.Documentation)
+	for _, documentation := range unit.Systemd.Documentation {
+		content += fmt.Sprintf("Documentation=%s\n", documentation)
 	}
 	if len(unit.Systemd.After) > 0 {
 		content += fmt.Sprintf("After=%s\n", strings.Join(unit.Systemd.After, " "))
