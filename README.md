@@ -1,13 +1,17 @@
 # Quad-Ops
 
-Quad-Ops is a service that manages Quadlet container units by synchronizing them from a Git repository. It automatically generates systemd unit files from YAML manifests.
+Quad-Ops is a service that manages Quadlet container units by synchronizing them from Git repositories.
+It automatically generates systemd unit files from YAML manifests and handles unit reloading.
 
 ## Features
 
-- Git repository synchronization with support for branches, tags and commits
-- YAML manifest to Quadlet unit conversion
-- Runs as a systemd service
-- Configuration via YAML
+- Multi-repository support with independent branch/tag/commit targeting
+- Automatic systemd unit generation and reloading
+- Daemon mode with configurable check intervals
+- User mode support for non-root operation
+- Content-aware updates (only updates changed units)
+- Verbose logging option for debugging
+- Dry-run capability for testing configurations
 
 ## Installation
 
@@ -35,93 +39,110 @@ systemctl enable quad-ops
 systemctl start quad-ops
 ```
 
+## Usage
+Run as a one-time check:
+```bash
+quad-ops --config /etc/quad-ops/config.yaml
+```
+
+Run as a daemon with a 5-minute check interval:
+```bash
+quad-ops --daemon --interval 300
+```
+
+Run in systemd user-mode:
+```bash
+quad-ops --user-mode
+```
+
 ## Configuration
 
-The configuration file is located at `/etc/quad-ops/config.
+The default configuration file location is `/etc/quad-ops/config`
 ```yaml
-git:
-  repo_url: "https://github.com/your-org/your-repo.git"
-  target: "main"  # Branch, tag or commit hash
+---
+repositories:
+  - name: "app1"
+    url: "https://github.com/org/app1.git"
+    target: "main"
+  - name: "app2"
+    url: "https://github.com/org/app2.git"
+    target: "v1.0.0"
 
 paths:
-  manifests_dir: "./manifests" 
+  repository_dir: "/var/lib/quad-ops/repos"
   quadlet_dir: "/etc/containers/systemd"
 ```
 
-## Quadlet Manifests
+## Supported Unit Types
+
+### Containers
+
 ```yaml
-# Container unit
+---
 name: web-app
 type: container
 systemd:
-  description: "Web application container"
+  description: "Web application"
   after: ["network.target"]
   restart_policy: "always"
+  timeout_start_sec: 30
 container:
-  image: nginx:latest
-  label:
-    - "traefik.enable=true"
-    - "app=web"
-  publish:
-    - "8080:80"
+  image: "nginx:latest"
+  publish: ["8080:80"]
+  environment:
+    NGINX_PORT: "80"
+  environment_file: "/etc/nginx/env"
+  volume: ["/data:/app/data"]
+  network: ["app-network"]
+  secrets:
+    - name: "web-cert"
+      type: "mount"
+      target: "/certs"
+      mode: "0400"
+```
 
+### Volumes
+
+```yaml
 ---
-# Volume unit
-name: data-volume
+name: data-vol
 type: volume
 systemd:
-  description: "Persistent data volume"
+  description: "Data volume"
 volume:
-  label:
-    - "backup=true"
-    - "environment=prod"
+  label: ["environment=prod"]
+  device: "/dev/sda1"
+  options: ["size=10G"]
+  uid: 1000
+  gid: 1000
+  mode: "0755"
+```
 
+### Networks
+
+```yaml
 ---
-# Network unit
-name: app-network
+name: app-net
 type: network
 systemd:
   description: "Application network"
 network:
-  label:
-    - "network=internal"
-
----
-# Pod unit
-name: app-pod
-type: pod
-systemd:
-  description: "Application pod"
-pod:
-  label:
-    - "environment=production"
-
----
-# Kube unit
-name: k8s-deployment
-type: kube
-systemd:
-  description: "Kubernetes deployment"
-kube:
-  path: "/path/to/deployment.yaml"
-
----
-# Image unit
-name: custom-image
-type: image
-systemd:
-  description: "Custom container image"
-image:
-  image: "registry.example.com/app:latest"
-
----
-# Build unit
-name: app-build
-type: build
-systemd:
-  description: "Container build configuration"
-build:
-  context: "./src"
-  dockerfile: "Dockerfile"
+  driver: "bridge"
+  subnet: "172.20.0.0/16"
+  gateway: "172.20.0.1"
+  ipv6: true
+  dns_enabled: true
 ```
 
+### Images
+
+```yaml
+---
+name: app-image
+type: image
+systemd:
+  description: "Application image"
+image:
+  image: "registry.example.com/app:latest"
+  podman_args: ["--tls-verify=false"]
+```
