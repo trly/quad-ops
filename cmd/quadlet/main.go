@@ -10,6 +10,7 @@ import (
 	"quad-ops/internal/config"
 	"quad-ops/internal/git"
 	"quad-ops/internal/quadlet"
+	"quad-ops/internal/validation"
 )
 
 var verbose *bool
@@ -22,6 +23,10 @@ func main() {
 	interval := flag.Int("interval", 300, "Update check interval in seconds when running as daemon")
 	verbose = flag.Bool("verbose", false, "Enable verbose logging")
 	flag.Parse()
+
+	if err := validation.VerifySystemRequirements(*verbose); err != nil {
+		log.Fatalf("System requirements not met: %v", err)
+	}
 
 	if *daemon {
 		runDaemon(*configPath, *dryRun, *userMode, *interval)
@@ -54,11 +59,10 @@ func runCheck(configPath string, dryRun, userMode bool) {
 	}
 
 	for _, repoConfig := range cfg.Repositories {
-		if *verbose {
-			log.Printf("Processing repository: %s", repoConfig.Name)
-		}
-
 		if !dryRun {
+			if *verbose {
+				log.Printf("Processing repository: %s", repoConfig.Name)
+			}
 			repo := git.NewRepository(filepath.Join(cfg.RepositoryDir, repoConfig.Name), repoConfig.URL, repoConfig.Target, *verbose)
 			if err := repo.SyncRepository(); err != nil {
 				log.Printf("Error syncing repository %s: %v", repoConfig.Name, err)
