@@ -42,6 +42,7 @@ func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
 		if unit.Container.Image != "" {
 			content += fmt.Sprintf("Image=%s\n", unit.Container.Image)
 		}
+		content += "Label=managed-by=quad-ops\n"
 		for _, label := range unit.Container.Label {
 			content += fmt.Sprintf("Label=%s\n", label)
 		}
@@ -120,6 +121,7 @@ func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
 
 	case "volume":
 		content += "\n[Volume]\n"
+		content += "Label=managed-by=quad-ops\n"
 		for _, label := range unit.Volume.Label {
 			content += fmt.Sprintf("Label=%s\n", label)
 		}
@@ -162,6 +164,7 @@ func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
 
 	case "network":
 		content += "\n[Network]\n"
+		content += "Label=managed-by=quad-ops\n"
 		for _, label := range unit.Network.Label {
 			content += fmt.Sprintf("Label=%s\n", label)
 		}

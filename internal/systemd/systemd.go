@@ -11,7 +11,12 @@ import (
 func ReloadAndRestartUnit(unitName string, unitType string, userMode bool, verbose bool) error {
 	var conn *dbus.Conn
 	var err error
-	var quadletService = unitName + "-" + unitType + ".service"
+	var quadletService string
+	if unitType == "container" {
+		quadletService = unitName + ".service"
+	} else {
+		quadletService = unitName + "-" + unitType + ".service"
+	}
 	ctx := context.Background()
 
 	if verbose {
