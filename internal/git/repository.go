@@ -11,11 +11,12 @@ import (
 // Repository represents a Git repository with its local path, remote URL,
 // and an instance of the underlying git repository.
 type Repository struct {
-	Path    string
-	URL     string
-	Target  string // Can be tag, branch or commit hash
-	repo    *git.Repository
-	verbose bool
+	Path        string          `yaml:"path,omitempty"`
+	URL         string          `yaml:"url"`
+	Target      string          `yaml:"target,omitempty"`
+	ManifestDir string          `yaml:"manifest_dir,omitempty"`
+	repo        *git.Repository `yaml:"-"`
+	verbose     bool            `yaml:"-"`
 }
 
 // NewRepository creates a new Repository instance with the given local path and remote URL.

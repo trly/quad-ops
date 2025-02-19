@@ -16,6 +16,10 @@ import (
 func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, verbose bool, force bool) error {
 	manifestsPath := repo.Path
 
+	if repo.ManifestDir != "" {
+		manifestsPath = filepath.Join(manifestsPath, repo.ManifestDir)
+	}
+
 	if verbose {
 		log.Printf("Processing manifests from repository: %s at path: %s", repo.URL, manifestsPath)
 		log.Printf("Output directory: %s", quadletDir)

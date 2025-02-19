@@ -61,12 +61,16 @@ The default configuration file location is `/etc/quad-ops/config`
 ```yaml
 ---
 repositories:
+  # Uses root of repository
   - name: "app1"
     url: "https://github.com/org/app1.git"
     target: "main"
-  - name: "app2"
-    url: "https://github.com/org/app2.git"
-    target: "v1.0.0"
+
+  # Uses specific manifest directory
+  - name: "platform-monorepo"
+    url: "https://github.com/org/platform.git"
+    target: "main"
+    manifest_dir: "hosts/prod-cluster-1/manifests"
 
 paths:
   repository_dir: "/var/lib/quad-ops/repos"
