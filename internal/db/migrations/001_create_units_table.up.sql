@@ -1,0 +1,7 @@
+CREATE TABLE units (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR,
+    type VARCHAR,
+    cleanup_policy VARCHAR,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

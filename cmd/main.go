@@ -8,9 +8,13 @@ import (
 	"time"
 
 	"quad-ops/internal/config"
+	"quad-ops/internal/db"
 	"quad-ops/internal/git"
 	"quad-ops/internal/quadlet"
-	"quad-ops/internal/validation"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var verbose *bool
@@ -25,35 +29,51 @@ func main() {
 	verbose = flag.Bool("verbose", false, "Enable verbose logging")
 	flag.Parse()
 
-	if err := validation.VerifySystemRequirements(*verbose); err != nil {
-		log.Fatalf("System requirements not met: %v", err)
+	if *verbose {
+		log.Printf("Using config file: %s", *configPath)
+	}
+
+	cfg, err := config.LoadConfig(*configPath, *userMode, *verbose)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	m, err := db.GetMigrationInstance("sqlite3://"+cfg.DBPath, *verbose)
+	if err != nil {
+		log.Fatalf("Could not initialize migrations: %v", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("Error running migrations: %v", err)
+	} else if *verbose {
+		if err == migrate.ErrNoChange {
+			log.Println("No new migrations to apply")
+		} else {
+			log.Println("Successfully applied migrations")
+		}
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("Error running migrations: %v", err)
 	}
 
 	if *daemon {
-		runDaemon(*configPath, *dryRun, *userMode, *interval)
+		runDaemon(*cfg, *dryRun, *userMode, *interval)
 		return
 	}
 
-	runCheck(*configPath, *dryRun, *userMode, *force)
+	runCheck(*cfg, *dryRun, *userMode, *force)
 }
 
-func runDaemon(configPath string, dryRun, userMode bool, interval int) {
+func runDaemon(cfg config.Config, dryRun, userMode bool, interval int) {
 	log.Printf("Starting quad-ops daemon with %v second interval", interval)
 	for {
-		runCheck(configPath, dryRun, userMode, false)
+		runCheck(cfg, dryRun, userMode, false)
 		time.Sleep(time.Duration(interval) * time.Second)
 	}
 }
 
-func runCheck(configPath string, dryRun, userMode bool, force bool) {
-	if *verbose {
-		log.Printf("Using config file: %s", configPath)
-	}
-
-	cfg, err := config.LoadConfig(configPath, userMode, *verbose)
-	if err != nil {
-		log.Fatal(err)
-	}
+func runCheck(cfg config.Config, dryRun, userMode bool, force bool) {
 
 	if err := os.MkdirAll(cfg.QuadletDir, 0755); err != nil {
 		log.Fatal("Failed to create quadlet directory:", err)

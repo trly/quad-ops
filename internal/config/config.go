@@ -23,6 +23,7 @@ type Config struct {
 	RepositoryDir string       `yaml:"repositoryDir"`
 	QuadletDir    string       `yaml:"quadletDir"`
 	Repositories  []Repository `yaml:"repositories"`
+	DBPath        string       `yaml:"dbPath"`
 }
 
 func LoadConfig(path string, userMode bool, verbose bool) (*Config, error) {
@@ -54,6 +55,14 @@ func LoadConfig(path string, userMode bool, verbose bool) (*Config, error) {
 			cfg.RepositoryDir = os.ExpandEnv("${HOME}/.config/quad-ops/manifests")
 		} else {
 			cfg.RepositoryDir = "/opt/quad-ops/repositories"
+		}
+	}
+
+	if cfg.DBPath == "" {
+		if userMode {
+			cfg.DBPath = os.ExpandEnv("${HOME}/.config/quad-ops/quad-ops.db")
+		} else {
+			cfg.DBPath = os.ExpandEnv("/opt/quad-ops/quad-ops.db")
 		}
 	}
 

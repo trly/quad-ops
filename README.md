@@ -1,6 +1,6 @@
 # Quad-Ops
 
-Quad-Ops is a service that manages Quadlet container units by synchronizing them from Git repositories.
+Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.
 It automatically generates systemd unit files from YAML manifests and handles unit reloading.
 
 ## Features
