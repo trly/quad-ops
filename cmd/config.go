@@ -19,47 +19,28 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package main
+package cmd
 
 import (
-	"os"
+	"fmt"
 
-	"quad-ops/cmd"
-	"quad-ops/internal/config"
-
-	"github.com/spf13/viper"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
-func initConfig() *config.Config {
-	cfg := &config.Config{}
-
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-
-	if cmd.GetConfigFilePath() != "" {
-		viper.SetConfigFile(cmd.GetConfigFilePath())
-	} else {
-		viper.AddConfigPath(os.ExpandEnv("$HOME/.config/quad-ops"))
-		viper.AddConfigPath("/etc/quad-ops")
-		viper.AddConfigPath(".")
+func init() {
+	configCmd := &cobra.Command{
+		Use:   "config",
+		Short: "Display current configuration",
+		Long:  "Display the current configuration including defaults and overrides",
+		Run: func(cmd *cobra.Command, args []string) {
+			output, err := yaml.Marshal(cfg)
+			if err != nil {
+				fmt.Printf("Error marshalling config: %v\n", err)
+				return
+			}
+			fmt.Println(string(output))
+		},
 	}
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			panic(err)
-		}
-	}
-
-	if err := viper.Unmarshal(cfg); err != nil {
-		panic(err)
-	}
-
-	return cfg
-
-}
-
-func main() {
-	cfg := initConfig()
-	cmd.SetConfig(cfg)
-	cmd.Execute()
+	rootCmd.AddCommand(configCmd)
 }
