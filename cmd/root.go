@@ -28,6 +28,7 @@ import (
 	"path/filepath"
 	"quad-ops/internal/config"
 	"quad-ops/internal/db"
+	"quad-ops/internal/validation"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -74,19 +75,23 @@ func init() {
 			cfg.Verbose = verbose
 		}
 
+		if userMode {
+			cfg.UserMode = userMode
+		}
+
 		if repositoryDir != "" {
 			cfg.RepositoryDir = repositoryDir
-		} else if cfg.RepositoryDir == "" && userMode {
+		} else if cfg.RepositoryDir == "" && cfg.UserMode {
 			cfg.RepositoryDir = os.ExpandEnv("$HOME/.config/quad-ops/repositories")
-		} else if cfg.RepositoryDir == "" && !userMode {
+		} else if cfg.RepositoryDir == "" && !cfg.UserMode {
 			cfg.RepositoryDir = "/etc/quad-ops/repositories"
 		}
 
 		if quadletDir != "" {
 			cfg.QuadletDir = quadletDir
-		} else if cfg.QuadletDir == "" && userMode {
+		} else if cfg.QuadletDir == "" && cfg.UserMode {
 			cfg.QuadletDir = os.ExpandEnv("$HOME/.config/containers/systemd")
-		} else if cfg.QuadletDir == "" && !userMode {
+		} else if cfg.QuadletDir == "" && !cfg.UserMode {
 			cfg.QuadletDir = "/etc/containers/systemd"
 		}
 
@@ -97,6 +102,8 @@ func init() {
 				filepath.Dir(viper.GetViper().ConfigFileUsed()), "quad-ops.db",
 			)
 		}
+
+		validation.VerifySystemRequirements(*cfg)
 
 		err := db.Up(*cfg)
 		if err != nil {

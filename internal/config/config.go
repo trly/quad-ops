@@ -20,6 +20,7 @@ type Config struct {
 	QuadletDir    string        `yaml:"quadletDir"`
 	Repositories  []Repository  `yaml:"repositories"`
 	DBPath        string        `yaml:"dbPath"`
+	UserMode      bool          `yaml:"userMode"`
 	Verbose       bool          `yaml:"verbose"`
 }
 

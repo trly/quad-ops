@@ -24,7 +24,6 @@ package cmd
 import (
 	"log"
 	"os"
-	"path/filepath"
 	"quad-ops/internal/config"
 	"quad-ops/internal/git"
 	"quad-ops/internal/quadlet"
@@ -97,19 +96,18 @@ func syncRepositories(cfg *config.Config) {
 				log.Printf("Processing repository: %s", repoConfig.Name)
 			}
 
-			repo := git.NewRepository(filepath.Join(cfg.RepositoryDir, repoConfig.Name), repoConfig.URL, repoConfig.Target, cfg.Verbose)
+			repo := git.NewRepository(*cfg, repoConfig)
 			if err := repo.SyncRepository(); err != nil {
 				log.Printf("Error syncing repository %s: %v", repoConfig.Name, err)
 				continue
 			}
 
-			if err := quadlet.ProcessManifests(repo, cfg.QuadletDir, userMode, cfg.Verbose, force); err != nil {
+			if err := quadlet.ProcessManifests(repo, *cfg, force); err != nil {
 				log.Printf("Error processing manifests for %s: %v", repoConfig.Name, err)
 				continue
 			}
 		} else {
 			log.Printf("dry-run: would process repository: %s", repoConfig.Name)
-			log.Printf("dry-run: would process manifests for %s", repoConfig.Name)
 		}
 	}
 }

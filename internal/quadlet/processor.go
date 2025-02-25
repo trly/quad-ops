@@ -7,22 +7,23 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"quad-ops/internal/config"
 	"quad-ops/internal/git"
 	"quad-ops/internal/systemd"
 
 	"gopkg.in/yaml.v3"
 )
 
-func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, verbose bool, force bool) error {
+func ProcessManifests(repo *git.Repository, cfg config.Config, force bool) error {
 	manifestsPath := repo.Path
 
 	if repo.ManifestDir != "" {
 		manifestsPath = filepath.Join(manifestsPath, repo.ManifestDir)
 	}
 
-	if verbose {
+	if cfg.Verbose {
 		log.Printf("processing manifests from repository: %s at path: %s", repo.URL, manifestsPath)
-		log.Printf("output directory: %s", quadletDir)
+		log.Printf("output directory: %s", cfg.QuadletDir)
 	}
 
 	var files []string
@@ -40,7 +41,7 @@ func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, ve
 		return fmt.Errorf("walking directory %s: %w", manifestsPath, err)
 	}
 
-	if verbose {
+	if cfg.Verbose {
 		log.Printf("found %d YAML files in manifests directory and subdirectories", len(files))
 	}
 
@@ -73,20 +74,20 @@ func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, ve
 				unit.Systemd.Documentation = append(unit.Systemd.Documentation, fmt.Sprintf("file://%s", relPath))
 			}
 
-			content := GenerateQuadletUnit(unit, verbose)
-			unitPath := filepath.Join(quadletDir, fmt.Sprintf("%s.%s", unit.Name, unit.Type))
+			content := GenerateQuadletUnit(unit, cfg.Verbose)
+			unitPath := filepath.Join(cfg.QuadletDir, fmt.Sprintf("%s.%s", unit.Name, unit.Type))
 
 			existingContent, err := os.ReadFile(unitPath)
 			if err == nil && !force {
 				if getContentHash(string(existingContent)) == getContentHash(content) {
-					if verbose {
+					if cfg.Verbose {
 						log.Printf("unit %s.%s unchanged, skipping deployment", unit.Name, unit.Type)
 					}
 					continue
 				}
 			}
 
-			if verbose {
+			if cfg.Verbose {
 				log.Printf("writing quadlet unit to: %s", unitPath)
 			}
 
@@ -95,7 +96,7 @@ func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, ve
 				continue
 			}
 
-			if err := systemd.ReloadAndRestartUnit(unit.Name, unit.Type, userMode, verbose); err != nil {
+			if err := systemd.ReloadAndRestartUnit(cfg, unit.Name, unit.Type); err != nil {
 				log.Printf("error reloading unit %s-%s: %v", unit.Name, unit.Type, err)
 				continue
 			}
