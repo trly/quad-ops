@@ -87,7 +87,7 @@ func syncRepositories(cfg *config.Config) {
 	for _, repoConfig := range cfg.Repositories {
 		if repoName != "" && repoConfig.Name != repoName {
 			if cfg.Verbose {
-				log.Printf("Skipping repository %s as it does not match the specified repository name", repoConfig.Name)
+				log.Printf("skipping repository %s as it does not match the specified repository name", repoConfig.Name)
 			}
 			continue
 		}
@@ -108,8 +108,8 @@ func syncRepositories(cfg *config.Config) {
 				continue
 			}
 		} else {
-			log.Printf("Dry run: Would process repository: %s", repoConfig.Name)
-			log.Printf("Dry run: Would process manifests for %s", repoConfig.Name)
+			log.Printf("dry-run: would process repository: %s", repoConfig.Name)
+			log.Printf("dry-run: would process manifests for %s", repoConfig.Name)
 		}
 	}
 }
@@ -117,7 +117,7 @@ func syncRepositories(cfg *config.Config) {
 func syncDaemon(cfg *config.Config) {
 
 	if syncInterval.String() == "" {
-		log.Fatal("Invalid sync interval. Please provide a valid duration.")
+		log.Fatal("invalid sync interval, provide a valid duration")
 	}
 
 	ticker := time.NewTicker(syncInterval)

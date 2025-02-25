@@ -21,8 +21,8 @@ func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, ve
 	}
 
 	if verbose {
-		log.Printf("Processing manifests from repository: %s at path: %s", repo.URL, manifestsPath)
-		log.Printf("Output directory: %s", quadletDir)
+		log.Printf("processing manifests from repository: %s at path: %s", repo.URL, manifestsPath)
+		log.Printf("output directory: %s", quadletDir)
 	}
 
 	var files []string
@@ -41,14 +41,14 @@ func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, ve
 	}
 
 	if verbose {
-		log.Printf("Found %d YAML files in manifests directory and subdirectories", len(files))
+		log.Printf("found %d YAML files in manifests directory and subdirectories", len(files))
 	}
 
 	for _, file := range files {
 
 		f, err := os.Open(file)
 		if err != nil {
-			log.Printf("Error opening file %s: %v", file, err)
+			log.Printf("error opening file %s: %v", file, err)
 			continue
 		}
 		defer f.Close()
@@ -60,7 +60,7 @@ func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, ve
 				if err.Error() == "EOF" {
 					break
 				}
-				log.Printf("Error parsing YAML from %s: %v", file, err)
+				log.Printf("error parsing YAML from %s: %v", file, err)
 				continue
 			}
 
@@ -80,27 +80,27 @@ func ProcessManifests(repo *git.Repository, quadletDir string, userMode bool, ve
 			if err == nil && !force {
 				if getContentHash(string(existingContent)) == getContentHash(content) {
 					if verbose {
-						log.Printf("Unit %s.%s unchanged, skipping deployment", unit.Name, unit.Type)
+						log.Printf("unit %s.%s unchanged, skipping deployment", unit.Name, unit.Type)
 					}
 					continue
 				}
 			}
 
 			if verbose {
-				log.Printf("Writing quadlet unit to: %s", unitPath)
+				log.Printf("writing quadlet unit to: %s", unitPath)
 			}
 
 			if err := os.WriteFile(unitPath, []byte(content), 0644); err != nil {
-				log.Printf("Error writing quadlet unit %s: %v", unitPath, err)
+				log.Printf("error writing quadlet unit %s: %v", unitPath, err)
 				continue
 			}
 
 			if err := systemd.ReloadAndRestartUnit(unit.Name, unit.Type, userMode, verbose); err != nil {
-				log.Printf("Error reloading unit %s-%s: %v", unit.Name, unit.Type, err)
+				log.Printf("error reloading unit %s-%s: %v", unit.Name, unit.Type, err)
 				continue
 			}
 
-			log.Printf("Generated Quadlet %s definition for %s\n", unit.Type, unit.Name)
+			log.Printf("generated Quadlet %s definition for %s\n", unit.Type, unit.Name)
 		}
 
 	}

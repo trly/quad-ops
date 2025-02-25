@@ -8,7 +8,7 @@ import (
 
 func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
 	if verbose {
-		log.Printf("Generating Quadlet unit for %s of type %s", unit.Name, unit.Type)
+		log.Printf("generating Quadlet unit for %s of type %s", unit.Name, unit.Type)
 	}
 
 	// [Unit] section

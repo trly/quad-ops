@@ -100,7 +100,7 @@ func init() {
 
 		err := db.Up(*cfg)
 		if err != nil {
-			log.Fatalf("Failed to initialize database: %v", err)
+			log.Fatalf("failed to initialize database: %v", err)
 			os.Exit(1)
 		}
 	}

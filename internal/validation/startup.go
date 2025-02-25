@@ -10,7 +10,7 @@ import (
 func VerifySystemRequirements(verbose bool) error {
 
 	if verbose {
-		log.Print("Validate systemd is available")
+		log.Print("balidate systemd is available")
 	}
 	systemdVersion, err := exec.Command("systemctl", "--version").Output()
 	if err != nil {
@@ -22,7 +22,7 @@ func VerifySystemRequirements(verbose bool) error {
 	}
 
 	if verbose {
-		log.Print("Validate podman is available")
+		log.Print("validate podman is available")
 	}
 	_, err = exec.Command("podman", "--version").Output()
 	if err != nil {
@@ -30,7 +30,7 @@ func VerifySystemRequirements(verbose bool) error {
 	}
 
 	if verbose {
-		log.Print("Validate podman-system-generator is available")
+		log.Print("balidate podman-system-generator is available")
 	}
 	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
 	_, err = exec.Command("test", "-f", generatorPath).Output()
