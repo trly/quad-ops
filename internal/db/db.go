@@ -2,10 +2,12 @@
 package db
 
 import (
+	"database/sql"
 	"embed"
 	"log"
 	"os"
 	"quad-ops/internal/config"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
@@ -18,6 +20,26 @@ var migrationsFS embed.FS
 
 func GetConnectionString(cfg config.Config) string {
 	return "sqlite3://" + cfg.DBPath
+}
+
+func Connect(cfg *config.Config) (*sql.DB, error) {
+	// Remove sqlite3:// prefix if present for direct SQL connection
+	dbPath := strings.TrimPrefix(cfg.DBPath, "sqlite3://")
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = db.Ping(); err != nil {
+		return nil, err
+	}
+
+	if cfg.Verbose {
+		log.Printf("Connected to database at %s", dbPath)
+	}
+
+	return db, nil
 }
 
 func Up(cfg config.Config) error {

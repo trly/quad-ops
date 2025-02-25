@@ -8,14 +8,24 @@ import (
 	"os"
 	"path/filepath"
 	"quad-ops/internal/config"
+	"quad-ops/internal/db"
+	dbUnit "quad-ops/internal/db/model"
 	"quad-ops/internal/git"
 	"quad-ops/internal/systemd"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 func ProcessManifests(repo *git.Repository, cfg config.Config, force bool) error {
 	manifestsPath := repo.Path
+
+	dbConn, err := db.Connect(&cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer dbConn.Close()
+	unitRepo := db.NewUnitRepository(dbConn)
 
 	if repo.ManifestDir != "" {
 		manifestsPath = filepath.Join(manifestsPath, repo.ManifestDir)
@@ -27,7 +37,7 @@ func ProcessManifests(repo *git.Repository, cfg config.Config, force bool) error
 	}
 
 	var files []string
-	err := filepath.Walk(manifestsPath, func(path string, info os.FileInfo, err error) error {
+	err = filepath.Walk(manifestsPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -99,6 +109,17 @@ func ProcessManifests(repo *git.Repository, cfg config.Config, force bool) error
 			if err := systemd.ReloadAndRestartUnit(cfg, unit.Name, unit.Type); err != nil {
 				log.Printf("error reloading unit %s-%s: %v", unit.Name, unit.Type, err)
 				continue
+			}
+
+			unitRepo.Create(&dbUnit.Unit{
+				Name:          unit.Name,
+				Type:          unit.Type,
+				CleanupPolicy: "keep",
+				CreatedAt:     time.Now(),
+			})
+
+			if cfg.Verbose {
+				log.Printf("unit %s.%s deployed successfully", unit.Name, unit.Type)
 			}
 
 			log.Printf("generated Quadlet %s definition for %s\n", unit.Type, unit.Name)
