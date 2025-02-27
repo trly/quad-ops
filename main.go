@@ -1,5 +1,4 @@
-The MIT License (MIT)
-
+/*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,3 +18,48 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+*/
+package main
+
+import (
+	"os"
+
+	"quad-ops/cmd"
+	"quad-ops/internal/config"
+
+	"github.com/spf13/viper"
+)
+
+func initConfig() *config.Config {
+	cfg := &config.Config{}
+
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+
+	if cmd.GetConfigFilePath() != "" {
+		viper.SetConfigFile(cmd.GetConfigFilePath())
+	} else {
+		viper.AddConfigPath(os.ExpandEnv("$HOME/.config/quad-ops"))
+		viper.AddConfigPath("/etc/quad-ops")
+		viper.AddConfigPath(".")
+	}
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			panic(err)
+		}
+	}
+
+	if err := viper.Unmarshal(cfg); err != nil {
+		panic(err)
+	}
+
+	return cfg
+
+}
+
+func main() {
+	cfg := initConfig()
+	cmd.SetConfig(cfg)
+	cmd.Execute()
+}

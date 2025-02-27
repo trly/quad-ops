@@ -1,5 +1,4 @@
-The MIT License (MIT)
-
+/*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,3 +18,29 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+*/
+package cmd
+
+import (
+	"fmt"
+
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+)
+
+func init() {
+	configCmd := &cobra.Command{
+		Use:   "config",
+		Short: "Display current configuration",
+		Long:  "Display the current configuration including defaults and overrides",
+		Run: func(cmd *cobra.Command, args []string) {
+			output, err := yaml.Marshal(cfg)
+			if err != nil {
+				fmt.Printf("Error marshalling config: %v\n", err)
+				return
+			}
+			fmt.Println(string(output))
+		},
+	}
+	rootCmd.AddCommand(configCmd)
+}

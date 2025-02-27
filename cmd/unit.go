@@ -1,5 +1,4 @@
-The MIT License (MIT)
-
+/*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -19,3 +18,18 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+*/
+package cmd
+
+import (
+	"github.com/spf13/cobra"
+)
+
+var unitCmd = &cobra.Command{
+	Use:   "unit",
+	Short: "subcommands for managing and viewing quadlet units",
+}
+
+func init() {
+	rootCmd.AddCommand(unitCmd)
+}
