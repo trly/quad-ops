@@ -32,11 +32,20 @@ import (
 	"github.com/rodaine/table"
 )
 
-// listCmd represents the list command
 var (
 	listCmd = &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
+		Long: `Usage:
+quad-ops unit list
+
+ID  Name           Type       SHA1                                      Cleanup Policy  Created At                    
+1   quad-ops-demo  container  d9c614ad03ddbc5e3f8ba2566c40a9aed57e3368  keep            0001-01-01 00:00:00 +0000 UTC 
+2   quad-ops-demo  volume     7449585cd761d0a88ba11e72e98470be6627e2b2  keep            0001-01-01 00:00:00 +0000 UTC 
+3   quad-ops-demo  network    a65071ee7f0e2b77051f5faf2017e4e08fe3bb3f  keep            0001-01-01 00:00:00 +0000 UTC 
+4   quad-ops-demo  image      c68a70c3bb517583a62d7f19c6a0bd0385fed83b  keep            0001-01-01 00:00:00 +0000 UTC 
+
+		`,
 		Run: func(cmd *cobra.Command, args []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()
