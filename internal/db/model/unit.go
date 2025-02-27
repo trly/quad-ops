@@ -10,5 +10,6 @@ type Unit struct {
 	Name          string    `db:"name"`
 	Type          string    `db:"type"`
 	CleanupPolicy string    `db:"cleanup_policy"`
+	SHA1Hash      []byte    `db:"sha1_hash"`
 	CreatedAt     time.Time `db:"created_at"`
 }

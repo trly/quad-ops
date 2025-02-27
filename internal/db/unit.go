@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"quad-ops/internal/db/model"
 )
 
@@ -14,22 +15,29 @@ func NewUnitRepository(db *sql.DB) *UnitRepository {
 }
 
 func (r *UnitRepository) List() ([]model.Unit, error) {
-	rows, err := r.db.Query("SELECT * FROM units")
+	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy FROM units")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	return rowsToUnits(rows)
+	return scanUnits(rows)
 }
 
 func (r *UnitRepository) Get(id int) (*model.Unit, error) {
-	row := r.db.QueryRow("SELECT * FROM units WHERE id = ?", id)
-	return rowToUnit(row)
+	row := r.db.QueryRow("SELECT id, name, type, sha1_hash, cleanup_policy FROM units WHERE id = ?", id)
+	units, err := scanUnits(row)
+	if err != nil {
+		return nil, err
+	}
+	if len(units) == 0 {
+		return nil, fmt.Errorf("unit with id %d not found", id)
+	}
+	return &units[0], nil
 }
 
 func (r *UnitRepository) Create(unit *model.Unit) (*model.Unit, error) {
-	result, err := r.db.Exec("INSERT INTO units (name, type, cleanup_policy) VALUES (?, ?, ?)", unit.Name, unit.Type, unit.CleanupPolicy)
+	result, err := r.db.Exec("INSERT INTO units (name, type, sha1_hash, cleanup_policy) VALUES (?, ?, ?, ?)", unit.Name, unit.Type, unit.SHA1Hash, unit.CleanupPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -42,23 +50,31 @@ func (r *UnitRepository) Create(unit *model.Unit) (*model.Unit, error) {
 	return unit, nil
 }
 
-func rowToUnit(row *sql.Row) (*model.Unit, error) {
-	var unit model.Unit
-	err := row.Scan(&unit.ID, &unit.Name, &unit.Type, &unit.CleanupPolicy, &unit.CreatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &unit, nil
+func (r *UnitRepository) Delete(id int64) error {
+	_, err := r.db.Exec("DELETE FROM units WHERE id = ?", id)
+	return err
 }
 
-func rowsToUnits(rows *sql.Rows) ([]model.Unit, error) {
+func scanUnits(scanner interface{}) ([]model.Unit, error) {
 	var units []model.Unit
-	for rows.Next() {
+	switch s := scanner.(type) {
+	case *sql.Rows:
+		for s.Next() {
+			var unit model.Unit
+			if err := s.Scan(&unit.ID, &unit.Name, &unit.Type, &unit.SHA1Hash, &unit.CleanupPolicy); err != nil {
+				return nil, err
+			}
+			units = append(units, unit)
+		}
+	case *sql.Row:
 		var unit model.Unit
-		if err := rows.Scan(&unit.ID, &unit.Name, &unit.Type, &unit.CleanupPolicy, &unit.CreatedAt); err != nil {
+		if err := s.Scan(&unit.ID, &unit.Name, &unit.Type, &unit.SHA1Hash, &unit.CleanupPolicy); err != nil {
 			return nil, err
 		}
 		units = append(units, unit)
+	default:
+		return nil, fmt.Errorf("unsupported scanner type: %T", scanner)
 	}
+
 	return units, nil
 }

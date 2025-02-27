@@ -22,6 +22,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"encoding/hex"
 	"log"
 	"quad-ops/internal/db"
 
@@ -39,7 +40,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()
-			tbl := table.New("ID", "Name", "Type", "Cleanup Policy", "Created At")
+			tbl := table.New("ID", "Name", "Type", "SHA1", "Cleanup Policy", "Created At")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
 			dbConn, err := db.Connect(cfg)
@@ -54,7 +55,7 @@ var (
 				log.Fatal(err)
 			}
 			for _, unit := range units {
-				tbl.AddRow(unit.ID, unit.Name, unit.Type, unit.CleanupPolicy, unit.CreatedAt)
+				tbl.AddRow(unit.ID, unit.Name, unit.Type, hex.EncodeToString(unit.SHA1Hash), unit.CleanupPolicy, unit.CreatedAt)
 			}
 
 			tbl.Print()
