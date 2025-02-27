@@ -4,7 +4,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"quad-ops/internal/config"
+
+	"github.com/trly/quad-ops/internal/config"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"

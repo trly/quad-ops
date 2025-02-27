@@ -6,8 +6,9 @@ import (
 	"embed"
 	"log"
 	"os"
-	"quad-ops/internal/config"
 	"strings"
+
+	"github.com/trly/quad-ops/internal/config"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"

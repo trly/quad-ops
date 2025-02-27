@@ -26,9 +26,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"quad-ops/internal/config"
-	"quad-ops/internal/db"
-	"quad-ops/internal/validation"
+
+	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/db"
+	"github.com/trly/quad-ops/internal/validation"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

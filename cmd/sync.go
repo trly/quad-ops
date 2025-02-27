@@ -24,10 +24,11 @@ package cmd
 import (
 	"log"
 	"os"
-	"quad-ops/internal/config"
-	"quad-ops/internal/git"
-	"quad-ops/internal/quadlet"
 	"time"
+
+	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/git"
+	"github.com/trly/quad-ops/internal/quadlet"
 
 	"github.com/spf13/cobra"
 )

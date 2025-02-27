@@ -24,8 +24,8 @@ package main
 import (
 	"os"
 
-	"quad-ops/cmd"
-	"quad-ops/internal/config"
+	"github.com/trly/quad-ops/cmd"
+	"github.com/trly/quad-ops/internal/config"
 
 	"github.com/spf13/viper"
 )

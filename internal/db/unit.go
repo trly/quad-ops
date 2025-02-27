@@ -3,7 +3,8 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"quad-ops/internal/db/model"
+
+	"github.com/trly/quad-ops/internal/db/model"
 )
 
 type UnitRepository struct {

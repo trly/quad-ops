@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
-	"quad-ops/internal/config"
 	"strings"
+
+	"github.com/trly/quad-ops/internal/config"
 )
 
 func VerifySystemRequirements(cfg config.Config) error {

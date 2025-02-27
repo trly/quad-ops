@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"quad-ops/internal/config"
+
+	"github.com/trly/quad-ops/internal/config"
 
 	"github.com/coreos/go-systemd/v22/dbus"
 )

@@ -24,7 +24,8 @@ package cmd
 import (
 	"encoding/hex"
 	"log"
-	"quad-ops/internal/db"
+
+	"github.com/trly/quad-ops/internal/db"
 
 	"github.com/spf13/cobra"
 

@@ -7,12 +7,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"quad-ops/internal/config"
-	"quad-ops/internal/db"
-	dbUnit "quad-ops/internal/db/model"
-	"quad-ops/internal/git"
-	"quad-ops/internal/systemd"
 	"time"
+
+	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/db"
+	dbUnit "github.com/trly/quad-ops/internal/db/model"
+	"github.com/trly/quad-ops/internal/git"
+	"github.com/trly/quad-ops/internal/systemd"
 
 	"gopkg.in/yaml.v3"
 )

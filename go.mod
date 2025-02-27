@@ -1,4 +1,4 @@
-module quad-ops
+module github.com/trly/quad-ops
 
 go 1.24.0
 
