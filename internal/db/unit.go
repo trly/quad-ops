@@ -37,7 +37,13 @@ func (r *UnitRepository) Get(id int) (*model.Unit, error) {
 }
 
 func (r *UnitRepository) Create(unit *model.Unit) (*model.Unit, error) {
-	result, err := r.db.Exec("INSERT INTO units (name, type, sha1_hash, cleanup_policy) VALUES (?, ?, ?, ?)", unit.Name, unit.Type, unit.SHA1Hash, unit.CleanupPolicy)
+	result, err := r.db.Exec(`
+        INSERT INTO units (name, type, sha1_hash, cleanup_policy) 
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(name, type) DO UPDATE SET
+            sha1_hash = excluded.sha1_hash,
+            cleanup_policy = excluded.cleanup_policy
+    `, unit.Name, unit.Type, unit.SHA1Hash, unit.CleanupPolicy)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +52,6 @@ func (r *UnitRepository) Create(unit *model.Unit) (*model.Unit, error) {
 		return nil, err
 	}
 	unit.ID = int64(id)
-
 	return unit, nil
 }
 
