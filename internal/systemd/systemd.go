@@ -12,6 +12,27 @@ import (
 
 var ctx = context.Background()
 
+func GetUnitStatus(cfg config.Config, unitName string, unitType string) (string, error) {
+	conn, err := getSystemdConnection(cfg)
+	if err != nil {
+		return "", fmt.Errorf("error connecting to systemd: %w", err)
+	}
+	defer conn.Close()
+
+	quadletService := unitName
+	if unitType == "container" {
+		quadletService += ".service"
+	} else {
+		quadletService += "-" + unitType + ".service"
+	}
+
+	prop, err := conn.GetUnitPropertyContext(ctx, quadletService, "ActiveState")
+	if err != nil {
+		return "", fmt.Errorf("error getting unit property: %w", err)
+	}
+	return prop.Value.Value().(string), nil
+}
+
 func RestartUnit(cfg config.Config, unitName string, unitType string) error {
 	conn, err := getSystemdConnection(cfg)
 	if err != nil {

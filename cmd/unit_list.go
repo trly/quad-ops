@@ -26,6 +26,7 @@ import (
 	"log"
 
 	"github.com/trly/quad-ops/internal/db"
+	"github.com/trly/quad-ops/internal/systemd"
 
 	"github.com/spf13/cobra"
 
@@ -50,7 +51,7 @@ ID  Name           Type       SHA1                                      Cleanup 
 		Run: func(cmd *cobra.Command, args []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()
-			tbl := table.New("ID", "Name", "Type", "SHA1", "Cleanup Policy", "Created At")
+			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Cleanup Policy", "Created At")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
 			dbConn, err := db.Connect(cfg)
@@ -65,7 +66,14 @@ ID  Name           Type       SHA1                                      Cleanup 
 				log.Fatal(err)
 			}
 			for _, unit := range units {
-				tbl.AddRow(unit.ID, unit.Name, unit.Type, hex.EncodeToString(unit.SHA1Hash), unit.CleanupPolicy, unit.CreatedAt)
+				unitStatus, err := systemd.GetUnitStatus(*cfg, unit.Name, unit.Type)
+				if err != nil {
+					if cfg.Verbose {
+						log.Printf("error getting unit status: %s", err)
+					}
+					unitStatus = "UNKNOWN"
+				}
+				tbl.AddRow(unit.ID, unit.Name, unit.Type, unitStatus, hex.EncodeToString(unit.SHA1Hash), unit.CleanupPolicy, unit.CreatedAt)
 			}
 
 			tbl.Print()
