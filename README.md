@@ -18,7 +18,7 @@ It automatically generates systemd unit files from YAML manifests and handles un
 1. Build the binary:
 
 ```bash
-go build -o quad-ops cmd/quadlet/main.go
+go build -o quad-ops main.go
 ```
 
 2. Create required directories:
