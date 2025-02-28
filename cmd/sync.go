@@ -94,17 +94,17 @@ func syncRepositories(cfg *config.Config) {
 
 		if !dryRun {
 			if cfg.Verbose {
-				log.Printf("Processing repository: %s", repoConfig.Name)
+				log.Printf("processing repository: %s", repoConfig.Name)
 			}
 
 			repo := git.NewRepository(*cfg, repoConfig)
 			if err := repo.SyncRepository(); err != nil {
-				log.Printf("Error syncing repository %s: %v", repoConfig.Name, err)
+				log.Printf("error syncing repository %s: %v", repoConfig.Name, err)
 				continue
 			}
 
 			if err := quadlet.ProcessManifests(repo, *cfg, force); err != nil {
-				log.Printf("Error processing manifests for %s: %v", repoConfig.Name, err)
+				log.Printf("error processing manifests for %s: %v", repoConfig.Name, err)
 				continue
 			}
 		} else {
@@ -114,12 +114,12 @@ func syncRepositories(cfg *config.Config) {
 }
 
 func syncDaemon(cfg *config.Config) {
-
-	if syncInterval.String() == "" {
-		log.Fatal("invalid sync interval, provide a valid duration")
-	}
-
-	ticker := time.NewTicker(syncInterval)
-	syncRepositories(cfg)
+	log.Printf("starting sync daemon with interval: %v", cfg.SyncInterval)
+	ticker := time.NewTicker(cfg.SyncInterval)
 	defer ticker.Stop()
+
+	for range ticker.C {
+		log.Printf("starting scheduled sync")
+		syncRepositories(cfg)
+	}
 }
