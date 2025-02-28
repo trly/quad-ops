@@ -22,14 +22,62 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"log"
+
 	"github.com/spf13/cobra"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
-var unitCmd = &cobra.Command{
-	Use:   "unit",
-	Short: "subcommands for managing and viewing quadlet units",
-}
+var (
+	unitType string
+
+	unitCmd = &cobra.Command{
+		Use:   "unit",
+		Short: "subcommands for managing and viewing quadlet units",
+	}
+
+	startCmd = &cobra.Command{
+		Use:   "start [name]",
+		Short: "Start a quadlet unit",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			name := args[0]
+			if err := systemd.StartUnit(*cfg, name, unitType); err != nil {
+				log.Fatal(err)
+			}
+		},
+	}
+
+	stopCmd = &cobra.Command{
+		Use:   "stop [name]",
+		Short: "Stop a quadlet unit",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			name := args[0]
+			if err := systemd.StopUnit(*cfg, name, unitType); err != nil {
+				log.Fatal(err)
+			}
+		},
+	}
+
+	restartCmd = &cobra.Command{
+		Use:   "restart [name]",
+		Short: "Restart a quadlet unit",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			name := args[0]
+			if err := systemd.RestartUnit(*cfg, name, unitType); err != nil {
+				log.Fatal(err)
+			}
+		},
+	}
+)
 
 func init() {
 	rootCmd.AddCommand(unitCmd)
+	unitCmd.AddCommand(startCmd, stopCmd, restartCmd)
+	for _, cmd := range []*cobra.Command{startCmd, stopCmd, restartCmd} {
+		cmd.Flags().StringVarP(&unitType, "type", "t", "", "Type of unit to manage (container, volume, network, image)")
+		cmd.MarkFlagRequired("type")
+	}
 }

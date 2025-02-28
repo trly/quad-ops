@@ -186,7 +186,7 @@ func parseUnitsFromFile(filePath, manifestsPath string, repo *git.Repository) ([
 }
 
 func cleanupOrphanedUnits(processedUnits map[string]bool, cfg config.Config, unitRepo *db.UnitRepository) error {
-	dbUnits, err := unitRepo.List()
+	dbUnits, err := unitRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("error fetching units from database: %w", err)
 	}

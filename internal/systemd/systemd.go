@@ -64,6 +64,52 @@ func RestartUnit(cfg config.Config, unitName string, unitType string) error {
 	return nil
 }
 
+func StartUnit(cfg config.Config, unitName string, unitType string) error {
+	conn, err := getSystemdConnection(cfg)
+	if err != nil {
+		return fmt.Errorf("error connecting to systemd: %w", err)
+	}
+	defer conn.Close()
+	quadletService := unitName
+	if unitType == "container" {
+		quadletService += ".service"
+	} else {
+		quadletService += "-" + unitType + ".service"
+	}
+	ch := make(chan string)
+	_, err = conn.StartUnitContext(context.Background(), quadletService, "replace", ch)
+	if err != nil {
+		return fmt.Errorf("error starting unit %s: %w", quadletService, err)
+	}
+	if cfg.Verbose {
+		log.Printf("successfully started unit %s\n", quadletService)
+	}
+	return nil
+}
+
+func StopUnit(cfg config.Config, unitName string, unitType string) error {
+	conn, err := getSystemdConnection(cfg)
+	if err != nil {
+		return fmt.Errorf("error connecting to systemd: %w", err)
+	}
+	defer conn.Close()
+	quadletService := unitName
+	if unitType == "container" {
+		quadletService += ".service"
+	} else {
+		quadletService += "-" + unitType + ".service"
+	}
+	ch := make(chan string)
+	_, err = conn.StopUnitContext(context.Background(), quadletService, "replace", ch)
+	if err != nil {
+		return fmt.Errorf("error stopping unit %s: %w", quadletService, err)
+	}
+	if cfg.Verbose {
+		log.Printf("successfully stopped unit %s\n", quadletService)
+	}
+	return nil
+}
+
 func ReloadSystemd(cfg config.Config) error {
 	conn, err := getSystemdConnection(cfg)
 	if err != nil {

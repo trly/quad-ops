@@ -15,7 +15,7 @@ func NewUnitRepository(db *sql.DB) *UnitRepository {
 	return &UnitRepository{db: db}
 }
 
-func (r *UnitRepository) List() ([]model.Unit, error) {
+func (r *UnitRepository) FindAll() ([]model.Unit, error) {
 	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy FROM units")
 	if err != nil {
 		return nil, err
@@ -25,7 +25,17 @@ func (r *UnitRepository) List() ([]model.Unit, error) {
 	return scanUnits(rows)
 }
 
-func (r *UnitRepository) Get(id int) (*model.Unit, error) {
+func (r *UnitRepository) FindByUnitType(unitType string) ([]model.Unit, error) {
+	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy FROM units WHERE type = ?", unitType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanUnits(rows)
+}
+
+func (r *UnitRepository) FindById(id int) (*model.Unit, error) {
 	row := r.db.QueryRow("SELECT id, name, type, sha1_hash, cleanup_policy FROM units WHERE id = ?", id)
 	units, err := scanUnits(row)
 	if err != nil {
