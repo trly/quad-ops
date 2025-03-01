@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/trly/quad-ops/internal/config"
+	"gopkg.in/ini.v1"
 
 	"github.com/coreos/go-systemd/v22/dbus"
 )
@@ -128,6 +131,52 @@ func ReloadSystemd(cfg config.Config) error {
 	return nil
 }
 
+func ShowUnit(cfg config.Config, unitName string, unitType string) error {
+	conn, err := getSystemdConnection(cfg)
+	if err != nil {
+		return fmt.Errorf("error connecting to systemd: %w", err)
+	}
+	defer conn.Close()
+	quadletService := unitName
+	if unitType == "container" {
+		quadletService += ".service"
+	} else {
+		quadletService += "-" + unitType + ".service"
+	}
+	prop, err := conn.GetUnitPropertiesContext(ctx, quadletService)
+	if err != nil {
+		return fmt.Errorf("error getting unit properties: %w", err)
+	}
+
+	fmt.Printf("\n=== %s ===\n\n", quadletService)
+
+	fmt.Println("Status:")
+	fmt.Printf("  %-20s: %v\n", "State", prop["ActiveState"])
+	fmt.Printf("  %-20s: %v\n", "Sub-State", prop["SubState"])
+	fmt.Printf("  %-20s: %v\n", "Load State", prop["LoadState"])
+
+	fmt.Println("\nUnit Information:")
+	fmt.Printf("  %-20s: %v\n", "Description", prop["Description"])
+	fmt.Printf("  %-20s: %v\n", "Path", prop["FragmentPath"])
+
+	// Read and display the actual quadlet configuration
+	if fragmentPath, ok := prop["FragmentPath"].(string); ok {
+		content, err := os.ReadFile(fragmentPath)
+		if err == nil {
+			unitConfig, _ := ini.Load(content)
+			sectionName := fmt.Sprintf("X-%s", strings.Title(unitType))
+			if section, err := unitConfig.GetSection(sectionName); err == nil {
+				fmt.Printf("\n%s Configuration:\n", strings.Title(unitType))
+				for _, key := range section.Keys() {
+					fmt.Printf("  %-20s: %s\n", key.Name(), key.Value())
+				}
+			}
+		}
+	}
+
+	fmt.Println()
+	return nil
+}
 func getSystemdConnection(cfg config.Config) (*dbus.Conn, error) {
 	if cfg.Verbose {
 		if cfg.UserMode {

@@ -71,12 +71,23 @@ var (
 			}
 		},
 	}
+
+	showCmd = &cobra.Command{
+		Use:   "show [name]",
+		Short: "Show the status of a quadlet unit",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			name := args[0]
+			status := systemd.ShowUnit(*cfg, name, unitType)
+			log.Println(status)
+		},
+	}
 )
 
 func init() {
 	rootCmd.AddCommand(unitCmd)
-	unitCmd.AddCommand(startCmd, stopCmd, restartCmd)
-	for _, cmd := range []*cobra.Command{startCmd, stopCmd, restartCmd} {
+	unitCmd.AddCommand(startCmd, stopCmd, restartCmd, showCmd)
+	for _, cmd := range []*cobra.Command{startCmd, stopCmd, restartCmd, showCmd} {
 		cmd.Flags().StringVarP(&unitType, "type", "t", "", "Type of unit to manage (container, volume, network, image)")
 		cmd.MarkFlagRequired("type")
 	}
