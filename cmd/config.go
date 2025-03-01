@@ -28,8 +28,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func init() {
-	configCmd := &cobra.Command{
+type ConfigCommand struct{}
+
+func (c *ConfigCommand) GetCobraCommand() *cobra.Command {
+	return &cobra.Command{
 		Use:   "config",
 		Short: "Display current configuration",
 		Long:  "Display the current configuration including defaults and overrides",
@@ -42,5 +44,4 @@ func init() {
 			fmt.Println(string(output))
 		},
 	}
-	rootCmd.AddCommand(configCmd)
 }

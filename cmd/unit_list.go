@@ -30,27 +30,19 @@ import (
 	"github.com/trly/quad-ops/internal/db/model"
 	"github.com/trly/quad-ops/internal/systemd"
 
-	"github.com/spf13/cobra"
-
 	"github.com/fatih/color"
 	"github.com/rodaine/table"
+	"github.com/spf13/cobra"
 )
 
-var (
-	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
+type UnitListCommand struct{}
 
-	listCmd = &cobra.Command{
+var allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
+
+func (c *UnitListCommand) GetCobraCommand() *cobra.Command {
+	unitListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
-		Long: `Usage:
-
-quad-ops unit list
-
-ID  Name           Type       SHA1                                      Cleanup Policy  Created At                    
-1   quad-ops-demo  container  d9c614ad03ddbc5e3f8ba2566c40a9aed57e3368  keep            0001-01-01 00:00:00 +0000 UTC 
-2   quad-ops-demo  volume     7449585cd761d0a88ba11e72e98470be6627e2b2  keep            0001-01-01 00:00:00 +0000 UTC 
-3   quad-ops-demo  network    a65071ee7f0e2b77051f5faf2017e4e08fe3bb3f  keep            0001-01-01 00:00:00 +0000 UTC 
-4   quad-ops-demo  image      c68a70c3bb517583a62d7f19c6a0bd0385fed83b  keep            0001-01-01 00:00:00 +0000 UTC`,
 		Run: func(cmd *cobra.Command, args []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()
@@ -67,7 +59,17 @@ ID  Name           Type       SHA1                                      Cleanup 
 			findAndDisplayUnits(unitRepo, tbl, unitType)
 		},
 	}
-)
+
+	unitListCmd.Flags().StringVarP(&unitType, "type", "t", "container", "Type of unit to manage (container, volume, network, image, all)")
+	unitListCmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return allowedUnitTypes, cobra.ShellCompDirectiveNoFileComp
+	})
+	unitListCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		return validateUnitType(unitType)
+	}
+
+	return unitListCmd
+}
 
 func findAndDisplayUnits(unitRepo *db.UnitRepository, tbl table.Table, unitType string) {
 	var units []model.Unit
@@ -104,15 +106,4 @@ func validateUnitType(unitType string) error {
 		}
 	}
 	return fmt.Errorf("invalid unit type: %s, allowed types are: %v", unitType, allowedUnitTypes)
-}
-
-func init() {
-	unitCmd.AddCommand(listCmd)
-	listCmd.Flags().StringVarP(&unitType, "type", "t", "container", "Type of unit to manage (container, volume, network, image, all) (default: container)")
-	listCmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return allowedUnitTypes, cobra.ShellCompDirectiveNoFileComp
-	})
-	listCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
-		return validateUnitType(unitType)
-	}
 }

@@ -33,14 +33,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type SyncCommand struct{}
+
 var (
 	dryRun       bool
 	repoName     string
 	daemon       bool
 	syncInterval time.Duration
 	force        bool
+)
 
-	syncCmd = &cobra.Command{
+func (c *SyncCommand) GetCobraCommand() *cobra.Command {
+	syncCmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Synchronizes the manifests defined in configured repositories with quadlet units on the local system.",
 		Long: `Synchronizes the manifests defined in configured repositories with quadlet units on the local system.
@@ -72,17 +76,15 @@ repositories:
 
 		},
 	}
-)
 
-func init() {
 	syncCmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "Perform a dry run without making any changes.")
 	syncCmd.Flags().BoolVar(&daemon, "daemon", false, "Run as a daemon.")
 	syncCmd.Flags().DurationVarP(&syncInterval, "sync-interval", "i", 5*time.Minute, "Interval between synchronization checks.")
 	syncCmd.Flags().StringVarP(&repoName, "repo", "r", "", "Synchronize a single, named, repository.")
 	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "Force synchronization even if the repository has not changed.")
-	rootCmd.AddCommand(syncCmd)
-}
 
+	return syncCmd
+}
 func syncRepositories(cfg *config.Config) {
 	for _, repoConfig := range cfg.Repositories {
 		if repoName != "" && repoConfig.Name != repoName {

@@ -35,6 +35,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+type RootCommand struct{}
+
 var (
 	cfg            *config.Config
 	userMode       bool
@@ -43,26 +45,16 @@ var (
 	quadletDir     string
 	repositoryDir  string
 	verbose        bool
-	rootCmd        = &cobra.Command{
+)
+
+func (c *RootCommand) GetCobraCommand() *cobra.Command {
+	rootCmd := &cobra.Command{
 		Use:   "quad-ops",
 		Short: "Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.",
 		Long: `Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.
 It automatically generates systemd unit files from YAML manifests and handles unit reloading andd restarting.`,
 	}
-)
 
-func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
-	}
-}
-
-func SetConfig(c *config.Config) {
-	cfg = c
-}
-
-func init() {
 	rootCmd.PersistentFlags().BoolVarP(&userMode, "user", "u", false, "Run in user mode")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 	rootCmd.PersistentFlags().StringVar(&configFilePath, "config", "", "Path to the configuration file")
@@ -112,8 +104,20 @@ func init() {
 			os.Exit(1)
 		}
 	}
+
+	rootCmd.AddCommand(
+		(&ConfigCommand{}).GetCobraCommand(),
+		(&SyncCommand{}).GetCobraCommand(),
+		(&UnitCommand{}).GetCobraCommand(),
+	)
+
+	return rootCmd
 }
 
 func GetConfigFilePath() string {
 	return configFilePath
+}
+
+func SetConfig(c *config.Config) {
+	cfg = c
 }
