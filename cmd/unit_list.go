@@ -23,6 +23,7 @@ package cmd
 
 import (
 	"encoding/hex"
+	"fmt"
 	"log"
 
 	"github.com/trly/quad-ops/internal/db"
@@ -36,6 +37,8 @@ import (
 )
 
 var (
+	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
+
 	listCmd = &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
@@ -70,10 +73,11 @@ func findAndDisplayUnits(unitRepo *db.UnitRepository, tbl table.Table, unitType 
 	var units []model.Unit
 	var err error
 
-	if unitType != "" {
-		units, err = unitRepo.FindByUnitType(unitType)
-	} else {
+	switch unitType {
+	case "", "all":
 		units, err = unitRepo.FindAll()
+	default:
+		units, err = unitRepo.FindByUnitType(unitType)
 	}
 
 	if err != nil {
@@ -92,7 +96,23 @@ func findAndDisplayUnits(unitRepo *db.UnitRepository, tbl table.Table, unitType 
 	}
 	tbl.Print()
 }
+
+func validateUnitType(unitType string) error {
+	for _, allowedType := range allowedUnitTypes {
+		if unitType == allowedType {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid unit type: %s, allowed types are: %v", unitType, allowedUnitTypes)
+}
+
 func init() {
 	unitCmd.AddCommand(listCmd)
-	listCmd.Flags().StringVarP(&unitType, "type", "t", "", "Type of unit to manage (container, volume, network, image)")
+	listCmd.Flags().StringVarP(&unitType, "type", "t", "container", "Type of unit to manage (container, volume, network, image, all) (default: container)")
+	listCmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return allowedUnitTypes, cobra.ShellCompDirectiveNoFileComp
+	})
+	listCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		return validateUnitType(unitType)
+	}
 }
