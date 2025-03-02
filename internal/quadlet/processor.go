@@ -18,51 +18,49 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ProcessManifests processes all YAML manifests from the given repository
-func ProcessManifests(repo *git.Repository, force bool) error {
-	manifestsPath := getManifestsPath(repo)
+type Processor struct {
+	repo     *git.Repository
+	unitRepo *db.UnitRepository
+	verbose  bool
+}
 
-	if config.GetConfig().Verbose {
-		log.Printf("processing manifests from repository: %s at path: %s", repo.URL, manifestsPath)
+func NewProcessor(repo *git.Repository, unitRepo *db.UnitRepository) *Processor {
+	return &Processor{
+		repo:     repo,
+		unitRepo: unitRepo,
+		verbose:  config.GetConfig().Verbose,
+	}
+}
+
+func (p *Processor) Process(force bool) error {
+	manifestsPath := p.getManifestsPath()
+
+	if p.verbose {
+		log.Printf("processing manifests from repository: %s at path: %s", p.repo.URL, manifestsPath)
 		log.Printf("output directory: %s", config.GetConfig().QuadletDir)
 	}
 
-	// Connect to the database
-	dbConn, err := db.Connect()
-	if err != nil {
-		return fmt.Errorf("connecting to database: %w", err)
-	}
-	defer dbConn.Close()
-
-	unitRepo := db.NewUnitRepository(dbConn)
-
-	files, err := findYamlFiles(manifestsPath)
+	files, err := p.findYamlFiles(manifestsPath)
 	if err != nil {
 		return err
 	}
 
-	if config.GetConfig().Verbose {
-		log.Printf("found %d YAML files in manifests directory and subdirectories", len(files))
-	}
-
-	processedUnits, err := processYamlFiles(files, manifestsPath, repo, unitRepo, force)
+	processedUnits, err := p.processYamlFiles(files, manifestsPath, force)
 	if err != nil {
 		return err
 	}
 
-	return cleanupOrphanedUnits(processedUnits, unitRepo)
+	return p.cleanupOrphanedUnits(processedUnits)
 }
 
-// getManifestsPath returns the full path to the manifests directory
-func getManifestsPath(repo *git.Repository) string {
-	if repo.ManifestDir != "" {
-		return filepath.Join(repo.Path, repo.ManifestDir)
+func (p *Processor) getManifestsPath() string {
+	if p.repo.ManifestDir != "" {
+		return filepath.Join(p.repo.Path, p.repo.ManifestDir)
 	}
-	return repo.Path
+	return p.repo.Path
 }
 
-// findYamlFiles returns all YAML files in the given directory and its subdirectories
-func findYamlFiles(dirPath string) ([]string, error) {
+func (p *Processor) findYamlFiles(dirPath string) ([]string, error) {
 	var files []string
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -81,76 +79,101 @@ func findYamlFiles(dirPath string) ([]string, error) {
 	return files, nil
 }
 
-// processYamlFiles processes all YAML files and returns a map of processed units
-func processYamlFiles(files []string, manifestsPath string, repo *git.Repository,
-	unitRepo *db.UnitRepository, force bool) (map[string]bool, error) {
+func (p *Processor) processYamlFiles(files []string, manifestsPath string, force bool) (map[string]bool, error) {
 	processedUnits := make(map[string]bool)
 	changedUnits := make([]QuadletUnit, 0)
 
-	// First pass: Generate all unit files
 	for _, file := range files {
-		units, err := parseUnitsFromFile(file, manifestsPath, repo)
+		units, err := p.parseUnitsFromFile(file, manifestsPath)
 		if err != nil {
 			log.Printf("error processing file %s: %v", file, err)
 			continue
 		}
 
 		for _, unit := range units {
-			unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
-			processedUnits[unitKey] = true
-
-			content := GenerateQuadletUnit(unit, config.GetConfig().Verbose)
-			unitPath := filepath.Join(config.GetConfig().QuadletDir, unitKey)
-
-			// Check if unit has changed
-			if !force {
-				existingContent, err := os.ReadFile(unitPath)
-				if err == nil && bytes.Equal(getContentHash(string(existingContent)), getContentHash(content)) {
-					if config.GetConfig().Verbose {
-						log.Printf("unit %s unchanged, skipping", unitKey)
-					}
-					continue
-				}
-			}
-
-			// Write the unit file
-			if config.GetConfig().Verbose {
-				log.Printf("writing quadlet unit to: %s", unitPath)
-			}
-			if err := os.WriteFile(unitPath, []byte(content), 0644); err != nil {
-				log.Printf("error writing unit file %s: %v", unitKey, err)
-				continue
-			}
-
-			changedUnits = append(changedUnits, unit)
-
-			// Update database
-			contentHash := getContentHash(content)
-			if _, err := unitRepo.Create(&dbUnit.Unit{
-				Name:          unit.Name,
-				Type:          unit.Type,
-				SHA1Hash:      contentHash,
-				CleanupPolicy: "keep",
-				CreatedAt:     time.Now(),
-			}); err != nil {
-				log.Printf("error updating database for unit %s: %v", unitKey, err)
+			if err := p.processUnit(&unit, force, processedUnits, &changedUnits); err != nil {
+				log.Printf("error processing unit %s: %v", unit.Name, err)
 			}
 		}
 	}
 
-	// Reload systemd once for all changes
 	if len(changedUnits) > 0 {
-		systemd.ReloadSystemd()
-		for _, unit := range changedUnits {
-			systemd.RestartUnit(unit.Name, unit.Type)
-		}
+		p.reloadUnits(changedUnits)
 	}
 
 	return processedUnits, nil
 }
 
-// parseUnitsFromFile parses all quadlet units from a single YAML file
-func parseUnitsFromFile(filePath, manifestsPath string, repo *git.Repository) ([]QuadletUnit, error) {
+func (p *Processor) processUnit(unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+	unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
+	processedUnits[unitKey] = true
+
+	content := GenerateQuadletUnit(*unit, p.verbose)
+	unitPath := filepath.Join(config.GetConfig().QuadletDir, unitKey)
+
+	if !force && !p.hasUnitChanged(unitPath, content) {
+		return nil
+	}
+
+	if err := p.writeUnitFile(unitPath, content); err != nil {
+		return err
+	}
+
+	*changedUnits = append(*changedUnits, *unit)
+	return p.updateUnitDatabase(unit, content)
+}
+
+func (p *Processor) hasUnitChanged(unitPath, content string) bool {
+	existingContent, err := os.ReadFile(unitPath)
+	if err == nil && bytes.Equal(getContentHash(string(existingContent)), getContentHash(content)) {
+		if p.verbose {
+			log.Printf("unit %s unchanged, skipping", unitPath)
+		}
+		return false
+	}
+	return true
+}
+
+func (p *Processor) writeUnitFile(unitPath, content string) error {
+	if p.verbose {
+		log.Printf("writing quadlet unit to: %s", unitPath)
+	}
+	return os.WriteFile(unitPath, []byte(content), 0644)
+}
+
+func (p *Processor) updateUnitDatabase(unit *QuadletUnit, content string) error {
+	contentHash := getContentHash(content)
+	_, err := p.unitRepo.Create(&dbUnit.Unit{
+		Name:          unit.Name,
+		Type:          unit.Type,
+		SHA1Hash:      contentHash,
+		CleanupPolicy: "keep",
+		CreatedAt:     time.Now(),
+	})
+	return err
+}
+
+func (p *Processor) reloadUnits(changedUnits []QuadletUnit) {
+	systemd.ReloadSystemd()
+	for _, unit := range changedUnits {
+		systemd.RestartUnit(unit.Name, unit.Type)
+	}
+}
+
+func ProcessManifests(repo *git.Repository, force bool) error {
+	dbConn, err := db.Connect()
+	if err != nil {
+		return fmt.Errorf("connecting to database: %w", err)
+	}
+	defer dbConn.Close()
+
+	unitRepo := db.NewUnitRepository(dbConn)
+	processor := NewProcessor(repo, unitRepo)
+
+	return processor.Process(force)
+}
+
+func (p *Processor) parseUnitsFromFile(filePath, manifestsPath string) ([]QuadletUnit, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("opening file %s: %w", filePath, err)
@@ -169,13 +192,12 @@ func parseUnitsFromFile(filePath, manifestsPath string, repo *git.Repository) ([
 			return nil, fmt.Errorf("parsing YAML: %w", err)
 		}
 
-		// Add documentation to the unit
 		relPath, err := filepath.Rel(manifestsPath, filePath)
 		if err == nil {
 			if unit.Systemd.Documentation == nil {
 				unit.Systemd.Documentation = make([]string, 0)
 			}
-			unit.Systemd.Documentation = append(unit.Systemd.Documentation, repo.URL)
+			unit.Systemd.Documentation = append(unit.Systemd.Documentation, p.repo.URL)
 			unit.Systemd.Documentation = append(unit.Systemd.Documentation, fmt.Sprintf("file://%s", relPath))
 		}
 
@@ -185,8 +207,8 @@ func parseUnitsFromFile(filePath, manifestsPath string, repo *git.Repository) ([
 	return units, nil
 }
 
-func cleanupOrphanedUnits(processedUnits map[string]bool, unitRepo *db.UnitRepository) error {
-	dbUnits, err := unitRepo.FindAll()
+func (p *Processor) cleanupOrphanedUnits(processedUnits map[string]bool) error {
+	dbUnits, err := p.unitRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("error fetching units from database: %w", err)
 	}
@@ -201,12 +223,12 @@ func cleanupOrphanedUnits(processedUnits map[string]bool, unitRepo *db.UnitRepos
 				continue
 			}
 
-			if err := unitRepo.Delete(dbUnit.ID); err != nil {
+			if err := p.unitRepo.Delete(dbUnit.ID); err != nil {
 				log.Printf("error deleting unit %s from database: %v", unitKey, err)
 				continue
 			}
 
-			if config.GetConfig().Verbose {
+			if p.verbose {
 				log.Printf("removed orphaned unit %s", unitPath)
 			}
 		}
@@ -215,7 +237,6 @@ func cleanupOrphanedUnits(processedUnits map[string]bool, unitRepo *db.UnitRepos
 	return nil
 }
 
-// getContentHash generates a SHA1 hash of the given content
 func getContentHash(content string) []byte {
 	hash := sha1.New()
 	hash.Write([]byte(content))
