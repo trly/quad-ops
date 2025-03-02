@@ -1,10 +1,10 @@
-package cmd
+package unit
 
 import (
 	"log"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/systemd"
+	"github.com/trly/quad-ops/internal/unit"
 )
 
 type UnitStatusCommand struct{}
@@ -16,7 +16,7 @@ func (c *UnitStatusCommand) GetCobraCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
-			status := systemd.ShowUnit(*cfg, name, unitType)
+			status := unit.ShowUnit(name, unitType)
 			log.Println(status)
 		},
 	}

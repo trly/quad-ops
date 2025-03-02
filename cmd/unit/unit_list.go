@@ -19,27 +19,29 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package cmd
+package unit
 
 import (
 	"encoding/hex"
 	"fmt"
 	"log"
 
-	"github.com/trly/quad-ops/internal/db"
-	"github.com/trly/quad-ops/internal/db/model"
-	"github.com/trly/quad-ops/internal/systemd"
-
 	"github.com/fatih/color"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
+	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/db"
+	"github.com/trly/quad-ops/internal/unit"
 )
 
 type UnitListCommand struct{}
 
-var allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
+var (
+	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
+)
 
 func (c *UnitListCommand) GetCobraCommand() *cobra.Command {
+
 	unitListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
@@ -49,13 +51,13 @@ func (c *UnitListCommand) GetCobraCommand() *cobra.Command {
 			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Cleanup Policy", "Created At")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
-			dbConn, err := db.Connect(cfg)
+			dbConn, err := db.Connect()
 			if err != nil {
 				log.Fatal(err)
 			}
 			defer dbConn.Close()
 
-			unitRepo := db.NewUnitRepository(dbConn)
+			unitRepo := unit.NewUnitRepository(dbConn)
 			findAndDisplayUnits(unitRepo, tbl, unitType)
 		},
 	}
@@ -71,8 +73,8 @@ func (c *UnitListCommand) GetCobraCommand() *cobra.Command {
 	return unitListCmd
 }
 
-func findAndDisplayUnits(unitRepo *db.UnitRepository, tbl table.Table, unitType string) {
-	var units []model.Unit
+func findAndDisplayUnits(unitRepo *unit.UnitRepository, tbl table.Table, unitType string) {
+	var units []unit.Unit
 	var err error
 
 	switch unitType {
@@ -86,15 +88,15 @@ func findAndDisplayUnits(unitRepo *db.UnitRepository, tbl table.Table, unitType 
 		log.Fatal(err)
 	}
 
-	for _, unit := range units {
-		unitStatus, err := systemd.GetUnitStatus(*cfg, unit.Name, unit.Type)
+	for _, u := range units {
+		unitStatus, err := unit.GetUnitStatus(u.Name, u.Type)
 		if err != nil {
-			if cfg.Verbose {
+			if config.GetConfig().Verbose {
 				log.Printf("error getting unit status: %s", err)
 			}
 			unitStatus = "UNKNOWN"
 		}
-		tbl.AddRow(unit.ID, unit.Name, unit.Type, unitStatus, hex.EncodeToString(unit.SHA1Hash), unit.CleanupPolicy, unit.CreatedAt)
+		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), u.CleanupPolicy, u.CreatedAt)
 	}
 	tbl.Print()
 }

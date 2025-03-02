@@ -26,11 +26,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/git"
-	"github.com/trly/quad-ops/internal/quadlet"
-
-	"github.com/spf13/cobra"
+	"github.com/trly/quad-ops/internal/unit"
 )
 
 type SyncCommand struct{}
@@ -48,7 +47,7 @@ func (c *SyncCommand) GetCobraCommand() *cobra.Command {
 		Use:   "sync",
 		Short: "Synchronizes the manifests defined in configured repositories with quadlet units on the local system.",
 		Long: `Synchronizes the manifests defined in configured repositories with quadlet units on the local system.
-	
+
 Repositories are defined in the quad-ops config file as a list of Repository objects.
 
 ---
@@ -60,7 +59,7 @@ repositories:
       action: Delete`,
 
 		Run: func(cmd *cobra.Command, args []string) {
-			if err := os.MkdirAll(cfg.QuadletDir, 0755); err != nil {
+			if err := os.MkdirAll(config.GetConfig().QuadletDir, 0755); err != nil {
 				log.Fatal("Failed to create quadlet directory:", err)
 			}
 
@@ -88,24 +87,24 @@ repositories:
 func syncRepositories(cfg *config.Config) {
 	for _, repoConfig := range cfg.Repositories {
 		if repoName != "" && repoConfig.Name != repoName {
-			if cfg.Verbose {
+			if config.GetConfig().Verbose {
 				log.Printf("skipping repository %s as it does not match the specified repository name", repoConfig.Name)
 			}
 			continue
 		}
 
 		if !dryRun {
-			if cfg.Verbose {
+			if config.GetConfig().Verbose {
 				log.Printf("processing repository: %s", repoConfig.Name)
 			}
 
-			repo := git.NewRepository(*cfg, repoConfig)
+			repo := git.NewRepository(repoConfig)
 			if err := repo.SyncRepository(); err != nil {
 				log.Printf("error syncing repository %s: %v", repoConfig.Name, err)
 				continue
 			}
 
-			if err := quadlet.ProcessManifests(repo, *cfg, force); err != nil {
+			if err := unit.ProcessManifests(repo, force); err != nil {
 				log.Printf("error processing manifests for %s: %v", repoConfig.Name, err)
 				continue
 			}

@@ -1,4 +1,4 @@
-package systemd
+package unit
 
 import (
 	"context"
@@ -15,8 +15,8 @@ import (
 
 var ctx = context.Background()
 
-func GetUnitStatus(cfg config.Config, unitName string, unitType string) (string, error) {
-	conn, err := getSystemdConnection(cfg)
+func GetUnitStatus(unitName string, unitType string) (string, error) {
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return "", fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -36,8 +36,8 @@ func GetUnitStatus(cfg config.Config, unitName string, unitType string) (string,
 	return prop.Value.Value().(string), nil
 }
 
-func RestartUnit(cfg config.Config, unitName string, unitType string) error {
-	conn, err := getSystemdConnection(cfg)
+func RestartUnit(unitName string, unitType string) error {
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -60,15 +60,15 @@ func RestartUnit(cfg config.Config, unitName string, unitType string) error {
 	if result != "done" {
 		return fmt.Errorf("unit restart failed: %s", result)
 	}
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Printf("successfully restarted unit %s\n", quadletService)
 	}
 
 	return nil
 }
 
-func StartUnit(cfg config.Config, unitName string, unitType string) error {
-	conn, err := getSystemdConnection(cfg)
+func StartUnit(unitName string, unitType string) error {
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -84,14 +84,14 @@ func StartUnit(cfg config.Config, unitName string, unitType string) error {
 	if err != nil {
 		return fmt.Errorf("error starting unit %s: %w", quadletService, err)
 	}
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Printf("successfully started unit %s\n", quadletService)
 	}
 	return nil
 }
 
-func StopUnit(cfg config.Config, unitName string, unitType string) error {
-	conn, err := getSystemdConnection(cfg)
+func StopUnit(unitName string, unitType string) error {
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -107,20 +107,20 @@ func StopUnit(cfg config.Config, unitName string, unitType string) error {
 	if err != nil {
 		return fmt.Errorf("error stopping unit %s: %w", quadletService, err)
 	}
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Printf("successfully stopped unit %s\n", quadletService)
 	}
 	return nil
 }
 
-func ReloadSystemd(cfg config.Config) error {
-	conn, err := getSystemdConnection(cfg)
+func ReloadSystemd() error {
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
 	defer conn.Close()
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Printf("reloading systemd...")
 	}
 	err = conn.ReloadContext(ctx)
@@ -131,8 +131,8 @@ func ReloadSystemd(cfg config.Config) error {
 	return nil
 }
 
-func ShowUnit(cfg config.Config, unitName string, unitType string) error {
-	conn, err := getSystemdConnection(cfg)
+func ShowUnit(unitName string, unitType string) error {
+	conn, err := getSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -177,16 +177,16 @@ func ShowUnit(cfg config.Config, unitName string, unitType string) error {
 	fmt.Println()
 	return nil
 }
-func getSystemdConnection(cfg config.Config) (*dbus.Conn, error) {
-	if cfg.Verbose {
-		if cfg.UserMode {
+func getSystemdConnection() (*dbus.Conn, error) {
+	if config.GetConfig().Verbose {
+		if config.GetConfig().UserMode {
 			log.Printf("establishing user connection to systemd...")
 		} else {
 			log.Printf("establishing system connection to systemd...")
 		}
 	}
 
-	if cfg.UserMode {
+	if config.GetConfig().UserMode {
 		return dbus.NewUserConnectionContext(ctx)
 	}
 	return dbus.NewSystemConnectionContext(ctx)

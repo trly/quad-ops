@@ -38,3 +38,6 @@ dist/
 
 configs/*
 !configs/config.yaml.example
+
+# quad-ops
+*.db

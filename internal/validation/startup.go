@@ -1,3 +1,4 @@
+// validation/validation.go
 package validation
 
 import (
@@ -9,13 +10,39 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
-func VerifySystemRequirements(cfg config.Config) error {
+// CommandRunner defines an interface for executing commands
+type CommandRunner interface {
+	Run(name string, args ...string) ([]byte, error)
+}
 
-	if cfg.Verbose {
+// RealCommandRunner implements CommandRunner using os/exec
+type RealCommandRunner struct{}
+
+// Run executes a command and returns its output
+func (r *RealCommandRunner) Run(name string, args ...string) ([]byte, error) {
+	return exec.Command(name, args...).Output()
+}
+
+// default runner for use in production code
+var defaultRunner CommandRunner = &RealCommandRunner{}
+
+// SetCommandRunner allows tests to inject a mock runner
+func SetCommandRunner(runner CommandRunner) {
+	defaultRunner = runner
+}
+
+// ResetCommandRunner restores the default runner
+func ResetCommandRunner() {
+	defaultRunner = &RealCommandRunner{}
+}
+
+// VerifySystemRequirements checks if all required system tools are installed
+func VerifySystemRequirements() error {
+	if config.GetConfig().Verbose {
 		log.Print("validate systemd is available")
 	}
 
-	systemdVersion, err := exec.Command("systemctl", "--version").Output()
+	systemdVersion, err := defaultRunner.Run("systemctl", "--version")
 	if err != nil {
 		return fmt.Errorf("systemd not found: %w", err)
 	}
@@ -24,21 +51,21 @@ func VerifySystemRequirements(cfg config.Config) error {
 		return fmt.Errorf("systemd not properly installed")
 	}
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Print("validate podman is available")
 	}
 
-	_, err = exec.Command("podman", "--version").Output()
+	_, err = defaultRunner.Run("podman", "--version")
 	if err != nil {
 		return fmt.Errorf("podman not found: %w", err)
 	}
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Print("validate podman-system-generator is available")
 	}
 
 	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
-	_, err = exec.Command("test", "-f", generatorPath).Output()
+	_, err = defaultRunner.Run("test", "-f", generatorPath)
 	if err != nil {
 		return fmt.Errorf("podman systemd generator not found at %s", generatorPath)
 	}

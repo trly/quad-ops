@@ -19,29 +19,24 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package cmd
+package main
 
 import (
-	"log"
+	"fmt"
+	"os"
 
-	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/systemd"
+	"github.com/trly/quad-ops/cmd"
+	"github.com/trly/quad-ops/internal/config"
 )
 
-type UnitShowCommand struct{}
+func main() {
+	cfg := config.InitConfig()
+	config.SetConfig(cfg)
 
-func (c *UnitShowCommand) GetCobraCommand() *cobra.Command {
-	unitShowCmd := &cobra.Command{
-		Use:   "show",
-		Short: "Show the contents of a quadlet unit",
-		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			name := args[0]
-			err := systemd.ShowUnit(*cfg, name, unitType)
-			if err != nil {
-				log.Fatal(err)
-			}
-		},
+	rootCmd := &cmd.RootCommand{}
+
+	if err := rootCmd.GetCobraCommand().Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error executing command: %v\n", err)
+		os.Exit(1)
 	}
-	return unitShowCmd
 }

@@ -5,15 +5,13 @@ import (
 	"database/sql"
 	"embed"
 	"log"
-	"os"
 	"strings"
-
-	"github.com/trly/quad-ops/internal/config"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/trly/quad-ops/internal/config"
 )
 
 //go:embed migrations/*.sql
@@ -23,9 +21,9 @@ func GetConnectionString(cfg config.Config) string {
 	return "sqlite3://" + cfg.DBPath
 }
 
-func Connect(cfg *config.Config) (*sql.DB, error) {
+func Connect() (*sql.DB, error) {
 	// Remove sqlite3:// prefix if present for direct SQL connection
-	dbPath := strings.TrimPrefix(cfg.DBPath, "sqlite3://")
+	dbPath := strings.TrimPrefix(config.GetConfig().DBPath, "sqlite3://")
 
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -36,7 +34,7 @@ func Connect(cfg *config.Config) (*sql.DB, error) {
 		return nil, err
 	}
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Printf("Connected to database at %s", dbPath)
 	}
 
@@ -51,7 +49,7 @@ func Up(cfg config.Config) error {
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return err
-	} else if cfg.Verbose {
+	} else if config.GetConfig().Verbose {
 		if err == migrate.ErrNoChange {
 			log.Println("[database] no new migrations to apply")
 		} else {
@@ -65,12 +63,11 @@ func Up(cfg config.Config) error {
 func Down(cfg config.Config) error {
 	m, err := getMigrationInstance(cfg)
 	if err != nil {
-		log.Fatalf("[database] could not initialize migrations: %v", err)
-		os.Exit(1)
+		return err
 	}
 	if err := m.Down(); err != nil && err != migrate.ErrNoChange {
 		return err
-	} else if cfg.Verbose {
+	} else if config.GetConfig().Verbose {
 		if err == migrate.ErrNoChange {
 			log.Println("[database] no new migrations to apply")
 		} else {
@@ -93,8 +90,8 @@ func getMigrationInstance(cfg config.Config) (*migrate.Migrate, error) {
 	}
 
 	// Enable verbose logging if requested
-	if cfg.Verbose {
-		m.Log = &migrationLogger{verbose: cfg.Verbose}
+	if config.GetConfig().Verbose {
+		m.Log = &migrationLogger{verbose: config.GetConfig().Verbose}
 	}
 
 	return m, nil

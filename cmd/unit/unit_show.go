@@ -19,52 +19,30 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package main
+
+package unit
 
 import (
-	"os"
+	"log"
 
-	"github.com/trly/quad-ops/cmd"
-	"github.com/trly/quad-ops/internal/config"
-
-	"github.com/spf13/viper"
+	"github.com/spf13/cobra"
+	"github.com/trly/quad-ops/internal/unit"
 )
 
-func initConfig() *config.Config {
-	cfg := &config.Config{}
+type UnitShowCommand struct{}
 
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-
-	if cmd.GetConfigFilePath() != "" {
-		viper.SetConfigFile(cmd.GetConfigFilePath())
-	} else {
-		viper.AddConfigPath(os.ExpandEnv("$HOME/.config/quad-ops"))
-		viper.AddConfigPath("/etc/quad-ops")
-		viper.AddConfigPath(".")
+func (c *UnitShowCommand) GetCobraCommand() *cobra.Command {
+	unitShowCmd := &cobra.Command{
+		Use:   "show",
+		Short: "Show the contents of a quadlet unit",
+		Args:  cobra.ExactArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			name := args[0]
+			err := unit.ShowUnit(name, unitType)
+			if err != nil {
+				log.Fatal(err)
+			}
+		},
 	}
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			panic(err)
-		}
-	}
-
-	if err := viper.Unmarshal(cfg); err != nil {
-		panic(err)
-	}
-
-	return cfg
-
-}
-
-func main() {
-	cfg := initConfig()
-	cmd.SetConfig(cfg)
-
-	rootCmd := (&cmd.RootCommand{}).GetCobraCommand()
-
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	return unitShowCmd
 }
