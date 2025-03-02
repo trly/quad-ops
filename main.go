@@ -22,49 +22,21 @@ THE SOFTWARE.
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/trly/quad-ops/cmd"
 	"github.com/trly/quad-ops/internal/config"
-
-	"github.com/spf13/viper"
 )
 
-func initConfig() *config.Config {
-	cfg := &config.Config{}
-
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-
-	if cmd.GetConfigFilePath() != "" {
-		viper.SetConfigFile(cmd.GetConfigFilePath())
-	} else {
-		viper.AddConfigPath(os.ExpandEnv("$HOME/.config/quad-ops"))
-		viper.AddConfigPath("/etc/quad-ops")
-		viper.AddConfigPath(".")
-	}
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			panic(err)
-		}
-	}
-
-	if err := viper.Unmarshal(cfg); err != nil {
-		panic(err)
-	}
-
-	return cfg
-
-}
-
 func main() {
-	cfg := initConfig()
-	cmd.SetConfig(cfg)
+	cfg := config.InitConfig()
+	config.SetConfig(cfg)
 
-	rootCmd := (&cmd.RootCommand{}).GetCobraCommand()
+	rootCmd := &cmd.RootCommand{}
 
-	if err := rootCmd.Execute(); err != nil {
+	if err := rootCmd.GetCobraCommand().Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error executing command: %v\n", err)
 		os.Exit(1)
 	}
 }

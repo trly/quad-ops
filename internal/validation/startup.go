@@ -9,9 +9,9 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
-func VerifySystemRequirements(cfg config.Config) error {
+func VerifySystemRequirements() error {
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Print("validate systemd is available")
 	}
 
@@ -24,7 +24,7 @@ func VerifySystemRequirements(cfg config.Config) error {
 		return fmt.Errorf("systemd not properly installed")
 	}
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Print("validate podman is available")
 	}
 
@@ -33,7 +33,7 @@ func VerifySystemRequirements(cfg config.Config) error {
 		return fmt.Errorf("podman not found: %w", err)
 	}
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Print("validate podman-system-generator is available")
 	}
 

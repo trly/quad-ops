@@ -1,4 +1,4 @@
-package cmd
+package unit
 
 import (
 	"log"
@@ -16,7 +16,7 @@ func (c *UnitStatusCommand) GetCobraCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
-			status := systemd.ShowUnit(*cfg, name, unitType)
+			status := systemd.ShowUnit(name, unitType)
 			log.Println(status)
 		},
 	}

@@ -1,4 +1,4 @@
-package cmd
+package unit
 
 import (
 	"log"
@@ -16,7 +16,7 @@ func (c *UnitStartCommand) GetCobraCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
-			if err := systemd.StartUnit(*cfg, name, unitType); err != nil {
+			if err := systemd.StartUnit(name, unitType); err != nil {
 				log.Fatal(err)
 			}
 		},

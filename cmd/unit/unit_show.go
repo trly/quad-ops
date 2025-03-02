@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package cmd
+package unit
 
 import (
 	"log"
@@ -37,7 +37,7 @@ func (c *UnitShowCommand) GetCobraCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
-			err := systemd.ShowUnit(*cfg, name, unitType)
+			err := systemd.ShowUnit(name, unitType)
 			if err != nil {
 				log.Fatal(err)
 			}

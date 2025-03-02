@@ -5,10 +5,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/trly/quad-ops/internal/config"
-
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/trly/quad-ops/internal/config"
 )
 
 // Repository represents a Git repository with its local path, remote URL,
@@ -24,12 +23,12 @@ type Repository struct {
 
 // NewRepository creates a new Repository instance with the given local path and remote URL.
 // The repository is not initialized until SyncRepository is called.
-func NewRepository(cfg config.Config, repository config.Repository) *Repository {
+func NewRepository(repository config.Repository) *Repository {
 	return &Repository{
-		Path:    filepath.Join(cfg.RepositoryDir, repository.Name),
+		Path:    filepath.Join(config.GetConfig().RepositoryDir, repository.Name),
 		URL:     repository.URL,
 		Target:  repository.Target,
-		verbose: cfg.Verbose,
+		verbose: config.GetConfig().Verbose,
 	}
 }
 

@@ -1,6 +1,14 @@
 package config
 
-import "time"
+import (
+	"os"
+	"time"
+
+	"github.com/spf13/viper"
+)
+
+var cfg *Config
+var configFilePath string
 
 const (
 	Keep   = "keep"
@@ -26,4 +34,38 @@ type Config struct {
 
 type CleanupPolicy struct {
 	Action string `yaml:"action"`
+}
+
+func SetConfig(c *Config) {
+	cfg = c
+}
+
+func GetConfig() *Config {
+	return cfg
+}
+
+func SetConfigFilePath(p string) {
+	viper.SetConfigFile(p)
+}
+
+func InitConfig() *Config {
+	cfg := &Config{}
+
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(os.ExpandEnv("$HOME/.config/quad-ops"))
+	viper.AddConfigPath("/etc/quad-ops")
+	viper.AddConfigPath(".")
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			panic(err)
+		}
+	}
+
+	if err := viper.Unmarshal(cfg); err != nil {
+		panic(err)
+	}
+
+	return cfg
 }

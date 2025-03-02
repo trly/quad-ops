@@ -19,16 +19,16 @@ import (
 )
 
 // ProcessManifests processes all YAML manifests from the given repository
-func ProcessManifests(repo *git.Repository, cfg config.Config, force bool) error {
+func ProcessManifests(repo *git.Repository, force bool) error {
 	manifestsPath := getManifestsPath(repo)
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Printf("processing manifests from repository: %s at path: %s", repo.URL, manifestsPath)
-		log.Printf("output directory: %s", cfg.QuadletDir)
+		log.Printf("output directory: %s", config.GetConfig().QuadletDir)
 	}
 
 	// Connect to the database
-	dbConn, err := db.Connect(&cfg)
+	dbConn, err := db.Connect()
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
 	}
@@ -41,16 +41,16 @@ func ProcessManifests(repo *git.Repository, cfg config.Config, force bool) error
 		return err
 	}
 
-	if cfg.Verbose {
+	if config.GetConfig().Verbose {
 		log.Printf("found %d YAML files in manifests directory and subdirectories", len(files))
 	}
 
-	processedUnits, err := processYamlFiles(files, manifestsPath, repo, cfg, unitRepo, force)
+	processedUnits, err := processYamlFiles(files, manifestsPath, repo, unitRepo, force)
 	if err != nil {
 		return err
 	}
 
-	return cleanupOrphanedUnits(processedUnits, cfg, unitRepo)
+	return cleanupOrphanedUnits(processedUnits, unitRepo)
 }
 
 // getManifestsPath returns the full path to the manifests directory
@@ -83,7 +83,7 @@ func findYamlFiles(dirPath string) ([]string, error) {
 
 // processYamlFiles processes all YAML files and returns a map of processed units
 func processYamlFiles(files []string, manifestsPath string, repo *git.Repository,
-	cfg config.Config, unitRepo *db.UnitRepository, force bool) (map[string]bool, error) {
+	unitRepo *db.UnitRepository, force bool) (map[string]bool, error) {
 	processedUnits := make(map[string]bool)
 	changedUnits := make([]QuadletUnit, 0)
 
@@ -99,14 +99,14 @@ func processYamlFiles(files []string, manifestsPath string, repo *git.Repository
 			unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
 			processedUnits[unitKey] = true
 
-			content := GenerateQuadletUnit(unit, cfg.Verbose)
-			unitPath := filepath.Join(cfg.QuadletDir, unitKey)
+			content := GenerateQuadletUnit(unit, config.GetConfig().Verbose)
+			unitPath := filepath.Join(config.GetConfig().QuadletDir, unitKey)
 
 			// Check if unit has changed
 			if !force {
 				existingContent, err := os.ReadFile(unitPath)
 				if err == nil && bytes.Equal(getContentHash(string(existingContent)), getContentHash(content)) {
-					if cfg.Verbose {
+					if config.GetConfig().Verbose {
 						log.Printf("unit %s unchanged, skipping", unitKey)
 					}
 					continue
@@ -114,7 +114,7 @@ func processYamlFiles(files []string, manifestsPath string, repo *git.Repository
 			}
 
 			// Write the unit file
-			if cfg.Verbose {
+			if config.GetConfig().Verbose {
 				log.Printf("writing quadlet unit to: %s", unitPath)
 			}
 			if err := os.WriteFile(unitPath, []byte(content), 0644); err != nil {
@@ -140,9 +140,9 @@ func processYamlFiles(files []string, manifestsPath string, repo *git.Repository
 
 	// Reload systemd once for all changes
 	if len(changedUnits) > 0 {
-		systemd.ReloadSystemd(cfg)
+		systemd.ReloadSystemd()
 		for _, unit := range changedUnits {
-			systemd.RestartUnit(cfg, unit.Name, unit.Type)
+			systemd.RestartUnit(unit.Name, unit.Type)
 		}
 	}
 
@@ -185,7 +185,7 @@ func parseUnitsFromFile(filePath, manifestsPath string, repo *git.Repository) ([
 	return units, nil
 }
 
-func cleanupOrphanedUnits(processedUnits map[string]bool, cfg config.Config, unitRepo *db.UnitRepository) error {
+func cleanupOrphanedUnits(processedUnits map[string]bool, unitRepo *db.UnitRepository) error {
 	dbUnits, err := unitRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("error fetching units from database: %w", err)
@@ -194,7 +194,7 @@ func cleanupOrphanedUnits(processedUnits map[string]bool, cfg config.Config, uni
 	for _, dbUnit := range dbUnits {
 		unitKey := fmt.Sprintf("%s.%s", dbUnit.Name, dbUnit.Type)
 		if !processedUnits[unitKey] && (dbUnit.CleanupPolicy == "delete") {
-			unitPath := filepath.Join(cfg.QuadletDir, unitKey)
+			unitPath := filepath.Join(config.GetConfig().QuadletDir, unitKey)
 
 			if err := os.Remove(unitPath); err != nil {
 				log.Printf("error removing orphaned unit %s: %v", unitPath, err)
@@ -206,7 +206,7 @@ func cleanupOrphanedUnits(processedUnits map[string]bool, cfg config.Config, uni
 				continue
 			}
 
-			if cfg.Verbose {
+			if config.GetConfig().Verbose {
 				log.Printf("removed orphaned unit %s", unitPath)
 			}
 		}

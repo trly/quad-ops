@@ -19,13 +19,14 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package cmd
+package unit
 
 import (
 	"encoding/hex"
 	"fmt"
 	"log"
 
+	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/db/model"
 	"github.com/trly/quad-ops/internal/systemd"
@@ -37,9 +38,12 @@ import (
 
 type UnitListCommand struct{}
 
-var allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
+var (
+	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
+)
 
 func (c *UnitListCommand) GetCobraCommand() *cobra.Command {
+
 	unitListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
@@ -49,7 +53,7 @@ func (c *UnitListCommand) GetCobraCommand() *cobra.Command {
 			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Cleanup Policy", "Created At")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
-			dbConn, err := db.Connect(cfg)
+			dbConn, err := db.Connect()
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -87,9 +91,9 @@ func findAndDisplayUnits(unitRepo *db.UnitRepository, tbl table.Table, unitType 
 	}
 
 	for _, unit := range units {
-		unitStatus, err := systemd.GetUnitStatus(*cfg, unit.Name, unit.Type)
+		unitStatus, err := systemd.GetUnitStatus(unit.Name, unit.Type)
 		if err != nil {
-			if cfg.Verbose {
+			if config.GetConfig().Verbose {
 				log.Printf("error getting unit status: %s", err)
 			}
 			unitStatus = "UNKNOWN"
