@@ -8,11 +8,14 @@ import (
 )
 
 var cfg *Config
-var configFilePath string
 
 const (
-	Keep   = "keep"
-	Delete = "delete"
+	DefaultRepositoryDir = "/var/lib/quad-ops"
+	DefaultSyncInterval  = 5 * time.Minute
+	DefaultQuadletDir    = "/etc/containers/systemd"
+	DefaultDBPath        = "/var/lib/quad-ops/quad-ops.db"
+	DefaultUserMode      = false
+	DefaultVerbose       = false
 )
 
 type Repository struct {
@@ -49,7 +52,21 @@ func SetConfigFilePath(p string) {
 }
 
 func InitConfig() *Config {
-	cfg := &Config{}
+	cfg := &Config{
+		RepositoryDir: DefaultRepositoryDir,
+		SyncInterval:  DefaultSyncInterval,
+		QuadletDir:    DefaultQuadletDir,
+		DBPath:        DefaultDBPath,
+		UserMode:      DefaultUserMode,
+		Verbose:       DefaultVerbose,
+	}
+
+	viper.SetDefault("repositoryDir", DefaultRepositoryDir)
+	viper.SetDefault("syncInterval", DefaultSyncInterval)
+	viper.SetDefault("quadletDir", DefaultQuadletDir)
+	viper.SetDefault("dbPath", DefaultDBPath)
+	viper.SetDefault("userMode", DefaultUserMode)
+	viper.SetDefault("verbose", DefaultVerbose)
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")

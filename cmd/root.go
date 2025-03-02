@@ -30,6 +30,7 @@ import (
 	"github.com/trly/quad-ops/cmd/unit"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
+	"github.com/trly/quad-ops/internal/logger"
 	"github.com/trly/quad-ops/internal/validation"
 
 	"github.com/spf13/cobra"
@@ -56,30 +57,25 @@ func (c *RootCommand) GetCobraCommand() *cobra.Command {
 It automatically generates systemd unit files from YAML manifests and handles unit reloading andd restarting.`,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			cfg = config.GetConfig()
+			logger.Init(verbose)
 
 			if verbose {
 				fmt.Printf("%s using config: %s\n\n", cmd.Root().Use, viper.GetViper().ConfigFileUsed())
-				config.GetConfig().Verbose = verbose
+				cfg.Verbose = verbose
 			}
 
 			if userMode {
 				cfg.UserMode = userMode
+				cfg.RepositoryDir = os.ExpandEnv("$HOME/.config/quad-ops/repositories")
+				cfg.QuadletDir = os.ExpandEnv("$HOME/.config/containers/systemd")
 			}
 
 			if repositoryDir != "" {
 				cfg.RepositoryDir = repositoryDir
-			} else if cfg.RepositoryDir == "" && cfg.UserMode {
-				cfg.RepositoryDir = os.ExpandEnv("$HOME/.config/quad-ops/repositories")
-			} else if cfg.RepositoryDir == "" && !cfg.UserMode {
-				cfg.RepositoryDir = "/etc/quad-ops/repositories"
 			}
 
 			if quadletDir != "" {
-				config.GetConfig().QuadletDir = quadletDir
-			} else if config.GetConfig().QuadletDir == "" && cfg.UserMode {
-				config.GetConfig().QuadletDir = os.ExpandEnv("$HOME/.config/containers/systemd")
-			} else if config.GetConfig().QuadletDir == "" && !cfg.UserMode {
-				config.GetConfig().QuadletDir = "/etc/containers/systemd"
+				cfg.QuadletDir = quadletDir
 			}
 
 			if dbPath != "" {
@@ -95,7 +91,6 @@ It automatically generates systemd unit files from YAML manifests and handles un
 			err := db.Up(*cfg)
 			if err != nil {
 				log.Fatalf("failed to initialize database: %v", err)
-				os.Exit(1)
 			}
 		},
 	}
