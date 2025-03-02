@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"embed"
 	"log"
-	"os"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -64,8 +63,7 @@ func Up(cfg config.Config) error {
 func Down(cfg config.Config) error {
 	m, err := getMigrationInstance(cfg)
 	if err != nil {
-		log.Fatalf("[database] could not initialize migrations: %v", err)
-		os.Exit(1)
+		return err
 	}
 	if err := m.Down(); err != nil && err != migrate.ErrNoChange {
 		return err

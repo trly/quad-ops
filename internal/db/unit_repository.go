@@ -35,35 +35,36 @@ func (r *UnitRepository) FindByUnitType(unitType string) ([]model.Unit, error) {
 	return scanUnits(rows)
 }
 
-func (r *UnitRepository) FindById(id int) (*model.Unit, error) {
+func (r *UnitRepository) FindById(id int64) (model.Unit, error) {
 	row := r.db.QueryRow("SELECT id, name, type, sha1_hash, cleanup_policy FROM units WHERE id = ?", id)
 	units, err := scanUnits(row)
 	if err != nil {
-		return nil, err
+		return model.Unit{}, err // Return zero value instead of nil
 	}
 	if len(units) == 0 {
-		return nil, fmt.Errorf("unit with id %d not found", id)
+		return model.Unit{}, fmt.Errorf("unit with id %d not found", id) // Return zero value
 	}
-	return &units[0], nil
+	return units[0], nil // Return the value, not a pointer
 }
 
-func (r *UnitRepository) Create(unit *model.Unit) (*model.Unit, error) {
+func (r *UnitRepository) Create(unit *model.Unit) (int64, error) {
 	result, err := r.db.Exec(`
-        INSERT INTO units (name, type, sha1_hash, cleanup_policy) 
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(name, type) DO UPDATE SET
-            sha1_hash = excluded.sha1_hash,
-            cleanup_policy = excluded.cleanup_policy
+    INSERT INTO units (name, type, sha1_hash, cleanup_policy)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(name, type) DO UPDATE SET
+    sha1_hash = excluded.sha1_hash,
+    cleanup_policy = excluded.cleanup_policy
     `, unit.Name, unit.Type, unit.SHA1Hash, unit.CleanupPolicy)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
+
 	id, err := result.LastInsertId()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	unit.ID = int64(id)
-	return unit, nil
+
+	return id, nil
 }
 
 func (r *UnitRepository) Delete(id int64) error {
