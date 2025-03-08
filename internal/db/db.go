@@ -10,6 +10,12 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/trly/quad-ops/internal/config"
+
+	// Register migrate's sqlite3 driver
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+
+	// Register sqlite3 driver
+	_ "github.com/mattn/go-sqlite3"
 )
 
 //go:embed migrations/*.sql
