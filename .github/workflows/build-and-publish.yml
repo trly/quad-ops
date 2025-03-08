@@ -12,28 +12,63 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Clean Go cache directories to prevent conflicts
+      - name: Clean Go Cache
+        run: |
+          mkdir -p $HOME/.cache/go-build
+          rm -rf $HOME/.cache/go-build/*
+          mkdir -p $HOME/go/pkg
+          rm -rf $HOME/go/pkg/mod
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.24.0'
-          cache: true
+          # Disable automatic caching to avoid race conditions
+          cache: false
+
+      # Manually install dependencies to avoid concurrent access issues
+      - name: Download Dependencies
+        run: go mod download -x
+
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
         with:
           version: latest
           args: --timeout=5m
+          # Skip installing from the binary to avoid the tool downloading the same dependencies
+          skip-pkg-cache: true
+          skip-build-cache: true
 
   build:
     runs-on: ubuntu-latest
+    # Explicitly depend on lint job to ensure sequential execution
+    needs: lint
     steps:
       - uses: actions/checkout@v4
+
+      # Clean Go cache directories to prevent conflicts
+      - name: Clean Go Cache
+        run: |
+          mkdir -p $HOME/.cache/go-build
+          rm -rf $HOME/.cache/go-build/*
+          mkdir -p $HOME/go/pkg
+          rm -rf $HOME/go/pkg/mod
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24.0'  # Aligned Go version with lint job
-          cache: true
+          go-version: '1.24.0'
+          cache: false
+
+      # Manually install dependencies to avoid concurrent access issues
+      - name: Download Dependencies
+        run: go mod download -x
+
       - name: Build
         run: go build -v ./...
+
       - name: Test
         run: go test -v ./...
 
@@ -45,24 +80,43 @@ jobs:
       matrix:
         arch: [amd64, arm64]
         os: [linux]
+      # Prevent parallel execution to avoid cache conflicts
+      max-parallel: 1
     steps:
       - uses: actions/checkout@v4
+
+      # Clean Go cache directories to prevent conflicts
+      - name: Clean Go Cache
+        run: |
+          mkdir -p $HOME/.cache/go-build
+          rm -rf $HOME/.cache/go-build/*
+          mkdir -p $HOME/go/pkg
+          rm -rf $HOME/go/pkg/mod
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24.0'  # Aligned Go version
-          cache: true
+          go-version: '1.24.0'
+          cache: false
+
+      # Manually install dependencies to avoid concurrent access issues
+      - name: Download Dependencies
+        run: go mod download -x
+
       - name: Build Binary
         env:
           GOOS: ${{ matrix.os }}
           GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: 0 # Disable CGO for better cross-compilation compatibility
         run: |
           go build -o quad-ops-${{ matrix.os }}-${{ matrix.arch }}
+
       - name: Upload Binary
         uses: actions/upload-artifact@v3
         with:
           name: quad-ops-${{ matrix.os }}-${{ matrix.arch }}
           path: quad-ops-${{ matrix.os }}-${{ matrix.arch }}
+
       - name: Release
         uses: softprops/action-gh-release@v1
         if: startsWith(github.ref, 'refs/tags/')
@@ -80,17 +134,20 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24.0'  # Aligned Go version
-          cache: true
+          go-version: '1.24.0'
+          cache: false
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
