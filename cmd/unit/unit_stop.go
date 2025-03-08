@@ -7,14 +7,14 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
-type UnitStopCommand struct{}
+type StopCommand struct{}
 
-func (c *UnitStopCommand) GetCobraCommand() *cobra.Command {
+func (c *StopCommand) GetCobraCommand() *cobra.Command {
 	unitStopCmd := &cobra.Command{
 		Use:   "stop",
 		Short: "Stop a quadlet unit",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			name := args[0]
 			if err := unit.StopUnit(name, unitType); err != nil {
 				log.Fatal(err)

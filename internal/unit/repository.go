@@ -5,15 +5,15 @@ import (
 	"fmt"
 )
 
-type UnitRepository struct {
+type Repository struct {
 	db *sql.DB
 }
 
-func NewUnitRepository(db *sql.DB) *UnitRepository {
-	return &UnitRepository{db: db}
+func NewUnitRepository(db *sql.DB) *Repository {
+	return &Repository{db: db}
 }
 
-func (r *UnitRepository) FindAll() ([]Unit, error) {
+func (r *Repository) FindAll() ([]Unit, error) {
 	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy FROM units")
 	if err != nil {
 		return nil, err
@@ -23,7 +23,7 @@ func (r *UnitRepository) FindAll() ([]Unit, error) {
 	return scanUnits(rows)
 }
 
-func (r *UnitRepository) FindByUnitType(unitType string) ([]Unit, error) {
+func (r *Repository) FindByUnitType(unitType string) ([]Unit, error) {
 	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy FROM units WHERE type = ?", unitType)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func (r *UnitRepository) FindByUnitType(unitType string) ([]Unit, error) {
 	return scanUnits(rows)
 }
 
-func (r *UnitRepository) FindById(id int64) (Unit, error) {
+func (r *Repository) FindByID(id int64) (Unit, error) {
 	row := r.db.QueryRow("SELECT id, name, type, sha1_hash, cleanup_policy FROM units WHERE id = ?", id)
 	units, err := scanUnits(row)
 	if err != nil {
@@ -45,7 +45,7 @@ func (r *UnitRepository) FindById(id int64) (Unit, error) {
 	return units[0], nil // Return the value, not a pointer
 }
 
-func (r *UnitRepository) Create(unit *Unit) (int64, error) {
+func (r *Repository) Create(unit *Unit) (int64, error) {
 	result, err := r.db.Exec(`
     INSERT INTO units (name, type, sha1_hash, cleanup_policy)
     VALUES (?, ?, ?, ?)
@@ -65,7 +65,7 @@ func (r *UnitRepository) Create(unit *Unit) (int64, error) {
 	return id, nil
 }
 
-func (r *UnitRepository) Delete(id int64) error {
+func (r *Repository) Delete(id int64) error {
 	_, err := r.db.Exec("DELETE FROM units WHERE id = ?", id)
 	return err
 }

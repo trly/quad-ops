@@ -25,24 +25,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type UnitCommand struct{}
+type Command struct{}
 
 var (
 	unitType string
 )
 
-func (c *UnitCommand) GetCobraCommand() *cobra.Command {
+func (c *Command) GetCobraCommand() *cobra.Command {
 	unitCmd := &cobra.Command{
 		Use:   "unit",
 		Short: "subcommands for managing and viewing quadlet units",
 	}
 
 	unitCmd.AddCommand(
-		(&UnitStartCommand{}).GetCobraCommand(),
-		(&UnitStopCommand{}).GetCobraCommand(),
-		(&UnitRestartCommand{}).GetCobraCommand(),
-		(&UnitShowCommand{}).GetCobraCommand(),
-		(&UnitListCommand{}).GetCobraCommand(),
+		(&StartCommand{}).GetCobraCommand(),
+		(&StopCommand{}).GetCobraCommand(),
+		(&RestartCommand{}).GetCobraCommand(),
+		(&ShowCommand{}).GetCobraCommand(),
+		(&ListCommand{}).GetCobraCommand(),
 	)
 
 	return unitCmd

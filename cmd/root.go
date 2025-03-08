@@ -55,7 +55,7 @@ func (c *RootCommand) GetCobraCommand() *cobra.Command {
 		Short: "Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.",
 		Long: `Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.
 It automatically generates systemd unit files from YAML manifests and handles unit reloading andd restarting.`,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			cfg = config.GetConfig()
 			logger.Init(verbose)
 
@@ -86,9 +86,12 @@ It automatically generates systemd unit files from YAML manifests and handles un
 				)
 			}
 
-			validation.VerifySystemRequirements()
+			err := validation.VerifySystemRequirements()
+			if err != nil {
+				logger.GetLogger().Error("System requirements not met", "err", err)
+			}
 
-			err := db.Up(*cfg)
+			err = db.Up(*cfg)
 			if err != nil {
 				log.Fatalf("failed to initialize database: %v", err)
 			}
@@ -104,7 +107,7 @@ It automatically generates systemd unit files from YAML manifests and handles un
 	rootCmd.AddCommand(
 		(&ConfigCommand{}).GetCobraCommand(),
 		(&SyncCommand{}).GetCobraCommand(),
-		(&unit.UnitCommand{}).GetCobraCommand(),
+		(&unit.Command{}).GetCobraCommand(),
 	)
 
 	return rootCmd

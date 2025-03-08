@@ -29,14 +29,14 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
-type UnitShowCommand struct{}
+type ShowCommand struct{}
 
-func (c *UnitShowCommand) GetCobraCommand() *cobra.Command {
+func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 	unitShowCmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show the contents of a quadlet unit",
 		Args:  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, args []string) {
 			name := args[0]
 			err := unit.ShowUnit(name, unitType)
 			if err != nil {

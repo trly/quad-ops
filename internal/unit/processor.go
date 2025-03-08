@@ -13,17 +13,18 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/git"
+	"github.com/trly/quad-ops/internal/logger"
 
 	"gopkg.in/yaml.v3"
 )
 
 type Processor struct {
 	repo     *git.Repository
-	unitRepo *UnitRepository
+	unitRepo *Repository
 	verbose  bool
 }
 
-func NewProcessor(repo *git.Repository, unitRepo *UnitRepository) *Processor {
+func NewProcessor(repo *git.Repository, unitRepo *Repository) *Processor {
 	return &Processor{
 		repo:     repo,
 		unitRepo: unitRepo,
@@ -134,9 +135,15 @@ func (p *Processor) updateUnitDatabase(unit *QuadletUnit, content string) error 
 }
 
 func (p *Processor) reloadUnits(changedUnits []QuadletUnit) {
-	ReloadSystemd()
+	err := ReloadSystemd()
+	if err != nil {
+		logger.GetLogger().Error("error reloading systemd units", "err", err)
+	}
 	for _, unit := range changedUnits {
-		RestartUnit(unit.Name, unit.Type)
+		err := RestartUnit(unit.Name, unit.Type)
+		if err != nil {
+			logger.GetLogger().Error("error restarting unit", "unit", unit.Name, "err", err)
+		}
 	}
 }
 

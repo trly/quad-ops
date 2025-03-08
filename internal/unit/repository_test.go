@@ -91,22 +91,22 @@ func TestFindById(t *testing.T) {
 	r := NewUnitRepository(db)
 
 	// Prepare test data
-	unitId := int64(1)
+	unitID := int64(1)
 	expectedUnit := Unit{
-		ID:   unitId,
+		ID:   unitID,
 		Name: "test-unit",
 		Type: "pod",
 	}
 
 	// Expect SELECT query with WHERE clause
 	mock.ExpectQuery("SELECT id, name, type, sha1_hash, cleanup_policy FROM units WHERE id = ?").
-		WithArgs(unitId).
+		WithArgs(unitID).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy"}).
 			AddRow(expectedUnit.ID, expectedUnit.Name, expectedUnit.Type,
 				expectedUnit.SHA1Hash, expectedUnit.CleanupPolicy))
 
 	// Test FindById method
-	result, err := r.FindById(unitId)
+	result, err := r.FindByID(unitID)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedUnit, result) // Compare value to value, not pointer to value
@@ -119,15 +119,15 @@ func TestDelete(t *testing.T) {
 	r := NewUnitRepository(db)
 
 	// Prepare test data
-	unitId := int64(1)
+	unitID := int64(1)
 
 	// Expect DELETE query
 	mock.ExpectExec("DELETE FROM units WHERE id = ?").
-		WithArgs(unitId).
+		WithArgs(unitID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Test Delete method
-	err := r.Delete(unitId)
+	err := r.Delete(unitID)
 	assert.NoError(t, err)
 }
 

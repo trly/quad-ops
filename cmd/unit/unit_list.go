@@ -34,18 +34,18 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
-type UnitListCommand struct{}
+type ListCommand struct{}
 
 var (
 	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
 )
 
-func (c *UnitListCommand) GetCobraCommand() *cobra.Command {
+func (c *ListCommand) GetCobraCommand() *cobra.Command {
 
 	unitListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()
 			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Cleanup Policy", "Created At")
@@ -63,17 +63,20 @@ func (c *UnitListCommand) GetCobraCommand() *cobra.Command {
 	}
 
 	unitListCmd.Flags().StringVarP(&unitType, "type", "t", "container", "Type of unit to manage (container, volume, network, image, all)")
-	unitListCmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	err := unitListCmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return allowedUnitTypes, cobra.ShellCompDirectiveNoFileComp
 	})
-	unitListCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+	if err != nil {
+		log.Fatal(err)
+	}
+	unitListCmd.PreRunE = func(_ *cobra.Command, _ []string) error {
 		return validateUnitType(unitType)
 	}
 
 	return unitListCmd
 }
 
-func findAndDisplayUnits(unitRepo *unit.UnitRepository, tbl table.Table, unitType string) {
+func findAndDisplayUnits(unitRepo *unit.Repository, tbl table.Table, unitType string) {
 	var units []unit.Unit
 	var err error
 

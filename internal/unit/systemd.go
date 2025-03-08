@@ -5,15 +5,17 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/trly/quad-ops/internal/config"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"gopkg.in/ini.v1"
 
 	"github.com/coreos/go-systemd/v22/dbus"
 )
 
 var ctx = context.Background()
+var caser = cases.Title(language.English)
 
 func GetUnitStatus(unitName string, unitType string) (string, error) {
 	conn, err := getSystemdConnection()
@@ -164,9 +166,9 @@ func ShowUnit(unitName string, unitType string) error {
 		content, err := os.ReadFile(fragmentPath)
 		if err == nil {
 			unitConfig, _ := ini.Load(content)
-			sectionName := fmt.Sprintf("X-%s", strings.Title(unitType))
+			sectionName := fmt.Sprintf("X-%s", caser.String(unitType))
 			if section, err := unitConfig.GetSection(sectionName); err == nil {
-				fmt.Printf("\n%s Configuration:\n", strings.Title(unitType))
+				fmt.Printf("\n%s Configuration:\n", caser.String(unitType))
 				for _, key := range section.Keys() {
 					fmt.Printf("  %-20s: %s\n", key.Name(), key.Value())
 				}

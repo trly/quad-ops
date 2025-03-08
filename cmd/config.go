@@ -35,7 +35,7 @@ func (c *ConfigCommand) GetCobraCommand() *cobra.Command {
 		Use:   "config",
 		Short: "Display current configuration",
 		Long:  "Display the current configuration including defaults and overrides",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			output, err := yaml.Marshal(cfg)
 			if err != nil {
 				fmt.Printf("Error marshalling config: %v\n", err)
