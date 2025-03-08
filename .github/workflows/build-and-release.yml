@@ -1,5 +1,8 @@
 name: Build and Publish
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main ]
