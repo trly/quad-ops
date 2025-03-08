@@ -106,7 +106,7 @@ jobs:
           GOARCH: ${{ matrix.arch }}
           CGO_ENABLED: 0 # Disable CGO for better cross-compilation compatibility
         run: |
-          go build -o quad-ops-${{ matrix.os }}-${{ matrix.arch }}
+          go build -o quad-ops-${{ matrix.os }}-${{ matrix.arch }} ./cmd//quad-ops
 
       - name: Upload Binary
         uses: actions/upload-artifact@v4
