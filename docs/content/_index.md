@@ -1,7 +1,7 @@
 +++
 date = '2025-03-08T19:12:13-05:00'
-draft = true
-title = ''
+draft = false
+title = 'quad-ops Documentation'
 +++
 
 # quad-ops
