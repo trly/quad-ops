@@ -1,4 +1,5 @@
-baseURL = 'https://example.org/'
+baseURL = 'https://trly.github.io/quad-ops'
 languageCode = 'en-us'
 title = 'quad-ops'
 theme = 'PaperMod'
+contentDir = './content'
