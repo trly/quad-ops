@@ -7,7 +7,7 @@ title = 'quad-ops Documentation'
 ![quad-ops](/quad-ops/images/quad-ops.svg)
 
 ## GitOps for Quadlet Containers
-![Docs](https://github.com/trly/quad-ops/actions/workflows/docs.yaml/badge.svg) ![Build](https://github.com/trly/quad-ops/actions/workflows/build-and-release.yml/badge.svg)
+![Docs](https://github.com/trly/quad-ops/actions/workflows/docs.yaml/badge.svg) ![Build](https://github.com/trly/quad-ops/actions/workflows/build.yml/badge.svg)
 
 A lightweight GitOps framework for podman containers.
 
