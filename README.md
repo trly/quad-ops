@@ -1,6 +1,6 @@
 # Quad-Ops
 
-![Build](https://github.com/trly/quad-ops/actions/workflows/build-and-release.yml/badge.svg) ![Docs](https://github.com/trly/quad-ops/actions/workflows/docs.yaml/badge.svg)
+![Build](https://github.com/trly/quad-ops/actions/workflows/build.yml/badge.svg) ![Docs](https://github.com/trly/quad-ops/actions/workflows/docs.yaml/badge.svg)
 
 Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.
 It automatically generates systemd unit files from YAML manifests and handles unit reloading.
