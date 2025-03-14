@@ -56,7 +56,7 @@ You can also download a pre-built binary for your platform from the [releases pa
 |-------------------|------|-------------|
 | `name` | string | Unique identifier for the repository |
 | `url` | string | Git repository URL to clone/pull from |
-| `target` | string | Target directory within the repositoryDir |
+| `target` | string | Target commit or branch to checkout |
 | `cleanup.action` | string | Cleanup policy (e.g., "keep", "delete") |
 
 ### Example
@@ -71,12 +71,12 @@ verbose: true
 repositories:
   - name: app1
     url: https://github.com/example/app1
-    target: app1
+    target: main
     cleanup:
       action: keep
   - name: app2
     url: https://github.com/example/app2
-    target: app2
+    target: dev
     cleanup:
       action: delete
 ```
