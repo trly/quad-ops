@@ -130,32 +130,11 @@ func (unit *QuadletUnit) generateVolumeSection() string {
 	for _, opt := range unit.Volume.Options {
 		content += formatKeyValue("Options", opt)
 	}
-	if unit.Volume.UID != 0 {
-		content += formatKeyValue("UID", fmt.Sprintf("%d", unit.Volume.UID))
-	}
-	if unit.Volume.GID != 0 {
-		content += formatKeyValue("GID", fmt.Sprintf("%d", unit.Volume.GID))
-	}
-	if unit.Volume.Mode != "" {
-		content += formatKeyValue("Mode", unit.Volume.Mode)
-	}
-	if unit.Volume.Chown {
-		content += formatKeyValue("Chown", "yes")
-	}
-	if unit.Volume.Selinux {
-		content += formatKeyValue("SELinux", "yes")
-	}
 	if unit.Volume.Copy {
 		content += formatKeyValue("Copy", "yes")
 	}
 	if unit.Volume.Group != "" {
 		content += formatKeyValue("Group", unit.Volume.Group)
-	}
-	if unit.Volume.Size != "" {
-		content += formatKeyValue("Size", unit.Volume.Size)
-	}
-	if unit.Volume.Capacity != "" {
-		content += formatKeyValue("Capacity", unit.Volume.Capacity)
 	}
 	if unit.Volume.Type != "" {
 		content += formatKeyValue("Type", unit.Volume.Type)
