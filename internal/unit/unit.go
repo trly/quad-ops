@@ -15,6 +15,8 @@ import (
 type QuadletUnit struct {
 	Name      string          `yaml:"name"`
 	Type      string          `yaml:"type"`
+	Enabled   bool            `yaml:"enabled,omitempty"`
+	AutoStart bool            `yaml:"auto_start,omitmpty"`
 	Systemd   SystemdConfig   `yaml:"systemd"`
 	Container ContainerConfig `yaml:"container,omitempty"`
 	Volume    VolumeConfig    `yaml:"volume,omitempty"`
