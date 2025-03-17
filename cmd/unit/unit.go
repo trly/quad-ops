@@ -38,9 +38,6 @@ func (c *Command) GetCobraCommand() *cobra.Command {
 	}
 
 	unitCmd.AddCommand(
-		(&StartCommand{}).GetCobraCommand(),
-		(&StopCommand{}).GetCobraCommand(),
-		(&RestartCommand{}).GetCobraCommand(),
 		(&ShowCommand{}).GetCobraCommand(),
 		(&ListCommand{}).GetCobraCommand(),
 	)
