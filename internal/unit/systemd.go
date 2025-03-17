@@ -179,6 +179,7 @@ func ShowUnit(unitName string, unitType string) error {
 	fmt.Println()
 	return nil
 }
+
 func getSystemdConnection() (*dbus.Conn, error) {
 	if config.GetConfig().Verbose {
 		if config.GetConfig().UserMode {
