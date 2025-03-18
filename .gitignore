@@ -42,6 +42,3 @@ configs/*
 # quad-ops
 *.db
 
-# hugo output
-.hugo_build.lock
-public/

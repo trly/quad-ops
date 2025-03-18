@@ -1,45 +1,16 @@
-+++
-date = '2025-03-08T19:12:13-05:00'
-draft = false
-title = 'quad-ops Documentation'
-+++
+---
+title: "Configuration"
+weight: 20
+# bookFlatSection: false
+# bookToc: true
+# bookHidden: false
+# bookCollapseSection: false
+# bookComments: false
+# bookSearchExclude: false
+---
+# Configuration
 
-![quad-ops](/quad-ops/images/quad-ops.svg)
-
-## GitOps for Quadlet Containers
-![Docs](https://github.com/trly/quad-ops/actions/workflows/docs.yaml/badge.svg) ![Build](https://github.com/trly/quad-ops/actions/workflows/build.yml/badge.svg)
-
-A lightweight GitOps framework for podman containers.
-
-Quad-Ops is a tool that helps you manage container deployments using Podman and systemd in a GitOps workflow. It watches Git repositories for container definitions written in YAML and automatically converts them into systemd unit files that Podman can use to run your containers.
-
-### Key Features:
-- Monitors multiple Git repositories for container configurations
-- Automatically generates systemd unit files from YAML definitions
-- Supports containers, volumes, networks and images
-- Handles automatic updates when Git repositories change
-- Works in both system-wide and user modes
-
-## Installation
-
-### Installing from Source
-To install quad-ops from source, you'll need to have Go installed on your system. Once you have Go installed, you can clone the quad-ops repository and build the binary:
-```bash
-git clone https://github.com/trly/quad-ops.git
-cd quad-ops
-go build
-```
-The binary will be built in the current directory. You can then move it to a directory in your PATH, such as /usr/local/bin, and make it executable:
-```bash
-sudo mv quad-ops /usr/local/bin/quad-ops
-sudo chmod +x /usr/local/bin/quad-ops
-```
-### Installing a Pre-Built Binary
-You can also download a pre-built binary for your platform from the [releases page](https://github.com/trly/quad-ops/releases). Simply download the appropriate binary for your system and make it executable.
-
-## Configuration
-
-### Global Options
+## Global Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -51,7 +22,7 @@ You can also download a pre-built binary for your platform from the [releases pa
 | `verbose` | boolean | `false` | Enable verbose logging |
 | `repositories` | array | - | List of repositories to manage |
 
-### Repository Options
+## Repository Options
 | Option | Type | Description |
 |-------------------|------|-------------|
 | `name` | string | Unique identifier for the repository |
@@ -59,7 +30,7 @@ You can also download a pre-built binary for your platform from the [releases pa
 | `target` | string | Target commit or branch to checkout |
 | `cleanup.action` | string | Cleanup policy (e.g., "keep", "delete") |
 
-### Example
+## Example
 
 ```yaml
 repositoryDir: /var/lib/quad-ops
@@ -90,7 +61,7 @@ for more details on systemd unit options.
 systemd unit documentation is available [here](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html)
 
 
-### [Systemd](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html)
+## [Systemd](https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -107,7 +78,7 @@ systemd unit documentation is available [here](https://www.freedesktop.org/softw
 | `remain_after_exit` | bool | false | Keep service active after main process exits |
 | `wanted_by` | []string | - | Target units that want this unit |
 
-### Example
+## Example
 
 ```yaml
 systemd:
@@ -136,7 +107,7 @@ systemd:
     - "multi-user.target"
 ```
 
-### [Container](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#container-units-container)
+## [Container](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#container-units-container)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -161,7 +132,7 @@ systemd:
 | `host_name` | string | - | Hostname for the container |
 | `secrets` | []SecretConfig | - | Secrets configuration |
 
-### Container [Secret](https://docs.podman.io/en/latest/markdown/podman-secret-create.1.html)
+## Container [Secret](https://docs.podman.io/en/latest/markdown/podman-secret-create.1.html)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -172,7 +143,7 @@ systemd:
 | `gid` | int | 0 | Group ID for ownership |
 | `mode` | string | - | Permission mode |
 
-### Example
+## Example
 
 ```yaml
 ---
@@ -198,7 +169,7 @@ container:
       mode: "0400"
 ```
 
-### [Volume](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#volume-units-volume)
+## [Volume](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#volume-units-volume)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -216,7 +187,7 @@ container:
 | `capacity` | string | - | Volume capacity |
 | `type` | string | - | Volume type |
 
-### Example
+## Example
 
 ```yaml
 ---
@@ -233,7 +204,7 @@ volume:
   mode: "0755"
 ```
 
-### [Network](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#network-units-network)
+## [Network](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#network-units-network)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -247,7 +218,7 @@ volume:
 | `dns_enabled` | bool | false | Enable DNS |
 | `options` | []string | - | Additional network options |
 
-### Example
+## Example
 ```yaml
 ---
 name: app-net
@@ -262,14 +233,14 @@ network:
   dns_enabled: true
 ```
 
-### [Image](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#image-units-image)
+## [Image](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html#image-units-image)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `image` | string | - | Image to pull |
 | `podman_args` | []string | - | Additional arguments for podman |
 
-### Example
+## Example
 
 ```yaml
 ---
@@ -281,4 +252,3 @@ image:
   image: "registry.example.com/app:latest"
   podman_args: ["--tls-verify=false"]
 ```
-
