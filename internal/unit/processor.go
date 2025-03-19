@@ -171,7 +171,7 @@ func (p *Processor) parseUnitsFromFile(filePath, manifestsPath string) ([]Quadle
 	var units []QuadletUnit
 	decoder := yaml.NewDecoder(f)
 
-	gitUrlPattern, err := regexp.Compile("^.*@.*$")
+	gitURLPattern, err := regexp.Compile("^.*@.*$")
 	if err != nil {
 		return nil, fmt.Errorf("error compiling regex pattern: %w", err)
 	}
@@ -190,7 +190,7 @@ func (p *Processor) parseUnitsFromFile(filePath, manifestsPath string) ([]Quadle
 			if unit.Systemd.Documentation == nil {
 				unit.Systemd.Documentation = make([]string, 0)
 			}
-			if gitUrlPattern.MatchString(p.repo.URL) {
+			if gitURLPattern.MatchString(p.repo.URL) {
 				p.repo.URL = "ssh://" + p.repo.URL
 			}
 			unit.Systemd.Documentation = append(unit.Systemd.Documentation, p.repo.URL)
