@@ -1,5 +1,6 @@
 ---
-weight: 1
+title: "quad-ops"
+weight: 0
 # bookFlatSection: false
 # bookToc: true
 # bookHidden: false

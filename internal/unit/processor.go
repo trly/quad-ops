@@ -140,6 +140,9 @@ func (p *Processor) reloadUnits(changedUnits []QuadletUnit) {
 	if err != nil {
 		logger.GetLogger().Error("error reloading systemd units", "err", err)
 	}
+
+	time.Sleep(2 * time.Second)
+
 	for _, unit := range changedUnits {
 		err := RestartUnit(unit.Name, unit.Type)
 		if err != nil {
