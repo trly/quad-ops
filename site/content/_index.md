@@ -12,7 +12,11 @@ weight: 0
 # ![quad-ops](images/quad-ops-64.png) quad-ops
 
 ## GitOps for Quadlet
-![Docs](https://github.com/trly/quad-ops/actions/workflows/docs.yaml/badge.svg) ![Build](https://github.com/trly/quad-ops/actions/workflows/build.yml/badge.svg)
+![GitHub License](https://img.shields.io/github/license/trly/quad-ops)
+![Docs Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/build.yml)
+![Build Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/docs.yaml?label=docs)
+![CodeQL Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/build.yml?label=codeql)
+![GitHub Release](https://img.shields.io/github/v/release/trly/quad-ops)
 
 A lightweight GitOps framework for podman containers managed by [Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
 
@@ -22,5 +26,3 @@ Quad-Ops is a tool that helps you manage container deployments using Podman and 
 - Monitor multiple Git repositories for container configurations
 - Supports containers, volumes, networks and images
 - Works in both system-wide and user (rootless) modes
-
-#
