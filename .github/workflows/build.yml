@@ -16,7 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Clean Go cache directories to prevent conflicts
       - name: Clean Go Cache
         run: |
           mkdir -p $HOME/.cache/go-build
@@ -28,10 +27,8 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: '1.24.0'
-          # Disable automatic caching to avoid race conditions
           cache: false
 
-      # Manually install dependencies to avoid concurrent access issues
       - name: Download Dependencies
         run: go mod download -x
 
@@ -43,12 +40,10 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
-    # Explicitly depend on lint job to ensure sequential execution
     needs: lint
     steps:
       - uses: actions/checkout@v4
 
-      # Clean Go cache directories to prevent conflicts
       - name: Clean Go Cache
         run: |
           mkdir -p $HOME/.cache/go-build
@@ -62,7 +57,6 @@ jobs:
           go-version: '1.24.0'
           cache: false
 
-      # Manually install dependencies to avoid concurrent access issues
       - name: Download Dependencies
         run: go mod download -x
 
@@ -71,56 +65,3 @@ jobs:
 
       - name: Test
         run: go test -v ./...
-
-  release-binaries:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
-        os: [linux]
-      # Prevent parallel execution to avoid cache conflicts
-      max-parallel: 1
-    steps:
-      - uses: actions/checkout@v4
-
-      # Clean Go cache directories to prevent conflicts
-      - name: Clean Go Cache
-        run: |
-          mkdir -p $HOME/.cache/go-build
-          rm -rf $HOME/.cache/go-build/*
-          mkdir -p $HOME/go/pkg
-          rm -rf $HOME/go/pkg/mod
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.24.0'
-          cache: false
-
-      # Manually install dependencies to avoid concurrent access issues
-      - name: Download Dependencies
-        run: go mod download -x
-
-      - name: Build Binary
-        env:
-          GOOS: ${{ matrix.os }}
-          GOARCH: ${{ matrix.arch }}
-          CGO_ENABLED: 0 # Disable CGO for better cross-compilation compatibility
-        run: |
-          go build -o quad-ops-${{ matrix.os }}-${{ matrix.arch }} ./cmd//quad-ops
-
-      - name: Upload Binary
-        uses: actions/upload-artifact@v4
-        with:
-          name: quad-ops-${{ matrix.os }}-${{ matrix.arch }}
-          path: quad-ops-${{ matrix.os }}-${{ matrix.arch }}
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: quad-ops-${{ matrix.os }}-${{ matrix.arch }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
