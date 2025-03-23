@@ -1,5 +1,7 @@
 package unit
 
+import "fmt"
+
 // ContainerConfig represents the configuration for a container in a Quadlet unit.
 // It includes settings such as the container image, published ports, environment variables,
 // volumes, networks, command, entrypoint, user, and other container-specific options.
@@ -33,4 +35,20 @@ type SecretConfig struct {
 	UID    int    `yaml:"uid"`    // defaults to 0, mount type only
 	GID    int    `yaml:"gid"`    // defaults to 0, mount type only
 	Mode   string `yaml:"mode"`   // defaults to 0444, mount type only
+}
+
+func (sc SecretConfig) Validate() error {
+	if sc.Type != "mount" && sc.Type != "env" {
+		return fmt.Errorf("invalid secret type: %s", sc.Type)
+	}
+
+	if sc.Type == "mount" && (sc.UID == 0 || sc.GID == 0 || sc.Mode == "") {
+		return fmt.Errorf("missing required fields for mount secret: UID, GID, Mode")
+	}
+
+	if sc.Type == "env" && sc.Target == "" {
+		return fmt.Errorf("missing required field for env secret: Target")
+	}
+
+	return nil
 }
