@@ -1,3 +1,5 @@
+version: 2
+
 builds:
   - main: ./cmd/quad-ops/main.go
     binary: quad-ops
