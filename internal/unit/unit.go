@@ -276,7 +276,7 @@ func formatSecret(secret SecretConfig) string {
 		secretOpts = append(secretOpts, fmt.Sprintf("mode=%s", secret.Mode))
 	}
 
-	return formatKeyValue("Secret", strings.Join(secretOpts, ","))
+	return strings.Join(secretOpts, ",")
 }
 
 func (p *Processor) processUnit(unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
