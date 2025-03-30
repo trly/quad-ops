@@ -1,0 +1,8 @@
+builds:
+  - main: ./cmd/quad-ops/main.go
+    binary: quad-ops
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
