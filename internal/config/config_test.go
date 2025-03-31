@@ -39,12 +39,9 @@ func TestSetAndGetConfig(t *testing.T) {
 		Verbose:       true,
 		Repositories: []Repository{
 			{
-				Name:   "test-repo",
-				URL:    "https://github.com/test/repo",
-				Target: "main",
-				Cleanup: CleanupPolicy{
-					Action: "delete",
-				},
+				Name:      "test-repo",
+				URL:       "https://github.com/test/repo",
+				Reference: "main",
 			},
 		},
 	}
@@ -73,9 +70,8 @@ verbose: true
 repositories:
 - name: "test-repo"
   url: "https://github.com/test/repo"
-  target: "main"
-  cleanup:
-    action: "delete"`
+  ref: "main"
+  cleanup: "delete"`
 
 	if err := os.WriteFile(tmpfile.Name(), []byte(configContent), 0644); err != nil {
 		t.Fatal(err)

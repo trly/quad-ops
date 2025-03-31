@@ -26,10 +26,11 @@ const (
 // It contains information about the repository, including its name, URL, target
 // directory, and cleanup policy.
 type Repository struct {
-	Name    string        `yaml:"name"`
-	URL     string        `yaml:"url"`
-	Target  string        `yaml:"target"`
-	Cleanup CleanupPolicy `yaml:"cleanup"`
+	Name        string `yaml:"name"`
+	URL         string `yaml:"url"`
+	Reference   string `yaml:"ref,omitempty"`
+	ManifestDir string `yaml:"manifestDir,omitempty"`
+	Cleanup     string `yaml:"cleanup,omitempty"`
 }
 
 // Config represents the configuration for the quad-ops system. It contains
@@ -43,10 +44,6 @@ type Config struct {
 	DBPath        string        `yaml:"dbPath"`
 	UserMode      bool          `yaml:"userMode"`
 	Verbose       bool          `yaml:"verbose"`
-}
-
-type CleanupPolicy struct {
-	Action string `yaml:"action"`
 }
 
 func SetConfig(c *Config) {

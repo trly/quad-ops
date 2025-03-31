@@ -13,22 +13,19 @@ import (
 // Repository represents a Git repository with its local path, remote URL,
 // and an instance of the underlying git repository.
 type Repository struct {
-	Path        string          `yaml:"path,omitempty"`
-	URL         string          `yaml:"url"`
-	Target      string          `yaml:"target,omitempty"`
-	ManifestDir string          `yaml:"manifest_dir,omitempty"`
-	repo        *git.Repository `yaml:"-"`
-	verbose     bool            `yaml:"-"`
+	config.Repository
+	Path    string
+	repo    *git.Repository
+	verbose bool `yaml:"-"`
 }
 
-// NewRepository creates a new Repository instance with the given local path and remote URL.
+// NewGitRepository creates a new Repository instance with the given local path and remote URL.
 // The repository is not initialized until SyncRepository is called.
-func NewRepository(repository config.Repository) *Repository {
+func NewGitRepository(repository config.Repository) *Repository {
 	return &Repository{
-		Path:    filepath.Join(config.GetConfig().RepositoryDir, repository.Name),
-		URL:     repository.URL,
-		Target:  repository.Target,
-		verbose: config.GetConfig().Verbose,
+		Repository: repository,
+		Path:       filepath.Join(config.GetConfig().RepositoryDir, repository.Name),
+		verbose:    config.GetConfig().Verbose,
 	}
 }
 
@@ -37,7 +34,7 @@ func NewRepository(repository config.Repository) *Repository {
 // It returns an error if any Git operations fail.
 func (r *Repository) SyncRepository() error {
 	if r.verbose {
-		log.Printf("syncing repository at %s from %s", r.Path, r.URL)
+		log.Printf("syncing repository to %s from %s", r.Path, r.URL)
 	}
 
 	repo, err := git.PlainClone(r.Path, false, &git.CloneOptions{
@@ -68,9 +65,9 @@ func (r *Repository) SyncRepository() error {
 
 	r.repo = repo
 
-	if r.Target != "" {
+	if r.Reference != "" {
 		if r.verbose {
-			log.Printf("checking out target: %s", r.Target)
+			log.Printf("checking out target: %s", r.Reference)
 		}
 		return r.checkoutTarget()
 	}
@@ -85,10 +82,10 @@ func (r *Repository) checkoutTarget() error {
 		return err
 	}
 	if r.verbose {
-		log.Printf("attempting to checkout target as commit hash: %s", r.Target)
+		log.Printf("attempting to checkout target as commit hash: %s", r.Reference)
 	}
 
-	hash := plumbing.NewHash(r.Target)
+	hash := plumbing.NewHash(r.Reference)
 	err = worktree.Checkout(&git.CheckoutOptions{
 		Hash: hash,
 	})
@@ -96,11 +93,11 @@ func (r *Repository) checkoutTarget() error {
 		return nil
 	}
 	if r.verbose {
-		log.Printf("attempting to checkout target as branch/tag: %s", r.Target)
+		log.Printf("attempting to checkout target as branch/tag: %s", r.Reference)
 	}
 
 	return worktree.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewBranchReferenceName(r.Target),
+		Branch: plumbing.NewBranchReferenceName(r.Reference),
 	})
 }
 

@@ -98,13 +98,13 @@ func syncRepositories(cfg *config.Config) {
 				log.Printf("processing repository: %s", repoConfig.Name)
 			}
 
-			repo := git.NewRepository(repoConfig)
-			if err := repo.SyncRepository(); err != nil {
+			gitRepo := git.NewGitRepository(repoConfig)
+			if err := gitRepo.SyncRepository(); err != nil {
 				log.Printf("error syncing repository %s: %v", repoConfig.Name, err)
 				continue
 			}
 
-			if err := unit.ProcessManifests(repo, force); err != nil {
+			if err := unit.ProcessManifests(gitRepo, force); err != nil {
 				log.Printf("error processing manifests for %s: %v", repoConfig.Name, err)
 				continue
 			}

@@ -24,12 +24,12 @@ func TestNewRepository(t *testing.T) {
 	config.SetConfig(cfg)
 
 	testRepo := config.Repository{
-		Name:   "test-repo",
-		URL:    "https://github.com/test/repo.git",
-		Target: "main",
+		Name:      "test-repo",
+		URL:       "https://github.com/test/repo.git",
+		Reference: "main",
 	}
 
-	repo := NewRepository(testRepo)
+	repo := NewGitRepository(testRepo)
 
 	if repo.URL != testRepo.URL {
 		t.Errorf("Expected URL %s, got %s", testRepo.URL, repo.URL)
@@ -40,8 +40,8 @@ func TestNewRepository(t *testing.T) {
 		t.Errorf("Expected path %s, got %s", expectedPath, repo.Path)
 	}
 
-	if repo.Target != testRepo.Target {
-		t.Errorf("Expected target %s, got %s", testRepo.Target, repo.Target)
+	if repo.Reference != testRepo.Reference {
+		t.Errorf("Expected reference %s, got %s", testRepo.Reference, repo.Reference)
 	}
 }
 
@@ -61,12 +61,12 @@ func TestSyncRepository(t *testing.T) {
 	config.SetConfig(cfg)
 
 	testRepo := config.Repository{
-		Name:   "test-repo",
-		URL:    "https://github.com/test/repo.git",
-		Target: "main",
+		Name:      "test-repo",
+		URL:       "https://github.com/test/repo.git",
+		Reference: "main",
 	}
 
-	repo := NewRepository(testRepo)
+	repo := NewGitRepository(testRepo)
 
 	// Test invalid repository URL
 	err = repo.SyncRepository()
@@ -89,13 +89,13 @@ func TestCheckoutTarget(t *testing.T) {
 	config.SetConfig(cfg)
 
 	testRepo := config.Repository{
-		Name:   "test-repo",
-		URL:    "https://github.com/test/repo.git",
-		Target: "main",
+		Name:      "test-repo",
+		URL:       "https://github.com/test/repo.git",
+		Reference: "main",
 	}
 
-	repo := NewRepository(testRepo)
-	if repo.Target != "main" {
-		t.Errorf("Expected target main, got %s", repo.Target)
+	repo := NewGitRepository(testRepo)
+	if repo.Reference != "main" {
+		t.Errorf("Expected reference main, got %s", repo.Reference)
 	}
 }

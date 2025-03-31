@@ -51,7 +51,10 @@ func (p *Processor) Process(force bool) error {
 		return err
 	}
 
-	return p.cleanupOrphanedUnits(processedUnits)
+	p.cleanupOrphanedUnits(processedUnits)
+	p.startAllManagedContainers()
+
+	return nil
 }
 
 func (p *Processor) getManifestsPath() string {
@@ -230,6 +233,21 @@ func (p *Processor) cleanupOrphanedUnits(processedUnits map[string]bool) error {
 			if p.verbose {
 				log.Printf("removed orphaned unit %s", unitPath)
 			}
+		}
+	}
+
+	return nil
+}
+
+func (p *Processor) startAllManagedContainers() error {
+	units, err := p.unitRepo.FindByUnitType("container")
+	if err != nil {
+		return fmt.Errorf("error fetching units from database: %w", err)
+	}
+
+	for _, unit := range units {
+		if err := StartUnit(unit.Name, unit.Type); err != nil {
+			log.Printf("error starting unit %s: %v", unit.Name, err)
 		}
 	}
 
