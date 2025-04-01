@@ -19,7 +19,7 @@ weight: 10
 |--------|------|---------|-------------|
 | `image` | string | - | Container image to use |
 | `label` | []string | - | Container labels (managed-by=quad-ops is added automatically) |
-| `publish_port` | []string | - | Ports to publish (format: "host:container") |
+| `publish` | []string | - | Ports to publish (format: "host:container") |
 | `environment` | map[string]string | - | Environment variables |
 | `environment_file` | string | - | Path to file with environment variables |
 | `volume` | []string | - | Volumes to mount |

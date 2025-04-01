@@ -13,13 +13,42 @@ import (
 // QuadletUnit represents the configuration for a Quadlet unit, which can include
 // systemd, container, volume, network, pod, Kubernetes, image, and build settings.
 type QuadletUnit struct {
-	Name      string          `yaml:"name"`
-	Type      string          `yaml:"type"`
-	Systemd   SystemdConfig   `yaml:"systemd"`
-	Container ContainerConfig `yaml:"container,omitempty"`
-	Volume    VolumeConfig    `yaml:"volume,omitempty"`
-	Network   NetworkConfig   `yaml:"network,omitempty"`
-	Image     ImageConfig     `yaml:"image,omitempty"`
+	Name      string        `yaml:"name"`
+	Type      string        `yaml:"type"`
+	Systemd   SystemdConfig `yaml:"systemd"`
+	Container Container     `yaml:"container,omitempty"`
+	Volume    Volume        `yaml:"volume,omitempty"`
+	Network   Network       `yaml:"network,omitempty"`
+	Image     Image         `yaml:"image,omitempty"`
+}
+
+// GetSystemdUnit returns the appropriate SystemdUnit implementation for this QuadletUnit
+func (u *QuadletUnit) GetSystemdUnit() SystemdUnit {
+	switch u.Type {
+	case "container":
+		container := u.Container
+		container.Name = u.Name
+		container.UnitType = "container"
+		return &container
+	case "volume":
+		volume := u.Volume
+		volume.Name = u.Name
+		volume.UnitType = "volume"
+		return &volume
+	case "network":
+		network := u.Network
+		network.Name = u.Name
+		network.UnitType = "network"
+		return &network
+	case "image":
+		image := u.Image
+		image.Name = u.Name
+		image.UnitType = "image"
+		return &image
+	default:
+		// Default to base implementation
+		return &BaseSystemdUnit{Name: u.Name, Type: u.Type}
+	}
 }
 
 // SystemdConfig represents the configuration for a systemd unit.
@@ -27,7 +56,6 @@ type QuadletUnit struct {
 // restart policy, and other systemd-specific options.
 type SystemdConfig struct {
 	Description     string   `yaml:"description"`
-	Documentation   []string `yaml:"documentation"`
 	After           []string `yaml:"after"`
 	Before          []string `yaml:"before"`
 	Requires        []string `yaml:"requires"`
@@ -189,9 +217,6 @@ func (unit *QuadletUnit) generateUnitSection() string {
 	if unit.Systemd.Description != "" {
 		content += formatKeyValue("Description", unit.Systemd.Description)
 	}
-	for _, documentation := range unit.Systemd.Documentation {
-		content += formatKeyValue("Documentation", documentation)
-	}
 	if len(unit.Systemd.After) > 0 {
 		content += formatKeyValueSlice("After", unit.Systemd.After)
 	}
@@ -257,7 +282,7 @@ func formatKeyValueSlice(key string, values []string) string {
 	return fmt.Sprintf("%s=%s\n", key, strings.Join(values, " "))
 }
 
-func formatSecret(secret SecretConfig) string {
+func formatSecret(secret Secret) string {
 	secretOpts := []string{secret.Name}
 
 	if secret.Type != "" {
@@ -279,7 +304,7 @@ func formatSecret(secret SecretConfig) string {
 	return strings.Join(secretOpts, ",")
 }
 
-func (p *Processor) processUnit(unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func (p *UnitProcessor) processUnit(unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
 	processedUnits[unitKey] = true
 

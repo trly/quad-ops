@@ -73,7 +73,6 @@ https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `description` | string | - | Human-readable description |
-| `documentation` | []string | - | Documentation URLs |
 | `after` | []string | - | Units that must start before this one |
 | `before` | []string | - | Units that must start after this one |
 | `requires` | []string | - | Required dependencies |

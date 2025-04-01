@@ -10,10 +10,10 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
-// Repository represents a Git repository with its local path, remote URL,
+// GitRepository represents a Git repository with its local path, remote URL,
 // and an instance of the underlying git repository.
-type Repository struct {
-	config.Repository
+type GitRepository struct {
+	config.RepositoryConfig
 	Path    string
 	repo    *git.Repository
 	verbose bool `yaml:"-"`
@@ -21,18 +21,18 @@ type Repository struct {
 
 // NewGitRepository creates a new Repository instance with the given local path and remote URL.
 // The repository is not initialized until SyncRepository is called.
-func NewGitRepository(repository config.Repository) *Repository {
-	return &Repository{
-		Repository: repository,
-		Path:       filepath.Join(config.GetConfig().RepositoryDir, repository.Name),
-		verbose:    config.GetConfig().Verbose,
+func NewGitRepository(repository config.RepositoryConfig) *GitRepository {
+	return &GitRepository{
+		RepositoryConfig: repository,
+		Path:             filepath.Join(config.GetConfig().RepositoryDir, repository.Name),
+		verbose:          config.GetConfig().Verbose,
 	}
 }
 
 // SyncRepository clones the remote repository to the local path if it doesn't exist,
 // or opens the existing repository and pulls the latest changes if it does.
 // It returns an error if any Git operations fail.
-func (r *Repository) SyncRepository() error {
+func (r *GitRepository) SyncRepository() error {
 	if r.verbose {
 		log.Printf("syncing repository to %s from %s", r.Path, r.URL)
 	}
@@ -76,7 +76,7 @@ func (r *Repository) SyncRepository() error {
 
 // checkoutTarget attempts to checkout the target reference, which can be a commit hash,
 // tag, or branch.
-func (r *Repository) checkoutTarget() error {
+func (r *GitRepository) checkoutTarget() error {
 	worktree, err := r.repo.Worktree()
 	if err != nil {
 		return err
@@ -104,7 +104,7 @@ func (r *Repository) checkoutTarget() error {
 // pullLatest pulls the latest changes from the remote repository.
 // It returns an error if any Git operations fail, except when the repository
 // is already up to date.
-func (r *Repository) pullLatest() error {
+func (r *GitRepository) pullLatest() error {
 	if r.verbose {
 		log.Printf("pulling latest changes from origin")
 	}

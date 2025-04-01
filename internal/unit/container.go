@@ -2,10 +2,10 @@ package unit
 
 import "fmt"
 
-// ContainerConfig represents the configuration for a container in a Quadlet unit.
+// Container represents the configuration for a container in a Quadlet unit.
 // It includes settings such as the container image, published ports, environment variables,
 // volumes, networks, command, entrypoint, user, and other container-specific options.
-type ContainerConfig struct {
+type Container struct {
 	Image           string            `yaml:"image"`
 	Label           []string          `yaml:"label"`
 	PublishPort     []string          `yaml:"publish"`
@@ -25,10 +25,67 @@ type ContainerConfig struct {
 	ReadOnly        bool              `yaml:"read_only"`
 	SecurityLabel   []string          `yaml:"security_label"`
 	HostName        string            `yaml:"hostname"`
-	Secrets         []SecretConfig    `yaml:"secrets"`
+	Secrets         []Secret          `yaml:"secrets"`
+	
+	// Systemd unit properties
+	Name     string
+	UnitType string
 }
 
-type SecretConfig struct {
+// NewContainer creates a new Container with the given name
+func NewContainer(name string) *Container {
+	return &Container{
+		Name:     name,
+		UnitType: "container",
+	}
+}
+
+// GetServiceName returns the full systemd service name
+func (c *Container) GetServiceName() string {
+	return c.Name + ".service"
+}
+
+// GetUnitType returns the type of the unit
+func (c *Container) GetUnitType() string {
+	return "container"
+}
+
+// GetUnitName returns the name of the unit
+func (c *Container) GetUnitName() string {
+	return c.Name
+}
+
+// GetStatus returns the current status of the unit
+func (c *Container) GetStatus() (string, error) {
+	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
+	return base.GetStatus()
+}
+
+// Start starts the unit
+func (c *Container) Start() error {
+	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
+	return base.Start()
+}
+
+// Stop stops the unit
+func (c *Container) Stop() error {
+	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
+	return base.Stop()
+}
+
+// Restart restarts the unit
+func (c *Container) Restart() error {
+	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
+	return base.Restart()
+}
+
+// Show displays the unit configuration and status
+func (c *Container) Show() error {
+	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
+	return base.Show()
+}
+
+type Secret struct {
 	Name   string `yaml:"name"`
 	Type   string `yaml:"type"`   // mount or env
 	Target string `yaml:"target"` // defaults to secret name
@@ -37,7 +94,7 @@ type SecretConfig struct {
 	Mode   string `yaml:"mode"`   // defaults to 0444, mount type only
 }
 
-func (sc SecretConfig) Validate() error {
+func (sc Secret) Validate() error {
 	if sc.Type != "mount" && sc.Type != "env" {
 		return fmt.Errorf("invalid secret type: %s", sc.Type)
 	}

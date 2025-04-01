@@ -9,7 +9,7 @@ import (
 
 func TestContainerConfigYAMLMarshaling(t *testing.T) {
 	// Create a sample config
-	config := ContainerConfig{
+	config := Container{
 		Image:           "nginx:latest",
 		Label:           []string{"com.example.key1=value1", "com.example.key2=value2"},
 		PublishPort:     []string{"8080:80", "443:443"},
@@ -29,7 +29,7 @@ func TestContainerConfigYAMLMarshaling(t *testing.T) {
 		ReadOnly:        true,
 		SecurityLabel:   []string{"label=value", "level=s0"},
 		HostName:        "web-server",
-		Secrets: []SecretConfig{
+		Secrets: []Secret{
 			{
 				Name:   "web-cert",
 				Type:   "mount",
@@ -52,7 +52,7 @@ func TestContainerConfigYAMLMarshaling(t *testing.T) {
 	assert.NotEmpty(t, yamlData)
 
 	// Test unmarshaling from YAML
-	var unmarshaled ContainerConfig
+	var unmarshaled Container
 	err = yaml.Unmarshal(yamlData, &unmarshaled)
 	assert.NoError(t, err)
 
@@ -128,7 +128,7 @@ secrets:
     target: DB_PASSWORD
 `
 
-	var config ContainerConfig
+	var config Container
 	err := yaml.Unmarshal([]byte(yamlData), &config)
 	assert.NoError(t, err)
 
@@ -171,12 +171,12 @@ secrets:
 func TestSecretConfigValidation(t *testing.T) {
 	tests := []struct {
 		name    string
-		secret  SecretConfig
+		secret  Secret
 		isValid bool
 	}{
 		{
 			name: "Valid mount secret",
-			secret: SecretConfig{
+			secret: Secret{
 				Name:   "cert",
 				Type:   "mount",
 				Target: "/etc/ssl/certs",
@@ -188,7 +188,7 @@ func TestSecretConfigValidation(t *testing.T) {
 		},
 		{
 			name: "Valid env secret",
-			secret: SecretConfig{
+			secret: Secret{
 				Name:   "api-key",
 				Type:   "env",
 				Target: "API_KEY",
@@ -197,7 +197,7 @@ func TestSecretConfigValidation(t *testing.T) {
 		},
 		{
 			name: "Invalid secret type",
-			secret: SecretConfig{
+			secret: Secret{
 				Name:   "invalid",
 				Type:   "unknown",
 				Target: "somewhere",
@@ -206,7 +206,7 @@ func TestSecretConfigValidation(t *testing.T) {
 		},
 		{
 			name: "Missing name",
-			secret: SecretConfig{
+			secret: Secret{
 				Type:   "mount",
 				Target: "/etc/certs",
 			},

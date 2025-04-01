@@ -22,10 +22,10 @@ const (
 	DefaultVerbose       = false
 )
 
-// Repository represents a repository that is managed by the quad-ops system.
+// RepositoryConfig represents a repository that is managed by the quad-ops system.
 // It contains information about the repository, including its name, URL, target
 // directory, and cleanup policy.
-type Repository struct {
+type RepositoryConfig struct {
 	Name        string `yaml:"name"`
 	URL         string `yaml:"url"`
 	Reference   string `yaml:"ref,omitempty"`
@@ -37,13 +37,13 @@ type Repository struct {
 // various settings such as the repository directory, sync interval, quadlet
 // directory, database path, user mode, and verbosity.
 type Config struct {
-	RepositoryDir string        `yaml:"repositoryDir"`
-	SyncInterval  time.Duration `yaml:"syncInterval"`
-	QuadletDir    string        `yaml:"quadletDir"`
-	Repositories  []Repository  `yaml:"repositories"`
-	DBPath        string        `yaml:"dbPath"`
-	UserMode      bool          `yaml:"userMode"`
-	Verbose       bool          `yaml:"verbose"`
+	RepositoryDir string             `yaml:"repositoryDir"`
+	SyncInterval  time.Duration      `yaml:"syncInterval"`
+	QuadletDir    string             `yaml:"quadletDir"`
+	Repositories  []RepositoryConfig `yaml:"repositories"`
+	DBPath        string             `yaml:"dbPath"`
+	UserMode      bool               `yaml:"userMode"`
+	Verbose       bool               `yaml:"verbose"`
 }
 
 func SetConfig(c *Config) {

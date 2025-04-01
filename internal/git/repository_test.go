@@ -23,7 +23,7 @@ func TestNewRepository(t *testing.T) {
 	}
 	config.SetConfig(cfg)
 
-	testRepo := config.Repository{
+	testRepo := config.RepositoryConfig{
 		Name:      "test-repo",
 		URL:       "https://github.com/test/repo.git",
 		Reference: "main",
@@ -60,7 +60,7 @@ func TestSyncRepository(t *testing.T) {
 	}
 	config.SetConfig(cfg)
 
-	testRepo := config.Repository{
+	testRepo := config.RepositoryConfig{
 		Name:      "test-repo",
 		URL:       "https://github.com/test/repo.git",
 		Reference: "main",
@@ -88,7 +88,7 @@ func TestCheckoutTarget(t *testing.T) {
 	}
 	config.SetConfig(cfg)
 
-	testRepo := config.Repository{
+	testRepo := config.RepositoryConfig{
 		Name:      "test-repo",
 		URL:       "https://github.com/test/repo.git",
 		Reference: "main",

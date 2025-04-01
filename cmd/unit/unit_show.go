@@ -38,7 +38,12 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(_ *cobra.Command, args []string) {
 			name := args[0]
-			err := unit.ShowUnit(name, unitType)
+			systemdUnit := &unit.BaseSystemdUnit{
+				Name: name,
+				Type: unitType,
+			}
+			
+			err := systemdUnit.Show()
 			if err != nil {
 				log.Fatal(err)
 			}

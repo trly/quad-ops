@@ -76,7 +76,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 	return unitListCmd
 }
 
-func findAndDisplayUnits(unitRepo *unit.Repository, tbl table.Table, unitType string) {
+func findAndDisplayUnits(unitRepo unit.UnitRepository, tbl table.Table, unitType string) {
 	var units []unit.Unit
 	var err error
 
@@ -92,7 +92,12 @@ func findAndDisplayUnits(unitRepo *unit.Repository, tbl table.Table, unitType st
 	}
 
 	for _, u := range units {
-		unitStatus, err := unit.GetUnitStatus(u.Name, u.Type)
+		systemdUnit := &unit.BaseSystemdUnit{
+			Name: u.Name,
+			Type: u.Type,
+		}
+		
+		unitStatus, err := systemdUnit.GetStatus()
 		if err != nil {
 			if config.GetConfig().Verbose {
 				log.Printf("error getting unit status: %s", err)

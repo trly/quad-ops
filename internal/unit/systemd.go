@@ -17,104 +17,186 @@ import (
 var ctx = context.Background()
 var caser = cases.Title(language.English)
 
-func GetUnitStatus(unitName string, unitType string) (string, error) {
+// SystemdUnit defines the interface for managing systemd units
+type SystemdUnit interface {
+	// GetServiceName returns the full systemd service name
+	GetServiceName() string
+
+	// GetUnitType returns the type of the unit (container, volume, network, etc.)
+	GetUnitType() string
+
+	// GetUnitName returns the name of the unit
+	GetUnitName() string
+
+	// GetStatus returns the current status of the unit
+	GetStatus() (string, error)
+
+	// Start starts the unit
+	Start() error
+
+	// Stop stops the unit
+	Stop() error
+
+	// Restart restarts the unit
+	Restart() error
+
+	// Show displays the unit configuration and status
+	Show() error
+}
+
+// BaseSystemdUnit provides common implementation for all systemd units
+type BaseSystemdUnit struct {
+	Name string
+	Type string
+}
+
+// GetServiceName returns the full systemd service name based on unit type
+func (u *BaseSystemdUnit) GetServiceName() string {
+	if u.Type == "container" {
+		return u.Name + ".service"
+	}
+	return u.Name + "-" + u.Type + ".service"
+}
+
+// GetUnitType returns the type of the unit
+func (u *BaseSystemdUnit) GetUnitType() string {
+	return u.Type
+}
+
+// GetUnitName returns the name of the unit
+func (u *BaseSystemdUnit) GetUnitName() string {
+	return u.Name
+}
+
+// GetStatus returns the current status of the unit
+func (u *BaseSystemdUnit) GetStatus() (string, error) {
 	conn, err := getSystemdConnection()
 	if err != nil {
 		return "", fmt.Errorf("error connecting to systemd: %w", err)
 	}
 	defer conn.Close()
 
-	quadletService := unitName
-	if unitType == "container" {
-		quadletService += ".service"
-	} else {
-		quadletService += "-" + unitType + ".service"
-	}
-
-	prop, err := conn.GetUnitPropertyContext(ctx, quadletService, "ActiveState")
+	serviceName := u.GetServiceName()
+	prop, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
 	if err != nil {
 		return "", fmt.Errorf("error getting unit property: %w", err)
 	}
 	return prop.Value.Value().(string), nil
 }
 
-func RestartUnit(unitName string, unitType string) error {
+// Start starts the unit
+func (u *BaseSystemdUnit) Start() error {
 	conn, err := getSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
 	defer conn.Close()
 
-	quadletService := unitName
-	if unitType == "container" {
-		quadletService += ".service"
-	} else {
-		quadletService += "-" + unitType + ".service"
+	serviceName := u.GetServiceName()
+	ch := make(chan string)
+	_, err = conn.StartUnitContext(context.Background(), serviceName, "replace", ch)
+	if err != nil {
+		return fmt.Errorf("error starting unit %s: %w", serviceName, err)
 	}
 
-	ch := make(chan string)
-	_, err = conn.RestartUnitContext(context.Background(), quadletService, "replace", ch)
+	if config.GetConfig().Verbose {
+		log.Printf("successfully started unit %s\n", serviceName)
+	}
+	return nil
+}
+
+// Stop stops the unit
+func (u *BaseSystemdUnit) Stop() error {
+	conn, err := getSystemdConnection()
 	if err != nil {
-		return fmt.Errorf("error restarting unit %s: %w", quadletService, err)
+		return fmt.Errorf("error connecting to systemd: %w", err)
+	}
+	defer conn.Close()
+
+	serviceName := u.GetServiceName()
+	ch := make(chan string)
+	_, err = conn.StopUnitContext(context.Background(), serviceName, "replace", ch)
+	if err != nil {
+		return fmt.Errorf("error stopping unit %s: %w", serviceName, err)
+	}
+
+	if config.GetConfig().Verbose {
+		log.Printf("successfully stopped unit %s\n", serviceName)
+	}
+	return nil
+}
+
+// Restart restarts the unit
+func (u *BaseSystemdUnit) Restart() error {
+	conn, err := getSystemdConnection()
+	if err != nil {
+		return fmt.Errorf("error connecting to systemd: %w", err)
+	}
+	defer conn.Close()
+
+	serviceName := u.GetServiceName()
+	ch := make(chan string)
+	_, err = conn.RestartUnitContext(context.Background(), serviceName, "replace", ch)
+	if err != nil {
+		return fmt.Errorf("error restarting unit %s: %w", serviceName, err)
 	}
 
 	result := <-ch
 	if result != "done" {
 		return fmt.Errorf("unit restart failed: %s", result)
 	}
-	if config.GetConfig().Verbose {
-		log.Printf("successfully restarted unit %s\n", quadletService)
-	}
 
+	if config.GetConfig().Verbose {
+		log.Printf("successfully restarted unit %s\n", serviceName)
+	}
 	return nil
 }
 
-func StartUnit(unitName string, unitType string) error {
+// Show displays the unit configuration and status
+func (u *BaseSystemdUnit) Show() error {
 	conn, err := getSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
 	defer conn.Close()
-	quadletService := unitName
-	if unitType == "container" {
-		quadletService += ".service"
-	} else {
-		quadletService += "-" + unitType + ".service"
-	}
-	ch := make(chan string)
-	_, err = conn.StartUnitContext(context.Background(), quadletService, "replace", ch)
+
+	serviceName := u.GetServiceName()
+	prop, err := conn.GetUnitPropertiesContext(ctx, serviceName)
 	if err != nil {
-		return fmt.Errorf("error starting unit %s: %w", quadletService, err)
+		return fmt.Errorf("error getting unit properties: %w", err)
 	}
-	if config.GetConfig().Verbose {
-		log.Printf("successfully started unit %s\n", quadletService)
+
+	fmt.Printf("\n=== %s ===\n\n", serviceName)
+
+	fmt.Println("Status:")
+	fmt.Printf("  %-20s: %v\n", "State", prop["ActiveState"])
+	fmt.Printf("  %-20s: %v\n", "Sub-State", prop["SubState"])
+	fmt.Printf("  %-20s: %v\n", "Load State", prop["LoadState"])
+
+	fmt.Println("\nUnit Information:")
+	fmt.Printf("  %-20s: %v\n", "Description", prop["Description"])
+	fmt.Printf("  %-20s: %v\n", "Path", prop["FragmentPath"])
+
+	// Read and display the actual quadlet configuration
+	if fragmentPath, ok := prop["FragmentPath"].(string); ok {
+		content, err := os.ReadFile(fragmentPath)
+		if err == nil {
+			unitConfig, _ := ini.Load(content)
+			sectionName := fmt.Sprintf("X-%s", caser.String(u.Type))
+			if section, err := unitConfig.GetSection(sectionName); err == nil {
+				fmt.Printf("\n%s Configuration:\n", caser.String(u.Type))
+				for _, key := range section.Keys() {
+					fmt.Printf("  %-20s: %s\n", key.Name(), key.Value())
+				}
+			}
+		}
 	}
+
+	fmt.Println()
 	return nil
 }
 
-func StopUnit(unitName string, unitType string) error {
-	conn, err := getSystemdConnection()
-	if err != nil {
-		return fmt.Errorf("error connecting to systemd: %w", err)
-	}
-	defer conn.Close()
-	quadletService := unitName
-	if unitType == "container" {
-		quadletService += ".service"
-	} else {
-		quadletService += "-" + unitType + ".service"
-	}
-	ch := make(chan string)
-	_, err = conn.StopUnitContext(context.Background(), quadletService, "replace", ch)
-	if err != nil {
-		return fmt.Errorf("error stopping unit %s: %w", quadletService, err)
-	}
-	if config.GetConfig().Verbose {
-		log.Printf("successfully stopped unit %s\n", quadletService)
-	}
-	return nil
-}
-
+// ReloadSystemd reloads the systemd configuration
 func ReloadSystemd() error {
 	conn, err := getSystemdConnection()
 	if err != nil {
@@ -133,51 +215,34 @@ func ReloadSystemd() error {
 	return nil
 }
 
+// GetUnitStatus - Legacy function for backward compatibility
+func GetUnitStatus(unitName string, unitType string) (string, error) {
+	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+	return unit.GetStatus()
+}
+
+// RestartUnit - Legacy function for backward compatibility
+func RestartUnit(unitName string, unitType string) error {
+	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+	return unit.Restart()
+}
+
+// StartUnit - Legacy function for backward compatibility
+func StartUnit(unitName string, unitType string) error {
+	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+	return unit.Start()
+}
+
+// StopUnit - Legacy function for backward compatibility
+func StopUnit(unitName string, unitType string) error {
+	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+	return unit.Stop()
+}
+
+// ShowUnit - Legacy function for backward compatibility
 func ShowUnit(unitName string, unitType string) error {
-	conn, err := getSystemdConnection()
-	if err != nil {
-		return fmt.Errorf("error connecting to systemd: %w", err)
-	}
-	defer conn.Close()
-	quadletService := unitName
-	if unitType == "container" {
-		quadletService += ".service"
-	} else {
-		quadletService += "-" + unitType + ".service"
-	}
-	prop, err := conn.GetUnitPropertiesContext(ctx, quadletService)
-	if err != nil {
-		return fmt.Errorf("error getting unit properties: %w", err)
-	}
-
-	fmt.Printf("\n=== %s ===\n\n", quadletService)
-
-	fmt.Println("Status:")
-	fmt.Printf("  %-20s: %v\n", "State", prop["ActiveState"])
-	fmt.Printf("  %-20s: %v\n", "Sub-State", prop["SubState"])
-	fmt.Printf("  %-20s: %v\n", "Load State", prop["LoadState"])
-
-	fmt.Println("\nUnit Information:")
-	fmt.Printf("  %-20s: %v\n", "Description", prop["Description"])
-	fmt.Printf("  %-20s: %v\n", "Path", prop["FragmentPath"])
-
-	// Read and display the actual quadlet configuration
-	if fragmentPath, ok := prop["FragmentPath"].(string); ok {
-		content, err := os.ReadFile(fragmentPath)
-		if err == nil {
-			unitConfig, _ := ini.Load(content)
-			sectionName := fmt.Sprintf("X-%s", caser.String(unitType))
-			if section, err := unitConfig.GetSection(sectionName); err == nil {
-				fmt.Printf("\n%s Configuration:\n", caser.String(unitType))
-				for _, key := range section.Keys() {
-					fmt.Printf("  %-20s: %s\n", key.Name(), key.Value())
-				}
-			}
-		}
-	}
-
-	fmt.Println()
-	return nil
+	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+	return unit.Show()
 }
 
 func getSystemdConnection() (*dbus.Conn, error) {

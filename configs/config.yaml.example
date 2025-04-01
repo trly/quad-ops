@@ -1,4 +1,8 @@
 repositories:
   - name: quad-ops-manifests
     url: "https://github.com/trly/quad-ops-manifests.git"
-    target: "main"
+    ref: "main"  # Git reference (branch, tag, or commit hash) to checkout
+    manifestDir: "" # Optional subdirectory where manifests are located
+    cleanup: "delete" # Cleanup policy: "delete" or "keep" (default: "keep")
+    # When "delete" is specified, units that were previously deployed from this 
+    # repository but no longer exist in the manifests will be stopped and removed

@@ -37,7 +37,7 @@ func TestSetAndGetConfig(t *testing.T) {
 		DBPath:        "/custom/db.sqlite",
 		UserMode:      true,
 		Verbose:       true,
-		Repositories: []Repository{
+		Repositories: []RepositoryConfig{
 			{
 				Name:      "test-repo",
 				URL:       "https://github.com/test/repo",

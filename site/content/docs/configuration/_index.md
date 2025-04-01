@@ -23,31 +23,35 @@ weight: 20
 | `repositories` | array | - | List of repositories to manage |
 
 ## Repository Options
-| Option | Type | Description |
-|-------------------|------|-------------|
-| `name` | string | Unique identifier for the repository |
-| `url` | string | Git repository URL to clone/pull from |
-| `target` | string | Target commit or branch to checkout |
-| `cleanup.action` | string | Cleanup policy (e.g., "keep", "delete") |
+| Option | Type | Default | Description |
+|-------------------|------|---------|-------------|
+| `name` | string | - | Unique identifier for the repository |
+| `url` | string | - | Git repository URL to clone/pull from |
+| `ref` | string | - | Git reference to checkout (branch, tag, or commit hash) |
+| `manifestDir` | string | "" | Subdirectory within repo where manifests are located |
+| `cleanup` | string | "keep" | Cleanup policy: "keep" or "delete" |
 
 ## Example Configuration
 
 ```yaml
+# Global settings
 repositoryDir: /var/lib/quad-ops
 syncInterval: 10m
 quadletDir: /etc/containers/systemd
 dbPath: /var/lib/quad-ops/quad-ops.db
 userMode: false
 verbose: true
+
+# Repository definitions
 repositories:
   - name: app1
     url: https://github.com/example/app1
-    target: main
-    cleanup:
-      action: keep
+    ref: main
+    manifestDir: manifests
+    cleanup: keep  # Units remain even if removed from manifests
+    
   - name: app2
     url: https://github.com/example/app2
-    target: dev
-    cleanup:
-      action: delete
+    ref: dev
+    cleanup: delete  # Units are stopped and removed when they're no longer in manifests
 ```
