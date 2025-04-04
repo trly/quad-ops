@@ -42,7 +42,7 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 				Name: name,
 				Type: unitType,
 			}
-			
+
 			err := systemdUnit.Show()
 			if err != nil {
 				log.Fatal(err)

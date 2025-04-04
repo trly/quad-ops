@@ -78,175 +78,175 @@ type Unit struct {
 	CreatedAt     time.Time `db:"created_at"`
 }
 
-func (unit *QuadletUnit) generateContainerSection() string {
+func (u *QuadletUnit) generateContainerSection() string {
 	content := "\n[Container]\n"
-	if unit.Container.Image != "" {
-		content += formatKeyValue("Image", unit.Container.Image)
+	if u.Container.Image != "" {
+		content += formatKeyValue("Image", u.Container.Image)
 	}
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	for _, label := range unit.Container.Label {
+	for _, label := range u.Container.Label {
 		content += formatKeyValue("Label", label)
 	}
-	for _, port := range unit.Container.PublishPort {
+	for _, port := range u.Container.PublishPort {
 		content += formatKeyValue("PublishPort", port)
 	}
-	for k, v := range unit.Container.Environment {
+	for k, v := range u.Container.Environment {
 		content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, v))
 	}
-	if unit.Container.EnvironmentFile != "" {
-		content += formatKeyValue("EnvironmentFile", unit.Container.EnvironmentFile)
+	if u.Container.EnvironmentFile != "" {
+		content += formatKeyValue("EnvironmentFile", u.Container.EnvironmentFile)
 	}
-	for _, vol := range unit.Container.Volume {
+	for _, vol := range u.Container.Volume {
 		content += formatKeyValue("Volume", vol)
 	}
-	for _, net := range unit.Container.Network {
+	for _, net := range u.Container.Network {
 		content += formatKeyValue("Network", net)
 	}
-	if len(unit.Container.Command) > 0 {
-		content += formatKeyValueSlice("Command", unit.Container.Command)
+	if len(u.Container.Command) > 0 {
+		content += formatKeyValueSlice("Command", u.Container.Command)
 	}
-	if len(unit.Container.Entrypoint) > 0 {
-		content += formatKeyValueSlice("Entrypoint", unit.Container.Entrypoint)
+	if len(u.Container.Entrypoint) > 0 {
+		content += formatKeyValueSlice("Entrypoint", u.Container.Entrypoint)
 	}
-	if unit.Container.User != "" {
-		content += formatKeyValue("User", unit.Container.User)
+	if u.Container.User != "" {
+		content += formatKeyValue("User", u.Container.User)
 	}
-	if unit.Container.Group != "" {
-		content += formatKeyValue("Group", unit.Container.Group)
+	if u.Container.Group != "" {
+		content += formatKeyValue("Group", u.Container.Group)
 	}
-	if unit.Container.WorkingDir != "" {
-		content += formatKeyValue("WorkingDir", unit.Container.WorkingDir)
+	if u.Container.WorkingDir != "" {
+		content += formatKeyValue("WorkingDir", u.Container.WorkingDir)
 	}
-	if len(unit.Container.PodmanArgs) > 0 {
-		content += formatKeyValueSlice("PodmanArgs", unit.Container.PodmanArgs)
+	if len(u.Container.PodmanArgs) > 0 {
+		content += formatKeyValueSlice("PodmanArgs", u.Container.PodmanArgs)
 	}
-	if unit.Container.RunInit {
+	if u.Container.RunInit {
 		content += formatKeyValue("RunInit", "yes")
 	}
-	if unit.Container.Notify {
+	if u.Container.Notify {
 		content += formatKeyValue("Notify", "yes")
 	}
-	if unit.Container.Privileged {
+	if u.Container.Privileged {
 		content += formatKeyValue("Privileged", "yes")
 	}
-	if unit.Container.ReadOnly {
+	if u.Container.ReadOnly {
 		content += formatKeyValue("ReadOnly", "yes")
 	}
-	for _, label := range unit.Container.SecurityLabel {
+	for _, label := range u.Container.SecurityLabel {
 		content += formatKeyValue("SecurityLabel", label)
 	}
-	if unit.Container.HostName != "" {
-		content += formatKeyValue("HostName", unit.Container.HostName)
+	if u.Container.HostName != "" {
+		content += formatKeyValue("HostName", u.Container.HostName)
 	}
-	for _, secret := range unit.Container.Secrets {
+	for _, secret := range u.Container.Secrets {
 		content += formatKeyValue("Secret", formatSecret(secret))
 	}
 	return content
 }
 
-func (unit *QuadletUnit) generateVolumeSection() string {
+func (u *QuadletUnit) generateVolumeSection() string {
 	content := "\n[Volume]\n"
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	for _, label := range unit.Volume.Label {
+	for _, label := range u.Volume.Label {
 		content += formatKeyValue("Label", label)
 	}
-	if unit.Volume.Device != "" {
-		content += formatKeyValue("Device", unit.Volume.Device)
+	if u.Volume.Device != "" {
+		content += formatKeyValue("Device", u.Volume.Device)
 	}
-	for _, opt := range unit.Volume.Options {
+	for _, opt := range u.Volume.Options {
 		content += formatKeyValue("Options", opt)
 	}
-	if unit.Volume.Copy {
+	if u.Volume.Copy {
 		content += formatKeyValue("Copy", "yes")
 	}
-	if unit.Volume.Group != "" {
-		content += formatKeyValue("Group", unit.Volume.Group)
+	if u.Volume.Group != "" {
+		content += formatKeyValue("Group", u.Volume.Group)
 	}
-	if unit.Volume.Type != "" {
-		content += formatKeyValue("Type", unit.Volume.Type)
+	if u.Volume.Type != "" {
+		content += formatKeyValue("Type", u.Volume.Type)
 	}
 	return content
 }
 
-func (unit *QuadletUnit) generateNetworkSection() string {
+func (u *QuadletUnit) generateNetworkSection() string {
 	content := "\n[Network]\n"
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	for _, label := range unit.Network.Label {
+	for _, label := range u.Network.Label {
 		content += formatKeyValue("Label", label)
 	}
-	if unit.Network.Driver != "" {
-		content += formatKeyValue("Driver", unit.Network.Driver)
+	if u.Network.Driver != "" {
+		content += formatKeyValue("Driver", u.Network.Driver)
 	}
-	if unit.Network.Gateway != "" {
-		content += formatKeyValue("Gateway", unit.Network.Gateway)
+	if u.Network.Gateway != "" {
+		content += formatKeyValue("Gateway", u.Network.Gateway)
 	}
-	if unit.Network.IPRange != "" {
-		content += formatKeyValue("IPRange", unit.Network.IPRange)
+	if u.Network.IPRange != "" {
+		content += formatKeyValue("IPRange", u.Network.IPRange)
 	}
-	if unit.Network.Subnet != "" {
-		content += formatKeyValue("Subnet", unit.Network.Subnet)
+	if u.Network.Subnet != "" {
+		content += formatKeyValue("Subnet", u.Network.Subnet)
 	}
-	if unit.Network.IPv6 {
+	if u.Network.IPv6 {
 		content += formatKeyValue("IPv6", "yes")
 	}
-	if unit.Network.Internal {
+	if u.Network.Internal {
 		content += formatKeyValue("Internal", "yes")
 	}
-	if unit.Network.DNSEnabled {
+	if u.Network.DNSEnabled {
 		content += formatKeyValue("DNSEnabled", "yes")
 	}
-	for _, opt := range unit.Network.Options {
+	for _, opt := range u.Network.Options {
 		content += formatKeyValue("Options", opt)
 	}
 	return content
 }
 
-func (unit *QuadletUnit) generateImageSection() string {
+func (u *QuadletUnit) generateImageSection() string {
 	content := "\n[Image]\n"
-	if unit.Image.Image != "" {
-		content += formatKeyValue("Image", unit.Image.Image)
+	if u.Image.Image != "" {
+		content += formatKeyValue("Image", u.Image.Image)
 	}
-	if len(unit.Image.PodmanArgs) > 0 {
-		content += formatKeyValueSlice("PodmanArgs", unit.Image.PodmanArgs)
+	if len(u.Image.PodmanArgs) > 0 {
+		content += formatKeyValueSlice("PodmanArgs", u.Image.PodmanArgs)
 	}
 	return content
 }
 
-func (unit *QuadletUnit) generateUnitSection() string {
+func (u *QuadletUnit) generateUnitSection() string {
 	content := "[Unit]\n"
-	if unit.Systemd.Description != "" {
-		content += formatKeyValue("Description", unit.Systemd.Description)
+	if u.Systemd.Description != "" {
+		content += formatKeyValue("Description", u.Systemd.Description)
 	}
-	if len(unit.Systemd.After) > 0 {
-		content += formatKeyValueSlice("After", unit.Systemd.After)
+	if len(u.Systemd.After) > 0 {
+		content += formatKeyValueSlice("After", u.Systemd.After)
 	}
-	if len(unit.Systemd.Before) > 0 {
-		content += formatKeyValueSlice("Before", unit.Systemd.Before)
+	if len(u.Systemd.Before) > 0 {
+		content += formatKeyValueSlice("Before", u.Systemd.Before)
 	}
-	if len(unit.Systemd.Requires) > 0 {
-		content += formatKeyValueSlice("Requires", unit.Systemd.Requires)
+	if len(u.Systemd.Requires) > 0 {
+		content += formatKeyValueSlice("Requires", u.Systemd.Requires)
 	}
-	if len(unit.Systemd.Wants) > 0 {
-		content += formatKeyValueSlice("Wants", unit.Systemd.Wants)
+	if len(u.Systemd.Wants) > 0 {
+		content += formatKeyValueSlice("Wants", u.Systemd.Wants)
 	}
-	if len(unit.Systemd.Conflicts) > 0 {
-		content += formatKeyValueSlice("Conflicts", unit.Systemd.Conflicts)
+	if len(u.Systemd.Conflicts) > 0 {
+		content += formatKeyValueSlice("Conflicts", u.Systemd.Conflicts)
 	}
 	return content
 }
 
-func (unit *QuadletUnit) generateServiceSection() string {
+func (u *QuadletUnit) generateServiceSection() string {
 	content := "\n[Service]\n"
-	if unit.Systemd.Type != "" {
-		content += formatKeyValue("Type", unit.Systemd.Type)
+	if u.Systemd.Type != "" {
+		content += formatKeyValue("Type", u.Systemd.Type)
 	}
-	if unit.Systemd.RestartPolicy != "" {
-		content += formatKeyValue("Restart", unit.Systemd.RestartPolicy)
+	if u.Systemd.RestartPolicy != "" {
+		content += formatKeyValue("Restart", u.Systemd.RestartPolicy)
 	}
-	if unit.Systemd.TimeoutStartSec != 0 {
-		content += formatKeyValue("TimeoutStartSec", fmt.Sprintf("%d", unit.Systemd.TimeoutStartSec))
+	if u.Systemd.TimeoutStartSec != 0 {
+		content += formatKeyValue("TimeoutStartSec", fmt.Sprintf("%d", u.Systemd.TimeoutStartSec))
 	}
-	if unit.Systemd.RemainAfterExit {
+	if u.Systemd.RemainAfterExit {
 		content += formatKeyValue("RemainAfterExit", "yes")
 	}
 	return content
@@ -304,7 +304,7 @@ func formatSecret(secret Secret) string {
 	return strings.Join(secretOpts, ",")
 }
 
-func (p *UnitProcessor) processUnit(unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func (p *Processor) processUnit(unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
 	processedUnits[unitKey] = true
 

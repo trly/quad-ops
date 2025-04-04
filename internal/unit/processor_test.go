@@ -178,13 +178,13 @@ func TestUpdateUnitDatabase(t *testing.T) {
 			})).Return(int64(1), nil)
 
 			// Create a git repository directly without using the NewGitRepository function
-			gitRepo := &git.GitRepository{
+			gitRepo := &git.Repository{
 				RepositoryConfig: tt.repositoryConfig,
 				Path:             filepath.Join(tempDir, tt.repositoryConfig.Name),
 			}
 
 			// Create processor
-			processor := &UnitProcessor{
+			processor := &Processor{
 				repo:     gitRepo,
 				unitRepo: mockRepo,
 				verbose:  false,
@@ -202,7 +202,7 @@ func TestUpdateUnitDatabase(t *testing.T) {
 
 // TestCleanupProcessor is a test-specific processor implementation
 type TestCleanupProcessor struct {
-	UnitProcessor
+	Processor
 	StopCalled   bool
 	ReloadCalled bool
 }
@@ -300,7 +300,7 @@ func TestCleanupOrphanedUnits(t *testing.T) {
 	mockRepo.On("Delete", int64(3)).Return(nil) // unit3 should be deleted
 
 	// Setup repository
-	gitRepo := &git.GitRepository{
+	gitRepo := &git.Repository{
 		RepositoryConfig: config.RepositoryConfig{
 			Name: "test-repo",
 			URL:  "https://example.com/repo.git",
@@ -310,7 +310,7 @@ func TestCleanupOrphanedUnits(t *testing.T) {
 
 	// Create test processor
 	processor := &TestCleanupProcessor{
-		UnitProcessor: UnitProcessor{
+		Processor: Processor{
 			repo:     gitRepo,
 			unitRepo: mockRepo,
 			verbose:  false,

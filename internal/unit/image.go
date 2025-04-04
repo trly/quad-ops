@@ -4,7 +4,7 @@ package unit
 type Image struct {
 	Image      string   `yaml:"image"`
 	PodmanArgs []string `yaml:"podman_args"`
-	
+
 	// Systemd unit properties
 	Name     string
 	UnitType string

@@ -26,7 +26,7 @@ type Container struct {
 	SecurityLabel   []string          `yaml:"security_label"`
 	HostName        string            `yaml:"hostname"`
 	Secrets         []Secret          `yaml:"secrets"`
-	
+
 	// Systemd unit properties
 	Name     string
 	UnitType string

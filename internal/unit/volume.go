@@ -15,7 +15,7 @@ type Volume struct {
 	Type                 string   `yaml:"type"`
 	User                 string   `yaml:"user"`
 	VolumeName           string   `yaml:"volume_name"`
-	
+
 	// Systemd unit properties
 	Name     string
 	UnitType string

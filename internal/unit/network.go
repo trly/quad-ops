@@ -11,7 +11,7 @@ type Network struct {
 	Internal   bool     `yaml:"internal"`
 	DNSEnabled bool     `yaml:"dns_enabled"`
 	Options    []string `yaml:"options"`
-	
+
 	// Systemd unit properties
 	Name     string
 	UnitType string

@@ -5,8 +5,8 @@ import (
 	"fmt"
 )
 
-// UnitRepository defines the interface for unit data access operations
-type UnitRepository interface {
+// Repository defines the interface for unit data access operations
+type Repository interface {
 	FindAll() ([]Unit, error)
 	FindByUnitType(unitType string) ([]Unit, error)
 	FindByID(id int64) (Unit, error)
@@ -20,7 +20,7 @@ type SQLRepository struct {
 }
 
 // NewUnitRepository creates a new SQL-based unit repository
-func NewUnitRepository(db *sql.DB) UnitRepository {
+func NewUnitRepository(db *sql.DB) Repository {
 	return &SQLRepository{db: db}
 }
 
