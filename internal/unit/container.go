@@ -13,7 +13,7 @@ type Container struct {
 	EnvironmentFile string            `yaml:"environment_file"`
 	Volume          []string          `yaml:"volume"`
 	Network         []string          `yaml:"network"`
-	Command         []string          `yaml:"command"`
+	Exec            []string          `yaml:"command"`
 	Entrypoint      []string          `yaml:"entrypoint"`
 	User            string            `yaml:"user"`
 	Group           string            `yaml:"group"`

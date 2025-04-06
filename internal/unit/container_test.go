@@ -17,7 +17,7 @@ func TestContainerConfigYAMLMarshaling(t *testing.T) {
 		EnvironmentFile: "/path/to/env/file",
 		Volume:          []string{"/host/path:/container/path", "named-volume:/data"},
 		Network:         []string{"host", "container-network"},
-		Command:         []string{"nginx", "-g", "daemon off;"},
+		Exec:            []string{"nginx", "-g", "daemon off;"},
 		Entrypoint:      []string{"/docker-entrypoint.sh"},
 		User:            "nginx",
 		Group:           "nginx",
@@ -64,7 +64,7 @@ func TestContainerConfigYAMLMarshaling(t *testing.T) {
 	assert.Equal(t, config.EnvironmentFile, unmarshaled.EnvironmentFile)
 	assert.ElementsMatch(t, config.Volume, unmarshaled.Volume)
 	assert.ElementsMatch(t, config.Network, unmarshaled.Network)
-	assert.ElementsMatch(t, config.Command, unmarshaled.Command)
+	assert.ElementsMatch(t, config.Exec, unmarshaled.Exec)
 	assert.ElementsMatch(t, config.Entrypoint, unmarshaled.Entrypoint)
 	assert.Equal(t, config.User, unmarshaled.User)
 	assert.Equal(t, config.Group, unmarshaled.Group)
@@ -144,7 +144,7 @@ secrets:
 	assert.Equal(t, "/etc/secrets/db-env", config.EnvironmentFile)
 	assert.ElementsMatch(t, []string{"pgdata:/var/lib/postgresql/data"}, config.Volume)
 	assert.ElementsMatch(t, []string{"backend"}, config.Network)
-	assert.ElementsMatch(t, []string{"postgres"}, config.Command)
+	assert.ElementsMatch(t, []string{"postgres"}, config.Exec)
 	assert.Equal(t, "postgres", config.User)
 	assert.Equal(t, "postgres", config.Group)
 	assert.Equal(t, "/var/lib/postgresql", config.WorkingDir)
