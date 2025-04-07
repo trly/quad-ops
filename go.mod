@@ -1,13 +1,14 @@
 module github.com/trly/quad-ops
 
 go 1.24.0
+
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-git/v5 v5.14.0
 	github.com/golang-migrate/migrate/v4 v4.18.2
-	github.com/mattn/go-sqlite3 v1.14.24
+	github.com/mattn/go-sqlite3 v1.14.27
 	github.com/rodaine/table v1.3.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
