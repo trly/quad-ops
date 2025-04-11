@@ -1,5 +1,11 @@
 package unit
 
+import (
+	"fmt"
+
+	"github.com/compose-spec/compose-go/v2/types"
+)
+
 // Volume represents the configuration for a volume in a Quadlet unit.
 type Volume struct {
 	ContainersConfModule []string `yaml:"containers_conf_module"`
@@ -72,4 +78,33 @@ func (v *Volume) Restart() error {
 func (v *Volume) Show() error {
 	base := BaseSystemdUnit{Name: v.Name, Type: "volume"}
 	return base.Show()
+}
+
+// FromComposeVolume creates a Volume from a Docker Compose volume configuration
+func (v *Volume) FromComposeVolume(name string, volume types.VolumeConfig) *Volume {
+	// Set the volume name (if specified in the compose file, otherwise use the key name)
+	if volume.Name != "" {
+		v.VolumeName = volume.Name
+	} else {
+		v.VolumeName = name
+	}
+
+	// Set driver if specified
+	if volume.Driver != "" {
+		v.Driver = volume.Driver
+	}
+
+	// Convert driver options to volume options
+	if len(volume.DriverOpts) > 0 {
+		for key, value := range volume.DriverOpts {
+			v.Options = append(v.Options, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
+
+	// Add labels
+	if len(volume.Labels) > 0 {
+		v.Label = append(v.Label, volume.Labels.AsList()...)
+	}
+
+	return v
 }

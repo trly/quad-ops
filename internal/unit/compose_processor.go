@@ -1,6 +1,7 @@
 package unit
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"log"
 	"os"
@@ -53,9 +54,51 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits)
 		}
 
-		// TODO: Process networks
-		// TODO: Process volumes
-		// TODO: Process secrets
+		// Process volumes
+		for volumeName, volumeConfig := range project.Volumes {
+			if config.GetConfig().Verbose {
+				log.Printf("processing volume: %s", volumeName)
+			}
+
+			// Create volume unit
+			volume := NewVolume(volumeName)
+			volume = volume.FromComposeVolume(volumeName, volumeConfig)
+
+			// Create the quadlet unit
+			quadletUnit := QuadletUnit{
+				Name: volumeName,
+				Type: "volume",
+				Volume: *volume,
+			}
+
+			// Process the quadlet unit
+			processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits)
+		}
+
+		// Process networks
+		for networkName, networkConfig := range project.Networks {
+			if config.GetConfig().Verbose {
+				log.Printf("processing network: %s", networkName)
+			}
+
+			// Create network unit
+			network := NewNetwork(networkName)
+			network = network.FromComposeNetwork(networkName, networkConfig)
+
+			// Create the quadlet unit
+			quadletUnit := QuadletUnit{
+				Name: networkName,
+				Type: "network",
+				Network: *network,
+			}
+
+			// Process the quadlet unit
+			processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits)
+		}
+
+		// Process secrets - note that in Podman, secrets are handled as part of containers
+		// and don't need separate units like in Docker Swarm. The secret handling is already
+		// implemented in the Container.FromComposeService method
 	}
 
 	// Reload systemd units if any changed
@@ -213,4 +256,11 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 	}
 
 	return nil
+}
+
+// getContentHash calculates a SHA1 hash for content comparison
+func getContentHash(content string) []byte {
+	hash := sha1.New()
+	hash.Write([]byte(content))
+	return hash.Sum(nil)
 }

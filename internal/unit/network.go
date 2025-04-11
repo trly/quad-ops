@@ -1,5 +1,11 @@
 package unit
 
+import (
+	"fmt"
+
+	"github.com/compose-spec/compose-go/v2/types"
+)
+
 // Network represents the configuration for a network in a Quadlet unit.
 type Network struct {
 	Label      []string `yaml:"label"`
@@ -68,4 +74,64 @@ func (n *Network) Restart() error {
 func (n *Network) Show() error {
 	base := BaseSystemdUnit{Name: n.Name, Type: "network"}
 	return base.Show()
+}
+
+// FromComposeNetwork creates a Network from a Docker Compose network configuration
+func (n *Network) FromComposeNetwork(name string, network types.NetworkConfig) *Network {
+	// Set network name if specified in compose file, otherwise use the key name
+	if network.Name != "" {
+		// We still keep the original name for the unit itself
+		// This is just for reference if needed
+		n.Name = name
+	}
+
+	// Set driver if specified
+	if network.Driver != "" {
+		n.Driver = network.Driver
+	}
+
+	// Handle IPAM configuration if present
+	if network.Ipam.Config != nil && len(network.Ipam.Config) > 0 {
+		// Use the first IPAM pool configuration
+		config := network.Ipam.Config[0]
+
+		if config.Subnet != "" {
+			n.Subnet = config.Subnet
+		}
+
+		if config.Gateway != "" {
+			n.Gateway = config.Gateway
+		}
+
+		if config.IPRange != "" {
+			n.IPRange = config.IPRange
+		}
+	}
+
+	// Set internal flag
+	if network.Internal {
+		n.Internal = true
+	}
+
+	// Set IPv6 flag if enabled
+	if network.EnableIPv6 != nil && *network.EnableIPv6 {
+		n.IPv6 = true
+	}
+
+	// Convert driver options to options array
+	if len(network.DriverOpts) > 0 {
+		for key, value := range network.DriverOpts {
+			n.Options = append(n.Options, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
+
+	// Add labels
+	if len(network.Labels) > 0 {
+		n.Label = append(n.Label, network.Labels.AsList()...)
+	}
+
+	// Enable DNS by default (can be overridden by driver options)
+	n.DNSEnabled = true
+
+	return n
 }
