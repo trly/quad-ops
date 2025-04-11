@@ -3,11 +3,8 @@ package unit
 import (
 	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/trly/quad-ops/internal/config"
 )
 
 // QuadletUnit represents the configuration for a Quadlet unit, which can include
@@ -276,21 +273,4 @@ func formatSecret(secret Secret) string {
 	return strings.Join(secretOpts, ",")
 }
 
-func (p *Processor) processUnit(unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
-	unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
-	processedUnits[unitKey] = true
 
-	content := GenerateQuadletUnit(*unit, p.verbose)
-	unitPath := filepath.Join(config.GetConfig().QuadletDir, unitKey)
-
-	if !force && !p.hasUnitChanged(unitPath, content) {
-		return nil
-	}
-
-	if err := p.writeUnitFile(unitPath, content); err != nil {
-		return err
-	}
-
-	*changedUnits = append(*changedUnits, *unit)
-	return p.updateUnitDatabase(unit, content)
-}

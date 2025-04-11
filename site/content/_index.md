@@ -20,9 +20,10 @@ weight: 0
 
 A lightweight GitOps framework for podman containers managed by [Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
 
-Quad-Ops is a tool that helps you manage container deployments using Podman and systemd in a GitOps workflow. It watches Git repositories for container definitions written in YAML and automatically converts them into unit files that systemd can use to run your containers.
+Quad-Ops is a tool that helps you manage container deployments using Podman and systemd in a GitOps workflow. It watches Git repositories for standard Docker Compose files and automatically converts them into unit files that systemd can use to run your containers.
 
 ### Key Features:
 - Monitor multiple Git repositories for container configurations
-- Supports containers, volumes, networks and images
+- Supports standard Docker Compose files (services, networks, volumes, secrets)
 - Works in both system-wide and user (rootless) modes
+- Automates deployment and management of container infrastructure
