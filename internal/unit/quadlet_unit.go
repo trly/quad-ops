@@ -19,7 +19,6 @@ type QuadletUnit struct {
 	Container Container     `yaml:"container,omitempty"`
 	Volume    Volume        `yaml:"volume,omitempty"`
 	Network   Network       `yaml:"network,omitempty"`
-	Image     Image         `yaml:"image,omitempty"`
 }
 
 // GetSystemdUnit returns the appropriate SystemdUnit implementation for this QuadletUnit
@@ -40,11 +39,6 @@ func (u *QuadletUnit) GetSystemdUnit() SystemdUnit {
 		network.Name = u.Name
 		network.UnitType = "network"
 		return &network
-	case "image":
-		image := u.Image
-		image.Name = u.Name
-		image.UnitType = "image"
-		return &image
 	default:
 		// Default to base implementation
 		return &BaseSystemdUnit{Name: u.Name, Type: u.Type}
@@ -93,8 +87,8 @@ func (u *QuadletUnit) generateContainerSection() string {
 	for k, v := range u.Container.Environment {
 		content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, v))
 	}
-	if u.Container.EnvironmentFile != "" {
-		content += formatKeyValue("EnvironmentFile", u.Container.EnvironmentFile)
+	for _, envFile := range u.Container.EnvironmentFile {
+		content += formatKeyValue("EnvironmentFile", envFile)
 	}
 	for _, vol := range u.Container.Volume {
 		content += formatKeyValue("Volume", vol)
@@ -117,14 +111,8 @@ func (u *QuadletUnit) generateContainerSection() string {
 	if u.Container.WorkingDir != "" {
 		content += formatKeyValue("WorkingDir", u.Container.WorkingDir)
 	}
-	if len(u.Container.PodmanArgs) > 0 {
-		content += formatKeyValueSlice("PodmanArgs", u.Container.PodmanArgs)
-	}
-	if u.Container.RunInit {
+	if *u.Container.RunInit {
 		content += formatKeyValue("RunInit", "yes")
-	}
-	if u.Container.Notify {
-		content += formatKeyValue("Notify", "yes")
 	}
 	if u.Container.Privileged {
 		content += formatKeyValue("Privileged", "yes")
@@ -201,17 +189,6 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	return content
 }
 
-func (u *QuadletUnit) generateImageSection() string {
-	content := "\n[Image]\n"
-	if u.Image.Image != "" {
-		content += formatKeyValue("Image", u.Image.Image)
-	}
-	if len(u.Image.PodmanArgs) > 0 {
-		content += formatKeyValueSlice("PodmanArgs", u.Image.PodmanArgs)
-	}
-	return content
-}
-
 func (u *QuadletUnit) generateUnitSection() string {
 	content := "[Unit]\n"
 	if u.Systemd.Description != "" {
@@ -266,8 +243,6 @@ func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
 		content += unit.generateVolumeSection()
 	case "network":
 		content += unit.generateNetworkSection()
-	case "image":
-		content += unit.generateImageSection()
 	}
 
 	content += unit.generateServiceSection()
@@ -283,19 +258,16 @@ func formatKeyValueSlice(key string, values []string) string {
 }
 
 func formatSecret(secret Secret) string {
-	secretOpts := []string{secret.Name}
+	secretOpts := []string{secret.Source}
 
-	if secret.Type != "" {
-		secretOpts = append(secretOpts, fmt.Sprintf("type=%s", secret.Type))
-	}
 	if secret.Target != "" {
 		secretOpts = append(secretOpts, fmt.Sprintf("target=%s", secret.Target))
 	}
-	if secret.UID != 0 {
-		secretOpts = append(secretOpts, fmt.Sprintf("uid=%d", secret.UID))
+	if secret.UID != "" {
+		secretOpts = append(secretOpts, fmt.Sprintf("uid=%s", secret.UID))
 	}
-	if secret.GID != 0 {
-		secretOpts = append(secretOpts, fmt.Sprintf("gid=%d", secret.GID))
+	if secret.GID != "" {
+		secretOpts = append(secretOpts, fmt.Sprintf("gid=%s", secret.GID))
 	}
 	if secret.Mode != "" {
 		secretOpts = append(secretOpts, fmt.Sprintf("mode=%s", secret.Mode))

@@ -3,226 +3,170 @@ package unit
 import (
 	"testing"
 
+	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 )
 
-func TestContainerConfigYAMLMarshaling(t *testing.T) {
-	// Create a sample config
-	config := Container{
-		Image:           "nginx:latest",
-		Label:           []string{"com.example.key1=value1", "com.example.key2=value2"},
-		PublishPort:     []string{"8080:80", "443:443"},
-		Environment:     map[string]string{"ENV1": "value1", "ENV2": "value2"},
-		EnvironmentFile: "/path/to/env/file",
-		Volume:          []string{"/host/path:/container/path", "named-volume:/data"},
-		Network:         []string{"host", "container-network"},
-		Exec:            []string{"nginx", "-g", "daemon off;"},
-		Entrypoint:      []string{"/docker-entrypoint.sh"},
-		User:            "nginx",
-		Group:           "nginx",
-		WorkingDir:      "/usr/share/nginx/html",
-		PodmanArgs:      []string{"--log-level=debug", "--cgroup-manager=systemd"},
-		RunInit:         true,
-		Notify:          true,
-		Privileged:      false,
-		ReadOnly:        true,
-		SecurityLabel:   []string{"label=value", "level=s0"},
-		HostName:        "web-server",
-		Secrets: []Secret{
-			{
-				Name:   "web-cert",
-				Type:   "mount",
-				Target: "/etc/certs",
-				UID:    1000,
-				GID:    1000,
-				Mode:   "0400",
-			},
-			{
-				Name:   "api-key",
-				Type:   "env",
-				Target: "API_KEY",
-			},
+func TestContainer_GetSystemdUnit(t *testing.T) {
+	container := Container{
+		Name:     "test-container",
+		UnitType: "container",
+	}
+
+	assert.Equal(t, "test-container", container.GetUnitName())
+	assert.Equal(t, "container", container.GetUnitType())
+	assert.Equal(t, "test-container.service", container.GetServiceName())
+}
+
+func TestFromComposeService(t *testing.T) {
+	// Setup test data
+	serviceName := "test-service"
+	image := "nginx:latest"
+	var labels = types.Labels{}
+	labels.Add("label1", "value1")
+	labels.Add("label2", "value2")
+
+	envFiles := []types.EnvFile{
+		{
+			Path:     "./env.local",
+			Format:   "env",
+			Required: true,
 		},
 	}
 
-	// Test marshaling to YAML
-	yamlData, err := yaml.Marshal(config)
-	assert.NoError(t, err)
-	assert.NotEmpty(t, yamlData)
-
-	// Test unmarshaling from YAML
-	var unmarshaled Container
-	err = yaml.Unmarshal(yamlData, &unmarshaled)
-	assert.NoError(t, err)
-
-	// Verify the unmarshaled data matches the original
-	assert.Equal(t, config.Image, unmarshaled.Image)
-	assert.ElementsMatch(t, config.Label, unmarshaled.Label)
-	assert.ElementsMatch(t, config.PublishPort, unmarshaled.PublishPort)
-	assert.Equal(t, config.Environment, unmarshaled.Environment)
-	assert.Equal(t, config.EnvironmentFile, unmarshaled.EnvironmentFile)
-	assert.ElementsMatch(t, config.Volume, unmarshaled.Volume)
-	assert.ElementsMatch(t, config.Network, unmarshaled.Network)
-	assert.ElementsMatch(t, config.Exec, unmarshaled.Exec)
-	assert.ElementsMatch(t, config.Entrypoint, unmarshaled.Entrypoint)
-	assert.Equal(t, config.User, unmarshaled.User)
-	assert.Equal(t, config.Group, unmarshaled.Group)
-	assert.Equal(t, config.WorkingDir, unmarshaled.WorkingDir)
-	assert.ElementsMatch(t, config.PodmanArgs, unmarshaled.PodmanArgs)
-	assert.Equal(t, config.RunInit, unmarshaled.RunInit)
-	assert.Equal(t, config.Notify, unmarshaled.Notify)
-	assert.Equal(t, config.Privileged, unmarshaled.Privileged)
-	assert.Equal(t, config.ReadOnly, unmarshaled.ReadOnly)
-	assert.ElementsMatch(t, config.SecurityLabel, unmarshaled.SecurityLabel)
-	assert.Equal(t, config.HostName, unmarshaled.HostName)
-	assert.Len(t, unmarshaled.Secrets, len(config.Secrets))
-
-	// Test specific secret config fields
-	for i, secret := range config.Secrets {
-		assert.Equal(t, secret.Name, unmarshaled.Secrets[i].Name)
-		assert.Equal(t, secret.Type, unmarshaled.Secrets[i].Type)
-		assert.Equal(t, secret.Target, unmarshaled.Secrets[i].Target)
-		assert.Equal(t, secret.UID, unmarshaled.Secrets[i].UID)
-		assert.Equal(t, secret.GID, unmarshaled.Secrets[i].GID)
-		assert.Equal(t, secret.Mode, unmarshaled.Secrets[i].Mode)
+	// Create a port config
+	publishedPort := "8080"
+	targetPort := uint32(80)
+	portConfig := []types.ServicePortConfig{
+		{
+			Published: publishedPort,
+			Target:    targetPort,
+		},
 	}
-}
 
-func TestContainerConfigYAMLUnmarshaling(t *testing.T) {
-	yamlData := `
-image: postgres:13
-label:
-  - app=database
-  - environment=production
-publish:
-  - 5432:5432
-environment:
-  POSTGRES_USER: admin
-  POSTGRES_PASSWORD: secret
-  POSTGRES_DB: myapp
-environment_file: /etc/secrets/db-env
-volume:
-  - pgdata:/var/lib/postgresql/data
-network:
-  - backend
-command:
-  - postgres
-user: postgres
-group: postgres
-working_dir: /var/lib/postgresql
-run_init: false
-notify: true
-privileged: false
-read_only: false
-hostname: db-server
-secrets:
-  - name: db-cert
-    type: mount
-    target: /etc/certs
-    uid: 999
-    gid: 999
-    mode: "0400"
-  - name: db-password
-    type: env
-    target: DB_PASSWORD
-`
+	// Environment variables
+	envValue1 := "env_value1"
+	envValue2 := "env_value2"
+	env := map[string]*string{
+		"ENV_VAR1": &envValue1,
+		"ENV_VAR2": &envValue2,
+	}
 
-	var config Container
-	err := yaml.Unmarshal([]byte(yamlData), &config)
-	assert.NoError(t, err)
+	// Volume configurations
+	volumes := []types.ServiceVolumeConfig{
+		{
+			Source: "./data",
+			Target: "/app/data",
+		},
+		{
+			Source: "logs",
+			Target: "/var/logs",
+		},
+	}
 
-	// Verify fields were properly unmarshaled
-	assert.Equal(t, "postgres:13", config.Image)
-	assert.ElementsMatch(t, []string{"app=database", "environment=production"}, config.Label)
-	assert.ElementsMatch(t, []string{"5432:5432"}, config.PublishPort)
-	assert.Equal(t, map[string]string{
-		"POSTGRES_USER":     "admin",
-		"POSTGRES_PASSWORD": "secret",
-		"POSTGRES_DB":       "myapp",
-	}, config.Environment)
-	assert.Equal(t, "/etc/secrets/db-env", config.EnvironmentFile)
-	assert.ElementsMatch(t, []string{"pgdata:/var/lib/postgresql/data"}, config.Volume)
-	assert.ElementsMatch(t, []string{"backend"}, config.Network)
-	assert.ElementsMatch(t, []string{"postgres"}, config.Exec)
-	assert.Equal(t, "postgres", config.User)
-	assert.Equal(t, "postgres", config.Group)
-	assert.Equal(t, "/var/lib/postgresql", config.WorkingDir)
-	assert.False(t, config.RunInit)
-	assert.True(t, config.Notify)
-	assert.False(t, config.Privileged)
-	assert.False(t, config.ReadOnly)
-	assert.Equal(t, "db-server", config.HostName)
+	// Network configurations
+	networks := map[string]*types.ServiceNetworkConfig{
+		"frontend": {
+			Aliases: []string{"web"},
+		},
+		"backend": {
+			Aliases: []string{"api"},
+		},
+	}
+
+	// Command and entrypoint
+	command := []string{"nginx", "-g", "daemon off;"}
+	entrypoint := []string{"/docker-entrypoint.sh"}
+
+	// Other properties
+	user := "nginx"
+	workingDir := "/app"
+	init := true
+	privileged := true
+	readOnly := true
+	securityOpt := []string{"label=user:USER", "label=role:ROLE"}
+	hostname := "web-server"
+
+	// Secret configurations
+	uid := "1000"
+	gid := "1000"
+	secrets := []types.ServiceSecretConfig{
+		{
+			Source: "db_password",
+			Target: "app_password",
+			UID:    uid,
+			GID:    gid,
+		},
+	}
+
+	// Create the service config
+	service := types.ServiceConfig{
+		Name:        serviceName,
+		Labels:      labels,
+		Image:       image,
+		Ports:       portConfig,
+		Environment: env,
+		EnvFiles:    envFiles,
+		Volumes:     volumes,
+		Networks:    networks,
+		Command:     command,
+		Entrypoint:  entrypoint,
+		User:        user,
+		WorkingDir:  workingDir,
+		Init:        &init,
+		Privileged:  privileged,
+		ReadOnly:    readOnly,
+		SecurityOpt: securityOpt,
+		Hostname:    hostname,
+		Secrets:     secrets,
+	}
+
+	container := NewContainer(serviceName)
+	// Call the function being tested
+	container = container.FromComposeService(service)
+
+	// Assert all properties were transferred correctly
+	assert.Equal(t, serviceName, container.Name)
+	assert.Equal(t, "container", container.UnitType)
+	assert.Equal(t, image, container.Image)
+	assert.ElementsMatch(t, labels.AsList(), container.Label)
+
+	// Verify ports
+	expectedPort := "8080:80"
+	assert.Contains(t, container.PublishPort, expectedPort)
+
+	// Verify environment variables
+	assert.Equal(t, envValue1, container.Environment["ENV_VAR1"])
+	assert.Equal(t, envValue2, container.Environment["ENV_VAR2"])
+
+	// Verify env files
+	assert.ElementsMatch(t, []string{"./env.local"}, container.EnvironmentFile)
+
+	// Verify volumes
+	assert.Contains(t, container.Volume, "./data:/app/data")
+	assert.Contains(t, container.Volume, "logs:/var/logs")
+
+	// Verify networks
+	assert.ElementsMatch(t, []string{"web", "api"}, container.Network)
+
+	// Verify command and entrypoint
+	assert.Equal(t, command, container.Exec)
+	assert.Equal(t, entrypoint, container.Entrypoint)
+
+	// Verify other properties
+	assert.Equal(t, user, container.User)
+	assert.Equal(t, workingDir, container.WorkingDir)
+	assert.Equal(t, init, *container.RunInit)
+	assert.Equal(t, privileged, container.Privileged)
+	assert.Equal(t, readOnly, container.ReadOnly)
+	assert.ElementsMatch(t, securityOpt, container.SecurityLabel)
+	assert.Equal(t, hostname, container.HostName)
 
 	// Verify secrets
-	assert.Len(t, config.Secrets, 2)
-	assert.Equal(t, "db-cert", config.Secrets[0].Name)
-	assert.Equal(t, "mount", config.Secrets[0].Type)
-	assert.Equal(t, "/etc/certs", config.Secrets[0].Target)
-	assert.Equal(t, 999, config.Secrets[0].UID)
-	assert.Equal(t, 999, config.Secrets[0].GID)
-	assert.Equal(t, "0400", config.Secrets[0].Mode)
-
-	assert.Equal(t, "db-password", config.Secrets[1].Name)
-	assert.Equal(t, "env", config.Secrets[1].Type)
-	assert.Equal(t, "DB_PASSWORD", config.Secrets[1].Target)
-}
-
-func TestSecretConfigValidation(t *testing.T) {
-	tests := []struct {
-		name    string
-		secret  Secret
-		isValid bool
-	}{
-		{
-			name: "Valid mount secret",
-			secret: Secret{
-				Name:   "cert",
-				Type:   "mount",
-				Target: "/etc/ssl/certs",
-				UID:    1000,
-				GID:    1000,
-				Mode:   "0400",
-			},
-			isValid: true,
-		},
-		{
-			name: "Valid env secret",
-			secret: Secret{
-				Name:   "api-key",
-				Type:   "env",
-				Target: "API_KEY",
-			},
-			isValid: true,
-		},
-		{
-			name: "Invalid secret type",
-			secret: Secret{
-				Name:   "invalid",
-				Type:   "unknown",
-				Target: "somewhere",
-			},
-			isValid: false,
-		},
-		{
-			name: "Missing name",
-			secret: Secret{
-				Type:   "mount",
-				Target: "/etc/certs",
-			},
-			isValid: false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			err := tc.secret.Validate()
-
-			if tc.isValid {
-				assert.NoError(t, err, "Expected valid secret config")
-			} else {
-				assert.Error(t, err, "Expected invalid secret config")
-			}
-		})
-	}
+	assert.Equal(t, 1, len(container.Secrets))
+	assert.Equal(t, "db_password", container.Secrets[0].Source)
+	assert.Equal(t, "app_password", container.Secrets[0].Target)
+	assert.Equal(t, uid, container.Secrets[0].UID)
+	assert.Equal(t, gid, container.Secrets[0].GID)
+	assert.Equal(t, "0644", container.Secrets[0].Mode)
 }

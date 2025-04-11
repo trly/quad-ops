@@ -26,11 +26,11 @@ const (
 // It contains information about the repository, including its name, URL, target
 // directory, and cleanup policy.
 type RepositoryConfig struct {
-	Name        string `yaml:"name"`
-	URL         string `yaml:"url"`
-	Reference   string `yaml:"ref,omitempty"`
-	ManifestDir string `yaml:"manifestDir,omitempty"`
-	Cleanup     string `yaml:"cleanup,omitempty"`
+	Name       string `yaml:"name"`
+	URL        string `yaml:"url"`
+	Reference  string `yaml:"ref,omitempty"`
+	ComposeDir string `yaml:"composeDir,omitempty"`
+	Cleanup    string `yaml:"cleanup,omitempty"`
 }
 
 // Config represents the configuration for the quad-ops system. It contains

@@ -1,31 +1,31 @@
 package unit
 
-import "fmt"
+import (
+	"fmt"
 
-// Container represents the configuration for a container in a Quadlet unit.
-// It includes settings such as the container image, published ports, environment variables,
-// volumes, networks, command, entrypoint, user, and other container-specific options.
+	"github.com/compose-spec/compose-go/v2/types"
+)
+
+// Container represents the configuration for a container unit.
 type Container struct {
-	Image           string            `yaml:"image"`
-	Label           []string          `yaml:"label"`
-	PublishPort     []string          `yaml:"publish"`
-	Environment     map[string]string `yaml:"environment"`
-	EnvironmentFile string            `yaml:"environment_file"`
-	Volume          []string          `yaml:"volume"`
-	Network         []string          `yaml:"network"`
-	Exec            []string          `yaml:"command"`
-	Entrypoint      []string          `yaml:"entrypoint"`
-	User            string            `yaml:"user"`
-	Group           string            `yaml:"group"`
-	WorkingDir      string            `yaml:"working_dir"`
-	PodmanArgs      []string          `yaml:"podman_args"`
-	RunInit         bool              `yaml:"run_init"`
-	Notify          bool              `yaml:"notify"`
-	Privileged      bool              `yaml:"privileged"`
-	ReadOnly        bool              `yaml:"read_only"`
-	SecurityLabel   []string          `yaml:"security_label"`
-	HostName        string            `yaml:"hostname"`
-	Secrets         []Secret          `yaml:"secrets"`
+	Image           string
+	Label           []string
+	PublishPort     []string
+	Environment     map[string]string
+	EnvironmentFile []string
+	Volume          []string
+	Network         []string
+	Exec            []string
+	Entrypoint      []string
+	User            string
+	Group           string
+	WorkingDir      string
+	RunInit         *bool
+	Privileged      bool
+	ReadOnly        bool
+	SecurityLabel   []string
+	HostName        string
+	Secrets         []Secret
 
 	// Systemd unit properties
 	Name     string
@@ -38,6 +38,77 @@ func NewContainer(name string) *Container {
 		Name:     name,
 		UnitType: "container",
 	}
+}
+
+func (c *Container) FromComposeService(service types.ServiceConfig) *Container {
+	c.Image = service.Image
+	c.Label = append(c.Label, service.Labels.AsList()...)
+
+	if len(service.Ports) > 0 {
+		for _, port := range service.Ports {
+			c.PublishPort = append(c.PublishPort, fmt.Sprintf("%s:%d", port.Published, port.Target))
+		}
+	}
+
+	if service.Environment != nil {
+		if c.Environment == nil {
+			c.Environment = make(map[string]string)
+		}
+		for k, v := range service.Environment {
+			if v != nil {
+				c.Environment[k] = *v
+			}
+		}
+	}
+
+	if len(service.EnvFiles) > 0 {
+		for _, envFile := range service.EnvFiles {
+			c.EnvironmentFile = append(c.EnvironmentFile, envFile.Path)
+		}
+	}
+
+	if len(service.Volumes) > 0 {
+		for _, vol := range service.Volumes {
+			c.Volume = append(c.Volume, fmt.Sprintf("%s:%s", vol.Source, vol.Target))
+		}
+	}
+
+	if len(service.Networks) > 0 {
+		for _, net := range service.Networks {
+			c.Network = append(c.Network, net.Aliases[0])
+		}
+	}
+
+	c.Exec = service.Command
+	c.Entrypoint = service.Entrypoint
+	c.User = service.User
+	c.WorkingDir = service.WorkingDir
+	c.RunInit = service.Init
+	c.Privileged = service.Privileged
+	c.ReadOnly = service.ReadOnly
+	c.SecurityLabel = append(c.SecurityLabel, service.SecurityOpt...)
+	c.HostName = service.Hostname
+
+	if len(service.Secrets) > 0 {
+		for _, secret := range service.Secrets {
+			unitSecret := Secret{
+				Source: secret.Source,
+				Target: secret.Target,
+				UID:    secret.UID,
+				GID:    secret.GID,
+			}
+
+			if secret.Mode == nil {
+				defaultMode := types.FileMode(0644)
+				unitSecret.Mode = defaultMode.String()
+			} else {
+				unitSecret.Mode = secret.Mode.String()
+			}
+			c.Secrets = append(c.Secrets, unitSecret)
+		}
+	}
+
+	return c
 }
 
 // GetServiceName returns the full systemd service name
@@ -86,26 +157,9 @@ func (c *Container) Show() error {
 }
 
 type Secret struct {
-	Name   string `yaml:"name"`
-	Type   string `yaml:"type"`   // mount or env
-	Target string `yaml:"target"` // defaults to secret name
-	UID    int    `yaml:"uid"`    // defaults to 0, mount type only
-	GID    int    `yaml:"gid"`    // defaults to 0, mount type only
-	Mode   string `yaml:"mode"`   // defaults to 0444, mount type only
-}
-
-func (sc Secret) Validate() error {
-	if sc.Type != "mount" && sc.Type != "env" {
-		return fmt.Errorf("invalid secret type: %s", sc.Type)
-	}
-
-	if sc.Type == "mount" && (sc.UID == 0 || sc.GID == 0 || sc.Mode == "") {
-		return fmt.Errorf("missing required fields for mount secret: UID, GID, Mode")
-	}
-
-	if sc.Type == "env" && sc.Target == "" {
-		return fmt.Errorf("missing required field for env secret: Target")
-	}
-
-	return nil
+	Source string
+	Target string
+	UID    string
+	GID    string
+	Mode   string
 }

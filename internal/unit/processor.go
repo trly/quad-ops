@@ -32,39 +32,8 @@ func NewProcessor(repo *git.Repository, unitRepo Repository) *Processor {
 }
 
 func (p *Processor) Process(force bool) error {
-	manifestsPath := p.getManifestsPath()
-
-	if p.verbose {
-		log.Printf("processing manifests from repository: %s at path: %s", p.repo.URL, manifestsPath)
-		log.Printf("output directory: %s", config.GetConfig().QuadletDir)
-	}
-
-	files, err := p.findYamlFiles(manifestsPath)
-	if err != nil {
-		return err
-	}
-
-	processedUnits, err := p.processYamlFiles(files, force)
-	if err != nil {
-		return err
-	}
-
-	if err := p.cleanupOrphanedUnits(processedUnits); err != nil {
-		return err
-	}
-
-	if err := p.startAllManagedContainers(); err != nil {
-		return err
-	}
 
 	return nil
-}
-
-func (p *Processor) getManifestsPath() string {
-	if p.repo.ManifestDir != "" {
-		return filepath.Join(p.repo.Path, p.repo.ManifestDir)
-	}
-	return p.repo.Path
 }
 
 func (p *Processor) findYamlFiles(dirPath string) ([]string, error) {

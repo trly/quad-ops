@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/git"
 	"github.com/trly/quad-ops/internal/unit"
@@ -104,10 +105,19 @@ func syncRepositories(cfg *config.Config) {
 				continue
 			}
 
-			if err := unit.ProcessManifests(gitRepo, force); err != nil {
-				log.Printf("error processing manifests for %s: %v", repoConfig.Name, err)
+			projects, err := compose.ReadProjects(gitRepo.ComposeDir)
+			if err != nil {
+				log.Printf("error reading projects from repository %s: %v", repoConfig.Name, err)
 				continue
 			}
+
+			err = unit.ProcessComposeProjects(projects, force)
+			if err != nil {
+				log.Printf("error processing projects from repository %s: %v", repoConfig.Name, err)
+				continue
+
+			}
+
 		} else {
 			log.Printf("dry-run: would process repository: %s", repoConfig.Name)
 		}
