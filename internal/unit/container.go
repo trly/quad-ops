@@ -74,8 +74,14 @@ func (c *Container) FromComposeService(service types.ServiceConfig) *Container {
 	}
 
 	if len(service.Networks) > 0 {
-		for _, net := range service.Networks {
-			c.Network = append(c.Network, net.Aliases[0])
+		for netName, net := range service.Networks {
+			// If the network has aliases, use the first one
+			if net != nil && len(net.Aliases) > 0 {
+				c.Network = append(c.Network, net.Aliases[0])
+			} else {
+				// Otherwise, use the network name
+				c.Network = append(c.Network, netName)
+			}
 		}
 	}
 
@@ -83,7 +89,14 @@ func (c *Container) FromComposeService(service types.ServiceConfig) *Container {
 	c.Entrypoint = service.Entrypoint
 	c.User = service.User
 	c.WorkingDir = service.WorkingDir
-	c.RunInit = service.Init
+	// Handle the RunInit field - make sure it's not nil before assigning
+	if service.Init != nil {
+		c.RunInit = service.Init
+	} else {
+		// Set a default value for RunInit
+		defaultInit := false
+		c.RunInit = &defaultInit
+	}
 	c.Privileged = service.Privileged
 	c.ReadOnly = service.ReadOnly
 	c.SecurityLabel = append(c.SecurityLabel, service.SecurityOpt...)

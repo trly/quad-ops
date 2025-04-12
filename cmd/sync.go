@@ -24,6 +24,7 @@ package cmd
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -46,15 +47,15 @@ var (
 func (c *SyncCommand) GetCobraCommand() *cobra.Command {
 	syncCmd := &cobra.Command{
 		Use:   "sync",
-		Short: "Synchronizes the manifests defined in configured repositories with quadlet units on the local system.",
-		Long: `Synchronizes the manifests defined in configured repositories with quadlet units on the local system.
+		Short: "Synchronizes the Docker Compose files defined in configured repositories with quadlet units on the local system.",
+		Long: `Synchronizes the Docker Compose files defined in configured repositories with quadlet units on the local system.
 
 Repositories are defined in the quad-ops config file as a list of Repository objects.
 
 ---
 repositories:
-  - name: quad-ops-manifests
-    url: https://github.com/trly/quad-ops-manifests.git
+  - name: quad-ops-compose
+    url: https://github.com/trly/quad-ops-compose.git
     target: main
     cleanup:
       action: Delete`,
@@ -105,7 +106,17 @@ func syncRepositories(cfg *config.Config) {
 				continue
 			}
 
-			projects, err := compose.ReadProjects(gitRepo.ComposeDir)
+			// Determine compose directory path
+			composeDir := gitRepo.Path
+			if repoConfig.ComposeDir != "" {
+				composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
+			}
+			
+			if config.GetConfig().Verbose {
+				log.Printf("looking for compose files in: %s", composeDir)
+			}
+			
+			projects, err := compose.ReadProjects(composeDir)
 			if err != nil {
 				log.Printf("error reading projects from repository %s: %v", repoConfig.Name, err)
 				continue

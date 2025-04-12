@@ -72,6 +72,10 @@ func TestFromComposeService(t *testing.T) {
 		"backend": {
 			Aliases: []string{"api"},
 		},
+		// Add a network without aliases to test the nil case
+		"default": {
+			// No aliases
+		},
 	}
 
 	// Command and entrypoint
@@ -147,7 +151,7 @@ func TestFromComposeService(t *testing.T) {
 	assert.Contains(t, container.Volume, "logs:/var/logs")
 
 	// Verify networks
-	assert.ElementsMatch(t, []string{"web", "api"}, container.Network)
+	assert.ElementsMatch(t, []string{"web", "api", "default"}, container.Network)
 
 	// Verify command and entrypoint
 	assert.Equal(t, command, container.Exec)
