@@ -30,7 +30,8 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 	// Process each project
 	for _, project := range projects {
 		if config.GetConfig().Verbose {
-			log.Printf("processing compose project: %s", project.Name)
+			log.Printf("processing compose project: %s (services: %d, networks: %d, volumes: %d)", 
+				project.Name, len(project.Services), len(project.Networks), len(project.Volumes))
 		}
 
 		// Process services (containers)

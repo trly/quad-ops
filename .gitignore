@@ -41,4 +41,5 @@ configs/*
 
 # quad-ops
 *.db
+quad-ops
 
