@@ -15,7 +15,7 @@ type Network struct {
 	Subnet     string   `yaml:"subnet"`
 	IPv6       bool     `yaml:"ipv6"`
 	Internal   bool     `yaml:"internal"`
-	DNSEnabled bool     `yaml:"dns_enabled"`
+	// DNSEnabled removed - not supported by podman-systemd
 	Options    []string `yaml:"options"`
 
 	// Systemd unit properties
@@ -130,8 +130,7 @@ func (n *Network) FromComposeNetwork(name string, network types.NetworkConfig) *
 		n.Label = append(n.Label, network.Labels.AsList()...)
 	}
 
-	// Enable DNS by default (can be overridden by driver options)
-	n.DNSEnabled = true
+	// DNS is configured via driver options in podman-systemd
 
 	return n
 }
