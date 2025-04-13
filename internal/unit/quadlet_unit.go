@@ -111,15 +111,12 @@ func (u *QuadletUnit) generateContainerSection() string {
 	if *u.Container.RunInit {
 		content += formatKeyValue("RunInit", "yes")
 	}
-	if u.Container.Privileged {
-		content += formatKeyValue("Privileged", "yes")
-	}
+	// Privileged is not supported by podman-systemd
 	if u.Container.ReadOnly {
 		content += formatKeyValue("ReadOnly", "yes")
 	}
-	for _, label := range u.Container.SecurityLabel {
-		content += formatKeyValue("SecurityLabel", label)
-	}
+	// SecurityLabel is not supported by podman-systemd
+	// Use specific labels like SecurityLabelType instead
 	if u.Container.HostName != "" {
 		content += formatKeyValue("HostName", u.Container.HostName)
 	}
@@ -177,9 +174,7 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	if u.Network.Internal {
 		content += formatKeyValue("Internal", "yes")
 	}
-	if u.Network.DNSEnabled {
-		content += formatKeyValue("DNSEnabled", "yes")
-	}
+	// DNSEnabled is not supported by podman-systemd
 	for _, opt := range u.Network.Options {
 		content += formatKeyValue("Options", opt)
 	}

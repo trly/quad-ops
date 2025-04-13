@@ -18,6 +18,8 @@ func TestContainer_GetSystemdUnit(t *testing.T) {
 	assert.Equal(t, "test-container.service", container.GetServiceName())
 }
 
+// Removed automatic variable conversion - users should specify the exact values in compose files
+
 func TestFromComposeService(t *testing.T) {
 	// Setup test data
 	serviceName := "test-service"
@@ -67,10 +69,10 @@ func TestFromComposeService(t *testing.T) {
 	// Network configurations
 	networks := map[string]*types.ServiceNetworkConfig{
 		"frontend": {
-			Aliases: []string{"web"},
+			Aliases: []string{"frontend-alias"},
 		},
 		"backend": {
-			Aliases: []string{"api"},
+			Aliases: []string{"backend-alias"},
 		},
 		// Add a network without aliases to test the nil case
 		"default": {
@@ -127,11 +129,12 @@ func TestFromComposeService(t *testing.T) {
 
 	container := NewContainer(serviceName)
 	// Call the function being tested
-	container = container.FromComposeService(service)
+	container = container.FromComposeService(service, "test")
 
 	// Assert all properties were transferred correctly
 	assert.Equal(t, serviceName, container.Name)
 	assert.Equal(t, "container", container.UnitType)
+	// No automatic image name conversion
 	assert.Equal(t, image, container.Image)
 	assert.ElementsMatch(t, labels.AsList(), container.Label)
 
@@ -139,19 +142,19 @@ func TestFromComposeService(t *testing.T) {
 	expectedPort := "8080:80"
 	assert.Contains(t, container.PublishPort, expectedPort)
 
-	// Verify environment variables
+	// Verify environment variables - no automatic conversion
 	assert.Equal(t, envValue1, container.Environment["ENV_VAR1"])
 	assert.Equal(t, envValue2, container.Environment["ENV_VAR2"])
 
 	// Verify env files
 	assert.ElementsMatch(t, []string{"./env.local"}, container.EnvironmentFile)
 
-	// Verify volumes
+	// Verify volumes - no automatic conversion to named volumes
 	assert.Contains(t, container.Volume, "./data:/app/data")
 	assert.Contains(t, container.Volume, "logs:/var/logs")
 
-	// Verify networks
-	assert.ElementsMatch(t, []string{"web", "api", "default"}, container.Network)
+	// Verify networks - now using .network suffix for all networks
+	assert.ElementsMatch(t, []string{"test-backend.network", "test-frontend.network", "test-default.network"}, container.Network)
 
 	// Verify command and entrypoint
 	assert.Equal(t, command, container.Exec)
@@ -161,9 +164,9 @@ func TestFromComposeService(t *testing.T) {
 	assert.Equal(t, user, container.User)
 	assert.Equal(t, workingDir, container.WorkingDir)
 	assert.Equal(t, init, *container.RunInit)
-	assert.Equal(t, privileged, container.Privileged)
+	// Privileged is not supported by podman-systemd
 	assert.Equal(t, readOnly, container.ReadOnly)
-	assert.ElementsMatch(t, securityOpt, container.SecurityLabel)
+	// SecurityLabel is not supported by podman-systemd
 	assert.Equal(t, hostname, container.HostName)
 
 	// Verify secrets

@@ -54,7 +54,7 @@ func TestFromComposeNetwork(t *testing.T) {
 	// Network flags
 	assert.True(t, network.Internal)
 	assert.True(t, network.IPv6)
-	assert.True(t, network.DNSEnabled)
+	// DNSEnabled is not supported by podman-systemd
 
 	// IPAM config
 	assert.Equal(t, "172.28.0.0/16", network.Subnet)
@@ -82,7 +82,7 @@ func TestFromComposeNetwork(t *testing.T) {
 	assert.Equal(t, "network", minimalNetwork.UnitType)
 	
 	// Default values
-	assert.True(t, minimalNetwork.DNSEnabled, "DNS should be enabled by default")
+	// DNSEnabled is not supported by podman-systemd
 	assert.Empty(t, minimalNetwork.Driver, "Driver should be empty for minimal configuration")
 	assert.Empty(t, minimalNetwork.Subnet, "Subnet should be empty for minimal configuration")
 }

@@ -40,15 +40,30 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 				log.Printf("processing service: %s", serviceName)
 			}
 
-			// Create container unit
-			container := NewContainer(serviceName)
-			container = container.FromComposeService(service)
+			// Create prefixed container name using project name to enable proper DNS resolution
+			// Format: <project>-<service> (e.g., myproject-db, myproject-web)
+			prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
+			container := NewContainer(prefixedName)
+			container = container.FromComposeService(service, project.Name)
 
-			// Create the quadlet unit
+			// Create the quadlet unit with proper systemd configuration
 			quadletUnit := QuadletUnit{
-				Name: serviceName,
+				Name: prefixedName, // Use prefixed name for DNS resolution
 				Type: "container",
 				Container: *container,
+				Systemd: SystemdConfig{},
+			}
+			
+			// Add dependencies between containers
+			// For example, if this service depends on another one (via depends_on)
+			if len(service.DependsOn) > 0 {
+				for depServiceName := range service.DependsOn {
+					// Format the service name with project prefix and add .service suffix for systemd
+					formattedDepName := fmt.Sprintf("%s-%s.service", project.Name, depServiceName)
+					// Add dependency to After and Requires lists
+					quadletUnit.Systemd.After = append(quadletUnit.Systemd.After, formattedDepName)
+					quadletUnit.Systemd.Requires = append(quadletUnit.Systemd.Requires, formattedDepName)
+				}
 			}
 
 			// Process the quadlet unit
@@ -61,13 +76,14 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 				log.Printf("processing volume: %s", volumeName)
 			}
 
-			// Create volume unit
-			volume := NewVolume(volumeName)
+			// Create prefixed volume name using project name for consistency
+			prefixedName := fmt.Sprintf("%s-%s", project.Name, volumeName)
+			volume := NewVolume(prefixedName)
 			volume = volume.FromComposeVolume(volumeName, volumeConfig)
 
 			// Create the quadlet unit
 			quadletUnit := QuadletUnit{
-				Name: volumeName,
+				Name: prefixedName,
 				Type: "volume",
 				Volume: *volume,
 			}
@@ -82,13 +98,14 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 				log.Printf("processing network: %s", networkName)
 			}
 
-			// Create network unit
-			network := NewNetwork(networkName)
+			// Create prefixed network name using project name for consistency
+			prefixedName := fmt.Sprintf("%s-%s", project.Name, networkName)
+			network := NewNetwork(prefixedName)
 			network = network.FromComposeNetwork(networkName, networkConfig)
 
 			// Create the quadlet unit
 			quadletUnit := QuadletUnit{
-				Name: networkName,
+				Name: prefixedName,
 				Type: "network",
 				Network: *network,
 			}

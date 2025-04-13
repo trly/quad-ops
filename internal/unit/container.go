@@ -21,11 +21,12 @@ type Container struct {
 	Group           string
 	WorkingDir      string
 	RunInit         *bool
-	Privileged      bool
-	ReadOnly        bool
-	SecurityLabel   []string
-	HostName        string
-	Secrets         []Secret
+	// Privileged removed - not supported by podman-systemd
+	ReadOnly bool
+	// SecurityLabel removed - not supported by podman-systemd
+	// Use SecurityLabelType, SecurityLabelLevel, etc. instead
+	HostName string
+	Secrets  []Secret
 
 	// Systemd unit properties
 	Name     string
@@ -40,7 +41,8 @@ func NewContainer(name string) *Container {
 	}
 }
 
-func (c *Container) FromComposeService(service types.ServiceConfig) *Container {
+func (c *Container) FromComposeService(service types.ServiceConfig, projectName string) *Container {
+	// No automatic image name conversion - use exactly what's provided in the compose file
 	c.Image = service.Image
 	c.Label = append(c.Label, service.Labels.AsList()...)
 
@@ -69,20 +71,41 @@ func (c *Container) FromComposeService(service types.ServiceConfig) *Container {
 
 	if len(service.Volumes) > 0 {
 		for _, vol := range service.Volumes {
-			c.Volume = append(c.Volume, fmt.Sprintf("%s:%s", vol.Source, vol.Target))
+			// Handle different volume types
+			if vol.Type == "volume" {
+				// Convert named volumes to Podman Quadlet format
+				// This ensures proper systemd unit references for volumes defined in the compose file
+				c.Volume = append(c.Volume, fmt.Sprintf("%s-%s.volume:%s", projectName, vol.Source, vol.Target))
+			} else {
+				// Regular bind mount or external volume - use as-is
+				c.Volume = append(c.Volume, fmt.Sprintf("%s:%s", vol.Source, vol.Target))
+			}
 		}
 	}
 
 	if len(service.Networks) > 0 {
 		for netName, net := range service.Networks {
-			// If the network has aliases, use the first one
-			if net != nil && len(net.Aliases) > 0 {
-				c.Network = append(c.Network, net.Aliases[0])
+			networkRef := ""
+			
+			// Check if network is a named network (project-defined) or a special network
+			if netName != "host" && netName != "none" {
+				// This is a project-defined network - format for Podman Quadlet with .network suffix
+				networkRef = fmt.Sprintf("%s-%s.network", projectName, netName)
+			} else if net != nil && len(net.Aliases) > 0 {
+				// Network has aliases - use first alias
+				networkRef = net.Aliases[0]
 			} else {
-				// Otherwise, use the network name
-				c.Network = append(c.Network, netName)
+				// Default or special network - use as is
+				networkRef = netName
 			}
+			
+			c.Network = append(c.Network, networkRef)
 		}
+	} else {
+		// If no networks specified, create a default network using the project name
+		// This ensures proper Quadlet format for the auto-generated network
+		defaultNetworkRef := fmt.Sprintf("%s-default.network", projectName)
+		c.Network = append(c.Network, defaultNetworkRef)
 	}
 
 	c.Exec = service.Command
@@ -97,9 +120,10 @@ func (c *Container) FromComposeService(service types.ServiceConfig) *Container {
 		defaultInit := false
 		c.RunInit = &defaultInit
 	}
-	c.Privileged = service.Privileged
+	// Privileged is not supported by podman-systemd
 	c.ReadOnly = service.ReadOnly
-	c.SecurityLabel = append(c.SecurityLabel, service.SecurityOpt...)
+	// SecurityLabel is not supported by podman-systemd
+	// Use specific security label options like SecurityLabelType instead
 	c.HostName = service.Hostname
 
 	if len(service.Secrets) > 0 {
