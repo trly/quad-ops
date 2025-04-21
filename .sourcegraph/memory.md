@@ -69,7 +69,7 @@
 - Initialize maps and slices properly before use
 
 ## Linting
-- golangci-lint has version compatibility issues between local use and GitHub Actions
-- We use a simplified .golangci.yml file for GitHub Actions (no version field, no formatters, etc.)
-- For local development, use .golangci-local.yml: `mise exec -- golangci-lint run -c .golangci-local.yml`
-- GitHub Actions uses v2.1.2 of golangci-lint for compatibility with action v7
+- golangci-lint v2.1.2 is used with golangci-lint-action v7 for GitHub Actions
+- Version field is specified as a string: `version: '2'` in .golangci.yml
+- Common configuration works for both local and CI environments
+- Using formatters section for gofmt instead of including it in linters

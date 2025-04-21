@@ -1,7 +1,12 @@
 # https://golangci-lint.run/usage/configuration/
+version: '2'
 
 run:
   timeout: 5m
+
+linters-settings:
+  gofmt:
+    simplify: true
 
 linters:
   enable:
@@ -9,4 +14,13 @@ linters:
     - govet
     - errcheck
     - staticcheck
+
+formatters:
+  enable:
     - gofmt
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
