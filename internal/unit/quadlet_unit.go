@@ -52,6 +52,8 @@ type SystemdConfig struct {
 	Requires        []string `yaml:"requires"`
 	Wants           []string `yaml:"wants"`
 	Conflicts       []string `yaml:"conflicts"`
+	PartOf          []string `yaml:"part_of"`          // Services that this unit is part of
+	PropagatesReloadTo []string `yaml:"propagates_reload_to"` // Services that should be reloaded when this unit is reloaded
 	RestartPolicy   string   `yaml:"restart_policy"`
 	TimeoutStartSec int      `yaml:"timeout_start_sec"`
 	Type            string   `yaml:"type"`
@@ -66,7 +68,7 @@ type Unit struct {
 	Type          string    `db:"type"`
 	CleanupPolicy string    `db:"cleanup_policy"`
 	SHA1Hash      []byte    `db:"sha1_hash"`
-	CreatedAt     time.Time `db:"created_at"`
+	CreatedAt     time.Time `db:"created_at"` // Set by database, but not updated on every change
 }
 
 func (u *QuadletUnit) generateContainerSection() string {
@@ -207,6 +209,12 @@ func (u *QuadletUnit) generateUnitSection() string {
 	}
 	if len(u.Systemd.Conflicts) > 0 {
 		content += formatKeyValueSlice("Conflicts", u.Systemd.Conflicts)
+	}
+	if len(u.Systemd.PartOf) > 0 {
+		content += formatKeyValueSlice("PartOf", u.Systemd.PartOf)
+	}
+	if len(u.Systemd.PropagatesReloadTo) > 0 {
+		content += formatKeyValueSlice("PropagatesReloadTo", u.Systemd.PropagatesReloadTo)
 	}
 	return content
 }

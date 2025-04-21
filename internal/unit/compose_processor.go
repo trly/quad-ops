@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/config"
@@ -35,6 +34,9 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			log.Printf("processing compose project: %s (services: %d, networks: %d, volumes: %d)",
 				project.Name, len(project.Services), len(project.Networks), len(project.Volumes))
 		}
+
+		// Build the bidirectional dependency tree for the project
+		dependencyTree := BuildServiceDependencyTree(project)
 
 		// Process services (containers)
 		for serviceName, service := range project.Services {
@@ -78,21 +80,8 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 				Systemd:   SystemdConfig{},
 			}
 
-			// Add dependencies between containers
-			// For example, if this service depends on another one (via depends_on)
-			if len(service.DependsOn) > 0 {
-				for depServiceName := range service.DependsOn {
-					// Format the systemd unit service name correctly
-					// The service name must always include the .service suffix
-					// and should match how the container unit filename is generated
-					depPrefixedName := fmt.Sprintf("%s-%s", project.Name, depServiceName)
-					formattedDepName := fmt.Sprintf("%s.service", depPrefixedName)
-
-					// Add dependency to After and Requires lists
-					quadletUnit.Systemd.After = append(quadletUnit.Systemd.After, formattedDepName)
-					quadletUnit.Systemd.Requires = append(quadletUnit.Systemd.Requires, formattedDepName)
-				}
-			}
+			// Apply dependency relationships (both regular and reverse)
+			ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyTree, project.Name)
 
 			// Process the quadlet unit
 			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
@@ -155,7 +144,16 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 
 	// Reload systemd units if any changed
 	if len(changedUnits) > 0 {
-		reloadUnits(changedUnits)
+		// Create a map to store project dependency trees
+		projectDependencyTrees := make(map[string]map[string]*ServiceDependency)
+
+		// Store dependency trees for each project processed
+		for _, project := range projects {
+			projectDependencyTrees[project.Name] = BuildServiceDependencyTree(project)
+		}
+
+		// Use dependency-aware restart for changed units
+		RestartChangedUnits(changedUnits, projectDependencyTrees)
 	}
 
 	// Clean up any orphaned units
@@ -178,23 +176,36 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 	// Get unit file path
 	unitPath := getUnitFilePath(unit.Name, unit.Type)
 
-	// Check if unit has changed
-	if !force && !hasUnitChanged(unitPath, content) {
-		return nil
+	// Check if unit file content has changed
+	hasChanged := hasUnitChanged(unitPath, content)
+
+	// If forcing update or content has changed, write the file
+	if force || hasChanged {
+		// When verbose, log that a change was detected
+		if config.GetConfig().Verbose && hasChanged {
+			log.Printf("Unit content has changed: %s (%s)", unit.Name, unit.Type)
+		}
+
+		// Write the file
+		if err := writeUnitFile(unitPath, content); err != nil {
+			return fmt.Errorf("writing unit file for %s: %w", unit.Name, err)
+		}
+
+		// Update database 
+		if err := updateUnitDatabase(unitRepo, unit, content); err != nil {
+			return fmt.Errorf("updating unit database for %s: %w", unit.Name, err)
+		}
+
+		// Add to changed units list for restart
+		*changedUnits = append(*changedUnits, *unit)
+	} else {
+		// Even when the file hasn't changed, we still need to update the database
+		// to ensure the unit's existence is recorded, but we don't add it to changedUnits
+		if err := updateUnitDatabase(unitRepo, unit, content); err != nil {
+			return fmt.Errorf("updating unit database for %s: %w", unit.Name, err)
+		}
 	}
 
-	// Write unit file
-	if err := writeUnitFile(unitPath, content); err != nil {
-		return fmt.Errorf("writing unit file for %s: %w", unit.Name, err)
-	}
-
-	// Update database
-	if err := updateUnitDatabase(unitRepo, unit, content); err != nil {
-		return fmt.Errorf("updating unit database for %s: %w", unit.Name, err)
-	}
-
-	// Add to changed units list
-	*changedUnits = append(*changedUnits, *unit)
 	return nil
 }
 
@@ -205,12 +216,20 @@ func getUnitFilePath(name, unitType string) string {
 
 func hasUnitChanged(unitPath, content string) bool {
 	existingContent, err := os.ReadFile(unitPath) //nolint:gosec // Safe as path is internally constructed, not user-controlled
-	if err == nil && string(getContentHash(string(existingContent))) == string(getContentHash(content)) {
+	if err != nil {
+		// File doesn't exist or can't be read, so it has changed
+		return true
+	}
+
+	// Compare the actual content directly instead of hashes
+	if string(existingContent) == content {
 		if config.GetConfig().Verbose {
 			log.Printf("unit %s unchanged, skipping", unitPath)
 		}
 		return false
 	}
+
+	// Content is different
 	return true
 }
 
@@ -232,29 +251,12 @@ func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) 
 		Type:          unit.Type,
 		SHA1Hash:      contentHash,
 		CleanupPolicy: cleanupPolicy,
-		CreatedAt:     time.Now(),
+		// CreatedAt removed - no need to update timestamp every time
 	})
 	return err
 }
 
-func reloadUnits(changedUnits []QuadletUnit) {
-	err := ReloadSystemd()
-	if err != nil {
-		log.Printf("error reloading systemd units: %v", err)
-		return
-	}
-
-	// Wait for systemd to process the changes
-	time.Sleep(2 * time.Second)
-
-	for _, unit := range changedUnits {
-		systemdUnit := unit.GetSystemdUnit()
-		err := systemdUnit.Restart()
-		if err != nil {
-			log.Printf("error restarting unit %s: %v", unit.Name, err)
-		}
-	}
-}
+// Removed reloadUnits - replaced by RestartChangedUnits in restart.go
 
 func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) error {
 	dbUnits, err := unitRepo.FindAll()
@@ -312,9 +314,9 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 	return nil
 }
 
-// getContentHash calculates a SHA1 hash for content comparison.
+// getContentHash calculates a SHA1 hash for content storage and change tracking.
 func getContentHash(content string) []byte {
-	hash := sha1.New() //nolint:gosec // Not used for security purposes, just for content comparison
+	hash := sha1.New() //nolint:gosec // Not used for security purposes, just for content tracking
 	hash.Write([]byte(content))
 	return hash.Sum(nil)
 }
