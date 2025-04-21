@@ -78,8 +78,12 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			// For example, if this service depends on another one (via depends_on)
 			if len(service.DependsOn) > 0 {
 				for depServiceName := range service.DependsOn {
-					// Format the service name with project prefix and add .service suffix for systemd
-					formattedDepName := fmt.Sprintf("%s-%s.service", project.Name, depServiceName)
+					// Format the systemd unit service name correctly
+					// The service name must always include the .service suffix
+					// and should match how the container unit filename is generated
+					depPrefixedName := fmt.Sprintf("%s-%s", project.Name, depServiceName)
+					formattedDepName := fmt.Sprintf("%s.service", depPrefixedName)
+					
 					// Add dependency to After and Requires lists
 					quadletUnit.Systemd.After = append(quadletUnit.Systemd.After, formattedDepName)
 					quadletUnit.Systemd.Requires = append(quadletUnit.Systemd.Requires, formattedDepName)
