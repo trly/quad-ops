@@ -65,6 +65,10 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			if !usePodmanNames {
 				container.ContainerName = prefixedName
 			}
+			
+			// Always add the service name as a NetworkAlias to allow using just the service name for connections
+			// This makes Docker Compose files more portable by allowing references like 'db' instead of 'quad-ops-multi-service-db'
+			container.NetworkAlias = append(container.NetworkAlias, serviceName)
 
 			// Create the quadlet unit with proper systemd configuration
 			quadletUnit := QuadletUnit{

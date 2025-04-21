@@ -93,6 +93,9 @@ func (u *QuadletUnit) generateContainerSection() string {
 	for _, net := range u.Container.Network {
 		content += formatKeyValue("Network", net)
 	}
+	for _, alias := range u.Container.NetworkAlias {
+		content += formatKeyValue("NetworkAlias", alias)
+	}
 	if len(u.Container.Exec) > 0 {
 		content += formatKeyValueSlice("Exec", u.Container.Exec)
 	}

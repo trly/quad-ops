@@ -15,7 +15,9 @@
 - Always use fully qualified image names with registry prefix (docker.io/, quay.io/, etc.)
 - Container dependencies must be expressed in systemd unit files using the service name format
 - Use After/Requires with .service suffix (e.g., 'After=db.service', not 'After=db.container')
-- For container DNS resolution, always use systemd- prefix (e.g., 'systemd-project-service')
+- By default, quad-ops creates containers with hostnames that match their service names (without the systemd- prefix)
+- Container hostnames can be configured via `usePodmanDefaultNames` option in config.yaml (default: false)
+- Setting `usePodmanDefaultNames: true` allows Podman to use its default naming scheme with systemd- prefix
 - Avoid unsupported keys: DNSEnabled (network), Privileged and SecurityLabel (container)
 - Named volumes require the '.volume' suffix in Volume= directives (e.g., 'Volume=data.volume:/data')
 - Quadlet does not auto-create bind mount directories - they must exist before container start
@@ -34,6 +36,8 @@
 - Fix unsupported quadlet keys in unit files (removed DNSEnabled, SecurityLabel, Privileged)
 - Ensure fully qualified image names (docker.io/ prefix) to prevent quadlet warnings
 - Fixed container name resolution for inter-container communication
+- Fixed service dependency configuration for containers with custom naming
+- Added NetworkAlias support to allow referring to services by their simple names (e.g., "db" instead of full hostname)
 
 ## Docker Compose Support
 - `compose/reader.go`: Detects and reads Docker Compose files with robust error handling
@@ -47,8 +51,9 @@
 ## Configuration
 - Repository settings are defined in `config.yaml`
 - Each repository must have a name and URL
-- Optional settings include: `ref` (branch/tag), `composeDir` (subdirectory for Docker Compose files), and `cleanup` policy
+- Optional settings include: `ref` (branch/tag), `composeDir` (subdirectory for Docker Compose files), `cleanup` policy, and `usePodmanDefaultNames`
 - Cleanup policy: "keep" (default) or "delete" for auto-removal of units from deleted compose files
+- `usePodmanDefaultNames`: Controls container hostname prefix (default: false). When false, container hostnames match service names without systemd- prefix
 
 ## Build & Test Commands
 - Build: `go build -o quad-ops cmd/quad-ops/main.go`

@@ -155,6 +155,10 @@ func TestFromComposeService(t *testing.T) {
 
 	// Verify networks - now using .network suffix for all networks
 	assert.ElementsMatch(t, []string{"test-backend.network", "test-frontend.network", "test-default.network"}, container.Network)
+	
+	// Verify network aliases are transferred from the service config
+	assert.Contains(t, container.NetworkAlias, "frontend-alias")
+	assert.Contains(t, container.NetworkAlias, "backend-alias")
 
 	// Verify command and entrypoint
 	assert.Equal(t, command, container.Exec)
