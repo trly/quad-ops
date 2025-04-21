@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  webapp:
+    image: docker.io/library/wordpress:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - wp-content:/var/www/html/wp-content
+    environment:
+      - WORDPRESS_DB_HOST=systemd-myapp-db
+      - WORDPRESS_DB_NAME=wordpress
+      - WORDPRESS_DB_USER=wp_user
+      - WORDPRESS_DB_PASSWORD=db_password
+    depends_on:
+      - db
+    restart: always
+
+  db:
+    image: docker.io/library/mariadb:latest
+    volumes:
+      - db-data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=wp_user
+      - MYSQL_PASSWORD=db_password
+      - MYSQL_ROOT_PASSWORD=root_password
+    restart: always
+    networks:
+      - app-network
+
+volumes:
+  wp-content:
+  db-data:
+

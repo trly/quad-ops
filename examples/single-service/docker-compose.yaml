@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  webapp:
+    image: docker.io/library/nginx:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - nginx:/usr/share/nginx/html:ro
+    restart: always
+    environment:
+      - NGINX_HOST=example.com
+
+volumes:
+  nginx:

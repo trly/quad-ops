@@ -33,6 +33,11 @@ Quad-Ops uses Docker Compose files for defining your container infrastructure. S
 | `composeDir` | string | "" | Subdirectory within repo where Docker Compose files are located |
 | `cleanup` | string | "keep" | Cleanup policy: "keep" or "delete" |
 
+### Cleanup Policy Options
+
+- `keep` (default): Units from this repository remain deployed even when the compose file is removed
+- `delete`: Units that no longer exist in the repository Docker Compose files will be stopped and removed
+
 ## Example Configuration
 
 ```yaml
@@ -51,7 +56,7 @@ repositories:
     ref: main
     composeDir: compose
     cleanup: keep  # Units remain even if removed from Docker Compose files
-    
+
   - name: app2
     url: https://github.com/example/app2
     ref: dev
