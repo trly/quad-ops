@@ -35,26 +35,26 @@ func TestServicesDependencyTree(t *testing.T) {
 	}
 
 	// Build the dependency tree
-	 deps := BuildServiceDependencyTree(project)
+	deps := BuildServiceDependencyTree(project)
 
 	// Check that the dependency tree is correct
-	 assert.Len(t, deps, 3)
-	 
+	assert.Len(t, deps, 3)
+
 	// Check db has no dependencies
-	 assert.Empty(t, deps["db"].Dependencies)
-	 assert.Len(t, deps["db"].DependentServices, 1)
-	 assert.Contains(t, deps["db"].DependentServices, "webapp")
+	assert.Empty(t, deps["db"].Dependencies)
+	assert.Len(t, deps["db"].DependentServices, 1)
+	assert.Contains(t, deps["db"].DependentServices, "webapp")
 
 	// Check webapp depends on db
-	 assert.Len(t, deps["webapp"].Dependencies, 1)
-	 assert.Contains(t, deps["webapp"].Dependencies, "db")
-	 assert.Len(t, deps["webapp"].DependentServices, 1)
-	 assert.Contains(t, deps["webapp"].DependentServices, "proxy")
+	assert.Len(t, deps["webapp"].Dependencies, 1)
+	assert.Contains(t, deps["webapp"].Dependencies, "db")
+	assert.Len(t, deps["webapp"].DependentServices, 1)
+	assert.Contains(t, deps["webapp"].DependentServices, "proxy")
 
 	// Check proxy depends on webapp
-	 assert.Len(t, deps["proxy"].Dependencies, 1)
-	 assert.Contains(t, deps["proxy"].Dependencies, "webapp")
-	 assert.Empty(t, deps["proxy"].DependentServices)
+	assert.Len(t, deps["proxy"].Dependencies, 1)
+	assert.Contains(t, deps["proxy"].Dependencies, "webapp")
+	assert.Empty(t, deps["proxy"].DependentServices)
 }
 
 func TestDependencyPartOfRelationships(t *testing.T) {

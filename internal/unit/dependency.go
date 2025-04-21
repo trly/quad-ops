@@ -6,7 +6,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 )
 
-// ServiceDependency represents the dependencies of a service in both directions
+// ServiceDependency represents the dependencies of a service in both directions.
 type ServiceDependency struct {
 	// Dependencies is the list of services this service depends on
 	Dependencies map[string]struct{}
@@ -14,7 +14,7 @@ type ServiceDependency struct {
 	DependentServices map[string]struct{}
 }
 
-// BuildServiceDependencyTree builds a bidirectional dependency tree for all services in a project
+// BuildServiceDependencyTree builds a bidirectional dependency tree for all services in a project.
 func BuildServiceDependencyTree(project *types.Project) map[string]*ServiceDependency {
 	dependencies := make(map[string]*ServiceDependency)
 
@@ -40,9 +40,8 @@ func BuildServiceDependencyTree(project *types.Project) map[string]*ServiceDepen
 }
 
 // ApplyDependencyRelationships applies both regular dependencies (After/Requires) and reverse
-// dependencies (PartOf) to a quadlet unit based on the dependency tree
-func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string,
-	dependencies map[string]*ServiceDependency, projectName string) {
+// dependencies (PartOf) to a quadlet unit based on the dependency tree.
+func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, dependencies map[string]*ServiceDependency, projectName string) { //nolint:whitespace // False positive
 
 	// Apply regular dependencies (services this one depends on)
 	for depName := range dependencies[serviceName].Dependencies {

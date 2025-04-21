@@ -8,14 +8,14 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
-// UnitChange tracks changes to a unit
-type UnitChange struct {
+// Change tracks changes to a unit.
+type Change struct {
 	Name string
 	Type string
 	Hash []byte
 }
 
-// StartUnitDependencyAware starts or restarts a unit while being dependency-aware
+// StartUnitDependencyAware starts or restarts a unit while being dependency-aware.
 func StartUnitDependencyAware(unitName string, unitType string, dependencyTree map[string]*ServiceDependency) error {
 	if config.GetConfig().Verbose {
 		log.Printf("Starting/restarting unit %s.%s with dependency awareness", unitName, unitType)
@@ -76,7 +76,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyTree m
 	return unit.Restart()
 }
 
-// findTopLevelDependentService finds the top-most (leaf) service that depends on this service
+// findTopLevelDependentService finds the top-most (leaf) service that depends on this service.
 func findTopLevelDependentService(serviceName string, dependencyTree map[string]*ServiceDependency) string {
 	// If no dependent services, return empty string
 	if len(dependencyTree[serviceName].DependentServices) == 0 {
@@ -100,7 +100,7 @@ func findTopLevelDependentService(serviceName string, dependencyTree map[string]
 	return dependentService
 }
 
-// splitUnitName splits a unit name like "project-service" into ["project", "service"]
+// splitUnitName splits a unit name like "project-service" into ["project", "service"].
 func splitUnitName(unitName string) []string {
 	// Find the last dash in the name
 	for i := len(unitName) - 1; i >= 0; i-- {
@@ -111,7 +111,7 @@ func splitUnitName(unitName string) []string {
 	return []string{unitName}
 }
 
-// RestartChangedUnits restarts all changed units in dependency-aware order
+// RestartChangedUnits restarts all changed units in dependency-aware order.
 func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[string]map[string]*ServiceDependency) error {
 	err := ReloadSystemd()
 	if err != nil {
@@ -194,9 +194,8 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 	return nil
 }
 
-// markDependentsAsRestarted marks all services that depend on the given service as restarted
-func markDependentsAsRestarted(serviceName string, dependencyTree map[string]*ServiceDependency,
-	projectName string, restarted map[string]bool) {
+// markDependentsAsRestarted marks all services that depend on the given service as restarted.
+func markDependentsAsRestarted(serviceName string, dependencyTree map[string]*ServiceDependency, projectName string, restarted map[string]bool) { //nolint:whitespace // False positive
 
 	// Mark this service as restarted
 	unitKey := fmt.Sprintf("%s-%s.container", projectName, serviceName)
@@ -214,9 +213,8 @@ func markDependentsAsRestarted(serviceName string, dependencyTree map[string]*Se
 }
 
 // isServiceAlreadyRestarted checks if the service itself is already restarted
-// or if any services that would cause this service to restart are already restarted
-func isServiceAlreadyRestarted(serviceName string, dependencyTree map[string]*ServiceDependency,
-	projectName string, restarted map[string]bool) bool {
+// or if any services that would cause this service to restart are already restarted.
+func isServiceAlreadyRestarted(serviceName string, dependencyTree map[string]*ServiceDependency, projectName string, restarted map[string]bool) bool {
 	// Check if this service is already restarted
 	unitKey := fmt.Sprintf("%s-%s.container", projectName, serviceName)
 	if restarted[unitKey] {

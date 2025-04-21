@@ -10,19 +10,24 @@ import (
 )
 
 // A simple test function that directly tests the hasUnitChanged function
-// without relying on config.GetConfig()
+// without relying on config.GetConfig().
 func TestHasUnitChanged(t *testing.T) {
 	// Create a temporary directory for our test files
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Errorf("Failed to remove temp directory: %v", err)
+		}
+	}()
 
 	// Create a test file path
 	testFilePath := filepath.Join(tmpDir, "test.container")
 
 	// Create the testing function with our modified comparison logic
 	testHasChanged := func(path, content string) bool {
-		existingContent, err := os.ReadFile(path)
+		// This is a test file, so the path is controlled and should not present a security risk
+		existingContent, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
 			// File doesn't exist or can't be read, so it has changed
 			return true

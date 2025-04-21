@@ -47,19 +47,19 @@ func (u *QuadletUnit) GetSystemdUnit() SystemdUnit {
 // It includes settings such as the unit description, dependencies,
 // restart policy, and other systemd-specific options.
 type SystemdConfig struct {
-	Description     string   `yaml:"description"`
-	After           []string `yaml:"after"`
-	Before          []string `yaml:"before"`
-	Requires        []string `yaml:"requires"`
-	Wants           []string `yaml:"wants"`
-	Conflicts       []string `yaml:"conflicts"`
-	PartOf          []string `yaml:"part_of"`          // Services that this unit is part of
+	Description        string   `yaml:"description"`
+	After              []string `yaml:"after"`
+	Before             []string `yaml:"before"`
+	Requires           []string `yaml:"requires"`
+	Wants              []string `yaml:"wants"`
+	Conflicts          []string `yaml:"conflicts"`
+	PartOf             []string `yaml:"part_of"`              // Services that this unit is part of
 	PropagatesReloadTo []string `yaml:"propagates_reload_to"` // Services that should be reloaded when this unit is reloaded
-	RestartPolicy   string   `yaml:"restart_policy"`
-	TimeoutStartSec int      `yaml:"timeout_start_sec"`
-	Type            string   `yaml:"type"`
-	RemainAfterExit bool     `yaml:"remain_after_exit"`
-	WantedBy        []string `yaml:"wanted_by"`
+	RestartPolicy      string   `yaml:"restart_policy"`
+	TimeoutStartSec    int      `yaml:"timeout_start_sec"`
+	Type               string   `yaml:"type"`
+	RemainAfterExit    bool     `yaml:"remain_after_exit"`
+	WantedBy           []string `yaml:"wanted_by"`
 }
 
 // Unit represents a record in the units table.
@@ -78,7 +78,7 @@ func (u *QuadletUnit) generateContainerSection() string {
 		content += formatKeyValue("Image", u.Container.Image)
 	}
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	
+
 	// Sort labels for consistent output
 	slice := make([]string, len(u.Container.Label))
 	copy(slice, u.Container.Label)
@@ -86,7 +86,7 @@ func (u *QuadletUnit) generateContainerSection() string {
 	for _, label := range slice {
 		content += formatKeyValue("Label", label)
 	}
-	
+
 	// Sort ports for consistent output
 	slice = make([]string, len(u.Container.PublishPort))
 	copy(slice, u.Container.PublishPort)
@@ -94,14 +94,14 @@ func (u *QuadletUnit) generateContainerSection() string {
 	for _, port := range slice {
 		content += formatKeyValue("PublishPort", port)
 	}
-	
+
 	// Sort environment variables for consistent output
 	envKeys := make([]string, 0, len(u.Container.Environment))
 	for k := range u.Container.Environment {
 		envKeys = append(envKeys, k)
 	}
 	sort.Strings(envKeys)
-	
+
 	// Add environment variables in sorted order
 	for _, k := range envKeys {
 		content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, u.Container.Environment[k]))
@@ -113,7 +113,7 @@ func (u *QuadletUnit) generateContainerSection() string {
 	for _, envFile := range slice {
 		content += formatKeyValue("EnvironmentFile", envFile)
 	}
-	
+
 	// Sort volumes for consistent output
 	slice = make([]string, len(u.Container.Volume))
 	copy(slice, u.Container.Volume)
@@ -121,7 +121,7 @@ func (u *QuadletUnit) generateContainerSection() string {
 	for _, vol := range slice {
 		content += formatKeyValue("Volume", vol)
 	}
-	
+
 	// Sort networks for consistent output
 	slice = make([]string, len(u.Container.Network))
 	copy(slice, u.Container.Network)
@@ -129,7 +129,7 @@ func (u *QuadletUnit) generateContainerSection() string {
 	for _, net := range slice {
 		content += formatKeyValue("Network", net)
 	}
-	
+
 	// Sort network aliases for consistent output
 	slice = make([]string, len(u.Container.NetworkAlias))
 	copy(slice, u.Container.NetworkAlias)
@@ -177,7 +177,7 @@ func (u *QuadletUnit) generateContainerSection() string {
 func (u *QuadletUnit) generateVolumeSection() string {
 	content := "\n[Volume]\n"
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	
+
 	// Sort labels for consistent output
 	slice := make([]string, len(u.Volume.Label))
 	copy(slice, u.Volume.Label)
@@ -185,11 +185,11 @@ func (u *QuadletUnit) generateVolumeSection() string {
 	for _, label := range slice {
 		content += formatKeyValue("Label", label)
 	}
-	
+
 	if u.Volume.Device != "" {
 		content += formatKeyValue("Device", u.Volume.Device)
 	}
-	
+
 	// Sort options for consistent output
 	slice = make([]string, len(u.Volume.Options))
 	copy(slice, u.Volume.Options)
@@ -212,7 +212,7 @@ func (u *QuadletUnit) generateVolumeSection() string {
 func (u *QuadletUnit) generateNetworkSection() string {
 	content := "\n[Network]\n"
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	
+
 	// Sort labels for consistent output
 	slice := make([]string, len(u.Network.Label))
 	copy(slice, u.Network.Label)
@@ -220,7 +220,7 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	for _, label := range slice {
 		content += formatKeyValue("Label", label)
 	}
-	
+
 	if u.Network.Driver != "" {
 		content += formatKeyValue("Driver", u.Network.Driver)
 	}
@@ -240,7 +240,7 @@ func (u *QuadletUnit) generateNetworkSection() string {
 		content += formatKeyValue("Internal", "yes")
 	}
 	// DNSEnabled is not supported by podman-systemd
-	
+
 	// Sort options for consistent output
 	slice = make([]string, len(u.Network.Options))
 	copy(slice, u.Network.Options)
@@ -256,7 +256,7 @@ func (u *QuadletUnit) generateUnitSection() string {
 	if u.Systemd.Description != "" {
 		content += formatKeyValue("Description", u.Systemd.Description)
 	}
-	
+
 	// Sort all systemd directives for consistent output
 	if len(u.Systemd.After) > 0 {
 		slice := make([]string, len(u.Systemd.After))
@@ -264,42 +264,42 @@ func (u *QuadletUnit) generateUnitSection() string {
 		sort.Strings(slice)
 		content += formatKeyValueSlice("After", slice)
 	}
-	
+
 	if len(u.Systemd.Before) > 0 {
 		slice := make([]string, len(u.Systemd.Before))
 		copy(slice, u.Systemd.Before)
 		sort.Strings(slice)
 		content += formatKeyValueSlice("Before", slice)
 	}
-	
+
 	if len(u.Systemd.Requires) > 0 {
 		slice := make([]string, len(u.Systemd.Requires))
 		copy(slice, u.Systemd.Requires)
 		sort.Strings(slice)
 		content += formatKeyValueSlice("Requires", slice)
 	}
-	
+
 	if len(u.Systemd.Wants) > 0 {
 		slice := make([]string, len(u.Systemd.Wants))
 		copy(slice, u.Systemd.Wants)
 		sort.Strings(slice)
 		content += formatKeyValueSlice("Wants", slice)
 	}
-	
+
 	if len(u.Systemd.Conflicts) > 0 {
 		slice := make([]string, len(u.Systemd.Conflicts))
 		copy(slice, u.Systemd.Conflicts)
 		sort.Strings(slice)
 		content += formatKeyValueSlice("Conflicts", slice)
 	}
-	
+
 	if len(u.Systemd.PartOf) > 0 {
 		slice := make([]string, len(u.Systemd.PartOf))
 		copy(slice, u.Systemd.PartOf)
 		sort.Strings(slice)
 		content += formatKeyValueSlice("PartOf", slice)
 	}
-	
+
 	if len(u.Systemd.PropagatesReloadTo) > 0 {
 		slice := make([]string, len(u.Systemd.PropagatesReloadTo))
 		copy(slice, u.Systemd.PropagatesReloadTo)

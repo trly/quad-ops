@@ -153,7 +153,9 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 		}
 
 		// Use dependency-aware restart for changed units
-		RestartChangedUnits(changedUnits, projectDependencyTrees)
+		if err := RestartChangedUnits(changedUnits, projectDependencyTrees); err != nil {
+			log.Printf("Error restarting changed units: %v", err)
+		}
 	}
 
 	// Clean up any orphaned units
@@ -191,7 +193,7 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 			return fmt.Errorf("writing unit file for %s: %w", unit.Name, err)
 		}
 
-		// Update database 
+		// Update database
 		if err := updateUnitDatabase(unitRepo, unit, content); err != nil {
 			return fmt.Errorf("updating unit database for %s: %w", unit.Name, err)
 		}

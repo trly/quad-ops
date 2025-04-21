@@ -67,7 +67,7 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 		}
 		// Sort the keys alphabetically
 		sort.Strings(keys)
-		
+
 		// Use the sorted keys to get values
 		for _, k := range keys {
 			v := service.Environment[k]
