@@ -67,3 +67,8 @@
 - Test functions prefixed with "Test"
 - Type definitions before function definitions
 - Initialize maps and slices properly before use
+
+## Linting
+- golangci-lint has version compatibility issues between local use and GitHub Actions
+- Keep .golangci.yml file without 'version' field for GitHub Actions compatibility
+- Local use might require 'version: 1' but remove before committing
