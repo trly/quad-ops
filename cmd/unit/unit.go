@@ -26,14 +26,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Command represents the unit command for quad-ops CLI
+// Command represents the unit command for quad-ops CLI.
 type Command struct{}
 
 var (
 	unitType string
 )
 
-// GetCobraCommand returns the cobra command for unit operations
+// GetCobraCommand returns the cobra command for unit operations.
 func (c *Command) GetCobraCommand() *cobra.Command {
 	unitCmd := &cobra.Command{
 		Use:   "unit",

@@ -77,7 +77,7 @@ networks:
 	assert.Len(t, project.Services["frontend"].Volumes, 0)
 	assert.Equal(t, "example/webapp", project.Services["frontend"].Image)
 	assert.Len(t, project.Services["frontend"].Ports, 1)
-	assert.Equal(t, types.ServicePortConfig(types.ServicePortConfig{Mode: "ingress", Published: "443", Target: 8043, Protocol: "tcp"}), project.Services["frontend"].Ports[0])
+	assert.Equal(t, types.ServicePortConfig{Mode: "ingress", Published: "443", Target: 8043, Protocol: "tcp"}, project.Services["frontend"].Ports[0])
 	assert.Len(t, project.Services["frontend"].Networks, 2)
 	assert.Contains(t, project.Services["frontend"].Networks, "front-tier")
 	assert.Contains(t, project.Services["frontend"].Networks, "back-tier")

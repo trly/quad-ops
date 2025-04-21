@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// Helper function to reset viper and config
+// Helper function to reset viper and config.
 func resetViper() {
 	viper.Reset()
 	cfg = nil
 }
 
-// TestInitConfig tests the InitConfig function
+// TestInitConfig tests the InitConfig function.
 func TestInitConfig(t *testing.T) {
 	resetViper()
 	cfg := InitConfig()
@@ -27,7 +27,7 @@ func TestInitConfig(t *testing.T) {
 	assert.Equal(t, DefaultVerbose, cfg.Verbose)
 }
 
-// TestSetAndGetConfig tests the SetConfig and GetConfig functions
+// TestSetAndGetConfig tests the SetConfig and GetConfig functions.
 func TestSetAndGetConfig(t *testing.T) {
 	resetViper()
 	testConfig := &Config{
@@ -51,7 +51,7 @@ func TestSetAndGetConfig(t *testing.T) {
 	assert.Equal(t, testConfig, retrievedConfig)
 }
 
-// TestCustomConfigFile tests the use of a custom config file
+// TestCustomConfigFile tests the use of a custom config file.
 func TestCustomConfigFile(t *testing.T) {
 	resetViper()
 
@@ -73,7 +73,7 @@ repositories:
   ref: "main"
   cleanup: "delete"`
 
-	if err := os.WriteFile(tmpfile.Name(), []byte(configContent), 0644); err != nil {
+	if err := os.WriteFile(tmpfile.Name(), []byte(configContent), 0600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -107,7 +107,7 @@ repositories:
 	assert.Equal(t, "test-repo", cfg.Repositories[0].Name)
 }
 
-// TestConfigNotFound tests the case when the config file is not found
+// TestConfigNotFound tests the case when the config file is not found.
 func TestConfigNotFound(t *testing.T) {
 	resetViper()
 	SetConfigFilePath("/nonexistent/config.yaml")

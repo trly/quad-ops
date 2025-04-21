@@ -1,4 +1,4 @@
-// Package db provides database functionality for quad-ops
+// Package db provides database functionality for quad-ops.
 package db
 
 import (
@@ -11,22 +11,22 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/trly/quad-ops/internal/config"
 
-	// Register migrate's sqlite3 driver
+	// Register migrate's sqlite3 driver.
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 
-	// Register sqlite3 driver
+	// Register sqlite3 driver.
 	_ "github.com/mattn/go-sqlite3"
 )
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-// GetConnectionString returns the database connection string
+// GetConnectionString returns the database connection string.
 func GetConnectionString(cfg config.Config) string {
 	return "sqlite3://" + cfg.DBPath
 }
 
-// Connect establishes a connection to the database
+// Connect establishes a connection to the database.
 func Connect() (*sql.DB, error) {
 	// Remove sqlite3:// prefix if present for direct SQL connection
 	dbPath := strings.TrimPrefix(config.GetConfig().DBPath, "sqlite3://")
@@ -47,7 +47,7 @@ func Connect() (*sql.DB, error) {
 	return db, nil
 }
 
-// Up runs database migrations to latest version
+// Up runs database migrations to latest version.
 func Up(cfg config.Config) error {
 	m, err := getMigrationInstance(cfg)
 	if err != nil {
@@ -67,7 +67,7 @@ func Up(cfg config.Config) error {
 	return nil
 }
 
-// Down rolls back all database migrations
+// Down rolls back all database migrations.
 func Down(cfg config.Config) error {
 	m, err := getMigrationInstance(cfg)
 	if err != nil {

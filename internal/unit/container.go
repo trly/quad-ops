@@ -33,7 +33,7 @@ type Container struct {
 	UnitType string
 }
 
-// NewContainer creates a new Container with the given name
+// NewContainer creates a new Container with the given name.
 func NewContainer(name string) *Container {
 	return &Container{
 		Name:     name,
@@ -41,7 +41,7 @@ func NewContainer(name string) *Container {
 	}
 }
 
-// FromComposeService converts a Docker Compose service to a Podman Quadlet container configuration
+// FromComposeService converts a Docker Compose service to a Podman Quadlet container configuration.
 func (c *Container) FromComposeService(service types.ServiceConfig, projectName string) *Container {
 	// No automatic image name conversion - use exactly what's provided in the compose file
 	c.Image = service.Image
@@ -149,52 +149,52 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 	return c
 }
 
-// GetServiceName returns the full systemd service name
+// GetServiceName returns the full systemd service name.
 func (c *Container) GetServiceName() string {
 	return c.Name + ".service"
 }
 
-// GetUnitType returns the type of the unit
+// GetUnitType returns the type of the unit.
 func (c *Container) GetUnitType() string {
 	return "container"
 }
 
-// GetUnitName returns the name of the unit
+// GetUnitName returns the name of the unit.
 func (c *Container) GetUnitName() string {
 	return c.Name
 }
 
-// GetStatus returns the current status of the unit
+// GetStatus returns the current status of the unit.
 func (c *Container) GetStatus() (string, error) {
 	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
 	return base.GetStatus()
 }
 
-// Start starts the unit
+// Start starts the unit.
 func (c *Container) Start() error {
 	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
 	return base.Start()
 }
 
-// Stop stops the unit
+// Stop stops the unit.
 func (c *Container) Stop() error {
 	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
 	return base.Stop()
 }
 
-// Restart restarts the unit
+// Restart restarts the unit.
 func (c *Container) Restart() error {
 	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
 	return base.Restart()
 }
 
-// Show displays the unit configuration and status
+// Show displays the unit configuration and status.
 func (c *Container) Show() error {
 	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
 	return base.Show()
 }
 
-// Secret represents a container secret definition
+// Secret represents a container secret definition.
 type Secret struct {
 	Source string
 	Target string

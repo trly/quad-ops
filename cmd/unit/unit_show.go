@@ -29,10 +29,10 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
-// ShowCommand represents the unit show command
+// ShowCommand represents the unit show command.
 type ShowCommand struct{}
 
-// GetCobraCommand returns the cobra command for showing unit details
+// GetCobraCommand returns the cobra command for showing unit details.
 func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 	unitShowCmd := &cobra.Command{
 		Use:   "show",

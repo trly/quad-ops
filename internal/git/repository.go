@@ -58,7 +58,6 @@ func (r *Repository) SyncRepository() error {
 			if err := r.pullLatest(); err != nil {
 				return err
 			}
-
 		} else {
 			return err
 		}

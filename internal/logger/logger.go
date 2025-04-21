@@ -8,7 +8,7 @@ import (
 
 var log *slog.Logger
 
-// Init initializes the application logger
+// Init initializes the application logger.
 func Init(verbose bool) {
 	opts := &slog.HandlerOptions{
 		Level: slog.LevelInfo,
@@ -23,7 +23,7 @@ func Init(verbose bool) {
 	slog.SetDefault(log)
 }
 
-// GetLogger returns the configured logger instance
+// GetLogger returns the configured logger instance.
 func GetLogger() *slog.Logger {
 	return log
 }

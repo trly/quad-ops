@@ -17,7 +17,7 @@ import (
 var ctx = context.Background()
 var caser = cases.Title(language.English)
 
-// SystemdUnit defines the interface for managing systemd units
+// SystemdUnit defines the interface for managing systemd units.
 type SystemdUnit interface {
 	// GetServiceName returns the full systemd service name
 	GetServiceName() string
@@ -44,13 +44,13 @@ type SystemdUnit interface {
 	Show() error
 }
 
-// BaseSystemdUnit provides common implementation for all systemd units
+// BaseSystemdUnit provides common implementation for all systemd units.
 type BaseSystemdUnit struct {
 	Name string
 	Type string
 }
 
-// GetServiceName returns the full systemd service name based on unit type
+// GetServiceName returns the full systemd service name based on unit type.
 func (u *BaseSystemdUnit) GetServiceName() string {
 	if u.Type == "container" {
 		return u.Name + ".service"
@@ -58,17 +58,17 @@ func (u *BaseSystemdUnit) GetServiceName() string {
 	return u.Name + "-" + u.Type + ".service"
 }
 
-// GetUnitType returns the type of the unit
+// GetUnitType returns the type of the unit.
 func (u *BaseSystemdUnit) GetUnitType() string {
 	return u.Type
 }
 
-// GetUnitName returns the name of the unit
+// GetUnitName returns the name of the unit.
 func (u *BaseSystemdUnit) GetUnitName() string {
 	return u.Name
 }
 
-// GetStatus returns the current status of the unit
+// GetStatus returns the current status of the unit.
 func (u *BaseSystemdUnit) GetStatus() (string, error) {
 	conn, err := getSystemdConnection()
 	if err != nil {
@@ -84,7 +84,7 @@ func (u *BaseSystemdUnit) GetStatus() (string, error) {
 	return prop.Value.Value().(string), nil
 }
 
-// Start starts the unit
+// Start starts the unit.
 func (u *BaseSystemdUnit) Start() error {
 	conn, err := getSystemdConnection()
 	if err != nil {
@@ -105,7 +105,7 @@ func (u *BaseSystemdUnit) Start() error {
 	return nil
 }
 
-// Stop stops the unit
+// Stop stops the unit.
 func (u *BaseSystemdUnit) Stop() error {
 	conn, err := getSystemdConnection()
 	if err != nil {
@@ -126,7 +126,7 @@ func (u *BaseSystemdUnit) Stop() error {
 	return nil
 }
 
-// Restart restarts the unit
+// Restart restarts the unit.
 func (u *BaseSystemdUnit) Restart() error {
 	conn, err := getSystemdConnection()
 	if err != nil {
@@ -152,7 +152,7 @@ func (u *BaseSystemdUnit) Restart() error {
 	return nil
 }
 
-// Show displays the unit configuration and status
+// Show displays the unit configuration and status.
 func (u *BaseSystemdUnit) Show() error {
 	conn, err := getSystemdConnection()
 	if err != nil {
@@ -179,7 +179,7 @@ func (u *BaseSystemdUnit) Show() error {
 
 	// Read and display the actual quadlet configuration
 	if fragmentPath, ok := prop["FragmentPath"].(string); ok {
-		content, err := os.ReadFile(fragmentPath)
+		content, err := os.ReadFile(fragmentPath) //nolint:gosec // Safe as path comes from systemd D-Bus interface, not user input
 		if err == nil {
 			unitConfig, _ := ini.Load(content)
 			sectionName := fmt.Sprintf("X-%s", caser.String(u.Type))
@@ -196,7 +196,7 @@ func (u *BaseSystemdUnit) Show() error {
 	return nil
 }
 
-// ReloadSystemd reloads the systemd configuration
+// ReloadSystemd reloads the systemd configuration.
 func ReloadSystemd() error {
 	conn, err := getSystemdConnection()
 	if err != nil {
@@ -215,31 +215,31 @@ func ReloadSystemd() error {
 	return nil
 }
 
-// GetUnitStatus - Legacy function for backward compatibility
+// GetUnitStatus - Legacy function for backward compatibility.
 func GetUnitStatus(unitName string, unitType string) (string, error) {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.GetStatus()
 }
 
-// RestartUnit - Legacy function for backward compatibility
+// RestartUnit - Legacy function for backward compatibility.
 func RestartUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Restart()
 }
 
-// StartUnit - Legacy function for backward compatibility
+// StartUnit - Legacy function for backward compatibility.
 func StartUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Start()
 }
 
-// StopUnit - Legacy function for backward compatibility
+// StopUnit - Legacy function for backward compatibility.
 func StopUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Stop()
 }
 
-// ShowUnit - Legacy function for backward compatibility
+// ShowUnit - Legacy function for backward compatibility.
 func ShowUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Show()

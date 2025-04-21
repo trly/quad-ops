@@ -47,22 +47,22 @@ type Config struct {
 	Verbose       bool               `yaml:"verbose"`
 }
 
-// SetConfig sets the application configuration
+// SetConfig sets the application configuration.
 func SetConfig(c *Config) {
 	cfg = c
 }
 
-// GetConfig returns the current application configuration
+// GetConfig returns the current application configuration.
 func GetConfig() *Config {
 	return cfg
 }
 
-// SetConfigFilePath sets the configuration file path
+// SetConfigFilePath sets the configuration file path.
 func SetConfigFilePath(p string) {
 	viper.SetConfigFile(p)
 }
 
-// InitConfig initializes the application configuration
+// InitConfig initializes the application configuration.
 func InitConfig() *Config {
 	cfg := &Config{
 		RepositoryDir: DefaultRepositoryDir,

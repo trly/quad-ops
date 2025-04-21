@@ -10,7 +10,7 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
-// MockCommandRunner implements CommandRunner for testing
+// MockCommandRunner implements CommandRunner for testing.
 type MockCommandRunner struct {
 	// Map of command to output and error
 	CommandOutputs map[string]struct {
@@ -19,7 +19,7 @@ type MockCommandRunner struct {
 	}
 }
 
-// Run returns mock output based on command
+// Run returns mock output based on command.
 func (m *MockCommandRunner) Run(name string, args ...string) ([]byte, error) {
 	// Create a key by joining command and args
 	key := name

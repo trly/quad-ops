@@ -1,26 +1,25 @@
-# https://golangci-lint.run/usage/configuration/
 version: '2'
 
 run:
   timeout: 5m
 
-linters-settings:
-  gofmt:
-    simplify: true
-
 linters:
   enable:
-    - revive
-    - govet
-    - errcheck
-    - staticcheck
-
+    - errcheck     # Detect unchecked errors
+    - govet        # Examine Go source code for suspicious constructs
+    - ineffassign  # Detect ineffectual assignments
+    - staticcheck  # Go static analysis tool
+    - unused       # Check for unused constants, variables, functions and types
+    - revive       # Fast, configurable, extensible, flexible, and beautiful linter
+    - misspell     # Fix spelling errors
+    - gosec        # Security checker
+    - unconvert    # Remove unnecessary type conversions
+    - whitespace   # Check for unnecessary whitespace
+    - godot        # Check if comments end in a period
+    - gocyclo      # Checks cyclomatic complexity
+    - prealloc     # Find slice declarations that could be preallocated
+    
 formatters:
   enable:
     - gofmt
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - errcheck
+    - goimports

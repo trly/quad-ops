@@ -29,10 +29,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ConfigCommand represents the config command for quad-ops CLI
+// ConfigCommand represents the config command for quad-ops CLI.
 type ConfigCommand struct{}
 
-// GetCobraCommand returns the cobra command for config operations
+// GetCobraCommand returns the cobra command for config operations.
 func (c *ConfigCommand) GetCobraCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "config",

@@ -7,10 +7,10 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
-// StatusCommand represents the unit status command
+// StatusCommand represents the unit status command.
 type StatusCommand struct{}
 
-// GetCobraCommand returns the cobra command for checking unit status
+// GetCobraCommand returns the cobra command for checking unit status.
 func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 	unitStatusCmd := &cobra.Command{
 		Use:   "status",

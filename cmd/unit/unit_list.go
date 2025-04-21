@@ -35,16 +35,15 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
-// ListCommand represents the unit list command
+// ListCommand represents the unit list command.
 type ListCommand struct{}
 
 var (
 	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
 )
 
-// GetCobraCommand returns the cobra command for listing units
+// GetCobraCommand returns the cobra command for listing units.
 func (c *ListCommand) GetCobraCommand() *cobra.Command {
-
 	unitListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",

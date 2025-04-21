@@ -27,7 +27,7 @@ type Volume struct {
 	UnitType string
 }
 
-// NewVolume creates a new Volume with the given name
+// NewVolume creates a new Volume with the given name.
 func NewVolume(name string) *Volume {
 	return &Volume{
 		Name:     name,
@@ -35,52 +35,52 @@ func NewVolume(name string) *Volume {
 	}
 }
 
-// GetServiceName returns the full systemd service name
+// GetServiceName returns the full systemd service name.
 func (v *Volume) GetServiceName() string {
 	return v.Name + "-volume.service"
 }
 
-// GetUnitType returns the type of the unit
+// GetUnitType returns the type of the unit.
 func (v *Volume) GetUnitType() string {
 	return "volume"
 }
 
-// GetUnitName returns the name of the unit
+// GetUnitName returns the name of the unit.
 func (v *Volume) GetUnitName() string {
 	return v.Name
 }
 
-// GetStatus returns the current status of the unit
+// GetStatus returns the current status of the unit.
 func (v *Volume) GetStatus() (string, error) {
 	base := BaseSystemdUnit{Name: v.Name, Type: "volume"}
 	return base.GetStatus()
 }
 
-// Start starts the unit
+// Start starts the unit.
 func (v *Volume) Start() error {
 	base := BaseSystemdUnit{Name: v.Name, Type: "volume"}
 	return base.Start()
 }
 
-// Stop stops the unit
+// Stop stops the unit.
 func (v *Volume) Stop() error {
 	base := BaseSystemdUnit{Name: v.Name, Type: "volume"}
 	return base.Stop()
 }
 
-// Restart restarts the unit
+// Restart restarts the unit.
 func (v *Volume) Restart() error {
 	base := BaseSystemdUnit{Name: v.Name, Type: "volume"}
 	return base.Restart()
 }
 
-// Show displays the unit configuration and status
+// Show displays the unit configuration and status.
 func (v *Volume) Show() error {
 	base := BaseSystemdUnit{Name: v.Name, Type: "volume"}
 	return base.Show()
 }
 
-// FromComposeVolume creates a Volume from a Docker Compose volume configuration
+// FromComposeVolume creates a Volume from a Docker Compose volume configuration.
 func (v *Volume) FromComposeVolume(name string, volume types.VolumeConfig) *Volume {
 	// Set the volume name (if specified in the compose file, otherwise use the key name)
 	if volume.Name != "" {

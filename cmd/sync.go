@@ -35,7 +35,7 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
-// SyncCommand represents the sync command for quad-ops CLI
+// SyncCommand represents the sync command for quad-ops CLI.
 type SyncCommand struct{}
 
 var (
@@ -46,7 +46,7 @@ var (
 	force        bool
 )
 
-// GetCobraCommand returns the cobra command for sync operations
+// GetCobraCommand returns the cobra command for sync operations.
 func (c *SyncCommand) GetCobraCommand() *cobra.Command {
 	syncCmd := &cobra.Command{
 		Use:   "sync",
@@ -64,7 +64,7 @@ repositories:
       action: Delete`,
 
 		Run: func(_ *cobra.Command, _ []string) {
-			if err := os.MkdirAll(config.GetConfig().QuadletDir, 0755); err != nil {
+			if err := os.MkdirAll(config.GetConfig().QuadletDir, 0750); err != nil {
 				log.Fatal("Failed to create quadlet directory:", err)
 			}
 
@@ -77,7 +77,6 @@ repositories:
 			if daemon {
 				syncDaemon(cfg)
 			}
-
 		},
 	}
 
@@ -129,9 +128,7 @@ func syncRepositories(cfg *config.Config) {
 			if err != nil {
 				log.Printf("error processing projects from repository %s: %v", repoConfig.Name, err)
 				continue
-
 			}
-
 		} else {
 			log.Printf("dry-run: would process repository: %s", repoConfig.Name)
 		}

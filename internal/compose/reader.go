@@ -14,7 +14,7 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
-// ReadProjects reads all Docker Compose projects from a directory path
+// ReadProjects reads all Docker Compose projects from a directory path.
 func ReadProjects(path string) ([]*types.Project, error) {
 	var projects []*types.Project
 
@@ -107,7 +107,7 @@ func ReadProjects(path string) ([]*types.Project, error) {
 	return projects, nil
 }
 
-// ParseComposeFile parses a Docker Compose file at the specified path
+// ParseComposeFile parses a Docker Compose file at the specified path.
 func ParseComposeFile(path string) (*types.Project, error) {
 	ctx := context.Background()
 	// Create a normalized project name based on the directory

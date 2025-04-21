@@ -18,7 +18,7 @@ type QuadletUnit struct {
 	Network   Network       `yaml:"network,omitempty"`
 }
 
-// GetSystemdUnit returns the appropriate SystemdUnit implementation for this QuadletUnit
+// GetSystemdUnit returns the appropriate SystemdUnit implementation for this QuadletUnit.
 func (u *QuadletUnit) GetSystemdUnit() SystemdUnit {
 	switch u.Type {
 	case "container":
@@ -59,7 +59,7 @@ type SystemdConfig struct {
 	WantedBy        []string `yaml:"wanted_by"`
 }
 
-// Unit represents a record in the units table
+// Unit represents a record in the units table.
 type Unit struct {
 	ID            int64     `db:"id"`
 	Name          string    `db:"name"`
@@ -221,7 +221,7 @@ func (u *QuadletUnit) generateServiceSection() string {
 	return content
 }
 
-// GenerateQuadletUnit generates a quadlet unit file content from a unit configuration
+// GenerateQuadletUnit generates a quadlet unit file content from a unit configuration.
 func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
 	if verbose {
 		log.Printf("generating Quadlet unit for %s of type %s", unit.Name, unit.Type)

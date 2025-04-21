@@ -2,7 +2,7 @@
 package unit
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // Not used for security purposes, just content comparison
 	"fmt"
 	"log"
 	"os"
@@ -14,7 +14,7 @@ import (
 	"github.com/trly/quad-ops/internal/db"
 )
 
-// ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units
+// ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units.
 func ProcessComposeProjects(projects []*types.Project, force bool) error {
 	dbConn, err := db.Connect()
 	if err != nil {
@@ -139,7 +139,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 	return nil
 }
 
-// processUnit processes a single quadlet unit
+// processUnit processes a single quadlet unit.
 func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	// Track this unit as processed
 	unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
@@ -171,13 +171,13 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 	return nil
 }
 
-// Helper functions extracted from the Processor struct
+// Helper functions extracted from the Processor struct.
 func getUnitFilePath(name, unitType string) string {
 	return filepath.Join(config.GetConfig().QuadletDir, fmt.Sprintf("%s.%s", name, unitType))
 }
 
 func hasUnitChanged(unitPath, content string) bool {
-	existingContent, err := os.ReadFile(unitPath)
+	existingContent, err := os.ReadFile(unitPath) //nolint:gosec // Safe as path is internally constructed, not user-controlled
 	if err == nil && string(getContentHash(string(existingContent))) == string(getContentHash(content)) {
 		if config.GetConfig().Verbose {
 			log.Printf("unit %s unchanged, skipping", unitPath)
@@ -191,7 +191,7 @@ func writeUnitFile(unitPath, content string) error {
 	if config.GetConfig().Verbose {
 		log.Printf("writing quadlet unit to: %s", unitPath)
 	}
-	return os.WriteFile(unitPath, []byte(content), 0644)
+	return os.WriteFile(unitPath, []byte(content), 0600)
 }
 
 func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) error {
@@ -285,9 +285,9 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 	return nil
 }
 
-// getContentHash calculates a SHA1 hash for content comparison
+// getContentHash calculates a SHA1 hash for content comparison.
 func getContentHash(content string) []byte {
-	hash := sha1.New()
+	hash := sha1.New() //nolint:gosec // Not used for security purposes, just for content comparison
 	hash.Write([]byte(content))
 	return hash.Sum(nil)
 }

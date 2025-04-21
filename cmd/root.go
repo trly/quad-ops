@@ -38,7 +38,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// RootCommand represents the root command for quad-ops CLI
+// RootCommand represents the root command for quad-ops CLI.
 type RootCommand struct{}
 
 var (
@@ -51,7 +51,7 @@ var (
 	verbose        bool
 )
 
-// GetCobraCommand returns the cobra root command for quad-ops CLI
+// GetCobraCommand returns the cobra root command for quad-ops CLI.
 func (c *RootCommand) GetCobraCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "quad-ops",
@@ -114,5 +114,4 @@ It automatically generates systemd unit files from Docker Compose files and hand
 	)
 
 	return rootCmd
-
 }
