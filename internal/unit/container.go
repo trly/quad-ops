@@ -25,8 +25,9 @@ type Container struct {
 	ReadOnly bool
 	// SecurityLabel removed - not supported by podman-systemd
 	// Use SecurityLabelType, SecurityLabelLevel, etc. instead
-	HostName string
-	Secrets  []Secret
+	HostName     string
+	ContainerName string
+	Secrets      []Secret
 
 	// Systemd unit properties
 	Name     string

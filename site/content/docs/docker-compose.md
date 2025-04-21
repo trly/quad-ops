@@ -77,6 +77,6 @@ The following Docker Compose features are not supported by Podman Quadlet:
 - Always use fully qualified image names with registry prefix (docker.io/, quay.io/, etc.)
 - Container dependencies must use the service name format in systemd unit files
 - Use After/Requires with .service suffix (e.g., 'After=db.service', not 'After=db.container')
-- For container DNS resolution, always use systemd- prefix (e.g., 'systemd-project-service')
+- By default, quad-ops provides predictable container hostnames without the `systemd-` prefix that Podman normally adds (see [Docker Compose Networking](/docs/docker-compose-networking/) for details)
 - Named volumes require the '.volume' suffix in Volume= directives
 - Quadlet does not auto-create bind mount directories - they must exist before container start

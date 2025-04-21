@@ -15,36 +15,39 @@ var cfg *Config
 // settings, such as the repository directory, sync interval, quadlet
 // directory, database path, user mode, and verbosity.
 const (
-	DefaultRepositoryDir = "/var/lib/quad-ops"
-	DefaultSyncInterval  = 5 * time.Minute
-	DefaultQuadletDir    = "/etc/containers/systemd"
-	DefaultDBPath        = "/var/lib/quad-ops/quad-ops.db"
-	DefaultUserMode      = false
-	DefaultVerbose       = false
+	DefaultRepositoryDir        = "/var/lib/quad-ops"
+	DefaultSyncInterval         = 5 * time.Minute
+	DefaultQuadletDir           = "/etc/containers/systemd"
+	DefaultDBPath               = "/var/lib/quad-ops/quad-ops.db"
+	DefaultUserMode             = false
+	DefaultVerbose              = false
+	DefaultUsePodmanDefaultNames = false
 )
 
 // RepositoryConfig represents a repository that is managed by the quad-ops system.
 // It contains information about the repository, including its name, URL, target
 // directory, and cleanup policy.
 type RepositoryConfig struct {
-	Name       string `yaml:"name"`
-	URL        string `yaml:"url"`
-	Reference  string `yaml:"ref,omitempty"`
-	ComposeDir string `yaml:"composeDir,omitempty"`
-	Cleanup    string `yaml:"cleanup,omitempty"`
+	Name                   string `yaml:"name"`
+	URL                    string `yaml:"url"`
+	Reference              string `yaml:"ref,omitempty"`
+	ComposeDir             string `yaml:"composeDir,omitempty"`
+	Cleanup                string `yaml:"cleanup,omitempty"`
+	UsePodmanDefaultNames  bool   `yaml:"usePodmanDefaultNames,omitempty"`
 }
 
 // Config represents the configuration for the quad-ops system. It contains
 // various settings such as the repository directory, sync interval, quadlet
 // directory, database path, user mode, and verbosity.
 type Config struct {
-	RepositoryDir string             `yaml:"repositoryDir"`
-	SyncInterval  time.Duration      `yaml:"syncInterval"`
-	QuadletDir    string             `yaml:"quadletDir"`
-	Repositories  []RepositoryConfig `yaml:"repositories"`
-	DBPath        string             `yaml:"dbPath"`
-	UserMode      bool               `yaml:"userMode"`
-	Verbose       bool               `yaml:"verbose"`
+	RepositoryDir         string             `yaml:"repositoryDir"`
+	SyncInterval          time.Duration      `yaml:"syncInterval"`
+	QuadletDir            string             `yaml:"quadletDir"`
+	Repositories          []RepositoryConfig `yaml:"repositories"`
+	DBPath                string             `yaml:"dbPath"`
+	UserMode              bool               `yaml:"userMode"`
+	Verbose               bool               `yaml:"verbose"`
+	UsePodmanDefaultNames bool               `yaml:"usePodmanDefaultNames"`
 }
 
 // SetConfig sets the application configuration.
@@ -65,12 +68,13 @@ func SetConfigFilePath(p string) {
 // InitConfig initializes the application configuration.
 func InitConfig() *Config {
 	cfg := &Config{
-		RepositoryDir: DefaultRepositoryDir,
-		SyncInterval:  DefaultSyncInterval,
-		QuadletDir:    DefaultQuadletDir,
-		DBPath:        DefaultDBPath,
-		UserMode:      DefaultUserMode,
-		Verbose:       DefaultVerbose,
+		RepositoryDir:         DefaultRepositoryDir,
+		SyncInterval:          DefaultSyncInterval,
+		QuadletDir:            DefaultQuadletDir,
+		DBPath:                DefaultDBPath,
+		UserMode:              DefaultUserMode,
+		Verbose:               DefaultVerbose,
+		UsePodmanDefaultNames: DefaultUsePodmanDefaultNames,
 	}
 
 	viper.SetDefault("repositoryDir", DefaultRepositoryDir)
@@ -79,6 +83,7 @@ func InitConfig() *Config {
 	viper.SetDefault("dbPath", DefaultDBPath)
 	viper.SetDefault("userMode", DefaultUserMode)
 	viper.SetDefault("verbose", DefaultVerbose)
+	viper.SetDefault("usePodmanDefaultNames", DefaultUsePodmanDefaultNames)
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")

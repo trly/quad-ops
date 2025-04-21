@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
@@ -46,6 +47,24 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
 			container := NewContainer(prefixedName)
 			container = container.FromComposeService(service, project.Name)
+			
+			// Check if we should use Podman's default naming with systemd- prefix
+			// By default, Podman prefixes container hostnames with "systemd-"
+			// We can override this by setting the ContainerName in the unit file
+			usePodmanNames := config.GetConfig().UsePodmanDefaultNames
+			
+			// Repository-specific setting overrides global setting if present
+			for _, repo := range config.GetConfig().Repositories {
+				if strings.Contains(project.Name, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
+					usePodmanNames = repo.UsePodmanDefaultNames
+					break
+				}
+			}
+			
+			// If we don't want Podman's default names, set ContainerName to override the systemd- prefix
+			if !usePodmanNames {
+				container.ContainerName = prefixedName
+			}
 
 			// Create the quadlet unit with proper systemd configuration
 			quadletUnit := QuadletUnit{

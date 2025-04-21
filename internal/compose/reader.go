@@ -125,15 +125,17 @@ func ParseComposeFile(path string) (*types.Project, error) {
 		projectName = "tmp"
 	}
 
-	// For production, try to create a cleaner project name if possible
-	// Format: <repo>-<folder>
+	// For production, always use directory name for project naming consistency
+	// Extract repository name from path (assuming repositories/<reponame>/<folder/subfolder/etc> pattern)
+	// Use last component of path for folder name regardless of composeDir setting
 	dirComponents := strings.Split(dirPath, string(os.PathSeparator))
 	if len(dirComponents) >= 3 {
-		// Look for repositories/<reponame>/<folder> pattern
+		// Look for repositories/<reponame> pattern
 		for i, component := range dirComponents {
-			if component == "repositories" && i+2 < len(dirComponents) {
+			if component == "repositories" && i+1 < len(dirComponents) {
 				repoName := dirComponents[i+1]
-				folderName := dirComponents[i+2]
+				// Always use the actual directory containing the compose file
+				folderName := filepath.Base(dirPath)
 				projectName = fmt.Sprintf("%s-%s", repoName, folderName)
 				break
 			}

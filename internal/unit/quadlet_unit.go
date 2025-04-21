@@ -120,6 +120,10 @@ func (u *QuadletUnit) generateContainerSection() string {
 	if u.Container.HostName != "" {
 		content += formatKeyValue("HostName", u.Container.HostName)
 	}
+	// Set ContainerName to override systemd- prefix if useSystemdDNS is false
+	if u.Container.ContainerName != "" {
+		content += formatKeyValue("ContainerName", u.Container.ContainerName)
+	}
 	for _, secret := range u.Container.Secrets {
 		content += formatKeyValue("Secret", formatSecret(secret))
 	}
