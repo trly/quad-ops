@@ -1,5 +1,11 @@
 # Quad-Ops Development Memory
 
+## Build & Test Commands
+- Build: `go build -o quad-ops cmd/quad-ops/main.go`
+- Run tests: `go test -v ./...`
+- Run single test: `go test -v github.com/trly/quad-ops/internal/unit -run TestFromComposeService`
+- Lint: `mise exec -- golangci-lint run`
+
 ## Project Overview
 - Quad-Ops manages Podman containers through Quadlet by synchronizing from Git repositories
 - Supports standard Docker Compose files (version 3.x)

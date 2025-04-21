@@ -17,7 +17,7 @@ func TestNetworkAliasGeneration(t *testing.T) {
 
 	// Create a service with a simple name
 	serviceConfig := types.ServiceConfig{
-		Name:  "db", 
+		Name:  "db",
 		Image: "mariadb:latest",
 	}
 

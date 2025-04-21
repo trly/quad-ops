@@ -26,9 +26,9 @@ type Container struct {
 	ReadOnly bool
 	// SecurityLabel removed - not supported by podman-systemd
 	// Use SecurityLabelType, SecurityLabelLevel, etc. instead
-	HostName     string
+	HostName      string
 	ContainerName string
-	Secrets      []Secret
+	Secrets       []Secret
 
 	// Systemd unit properties
 	Name     string
@@ -103,12 +103,10 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 			}
 
 			c.Network = append(c.Network, networkRef)
-			
+
 			// Add any network aliases specified in the compose file
 			if net != nil && len(net.Aliases) > 0 {
-				for _, alias := range net.Aliases {
-					c.NetworkAlias = append(c.NetworkAlias, alias)
-				}
+				c.NetworkAlias = append(c.NetworkAlias, net.Aliases...)
 			}
 		}
 	} else {

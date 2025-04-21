@@ -15,12 +15,12 @@ var cfg *Config
 // settings, such as the repository directory, sync interval, quadlet
 // directory, database path, user mode, and verbosity.
 const (
-	DefaultRepositoryDir        = "/var/lib/quad-ops"
-	DefaultSyncInterval         = 5 * time.Minute
-	DefaultQuadletDir           = "/etc/containers/systemd"
-	DefaultDBPath               = "/var/lib/quad-ops/quad-ops.db"
-	DefaultUserMode             = false
-	DefaultVerbose              = false
+	DefaultRepositoryDir         = "/var/lib/quad-ops"
+	DefaultSyncInterval          = 5 * time.Minute
+	DefaultQuadletDir            = "/etc/containers/systemd"
+	DefaultDBPath                = "/var/lib/quad-ops/quad-ops.db"
+	DefaultUserMode              = false
+	DefaultVerbose               = false
 	DefaultUsePodmanDefaultNames = false
 )
 
@@ -28,12 +28,12 @@ const (
 // It contains information about the repository, including its name, URL, target
 // directory, and cleanup policy.
 type RepositoryConfig struct {
-	Name                   string `yaml:"name"`
-	URL                    string `yaml:"url"`
-	Reference              string `yaml:"ref,omitempty"`
-	ComposeDir             string `yaml:"composeDir,omitempty"`
-	Cleanup                string `yaml:"cleanup,omitempty"`
-	UsePodmanDefaultNames  bool   `yaml:"usePodmanDefaultNames,omitempty"`
+	Name                  string `yaml:"name"`
+	URL                   string `yaml:"url"`
+	Reference             string `yaml:"ref,omitempty"`
+	ComposeDir            string `yaml:"composeDir,omitempty"`
+	Cleanup               string `yaml:"cleanup,omitempty"`
+	UsePodmanDefaultNames bool   `yaml:"usePodmanDefaultNames,omitempty"`
 }
 
 // Config represents the configuration for the quad-ops system. It contains

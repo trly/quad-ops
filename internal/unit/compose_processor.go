@@ -47,12 +47,12 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
 			container := NewContainer(prefixedName)
 			container = container.FromComposeService(service, project.Name)
-			
+
 			// Check if we should use Podman's default naming with systemd- prefix
 			// By default, Podman prefixes container hostnames with "systemd-"
 			// We can override this by setting the ContainerName in the unit file
 			usePodmanNames := config.GetConfig().UsePodmanDefaultNames
-			
+
 			// Repository-specific setting overrides global setting if present
 			for _, repo := range config.GetConfig().Repositories {
 				if strings.Contains(project.Name, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
@@ -60,12 +60,12 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 					break
 				}
 			}
-			
+
 			// If we don't want Podman's default names, set ContainerName to override the systemd- prefix
 			if !usePodmanNames {
 				container.ContainerName = prefixedName
 			}
-			
+
 			// Always add the service name as a NetworkAlias to allow using just the service name for connections
 			// This makes Docker Compose files more portable by allowing references like 'db' instead of 'quad-ops-multi-service-db'
 			container.NetworkAlias = append(container.NetworkAlias, serviceName)
@@ -87,7 +87,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 					// and should match how the container unit filename is generated
 					depPrefixedName := fmt.Sprintf("%s-%s", project.Name, depServiceName)
 					formattedDepName := fmt.Sprintf("%s.service", depPrefixedName)
-					
+
 					// Add dependency to After and Requires lists
 					quadletUnit.Systemd.After = append(quadletUnit.Systemd.After, formattedDepName)
 					quadletUnit.Systemd.Requires = append(quadletUnit.Systemd.Requires, formattedDepName)
