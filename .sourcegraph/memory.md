@@ -70,5 +70,6 @@
 
 ## Linting
 - golangci-lint has version compatibility issues between local use and GitHub Actions
-- Keep .golangci.yml file without 'version' field for GitHub Actions compatibility
-- Local use might require 'version: 1' but remove before committing
+- We use a simplified .golangci.yml file for GitHub Actions (no version field, no formatters, etc.)
+- For local development, use .golangci-local.yml: `mise exec -- golangci-lint run -c .golangci-local.yml`
+- GitHub Actions uses v1.54.0 of golangci-lint for compatibility
