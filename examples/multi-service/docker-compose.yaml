@@ -15,6 +15,8 @@ services:
     depends_on:
       - db
     restart: always
+    networks:
+      - app-network
 
   db:
     image: docker.io/library/mariadb:latest
