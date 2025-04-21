@@ -1,3 +1,4 @@
+// Package cmd provides the command line interface for quad-ops
 /*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
@@ -34,6 +35,7 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
+// SyncCommand represents the sync command for quad-ops CLI
 type SyncCommand struct{}
 
 var (
@@ -44,6 +46,7 @@ var (
 	force        bool
 )
 
+// GetCobraCommand returns the cobra command for sync operations
 func (c *SyncCommand) GetCobraCommand() *cobra.Command {
 	syncCmd := &cobra.Command{
 		Use:   "sync",
@@ -111,11 +114,11 @@ func syncRepositories(cfg *config.Config) {
 			if repoConfig.ComposeDir != "" {
 				composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
 			}
-			
+
 			if config.GetConfig().Verbose {
 				log.Printf("looking for compose files in: %s", composeDir)
 			}
-			
+
 			projects, err := compose.ReadProjects(composeDir)
 			if err != nil {
 				log.Printf("error reading projects from repository %s: %v", repoConfig.Name, err)

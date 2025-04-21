@@ -1,3 +1,4 @@
+// Package unit provides unit command functionality for quad-ops CLI
 /*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
@@ -25,12 +26,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Command represents the unit command for quad-ops CLI
 type Command struct{}
 
 var (
 	unitType string
 )
 
+// GetCobraCommand returns the cobra command for unit operations
 func (c *Command) GetCobraCommand() *cobra.Command {
 	unitCmd := &cobra.Command{
 		Use:   "unit",

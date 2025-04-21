@@ -1,3 +1,4 @@
+// Package unit provides unit command functionality for quad-ops CLI
 /*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
@@ -34,12 +35,14 @@ import (
 	"github.com/trly/quad-ops/internal/unit"
 )
 
+// ListCommand represents the unit list command
 type ListCommand struct{}
 
 var (
 	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
 )
 
+// GetCobraCommand returns the cobra command for listing units
 func (c *ListCommand) GetCobraCommand() *cobra.Command {
 
 	unitListCmd := &cobra.Command{
@@ -55,7 +58,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 			if err != nil {
 				log.Fatal(err)
 			}
-			defer dbConn.Close()
+			defer func() { _ = dbConn.Close() }()
 
 			unitRepo := unit.NewUnitRepository(dbConn)
 			findAndDisplayUnits(unitRepo, tbl, unitType)

@@ -41,6 +41,7 @@ func NewContainer(name string) *Container {
 	}
 }
 
+// FromComposeService converts a Docker Compose service to a Podman Quadlet container configuration
 func (c *Container) FromComposeService(service types.ServiceConfig, projectName string) *Container {
 	// No automatic image name conversion - use exactly what's provided in the compose file
 	c.Image = service.Image
@@ -86,7 +87,7 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 	if len(service.Networks) > 0 {
 		for netName, net := range service.Networks {
 			networkRef := ""
-			
+
 			// Check if network is a named network (project-defined) or a special network
 			if netName != "host" && netName != "none" {
 				// This is a project-defined network - format for Podman Quadlet with .network suffix
@@ -98,7 +99,7 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 				// Default or special network - use as is
 				networkRef = netName
 			}
-			
+
 			c.Network = append(c.Network, networkRef)
 		}
 	} else {
@@ -193,6 +194,7 @@ func (c *Container) Show() error {
 	return base.Show()
 }
 
+// Secret represents a container secret definition
 type Secret struct {
 	Source string
 	Target string

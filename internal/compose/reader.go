@@ -1,3 +1,4 @@
+// Package compose provides Docker Compose file parsing and handling
 package compose
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
+// ReadProjects reads all Docker Compose projects from a directory path
 func ReadProjects(path string) ([]*types.Project, error) {
 	var projects []*types.Project
 
@@ -55,8 +57,8 @@ func ReadProjects(path string) ([]*types.Project, error) {
 		}
 
 		// Add verbose logging for all files
-		if config.GetConfig().Verbose && config.GetConfig().Verbose {
-			log.Printf("Examining path: %s (isDir: %v, ext: %s)", 
+		if config.GetConfig().Verbose {
+			log.Printf("Examining path: %s (isDir: %v, ext: %s)",
 				filePath, info.IsDir(), filepath.Ext(filePath))
 		}
 
@@ -64,16 +66,16 @@ func ReadProjects(path string) ([]*types.Project, error) {
 			// Check if the file name starts with docker-compose or compose
 			baseName := filepath.Base(filePath)
 			isComposeFile := false
-			
+
 			// Common Docker Compose file patterns
-			if baseName == "docker-compose.yml" || baseName == "docker-compose.yaml" || 
-			   baseName == "compose.yml" || baseName == "compose.yaml" {
+			if baseName == "docker-compose.yml" || baseName == "docker-compose.yaml" ||
+				baseName == "compose.yml" || baseName == "compose.yaml" {
 				isComposeFile = true
 				if config.GetConfig().Verbose {
 					log.Printf("Found compose file: %s", filePath)
 				}
 			}
-			
+
 			if isComposeFile {
 				composeFilesFound = true
 				project, err := ParseComposeFile(filePath)
@@ -93,7 +95,7 @@ func ReadProjects(path string) ([]*types.Project, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to read docker-compose files: %w", err)
 	}
-	
+
 	// No compose files found in the directory
 	if !composeFilesFound {
 		if config.GetConfig().Verbose {
@@ -105,23 +107,24 @@ func ReadProjects(path string) ([]*types.Project, error) {
 	return projects, nil
 }
 
+// ParseComposeFile parses a Docker Compose file at the specified path
 func ParseComposeFile(path string) (*types.Project, error) {
 	ctx := context.Background()
 	// Create a normalized project name based on the directory
 	dirPath := filepath.Dir(path)
 	projectName := filepath.Base(dirPath)
-	
+
 	// In production, let's format the project name based on repo and directory
 	// For tests and edge cases, use a simple default name
 	if projectName == "" || projectName == "." || projectName == "/" {
 		projectName = "default"
 	}
-	
+
 	// For tests, override with expected value
 	if os.Getenv("TESTING") == "1" {
 		projectName = "tmp"
 	}
-	
+
 	// For production, try to create a cleaner project name if possible
 	// Format: <repo>-<folder>
 	dirComponents := strings.Split(dirPath, string(os.PathSeparator))

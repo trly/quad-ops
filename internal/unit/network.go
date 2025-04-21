@@ -8,15 +8,15 @@ import (
 
 // Network represents the configuration for a network in a Quadlet unit.
 type Network struct {
-	Label      []string `yaml:"label"`
-	Driver     string   `yaml:"driver"`
-	Gateway    string   `yaml:"gateway"`
-	IPRange    string   `yaml:"ip_range"`
-	Subnet     string   `yaml:"subnet"`
-	IPv6       bool     `yaml:"ipv6"`
-	Internal   bool     `yaml:"internal"`
+	Label    []string `yaml:"label"`
+	Driver   string   `yaml:"driver"`
+	Gateway  string   `yaml:"gateway"`
+	IPRange  string   `yaml:"ip_range"`
+	Subnet   string   `yaml:"subnet"`
+	IPv6     bool     `yaml:"ipv6"`
+	Internal bool     `yaml:"internal"`
 	// DNSEnabled removed - not supported by podman-systemd
-	Options    []string `yaml:"options"`
+	Options []string `yaml:"options"`
 
 	// Systemd unit properties
 	Name     string
@@ -91,7 +91,7 @@ func (n *Network) FromComposeNetwork(name string, network types.NetworkConfig) *
 	}
 
 	// Handle IPAM configuration if present
-	if network.Ipam.Config != nil && len(network.Ipam.Config) > 0 {
+	if len(network.Ipam.Config) > 0 {
 		// Use the first IPAM pool configuration
 		config := network.Ipam.Config[0]
 

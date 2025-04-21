@@ -1,4 +1,9 @@
+# https://golangci-lint.run/usage/configuration/
+run:
+  timeout: 5m
+
 linters:
+  disable-all: false
   enable:
     - gofmt
     - revive
@@ -6,9 +11,6 @@ linters:
     - errcheck
     - staticcheck
     - gosimple
-
-run:
-  timeout: 5m
 
 issues:
   exclude-rules:

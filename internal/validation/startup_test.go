@@ -42,7 +42,7 @@ func TestVerifySystemRequirements_Success(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpDB.Name())
+	defer func() { _ = os.Remove(tmpDB.Name()) }()
 
 	// Set up test config
 	testConfig := &config.Config{

@@ -1,4 +1,4 @@
-// validation/validation.go
+// Package validation provides application validation functionality
 package validation
 
 import (

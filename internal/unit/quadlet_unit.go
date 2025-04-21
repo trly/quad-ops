@@ -221,6 +221,7 @@ func (u *QuadletUnit) generateServiceSection() string {
 	return content
 }
 
+// GenerateQuadletUnit generates a quadlet unit file content from a unit configuration
 func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
 	if verbose {
 		log.Printf("generating Quadlet unit for %s of type %s", unit.Name, unit.Type)
@@ -267,5 +268,3 @@ func formatSecret(secret Secret) string {
 
 	return strings.Join(secretOpts, ",")
 }
-
-

@@ -15,7 +15,7 @@ func TestParseComposeFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpfile.Name())
+	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	composeContent := `
 services:
@@ -58,7 +58,7 @@ networks:
 `
 
 	if _, err := tmpfile.WriteString(composeContent); err != nil {
-		tmpfile.Close()
+		_ = tmpfile.Close()
 		t.Fatal(err)
 	}
 

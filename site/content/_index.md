@@ -27,3 +27,9 @@ Quad-Ops is a tool that helps you manage container deployments using Podman and 
 - Supports standard Docker Compose files (services, networks, volumes, secrets)
 - Works in both system-wide and user (rootless) modes
 - Automates deployment and management of container infrastructure
+
+## Documentation
+
+- [Installation and Configuration](/docs/installation/)
+- [Docker Compose Support](/docs/docker-compose/)
+- [Using Podman Secrets](/docs/configuration/docker-compose/secrets/)

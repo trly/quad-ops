@@ -30,7 +30,7 @@ Quad-Ops uses Docker Compose files for defining your container infrastructure. S
 | `name` | string | - | Unique identifier for the repository |
 | `url` | string | - | Git repository URL to clone/pull from |
 | `ref` | string | - | Git reference to checkout (branch, tag, or commit hash) |
-| `manifestDir` | string | "" | Subdirectory within repo where manifests or Docker Compose files are located |
+| `composeDir` | string | "" | Subdirectory within repo where Docker Compose files are located |
 | `cleanup` | string | "keep" | Cleanup policy: "keep" or "delete" |
 
 ## Example Configuration
@@ -49,11 +49,11 @@ repositories:
   - name: app1
     url: https://github.com/example/app1
     ref: main
-    manifestDir: manifests
-    cleanup: keep  # Units remain even if removed from manifests or Docker Compose files
+    composeDir: compose
+    cleanup: keep  # Units remain even if removed from Docker Compose files
     
   - name: app2
     url: https://github.com/example/app2
     ref: dev
-    cleanup: delete  # Units are stopped and removed when they're no longer in manifests or Docker Compose files
+    cleanup: delete  # Units are stopped and removed when they're no longer in Docker Compose files
 ```

@@ -1,3 +1,4 @@
+// Package unit provides quadlet unit generation and management functionality
 package unit
 
 import (
@@ -19,10 +20,10 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
 	}
-	defer dbConn.Close()
+	defer func() { _ = dbConn.Close() }()
 
 	unitRepo := NewUnitRepository(dbConn)
-	
+
 	// Track processed units to handle orphaned cleanup later
 	processedUnits := make(map[string]bool)
 	changedUnits := make([]QuadletUnit, 0)
@@ -30,7 +31,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 	// Process each project
 	for _, project := range projects {
 		if config.GetConfig().Verbose {
-			log.Printf("processing compose project: %s (services: %d, networks: %d, volumes: %d)", 
+			log.Printf("processing compose project: %s (services: %d, networks: %d, volumes: %d)",
 				project.Name, len(project.Services), len(project.Networks), len(project.Volumes))
 		}
 
@@ -48,12 +49,12 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 
 			// Create the quadlet unit with proper systemd configuration
 			quadletUnit := QuadletUnit{
-				Name: prefixedName, // Use prefixed name for DNS resolution
-				Type: "container",
+				Name:      prefixedName, // Use prefixed name for DNS resolution
+				Type:      "container",
 				Container: *container,
-				Systemd: SystemdConfig{},
+				Systemd:   SystemdConfig{},
 			}
-			
+
 			// Add dependencies between containers
 			// For example, if this service depends on another one (via depends_on)
 			if len(service.DependsOn) > 0 {
@@ -67,7 +68,9 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			}
 
 			// Process the quadlet unit
-			processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits)
+			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
+				log.Printf("Error processing unit: %v", err)
+			}
 		}
 
 		// Process volumes
@@ -83,13 +86,15 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 
 			// Create the quadlet unit
 			quadletUnit := QuadletUnit{
-				Name: prefixedName,
-				Type: "volume",
+				Name:   prefixedName,
+				Type:   "volume",
 				Volume: *volume,
 			}
 
 			// Process the quadlet unit
-			processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits)
+			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
+				log.Printf("Error processing volume unit: %v", err)
+			}
 		}
 
 		// Process networks
@@ -105,13 +110,15 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 
 			// Create the quadlet unit
 			quadletUnit := QuadletUnit{
-				Name: prefixedName,
-				Type: "network",
+				Name:    prefixedName,
+				Type:    "network",
 				Network: *network,
 			}
 
 			// Process the quadlet unit
-			processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits)
+			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
+				log.Printf("Error processing network unit: %v", err)
+			}
 		}
 
 		// Process secrets - note that in Podman, secrets are handled as part of containers
@@ -125,7 +132,9 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 	}
 
 	// Clean up any orphaned units
-	cleanupOrphanedUnits(unitRepo, processedUnits)
+	if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
+		log.Printf("Error cleaning up orphaned units: %v", err)
+	}
 
 	return nil
 }

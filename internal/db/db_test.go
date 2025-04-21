@@ -22,7 +22,7 @@ func TestConnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpDB.Name())
+	defer func() { _ = os.Remove(tmpDB.Name()) }()
 
 	// Set up test config
 	testConfig := &config.Config{
@@ -40,7 +40,7 @@ func TestConnect(t *testing.T) {
 	err = db.Ping()
 	assert.NoError(t, err)
 
-	db.Close()
+	_ = db.Close()
 }
 
 func TestConnectError(t *testing.T) {
@@ -60,7 +60,7 @@ func TestMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Remove(tmpDB.Name())
+	defer func() { _ = os.Remove(tmpDB.Name()) }()
 
 	testConfig := config.Config{
 		DBPath:  tmpDB.Name(),

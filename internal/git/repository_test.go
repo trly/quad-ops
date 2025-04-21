@@ -14,7 +14,7 @@ func TestNewRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Initialize config before running the test
 	cfg := &config.Config{
@@ -51,7 +51,7 @@ func TestSyncRepository(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Set up test config
 	cfg := &config.Config{
@@ -80,7 +80,7 @@ func TestCheckoutTarget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	cfg := &config.Config{
 		RepositoryDir: tmpDir,

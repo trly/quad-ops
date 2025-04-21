@@ -1,3 +1,4 @@
+// Package cmd provides the command line interface for quad-ops
 /*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
@@ -28,8 +29,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ConfigCommand represents the config command for quad-ops CLI
 type ConfigCommand struct{}
 
+// GetCobraCommand returns the cobra command for config operations
 func (c *ConfigCommand) GetCobraCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "config",

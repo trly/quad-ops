@@ -1,3 +1,4 @@
+// Package git provides git repository management functionality for quad-ops
 package git
 
 import (

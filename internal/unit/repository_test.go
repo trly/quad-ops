@@ -137,5 +137,5 @@ func setupTestDB() (*sql.DB, sqlmock.Sqlmock) {
 }
 
 func teardownTestDB(db *sql.DB) {
-	db.Close()
+	_ = db.Close()
 }

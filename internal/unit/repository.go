@@ -30,7 +30,7 @@ func (r *SQLRepository) FindAll() ([]Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanUnits(rows)
 }
 
@@ -40,7 +40,7 @@ func (r *SQLRepository) FindByUnitType(unitType string) ([]Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanUnits(rows)
 }
 

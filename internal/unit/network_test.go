@@ -21,7 +21,7 @@ func TestFromComposeNetwork(t *testing.T) {
 		EnableIPv6: &ipv6Enabled,
 		DriverOpts: map[string]string{
 			"com.docker.network.bridge.name":                 "custom-bridge",
-			"com.docker.network.bridge.enable_icc":          "true",
+			"com.docker.network.bridge.enable_icc":           "true",
 			"com.docker.network.bridge.enable_ip_masquerade": "true",
 		},
 		Labels: types.Labels{
@@ -50,7 +50,7 @@ func TestFromComposeNetwork(t *testing.T) {
 
 	// Network driver
 	assert.Equal(t, "bridge", network.Driver)
-	
+
 	// Network flags
 	assert.True(t, network.Internal)
 	assert.True(t, network.IPv6)
@@ -80,7 +80,7 @@ func TestFromComposeNetwork(t *testing.T) {
 	// Verify minimal network configuration
 	assert.Equal(t, minimalNetworkName, minimalNetwork.Name)
 	assert.Equal(t, "network", minimalNetwork.UnitType)
-	
+
 	// Default values
 	// DNSEnabled is not supported by podman-systemd
 	assert.Empty(t, minimalNetwork.Driver, "Driver should be empty for minimal configuration")

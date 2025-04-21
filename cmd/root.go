@@ -1,3 +1,4 @@
+// Package cmd provides the command line interface for quad-ops
 /*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
@@ -37,6 +38,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// RootCommand represents the root command for quad-ops CLI
 type RootCommand struct{}
 
 var (
@@ -49,6 +51,7 @@ var (
 	verbose        bool
 )
 
+// GetCobraCommand returns the cobra root command for quad-ops CLI
 func (c *RootCommand) GetCobraCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:   "quad-ops",
