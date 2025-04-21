@@ -3,6 +3,7 @@ package unit
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 )
@@ -77,25 +78,63 @@ func (u *QuadletUnit) generateContainerSection() string {
 		content += formatKeyValue("Image", u.Container.Image)
 	}
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	for _, label := range u.Container.Label {
+	
+	// Sort labels for consistent output
+	slice := make([]string, len(u.Container.Label))
+	copy(slice, u.Container.Label)
+	sort.Strings(slice)
+	for _, label := range slice {
 		content += formatKeyValue("Label", label)
 	}
-	for _, port := range u.Container.PublishPort {
+	
+	// Sort ports for consistent output
+	slice = make([]string, len(u.Container.PublishPort))
+	copy(slice, u.Container.PublishPort)
+	sort.Strings(slice)
+	for _, port := range slice {
 		content += formatKeyValue("PublishPort", port)
 	}
-	for k, v := range u.Container.Environment {
-		content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, v))
+	
+	// Sort environment variables for consistent output
+	envKeys := make([]string, 0, len(u.Container.Environment))
+	for k := range u.Container.Environment {
+		envKeys = append(envKeys, k)
 	}
-	for _, envFile := range u.Container.EnvironmentFile {
+	sort.Strings(envKeys)
+	
+	// Add environment variables in sorted order
+	for _, k := range envKeys {
+		content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, u.Container.Environment[k]))
+	}
+	// Sort environment files for consistent output
+	slice = make([]string, len(u.Container.EnvironmentFile))
+	copy(slice, u.Container.EnvironmentFile)
+	sort.Strings(slice)
+	for _, envFile := range slice {
 		content += formatKeyValue("EnvironmentFile", envFile)
 	}
-	for _, vol := range u.Container.Volume {
+	
+	// Sort volumes for consistent output
+	slice = make([]string, len(u.Container.Volume))
+	copy(slice, u.Container.Volume)
+	sort.Strings(slice)
+	for _, vol := range slice {
 		content += formatKeyValue("Volume", vol)
 	}
-	for _, net := range u.Container.Network {
+	
+	// Sort networks for consistent output
+	slice = make([]string, len(u.Container.Network))
+	copy(slice, u.Container.Network)
+	sort.Strings(slice)
+	for _, net := range slice {
 		content += formatKeyValue("Network", net)
 	}
-	for _, alias := range u.Container.NetworkAlias {
+	
+	// Sort network aliases for consistent output
+	slice = make([]string, len(u.Container.NetworkAlias))
+	copy(slice, u.Container.NetworkAlias)
+	sort.Strings(slice)
+	for _, alias := range slice {
 		content += formatKeyValue("NetworkAlias", alias)
 	}
 	if len(u.Container.Exec) > 0 {
@@ -138,13 +177,24 @@ func (u *QuadletUnit) generateContainerSection() string {
 func (u *QuadletUnit) generateVolumeSection() string {
 	content := "\n[Volume]\n"
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	for _, label := range u.Volume.Label {
+	
+	// Sort labels for consistent output
+	slice := make([]string, len(u.Volume.Label))
+	copy(slice, u.Volume.Label)
+	sort.Strings(slice)
+	for _, label := range slice {
 		content += formatKeyValue("Label", label)
 	}
+	
 	if u.Volume.Device != "" {
 		content += formatKeyValue("Device", u.Volume.Device)
 	}
-	for _, opt := range u.Volume.Options {
+	
+	// Sort options for consistent output
+	slice = make([]string, len(u.Volume.Options))
+	copy(slice, u.Volume.Options)
+	sort.Strings(slice)
+	for _, opt := range slice {
 		content += formatKeyValue("Options", opt)
 	}
 	if u.Volume.Copy {
@@ -162,9 +212,15 @@ func (u *QuadletUnit) generateVolumeSection() string {
 func (u *QuadletUnit) generateNetworkSection() string {
 	content := "\n[Network]\n"
 	content += formatKeyValue("Label", "managed-by=quad-ops")
-	for _, label := range u.Network.Label {
+	
+	// Sort labels for consistent output
+	slice := make([]string, len(u.Network.Label))
+	copy(slice, u.Network.Label)
+	sort.Strings(slice)
+	for _, label := range slice {
 		content += formatKeyValue("Label", label)
 	}
+	
 	if u.Network.Driver != "" {
 		content += formatKeyValue("Driver", u.Network.Driver)
 	}
@@ -184,7 +240,12 @@ func (u *QuadletUnit) generateNetworkSection() string {
 		content += formatKeyValue("Internal", "yes")
 	}
 	// DNSEnabled is not supported by podman-systemd
-	for _, opt := range u.Network.Options {
+	
+	// Sort options for consistent output
+	slice = make([]string, len(u.Network.Options))
+	copy(slice, u.Network.Options)
+	sort.Strings(slice)
+	for _, opt := range slice {
 		content += formatKeyValue("Options", opt)
 	}
 	return content
@@ -195,26 +256,55 @@ func (u *QuadletUnit) generateUnitSection() string {
 	if u.Systemd.Description != "" {
 		content += formatKeyValue("Description", u.Systemd.Description)
 	}
+	
+	// Sort all systemd directives for consistent output
 	if len(u.Systemd.After) > 0 {
-		content += formatKeyValueSlice("After", u.Systemd.After)
+		slice := make([]string, len(u.Systemd.After))
+		copy(slice, u.Systemd.After)
+		sort.Strings(slice)
+		content += formatKeyValueSlice("After", slice)
 	}
+	
 	if len(u.Systemd.Before) > 0 {
-		content += formatKeyValueSlice("Before", u.Systemd.Before)
+		slice := make([]string, len(u.Systemd.Before))
+		copy(slice, u.Systemd.Before)
+		sort.Strings(slice)
+		content += formatKeyValueSlice("Before", slice)
 	}
+	
 	if len(u.Systemd.Requires) > 0 {
-		content += formatKeyValueSlice("Requires", u.Systemd.Requires)
+		slice := make([]string, len(u.Systemd.Requires))
+		copy(slice, u.Systemd.Requires)
+		sort.Strings(slice)
+		content += formatKeyValueSlice("Requires", slice)
 	}
+	
 	if len(u.Systemd.Wants) > 0 {
-		content += formatKeyValueSlice("Wants", u.Systemd.Wants)
+		slice := make([]string, len(u.Systemd.Wants))
+		copy(slice, u.Systemd.Wants)
+		sort.Strings(slice)
+		content += formatKeyValueSlice("Wants", slice)
 	}
+	
 	if len(u.Systemd.Conflicts) > 0 {
-		content += formatKeyValueSlice("Conflicts", u.Systemd.Conflicts)
+		slice := make([]string, len(u.Systemd.Conflicts))
+		copy(slice, u.Systemd.Conflicts)
+		sort.Strings(slice)
+		content += formatKeyValueSlice("Conflicts", slice)
 	}
+	
 	if len(u.Systemd.PartOf) > 0 {
-		content += formatKeyValueSlice("PartOf", u.Systemd.PartOf)
+		slice := make([]string, len(u.Systemd.PartOf))
+		copy(slice, u.Systemd.PartOf)
+		sort.Strings(slice)
+		content += formatKeyValueSlice("PartOf", slice)
 	}
+	
 	if len(u.Systemd.PropagatesReloadTo) > 0 {
-		content += formatKeyValueSlice("PropagatesReloadTo", u.Systemd.PropagatesReloadTo)
+		slice := make([]string, len(u.Systemd.PropagatesReloadTo))
+		copy(slice, u.Systemd.PropagatesReloadTo)
+		sort.Strings(slice)
+		content += formatKeyValueSlice("PropagatesReloadTo", slice)
 	}
 	return content
 }
@@ -262,7 +352,11 @@ func formatKeyValue(key, value string) string {
 }
 
 func formatKeyValueSlice(key string, values []string) string {
-	return fmt.Sprintf("%s=%s\n", key, strings.Join(values, " "))
+	// Make a copy to avoid modifying the original slice
+	sorted := make([]string, len(values))
+	copy(sorted, values)
+	sort.Strings(sorted)
+	return fmt.Sprintf("%s=%s\n", key, strings.Join(sorted, " "))
 }
 
 func formatSecret(secret Secret) string {

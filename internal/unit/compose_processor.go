@@ -221,6 +221,12 @@ func hasUnitChanged(unitPath, content string) bool {
 		return true
 	}
 
+	// If verbose logging is enabled, print hash comparison details
+	if config.GetConfig().Verbose {
+		log.Printf("Existing content hash: %x", getContentHash(string(existingContent)))
+		log.Printf("New content hash: %x", getContentHash(content))
+	}
+
 	// Compare the actual content directly instead of hashes
 	if string(existingContent) == content {
 		if config.GetConfig().Verbose {

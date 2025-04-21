@@ -2,6 +2,7 @@ package unit
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
 )
@@ -59,7 +60,17 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 		if c.Environment == nil {
 			c.Environment = make(map[string]string)
 		}
-		for k, v := range service.Environment {
+		// Sort environment variables by key to ensure consistent output order
+		keys := make([]string, 0, len(service.Environment))
+		for k := range service.Environment {
+			keys = append(keys, k)
+		}
+		// Sort the keys alphabetically
+		sort.Strings(keys)
+		
+		// Use the sorted keys to get values
+		for _, k := range keys {
+			v := service.Environment[k]
 			if v != nil {
 				c.Environment[k] = *v
 			}
