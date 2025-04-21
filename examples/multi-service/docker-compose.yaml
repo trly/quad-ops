@@ -33,3 +33,5 @@ volumes:
   wp-content:
   db-data:
 
+networks:
+  app-network:
