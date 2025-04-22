@@ -285,8 +285,16 @@ func writeUnitFile(unitPath, content string) error {
 func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) error {
 	contentHash := getContentHash(content)
 
-	// Use default cleanup policy
-	cleanupPolicy := "keep"
+	// Get repository cleanup policy from config
+	cleanupPolicy := "keep" // Default
+
+	// Check for repository-specific cleanup policy
+	for _, repo := range config.GetConfig().Repositories {
+		if strings.Contains(unit.Name, repo.Name) && repo.Cleanup != "" {
+			cleanupPolicy = repo.Cleanup
+			break
+		}
+	}
 
 	_, err := unitRepo.Create(&Unit{
 		Name:          unit.Name,

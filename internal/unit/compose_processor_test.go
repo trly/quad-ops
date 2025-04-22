@@ -1,59 +1,86 @@
 package unit
 
 import (
-	"os"
-	"path/filepath"
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trly/quad-ops/internal/config"
 )
 
-// A simple test function that directly tests the hasUnitChanged function
-// without relying on config.GetConfig().
-func TestHasUnitChanged(t *testing.T) {
-	// Create a temporary directory for our test files
-	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
+func TestUpdateUnitDatabaseCleanupPolicy(t *testing.T) {
+	// Create a test database
+	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-	defer func() {
-		if err := os.RemoveAll(tmpDir); err != nil {
-			t.Errorf("Failed to remove temp directory: %v", err)
-		}
-	}()
+	defer db.Close()
 
-	// Create a test file path
-	testFilePath := filepath.Join(tmpDir, "test.container")
+	// Create units table
+	_, err = db.Exec(`
+		CREATE TABLE units (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			sha1_hash BLOB NOT NULL,
+			cleanup_policy TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(name, type)
+		);
+	`)
+	require.NoError(t, err)
 
-	// Create the testing function with our modified comparison logic
-	testHasChanged := func(path, content string) bool {
-		// This is a test file, so the path is controlled and should not present a security risk
-		existingContent, err := os.ReadFile(filepath.Clean(path))
-		if err != nil {
-			// File doesn't exist or can't be read, so it has changed
-			return true
-		}
+	// Create a repository with config
+	unitRepo := NewUnitRepository(db)
 
-		// Compare the actual content directly
-		return string(existingContent) != content
+	// Setup test config with repositories
+	cfg := &config.Config{
+		Repositories: []config.RepositoryConfig{
+			{
+				Name:    "test-repo",
+				Cleanup: "delete",
+			},
+			{
+				Name:    "keep-repo",
+				Cleanup: "keep",
+			},
+			{
+				Name: "default-repo", // no cleanup policy specified
+			},
+		},
+	}
+	config.SetConfig(cfg)
+
+	// Test cases
+	tests := []struct {
+		name           string
+		unitName       string
+		expectedPolicy string
+	}{
+		{"Delete policy", "test-repo-service", "delete"},
+		{"Keep policy", "keep-repo-service", "keep"},
+		{"Default policy", "default-repo-service", "keep"},
+		{"Unknown repo", "unknown-service", "keep"},
 	}
 
-	// Test 1: File doesn't exist, should return true (changed)
-	assert.True(t, testHasChanged(testFilePath, "content"))
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a unit with the test name
+			unit := &QuadletUnit{
+				Name: tc.unitName,
+				Type: "container",
+			}
 
-	// Write initial content
-	initialContent := "[Unit]\nDescription=Test Container\n\n[Container]\nImage=test:latest\n"
-	err = os.WriteFile(testFilePath, []byte(initialContent), 0600)
-	require.NoError(t, err)
+			// Update the database
+			err := updateUnitDatabase(unitRepo, unit, "test content")
+			require.NoError(t, err)
 
-	// Test 2: File exists with same content, should return false (unchanged)
-	assert.False(t, testHasChanged(testFilePath, initialContent))
+			// Query the database to verify the cleanup policy
+			var policy string
+			err = db.QueryRow("SELECT cleanup_policy FROM units WHERE name = ?", tc.unitName).Scan(&policy)
+			require.NoError(t, err)
 
-	// Test 3: File exists with different content, should return true (changed)
-	differentContent := "[Unit]\nDescription=Modified Container\n\n[Container]\nImage=test:latest\n"
-	assert.True(t, testHasChanged(testFilePath, differentContent))
-
-	// Test 4: File exists with same content but different line endings, should return true (changed)
-	// This is intentional - we want exact matching to detect even whitespace or line ending changes
-	lineEndingDifference := "[Unit]\r\nDescription=Test Container\r\n\r\n[Container]\r\nImage=test:latest\r\n"
-	assert.True(t, testHasChanged(testFilePath, lineEndingDifference))
+			// Assert the cleanup policy matches the expected value
+			assert.Equal(t, tc.expectedPolicy, policy)
+		})
+	}
 }
