@@ -1,15 +1,22 @@
 # Quad-Ops
 
-![Build](https://github.com/trly/quad-ops/actions/workflows/build.yml/badge.svg) ![Docs](https://github.com/trly/quad-ops/actions/workflows/docs.yaml/badge.svg)
+![Build](https://github.com/trly/quad-ops/actions/workflows/build.yml/badge.svg) ![Docs](https://github.com/trly/quad-ops/actions/workflows/docs.yaml/badge.svg) ![GitHub License](https://img.shields.io/github/license/trly/quad-ops) ![GitHub Release](https://img.shields.io/github/v/release/trly/quad-ops)
 
-Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.
-It automatically generates systemd unit files from Docker Compose files and handles unit reloading.
+## GitOps for Quadlet
 
-For full documentation, visit our [GitHub Pages](https://trly.github.io/quad-ops/).
+Quad-Ops is a lightweight GitOps framework for Podman containers managed by [Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html). It watches Git repositories for standard Docker Compose files and automatically converts them into systemd unit files to run your containers.
 
-## Configuration
+**For comprehensive documentation, visit [https://trly.github.io/quad-ops/](https://trly.github.io/quad-ops/)**
 
-### Repository Settings
+## Key Features
+
+- Monitor multiple Git repositories for container configurations
+- Support for standard Docker Compose files (services, networks, volumes, secrets) 
+- Automated dependencies via systemd unit relationships
+- Intelligent restarts - only restarts services that changed and their dependents
+- Works in both system-wide and user (rootless) modes
+
+## Configuration Example
 
 ```yaml
 repositories:
@@ -20,36 +27,42 @@ repositories:
     cleanup: "delete"  # Cleanup policy: "delete" or "keep" (default: "keep")
 ```
 
-#### Cleanup Policy
+## Getting Started with Development
 
-- `keep` (default): Units from this repository remain deployed even when removed from Docker Compose files
-- `delete`: Units that no longer exist in the repository Docker Compose files will be stopped and removed
-
-## Development
-
-### Install from Source
 ```bash
-# clone the repository
+# Clone the repository
 git clone https://github.com/trly/quad-ops.git
+cd quad-ops
 
-# build the binary
-go build -o quad-ops main.go
+# Build the binary
+go build -o quad-ops cmd/quad-ops/main.go
 
-# move to system directory
+# Run tests
+go test -v ./...
+
+# Run linting
+mise exec -- golangci-lint run
+```
+
+## Installation
+
+```bash
+# Build the binary
+go build -o quad-ops cmd/quad-ops/main.go
+
+# Move to system directory
 sudo mv quad-ops /usr/local/bin/
 
-# copy the default config file
-sudo cp config.yaml /etc/quad-ops/config.yaml
+# Copy the example config file
+sudo mkdir -p /etc/quad-ops
+sudo cp configs/config.yaml.example /etc/quad-ops/config.yaml
 
-# install the systemd service file (optional)
-sudo cp buildd/quad-ops.service /etc/systemd/system/quad-ops.service
+# Install the systemd service file (optional)
+sudo cp build/quad-ops.service /etc/systemd/system/quad-ops.service
 
-# reload systemd daemon
+# Reload systemd daemon
 sudo systemctl daemon-reload
 
-# enable and start the service
-sudo systemctl enable quad-ops
-
-# start the service
-sudo systemctl start quad-ops
+# Enable and start the service
+sudo systemctl enable --now quad-ops
 ```
