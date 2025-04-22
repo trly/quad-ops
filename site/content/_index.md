@@ -22,8 +22,33 @@ A lightweight GitOps framework for podman containers managed by [Quadlet](https:
 
 Quad-Ops is a tool that helps you manage container deployments using Podman and systemd in a GitOps workflow. It watches Git repositories for standard Docker Compose files and automatically converts them into unit files that systemd can use to run your containers.
 
-### Key Features:
+## What Makes Quad-Ops Different
+
+While Quad-Ops uses Docker Compose as its configuration format, there are some key differences from traditional Docker Compose deployments:
+
+1. **GitOps-Based**: Changes to containers are driven by Git repositories, not manual commands
+2. **Systemd Integration**: Containers are managed by systemd instead of a Docker daemon
+3. **Podman Backend**: Uses Podman's daemonless container engine instead of Docker
+4. **Automated Dependencies**: Service relationships are automatically converted to systemd unit dependencies
+5. **Intelligent Restarts**: Only restarts services that have changed and their dependents
+
+## Key Features:
 - Monitor multiple Git repositories for container configurations
 - Supports standard Docker Compose files (services, networks, volumes, secrets)
 - Works in both system-wide and user (rootless) modes
 - Automates deployment and management of container infrastructure
+
+
+## Feature Support
+
+Quad-Ops supports Docker Compose version 3.x files with comprehensive feature coverage, only limited by what is currently supported by the Podman systemd integration.
+
+| Supported Features | Unsupported Features |
+|--------------------|----------------------|
+| ✅ **Container Configuration** | ❌ **Privileged Mode** |
+| ✅ **Container Relationships** | ❌ **Security Labels** |
+| ✅ **Secrets** | ❌ **DNS Configuration in Networks** |
+| ✅ **Networks**| ❌ **Swarm Mode** |
+| ✅ **Volumes** | ❌ **Health Checks** |
+| ✅ **Resource Dependencies**  | ❌ **Docker-specific Extensions** |
+

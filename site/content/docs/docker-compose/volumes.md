@@ -44,4 +44,18 @@ When Quad-Ops processes a volume definition from a Docker Compose file, it creat
 | `driver_opts` | `Options` (each key-value pair becomes an option) |
 | `labels` | `Label` |
 
-The volume name is used as the basis for the systemd unit name, and the volume is managed through Podman's volume commands.
+## Important Notes
+
+1. **Volume Naming**: The volume name is used as the basis for the systemd unit name.
+
+2. **Volume References**: When mounting a volume in a service, include the `.volume` suffix in the Podman unit file:
+   ```ini
+   # In the generated Podman container unit file
+   Volume=data.volume:/data
+   ```
+
+3. **Volume Persistence**: Volumes persist independently of container lifecycles.
+
+4. **Driver Support**: Only volume drivers supported by Podman can be used.
+
+5. **Local Driver**: The `local` driver is the default if not specified.

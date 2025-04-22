@@ -1,16 +1,11 @@
 ---
 title: "Configuration"
 weight: 10
-# bookFlatSection: false
-# bookToc: true
-# bookHidden: false
-# bookCollapseSection: false
-# bookComments: false
-# bookSearchExclude: false
 ---
+
 # Configuration
 
-Quad-Ops uses Docker Compose files for defining your container infrastructure. Standard docker-compose.yml files that define services, networks, volumes, and secrets are automatically processed and converted to Podman Quadlet units.
+Quad-Ops uses Docker Compose files for defining your container infrastructure. These files are automatically processed and converted to Podman Quadlet units.
 
 ## Global Options
 

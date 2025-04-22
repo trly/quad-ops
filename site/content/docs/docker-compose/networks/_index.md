@@ -57,4 +57,20 @@ When Quad-Ops processes a network definition from a Docker Compose file, it crea
 | `driver_opts` | `Options` (each key-value pair becomes an option) |
 | `labels` | `Label` |
 
-By default, DNS is enabled for Podman networks. The network name is used as the basis for the systemd unit name.
+## Important Notes
+
+1. **Network Naming**: The network name is used as the basis for the systemd unit name.
+
+2. **DNS Resolution**: By default, DNS is enabled for Podman networks, allowing containers to resolve each other by name.
+
+3. **Network References**: When connecting a container to a network, include the `.network` suffix in the Podman unit file:
+   ```ini
+   # In the generated Podman container unit file
+   Network=frontend.network
+   ```
+
+4. **Default Network**: If no networks are defined, containers are connected to the default Podman network.
+
+5. **Driver Support**: Only network drivers supported by Podman can be used.
+
+6. **DNSEnabled**: This property is not supported by Podman Quadlet. Configure DNS via driver options instead.
