@@ -22,4 +22,4 @@ volumes:
 networks:
   quad-ops-database-db-network:
     external: true
-    # Network key must match exactly the external network name to avoid prefixing
+    name: systemd-quad-ops-database-db-network  # Must include the systemd- prefix Podman adds

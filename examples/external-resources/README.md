@@ -19,13 +19,13 @@ This directory contains two Docker Compose files:
 2. quad-ops processes `wordpress/docker-compose.yml` and:
    - Creates a container unit for the WordPress application
    - Creates a volume unit for `wp-content`
-   - References the `db-network` as external (no network unit created)
+   - References the database's network as external with the `systemd-` prefix (no network unit created)
    - Connects to the database network to allow communication between services
 
 ## Key Features
 
 - **Service Separation**: Database and webapp are defined and managed separately
-- **External Network**: The webapp references the database's network as external
+- **External Network**: The webapp references the database's network as external, specifying the name with the `systemd-` prefix Podman adds
 - **DNS Resolution**: The webapp connects to the database using the DNS name `quad-ops-database-db`
 
 ## Configuration in quad-ops
