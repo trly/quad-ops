@@ -21,9 +21,15 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyTree m
 		log.Printf("Starting/restarting unit %s.%s with dependency awareness", unitName, unitType)
 	}
 
-	// Only handle containers
+	// For network and volume units, start them first before containers
+	if unitType == "network" || unitType == "volume" {
+		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+		return unit.Restart()
+	}
+
+	// Only handle containers for dependency logic
 	if unitType != "container" {
-		// For non-container units, just use the normal restart method
+		// For other non-container units, just use the normal restart method
 		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 		return unit.Restart()
 	}
@@ -121,14 +127,29 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 
 	// Wait for systemd to process the changes
 	time.Sleep(2 * time.Second)
+	
+	// First restart network and volume units
+	for _, unit := range changedUnits {
+		if unit.Type == "network" || unit.Type == "volume" {
+			systemdUnit := unit.GetSystemdUnit()
+			if err := systemdUnit.Restart(); err != nil {
+				log.Printf("error restarting %s unit %s: %v", unit.Type, unit.Name, err)
+			} else if config.GetConfig().Verbose {
+				log.Printf("successfully restarted unit %s.service", unit.Name)
+			}
+		}
+	}
+	
+	// Wait for networks and volumes to be fully available
+	time.Sleep(1 * time.Second)
 
 	// Track units that have been restarted
 	restarted := make(map[string]bool)
 
 	for _, unit := range changedUnits {
-		// Skip if already restarted
+		// Skip if already restarted or if it's a network or volume (handled earlier)
 		unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
-		if restarted[unitKey] {
+		if restarted[unitKey] || unit.Type == "network" || unit.Type == "volume" {
 			continue
 		}
 

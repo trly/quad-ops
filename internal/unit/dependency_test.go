@@ -58,7 +58,7 @@ func TestServicesDependencyTree(t *testing.T) {
 }
 
 func TestDependencyPartOfRelationships(t *testing.T) {
-	// Create a mock project with a simple dependency tree
+	// Create a mock project with a simple dependency tree plus networks and volumes
 	// db <- webapp <- proxy
 	project := &types.Project{
 		Name: "test-project",
@@ -66,12 +66,33 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 			"db": types.ServiceConfig{
 				Name:  "db",
 				Image: "mariadb:latest",
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"backend": {},
+				},
+				Volumes: []types.ServiceVolumeConfig{
+					{
+						Type:   "volume",
+						Source: "db-data",
+						Target: "/var/lib/mysql",
+					},
+				},
 			},
 			"webapp": types.ServiceConfig{
 				Name:  "webapp",
 				Image: "wordpress:latest",
 				DependsOn: types.DependsOnConfig{
 					"db": types.ServiceDependency{},
+				},
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"backend": {},
+					"frontend": {},
+				},
+				Volumes: []types.ServiceVolumeConfig{
+					{
+						Type:   "volume",
+						Source: "wp-content",
+						Target: "/var/www/html/wp-content",
+					},
 				},
 			},
 			"proxy": types.ServiceConfig{
@@ -80,6 +101,25 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 				DependsOn: types.DependsOnConfig{
 					"webapp": types.ServiceDependency{},
 				},
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"frontend": {},
+				},
+			},
+		},
+		Networks: map[string]types.NetworkConfig{
+			"backend": {
+				Name: "backend",
+			},
+			"frontend": {
+				Name: "frontend",
+			},
+		},
+		Volumes: map[string]types.VolumeConfig{
+			"db-data": {
+				Name: "db-data",
+			},
+			"wp-content": {
+				Name: "wp-content",
 			},
 		},
 	}
@@ -101,9 +141,14 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Apply dependencies
 	ApplyDependencyRelationships(&dbUnit, "db", deps, project.Name)
 
-	// Check that db has no After/Requires but has PartOf for webapp
-	assert.Empty(t, dbUnit.Systemd.After)
-	assert.Empty(t, dbUnit.Systemd.Requires)
+	// Check that db has dependencies on networks and volumes, and has PartOf for webapp
+	// Should have 2 dependencies - 1 network (backend) and 1 volume (db-data)
+	assert.Len(t, dbUnit.Systemd.After, 2)
+	assert.Contains(t, dbUnit.Systemd.After, "test-project-backend.network")
+	assert.Contains(t, dbUnit.Systemd.After, "test-project-db-data.volume")
+	assert.Len(t, dbUnit.Systemd.Requires, 2)
+	assert.Contains(t, dbUnit.Systemd.Requires, "test-project-backend.network")
+	assert.Contains(t, dbUnit.Systemd.Requires, "test-project-db-data.volume")
 	assert.Len(t, dbUnit.Systemd.PartOf, 1)
 	assert.Contains(t, dbUnit.Systemd.PartOf, "test-project-webapp.service")
 
@@ -121,11 +166,18 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Apply dependencies
 	ApplyDependencyRelationships(&webappUnit, "webapp", deps, project.Name)
 
-	// Check that webapp has After/Requires for db and PartOf for proxy
-	assert.Len(t, webappUnit.Systemd.After, 1)
+	// Check that webapp has After/Requires for db, networks, volumes and PartOf for proxy
+	// Should have 4 dependencies - db service, 2 networks (backend, frontend), and 1 volume (wp-content)
+	assert.Len(t, webappUnit.Systemd.After, 4)
 	assert.Contains(t, webappUnit.Systemd.After, "test-project-db.service")
-	assert.Len(t, webappUnit.Systemd.Requires, 1)
+	assert.Contains(t, webappUnit.Systemd.After, "test-project-backend.network")
+	assert.Contains(t, webappUnit.Systemd.After, "test-project-frontend.network")
+	assert.Contains(t, webappUnit.Systemd.After, "test-project-wp-content.volume")
+	assert.Len(t, webappUnit.Systemd.Requires, 4)
 	assert.Contains(t, webappUnit.Systemd.Requires, "test-project-db.service")
+	assert.Contains(t, webappUnit.Systemd.Requires, "test-project-backend.network")
+	assert.Contains(t, webappUnit.Systemd.Requires, "test-project-frontend.network")
+	assert.Contains(t, webappUnit.Systemd.Requires, "test-project-wp-content.volume")
 	assert.Len(t, webappUnit.Systemd.PartOf, 1)
 	assert.Contains(t, webappUnit.Systemd.PartOf, "test-project-proxy.service")
 
@@ -143,10 +195,13 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Apply dependencies
 	ApplyDependencyRelationships(&proxyUnit, "proxy", deps, project.Name)
 
-	// Check that proxy has After/Requires for webapp but no PartOf
-	assert.Len(t, proxyUnit.Systemd.After, 1)
+	// Check that proxy has After/Requires for webapp and network but no PartOf
+	// Should have 2 dependencies - webapp service and frontend network
+	assert.Len(t, proxyUnit.Systemd.After, 2)
 	assert.Contains(t, proxyUnit.Systemd.After, "test-project-webapp.service")
-	assert.Len(t, proxyUnit.Systemd.Requires, 1)
+	assert.Contains(t, proxyUnit.Systemd.After, "test-project-frontend.network")
+	assert.Len(t, proxyUnit.Systemd.Requires, 2)
 	assert.Contains(t, proxyUnit.Systemd.Requires, "test-project-webapp.service")
+	assert.Contains(t, proxyUnit.Systemd.Requires, "test-project-frontend.network")
 	assert.Empty(t, proxyUnit.Systemd.PartOf)
 }

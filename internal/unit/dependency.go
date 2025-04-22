@@ -2,6 +2,7 @@ package unit
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
 )
@@ -60,5 +61,31 @@ func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, depende
 
 		// Add PartOf directive to make this service restart when dependent services restart
 		unit.Systemd.PartOf = append(unit.Systemd.PartOf, formattedDependentName)
+	}
+
+	// For container units, add dependencies on attached networks and volumes
+	if unit.Type == "container" {
+		// Add dependencies on networks
+		for _, networkRef := range unit.Container.Network {
+			// Only add dependency if it's a project-defined network (has .network suffix)
+			if strings.HasSuffix(networkRef, ".network") {
+				unit.Systemd.After = append(unit.Systemd.After, networkRef)
+				unit.Systemd.Requires = append(unit.Systemd.Requires, networkRef)
+			}
+		}
+
+		// Add dependencies on volumes
+		for _, volumeRef := range unit.Container.Volume {
+			// Extract volume reference (before the colon)
+			parts := strings.Split(volumeRef, ":")
+			if len(parts) > 0 {
+				volumeName := parts[0]
+				// Only add dependency if it's a project-defined volume (has .volume suffix)
+				if strings.HasSuffix(volumeName, ".volume") {
+					unit.Systemd.After = append(unit.Systemd.After, volumeName)
+					unit.Systemd.Requires = append(unit.Systemd.Requires, volumeName)
+				}
+			}
+		}
 	}
 }
