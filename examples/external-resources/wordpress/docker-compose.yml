@@ -8,7 +8,7 @@ services:
     volumes:
       - wp-content:/var/www/html/wp-content
     environment:
-      - WORDPRESS_DB_HOST=external-resources-database-db  # Uses the fully qualified name from quad-ops
+      - WORDPRESS_DB_HOST=quad-ops-database-db  # Uses the fully qualified name from quad-ops
       - WORDPRESS_DB_NAME=wordpress
       - WORDPRESS_DB_USER=wp_user
       - WORDPRESS_DB_PASSWORD=db_password
@@ -22,4 +22,4 @@ volumes:
 networks:
   external-db-network:
     external: true
-    name: external-resources-database-db-network  # Must match the name format: <project>-<network>
+    name: quad-ops-database-db-network  # Must match the actual network name created by the database service

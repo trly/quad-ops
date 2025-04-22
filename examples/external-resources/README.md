@@ -26,7 +26,7 @@ This directory contains two Docker Compose files:
 
 - **Service Separation**: Database and webapp are defined and managed separately
 - **External Network**: The webapp references the database's network as external
-- **DNS Resolution**: The webapp connects to the database using the DNS name `external-resources-database-db`
+- **DNS Resolution**: The webapp connects to the database using the DNS name `quad-ops-database-db`
 
 ## Configuration in quad-ops
 
