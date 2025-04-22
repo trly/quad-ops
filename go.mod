@@ -7,7 +7,7 @@ require (
 	github.com/compose-spec/compose-go/v2 v2.5.0
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/fatih/color v1.18.0
-	github.com/go-git/go-git/v5 v5.15.0
+	github.com/go-git/go-git/v5 v5.16.0
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/mattn/go-sqlite3 v1.14.27
 	github.com/rodaine/table v1.3.0
