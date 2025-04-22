@@ -7,7 +7,7 @@ This example demonstrates how to split a multi-service application into separate
 This directory contains two Docker Compose files:
 
 1. `database/docker-compose.yml` - Defines a MariaDB database service and creates a network called `db-network`
-2. `webapp/docker-compose.yml` - Defines a WordPress webapp that connects to the database using an external network reference
+2. `wordpress/docker-compose.yml` - Defines a WordPress webapp that connects to the database using an external network reference
 
 ## How it works
 
@@ -16,7 +16,7 @@ This directory contains two Docker Compose files:
    - A network unit for `db-network`
    - A volume unit for `db-data`
 
-2. quad-ops processes `webapp/docker-compose.yml` and:
+2. quad-ops processes `wordpress/docker-compose.yml` and:
    - Creates a container unit for the WordPress application
    - Creates a volume unit for `wp-content`
    - References the `db-network` as external (no network unit created)
@@ -26,20 +26,16 @@ This directory contains two Docker Compose files:
 
 - **Service Separation**: Database and webapp are defined and managed separately
 - **External Network**: The webapp references the database's network as external
-- **DNS Resolution**: The webapp connects to the database using the DNS name `database-db`
+- **DNS Resolution**: The webapp connects to the database using the DNS name `external-resources-database-db`
 
 ## Configuration in quad-ops
 
 ```yaml
 repositories:
-  - name: database
+  - name: external-resources
     url: https://github.com/example/services.git
     ref: main
-    composeDir: database
-  - name: webapp
-    url: https://github.com/example/services.git
-    ref: main
-    composeDir: webapp
+    composeDir: examples/external-resources
 ```
 
 ## Benefits of This Approach
