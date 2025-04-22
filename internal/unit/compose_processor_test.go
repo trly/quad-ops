@@ -13,7 +13,12 @@ func TestUpdateUnitDatabaseCleanupPolicy(t *testing.T) {
 	// Create a test database
 	db, err := sql.Open("sqlite3", ":memory:")
 	require.NoError(t, err)
-	defer db.Close()
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			t.Errorf("Failed to close database: %v", err)
+		}
+	}()
 
 	// Create units table
 	_, err = db.Exec(`

@@ -84,7 +84,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 					"db": types.ServiceDependency{},
 				},
 				Networks: map[string]*types.ServiceNetworkConfig{
-					"backend": {},
+					"backend":  {},
 					"frontend": {},
 				},
 				Volumes: []types.ServiceVolumeConfig{

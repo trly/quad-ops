@@ -127,7 +127,7 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 
 	// Wait for systemd to process the changes
 	time.Sleep(2 * time.Second)
-	
+
 	// First restart network and volume units
 	for _, unit := range changedUnits {
 		if unit.Type == "network" || unit.Type == "volume" {
@@ -139,7 +139,7 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 			}
 		}
 	}
-	
+
 	// Wait for networks and volumes to be fully available
 	time.Sleep(1 * time.Second)
 
