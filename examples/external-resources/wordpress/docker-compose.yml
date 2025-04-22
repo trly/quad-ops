@@ -14,12 +14,12 @@ services:
       - WORDPRESS_DB_PASSWORD=db_password
     restart: always
     networks:
-      - external-db-network
+      - quad-ops-database-db-network
 
 volumes:
   wp-content:
 
 networks:
-  external-db-network:
+  quad-ops-database-db-network:
     external: true
-    name: quad-ops-database-db-network  # Must match the actual network name created by the database service
+    # Network key must match exactly the external network name to avoid prefixing
