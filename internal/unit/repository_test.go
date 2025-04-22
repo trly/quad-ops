@@ -21,11 +21,12 @@ func TestCreate(t *testing.T) {
 		Type:          "pod",
 		SHA1Hash:      []byte("abc123"),
 		CleanupPolicy: "delete",
+		UserMode:      false,
 	}
 
 	// Expect the INSERT query
 	mock.ExpectExec(`INSERT INTO units`).
-		WithArgs(unit.Name, unit.Type, unit.SHA1Hash, unit.CleanupPolicy).
+		WithArgs(unit.Name, unit.Type, unit.SHA1Hash, unit.CleanupPolicy, unit.UserMode).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Test Create method
@@ -48,10 +49,10 @@ func TestFindAll(t *testing.T) {
 	}
 
 	// Expect SELECT query
-	mock.ExpectQuery("SELECT id, name, type, sha1_hash, cleanup_policy, created_at FROM units").
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy", "created_at"}).
-			AddRow(units[0].ID, units[0].Name, units[0].Type, units[0].SHA1Hash, units[0].CleanupPolicy, units[0].CreatedAt).
-			AddRow(units[1].ID, units[1].Name, units[1].Type, units[1].SHA1Hash, units[1].CleanupPolicy, units[1].CreatedAt))
+	mock.ExpectQuery("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, created_at FROM units").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy", "user_mode", "created_at"}).
+			AddRow(units[0].ID, units[0].Name, units[0].Type, units[0].SHA1Hash, units[0].CleanupPolicy, units[0].UserMode, units[0].CreatedAt).
+			AddRow(units[1].ID, units[1].Name, units[1].Type, units[1].SHA1Hash, units[1].CleanupPolicy, units[1].UserMode, units[1].CreatedAt))
 
 	// Test FindAll method
 	result, err := r.FindAll()
@@ -72,11 +73,11 @@ func TestFindByUnitType(t *testing.T) {
 	}
 
 	// Expect SELECT query with WHERE clause
-	mock.ExpectQuery("SELECT id, name, type, sha1_hash, cleanup_policy, created_at FROM units WHERE type = ?").
+	mock.ExpectQuery("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, created_at FROM units WHERE type = ?").
 		WithArgs(unitType).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy", "created_at"}).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy", "user_mode", "created_at"}).
 			AddRow(expectedUnits[0].ID, expectedUnits[0].Name, expectedUnits[0].Type,
-				expectedUnits[0].SHA1Hash, expectedUnits[0].CleanupPolicy, expectedUnits[0].CreatedAt))
+				expectedUnits[0].SHA1Hash, expectedUnits[0].CleanupPolicy, expectedUnits[0].UserMode, expectedUnits[0].CreatedAt))
 
 	// Test FindByUnitType method
 	result, err := r.FindByUnitType(unitType)
@@ -99,11 +100,11 @@ func TestFindById(t *testing.T) {
 	}
 
 	// Expect SELECT query with WHERE clause
-	mock.ExpectQuery("SELECT id, name, type, sha1_hash, cleanup_policy, created_at FROM units WHERE id = ?").
+	mock.ExpectQuery("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, created_at FROM units WHERE id = ?").
 		WithArgs(unitID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy", "created_at"}).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy", "user_mode", "created_at"}).
 			AddRow(expectedUnit.ID, expectedUnit.Name, expectedUnit.Type,
-				expectedUnit.SHA1Hash, expectedUnit.CleanupPolicy, expectedUnit.CreatedAt))
+				expectedUnit.SHA1Hash, expectedUnit.CleanupPolicy, expectedUnit.UserMode, expectedUnit.CreatedAt))
 
 	// Test FindById method
 	result, err := r.FindByID(unitID)

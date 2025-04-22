@@ -28,6 +28,7 @@ func TestUpdateUnitDatabaseCleanupPolicy(t *testing.T) {
 			type TEXT NOT NULL,
 			sha1_hash BLOB NOT NULL,
 			cleanup_policy TEXT NOT NULL,
+			user_mode BOOLEAN DEFAULT 0,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(name, type)
 		);
