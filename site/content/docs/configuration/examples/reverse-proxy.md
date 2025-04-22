@@ -1,6 +1,5 @@
 ---
 title: "Web + Database + Reverse Proxy"
-weight: 30
 ---
 
 # Complete Stack with Reverse Proxy
@@ -42,7 +41,7 @@ services:
     volumes:
       - wp-content:/var/www/html/wp-content
     environment:
-      - WORDPRESS_DB_HOST=systemd-myapp-db
+      - WORDPRESS_DB_HOST=myapp-db
       - WORDPRESS_DB_NAME=wordpress
       - WORDPRESS_DB_USER=wp_user
       - WORDPRESS_DB_PASSWORD_FILE=/run/secrets/db_password
@@ -162,7 +161,7 @@ chmod 600 secrets/db_password.txt secrets/db_root_password.txt
 
 3. **Internal Networks**: With Quadlet, internal networks work as expected, isolating backend services
 
-4. **DNS Resolution**: Remember that container DNS names use the format `systemd-myapp-servicename`
+4. **DNS Resolution**: Remember that with default quad-ops settings, container DNS names use the format `myapp-servicename`
 
 ## Usage
 

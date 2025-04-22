@@ -1,6 +1,5 @@
 ---
 title: "Volumes"
-weight: 10
 ---
 
 # Volumes
@@ -27,7 +26,7 @@ volumes:
     labels:
       environment: "production"
       usage: "web-content"
-  
+
   db-data:
     driver: local
     labels:

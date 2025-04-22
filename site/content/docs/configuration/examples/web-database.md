@@ -1,6 +1,5 @@
 ---
 title: "Web + Database"
-weight: 20
 ---
 
 # Web + Database Example
@@ -20,7 +19,7 @@ services:
     volumes:
       - wp-content:/var/www/html/wp-content
     environment:
-      - WORDPRESS_DB_HOST=systemd-myapp-db
+      - WORDPRESS_DB_HOST=myapp-db
       - WORDPRESS_DB_NAME=wordpress
       - WORDPRESS_DB_USER=wp_user
       - WORDPRESS_DB_PASSWORD=db_password
@@ -69,7 +68,7 @@ After=myapp-db.service
 Image=docker.io/wordpress:latest
 Volume=wp-content.volume:/var/www/html/wp-content
 PublishPort=8080:80
-Environment=WORDPRESS_DB_HOST=systemd-myapp-db
+Environment=WORDPRESS_DB_HOST=myapp-db
 Environment=WORDPRESS_DB_NAME=wordpress
 Environment=WORDPRESS_DB_USER=wp_user
 Environment=WORDPRESS_DB_PASSWORD=db_password
@@ -151,7 +150,7 @@ WantedBy=multi-user.target
 
 1. **Container Dependencies**: Note how `depends_on` is translated to `Requires=myapp-db.service` and `After=myapp-db.service`
 
-2. **DNS Resolution**: The database host is referenced as `systemd-myapp-db` not just `db` as in standard Docker Compose
+2. **DNS Resolution**: The database host is referenced as `myapp-db` with the default quad-ops settings (`usePodmanDefaultNames: false`)
 
 3. **Named Volumes**: Volumes are created as separate systemd units with the `.volume` suffix
 
@@ -175,13 +174,13 @@ Access WordPress at `http://localhost:8080` and complete the installation proces
 
 **Issue**: WordPress can't connect to the database
 
-**Solution**: Check the DNS hostname format. In Podman with Quadlet, container names follow this format:
+**Solution**: Check the DNS hostname format. With default quad-ops settings (`usePodmanDefaultNames: false`), container names follow this format:
 
 ```
-systemd-<project>-<service>
+<project>-<service>
 ```
 
-So in this example, the database host should be `systemd-myapp-db` not just `db`.
+So in this example, the database host should be `myapp-db`. If you've set `usePodmanDefaultNames: true`, then use `systemd-myapp-db` instead.
 
 **Issue**: Data persistence problems after restart
 

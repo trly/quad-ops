@@ -1,6 +1,6 @@
 ---
 title: "Configuration"
-weight: 20
+weight: 10
 # bookFlatSection: false
 # bookToc: true
 # bookHidden: false
@@ -22,6 +22,7 @@ Quad-Ops uses Docker Compose files for defining your container infrastructure. S
 | `dbPath` | string | `/var/lib/quad-ops/quad-ops.db` | Path to the database file |
 | `userMode` | boolean | `false` | Whether to run in user mode |
 | `verbose` | boolean | `false` | Enable verbose logging |
+| `usePodmanDefaultNames` | boolean | `false` | Whether to use Podman's default container naming with systemd- prefix |
 | `repositories` | array | - | List of repositories to manage |
 
 ## Repository Options
@@ -32,6 +33,7 @@ Quad-Ops uses Docker Compose files for defining your container infrastructure. S
 | `ref` | string | - | Git reference to checkout (branch, tag, or commit hash) |
 | `composeDir` | string | "" | Subdirectory within repo where Docker Compose files are located |
 | `cleanup` | string | "keep" | Cleanup policy: "keep" or "delete" |
+| `usePodmanDefaultNames` | boolean | `false` | Whether to use Podman's default naming for this repository (overrides global setting) |
 
 ### Cleanup Policy Options
 
@@ -48,6 +50,7 @@ quadletDir: /etc/containers/systemd
 dbPath: /var/lib/quad-ops/quad-ops.db
 userMode: false
 verbose: true
+usePodmanDefaultNames: false  # No systemd- prefix in container hostnames
 
 # Repository definitions
 repositories:
@@ -61,4 +64,5 @@ repositories:
     url: https://github.com/example/app2
     ref: dev
     cleanup: delete  # Units are stopped and removed when they're no longer in Docker Compose files
+    usePodmanDefaultNames: true  # Use systemd- prefix in container hostnames for this repo only
 ```

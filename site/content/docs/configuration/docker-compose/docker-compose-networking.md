@@ -1,6 +1,5 @@
 ---
 title: "Docker Compose Networking"
-weight: 1
 bookFlatSection: false
 bookToc: true
 bookHidden: false
@@ -85,11 +84,33 @@ If you set `usePodmanDefaultNames: true`, the hostnames would be Podman's defaul
 
 In both cases, the hostname uses the actual directory containing the Docker Compose file (`multi-service`), regardless of the `composeDir` parameter.
 
+### Network Aliases
+
+To ensure compatibility with standard Docker Compose applications, quad-ops automatically adds the original service name as a network alias to each container. This allows containers to refer to each other using just the service name from the Docker Compose file, regardless of the actual container hostname.
+
+For example, in a typical Docker Compose application:
+
+```yaml
+services:
+  webapp:
+    image: nginx
+    depends_on:
+      - db
+
+  db:
+    image: postgres
+```
+
+The `webapp` container can connect to the database using just `db` as the hostname, even though the actual container hostname might be `quad-ops-multi-service-db` or `systemd-quad-ops-multi-service-db` depending on your configuration.
+
+This feature makes it easier to port existing Docker Compose applications to Podman without changing connection strings or environment variables.
+
 ### Best Practices
 
 - Use the correct hostname format for your configuration when connecting services
   - With default settings (`usePodmanDefaultNames: false`): `<repository>-<directory>-<service>`
   - With `usePodmanDefaultNames: true`: `systemd-<repository>-<directory>-<service>`
+  - For compatibility with standard Docker Compose: use just the service name (e.g., `db`)
 - Test hostname resolution within containers using `ping <hostname>`
 - For databases and other services that accept connection strings, make sure to use the correct hostname format
 - Consider using environment variables to pass hostnames between containers

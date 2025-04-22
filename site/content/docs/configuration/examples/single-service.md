@@ -1,6 +1,5 @@
 ---
-title: "Single Service"
-weight: 10
+title: Single Service Example
 ---
 
 # Single Service Example

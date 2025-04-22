@@ -1,6 +1,5 @@
 ---
 title: "Secrets"
-weight: 30
 ---
 
 # Using Secrets with Quad-Ops
@@ -81,7 +80,7 @@ services:
       - source: ssl_cert
         target: /run/secrets/server.cert
         mode: 0400
-  
+
   db:
     image: postgres:latest
     environment:

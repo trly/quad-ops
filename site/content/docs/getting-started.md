@@ -1,6 +1,6 @@
 ---
 title: "Getting Started"
-weight: 2
+weight: 5
 bookFlatSection: false
 bookToc: true
 bookHidden: false
@@ -73,17 +73,27 @@ quad-ops sync
 
 ## Verifying Your Setup
 
-After syncing, check the status of your units:
+### Check quad-ops status
 
 ```bash
-# Check system journal for sync logs
-journalctl -u quad-ops.service -f
+quad-ops unit list -t all
 
-# View unit file contents
-systemctl cat my-apps-webapp.service
+ID  Name                                Type       Unit State  SHA1                                      Cleanup Policy  Created At
+1   quad-ops-multi-service-db           container  active      c79f25a54e5aca33d8bdf7e4b4776969959aa4b4  keep            2025-04-21 22:45:15 +0000 UTC
+2   quad-ops-multi-service-webapp       container  active      106a63b255e897348957b4b2cee17a6e9e4d0e00  keep            2025-04-21 22:45:15 +0000 UTC
+3   quad-ops-multi-service-db-data      volume     active      05763d60c00d6ef3f4f8a026083877eb6545c48b  keep            2025-04-21 22:45:15 +0000 UTC
+4   quad-ops-multi-service-wp-content   volume     active      05763d60c00d6ef3f4f8a026083877eb6545c48b  keep            2025-04-21 22:45:15 +0000 UTC
+5   quad-ops-multi-service-app-network  network    active      479a643178b4bb4d2fdd8d6193c749e34c35ce83  keep            2025-04-21 22:45:15 +0000
+```
 
-# Check container status
+### Check container status
+
+```bash
 podman ps
+
+CONTAINER ID  IMAGE                               COMMAND               CREATED      STATUS      PORTS                 NAMES
+a31ba0448047  docker.io/library/mariadb:latest    mariadbd              3 hours ago  Up 3 hours  3306/tcp              quad-ops-multi-service-db
+731cd5df42ff  docker.io/library/wordpress:latest  apache2-foregroun...  3 hours ago  Up 3 hours  0.0.0.0:8080->80/tcp  quad-ops-multi-service-webapp
 ```
 
 ## Understanding the Workflow
@@ -102,22 +112,27 @@ For production use, set up Quad-Ops as a systemd service for continuous operatio
 When transitioning from Docker Compose to Quad-Ops + Podman, be aware of these important differences:
 
 1. **Container Names & DNS Resolution**:
-   - Format: `systemd-projectname-servicename` (not `servicename` like in Docker Compose)
-   - Example: In your code, reference `systemd-myapp-db` not just `db`
+   - Default format (with `usePodmanDefaultNames: false`): `projectname-servicename`
+   - Alternative format (with `usePodmanDefaultNames: true`): `systemd-projectname-servicename`
+   - **NetworkAlias**: Services can reference each other using just the service name (e.g., `db` instead of full hostname)
 
 2. **Image Names**:
    - Always use fully qualified image names with registry prefix
    - Bad: `image: nginx`
-   - Good: `image: docker.io/nginx:latest`
+   - Good: `image: docker.io/library/nginx:latest`
 
 3. **Bind Mounts**:
    - Directories must exist on the host before container start (not auto-created)
+      - Management of these is outside the scope of Quad-Ops and should be handled by a
+      separate orchestration tool if automation is desired.
    - Absolute paths are recommended for clarity
 
 4. **Unsupported Features**:
-   - Privileged mode: Use specific capabilities instead
+   - Privileged mode: Not supported by Podman Quadlet
+   - SecurityLabel: Not supported, use specific security options instead
+   - DNSEnabled in networks: Not directly supported
    - Docker Swarm features: Not supported by Podman
-   - See [Docker Compose Support](/docs/docker-compose/) for details
+   - See [Docker Compose Support](/quad-ops/docs/configuration/docker-compose/) for details
 
 
 
@@ -142,12 +157,12 @@ Common issues include:
 
 If containers can't communicate:
 - Check network unit status: `systemctl status my-apps-default.network`
-- Verify container DNS resolution format: `systemd-my-apps-servicename`
+- Verify container DNS resolution format matches your configuration (default: `my-apps-servicename`, with usePodmanDefaultNames: `systemd-my-apps-servicename`)
 - Check network configuration in systemd unit file: `systemctl cat my-apps-default.network`
 
 ## Next Steps
 
-- [Configure for Production](/docs/configuration/systemd-service/)
-- [Explore Docker Compose Support](/docs/docker-compose/)
-- [Implement Secrets Management](/docs/configuration/docker-compose/secrets/)
-- [See Example Configurations](/docs/examples/)
+- [Configure for Production](/quad-ops/docs/configuration/systemd-service/)
+- [Explore Docker Compose Support](/quad-ops/docs/configuration/docker-compose/)
+- [Implement Secrets Management](/quad-ops/docs/configuration/docker-compose/secrets/)
+- [See Example Configurations](/quad-ops/docs/configuration/examples/)

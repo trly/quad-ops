@@ -1,6 +1,5 @@
 ---
 title: "Podman vs Docker Compose"
-weight: 5
 bookFlatSection: false
 bookToc: true
 bookHidden: false
@@ -50,9 +49,9 @@ services:
     image: docker.io/nginx:latest
     depends_on:
       - db
-    # Must use systemd-prefixed names
+    # With default settings (usePodmanDefaultNames: false)
     environment:
-      - DB_HOST=systemd-myproject-db
+      - DB_HOST=myproject-db  # No systemd- prefix by default in quad-ops
 ```
 
 ## Image References
@@ -209,7 +208,7 @@ secrets:
 
 2. **Pre-create Directories**: Create all bind mount directories before starting containers
 
-3. **Use systemd-prefixed DNS Names**: Replace direct service references with `systemd-project-service`
+3. **Use Correct DNS Names**: By default, quad-ops configures container hostnames without the systemd- prefix. If using `usePodmanDefaultNames: true`, then use the systemd- prefix
 
 4. **Remove Unsupported Features**: Avoid privileged mode, DNSEnabled, SecurityLabel
 

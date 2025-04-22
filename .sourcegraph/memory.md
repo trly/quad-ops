@@ -51,8 +51,16 @@
 - `unit/volume.go`: Converts volumes with `FromComposeVolume()`
 - `unit/network.go`: Converts networks with `FromComposeNetwork()`
 - `unit/compose_processor.go`: Orchestrates conversion with `ProcessComposeProjects()`
+- `unit/dependency.go`: Manages bidirectional dependency relationships between services
+- `unit/restart.go`: Implements dependency-aware service restart logic
 - Project naming format: `<repo>-<folder>` (e.g., `test-photoprism` for repositories/home/test/photoprism)
 - Supported file names: `docker-compose.yml`, `docker-compose.yaml`, `compose.yml`, `compose.yaml`
+
+### Dependency Management
+- Docker Compose `depends_on` relationships are converted to systemd's `After` and `Requires` directives
+- Reverse dependencies are tracked and converted to `PartOf` relationships for proper restart propagation
+- The dependency-aware restart logic only restarts the most foundational service when multiple dependent services change
+- File content change detection ensures only services with actual changes are restarted
 
 ## Configuration
 - Repository settings are defined in `config.yaml`

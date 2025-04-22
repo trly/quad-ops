@@ -1,6 +1,5 @@
 ---
 title: "Networks"
-weight: 20
 ---
 
 # Networks

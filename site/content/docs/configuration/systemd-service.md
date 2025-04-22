@@ -1,6 +1,6 @@
 ---
 title: "Systemd Service Configuration"
-weight: 40
+weight: 20
 ---
 
 # Systemd Service Configuration
