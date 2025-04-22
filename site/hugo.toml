@@ -9,7 +9,7 @@ disableKinds = ['taxonomy']
   BookTheme = 'auto'
   BookLogo = 'images/quad-ops.svg'
   BookRepo = 'https://github.com/trly/quad-ops'
-  BookEditPath = "edit/main/docs"
+  BookEditPath = "edit/main/site"
   BookComments = false
 
 [module]
