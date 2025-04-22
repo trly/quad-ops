@@ -95,10 +95,27 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 				log.Printf("processing volume: %s", volumeName)
 			}
 
+			// Check if we should use Podman's default naming with systemd- prefix
+			// By default, Podman prefixes volume names with "systemd-"
+			usePodmanNames := config.GetConfig().UsePodmanDefaultNames
+
+			// Repository-specific setting overrides global setting if present
+			for _, repo := range config.GetConfig().Repositories {
+				if strings.Contains(project.Name, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
+					usePodmanNames = repo.UsePodmanDefaultNames
+					break
+				}
+			}
+
 			// Create prefixed volume name using project name for consistency
 			prefixedName := fmt.Sprintf("%s-%s", project.Name, volumeName)
 			volume := NewVolume(prefixedName)
 			volume = volume.FromComposeVolume(volumeName, volumeConfig)
+
+			// Check if we should use Podman's default naming with systemd- prefix
+			if !usePodmanNames {
+				volume.VolumeName = prefixedName
+			}
 
 			// Create the quadlet unit
 			quadletUnit := QuadletUnit{
@@ -119,10 +136,27 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 				log.Printf("processing network: %s", networkName)
 			}
 
+			// Check if we should use Podman's default naming with systemd- prefix
+			// By default, Podman prefixes network names with "systemd-"
+			usePodmanNames := config.GetConfig().UsePodmanDefaultNames
+
+			// Repository-specific setting overrides global setting if present
+			for _, repo := range config.GetConfig().Repositories {
+				if strings.Contains(project.Name, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
+					usePodmanNames = repo.UsePodmanDefaultNames
+					break
+				}
+			}
+
 			// Create prefixed network name using project name for consistency
 			prefixedName := fmt.Sprintf("%s-%s", project.Name, networkName)
 			network := NewNetwork(prefixedName)
 			network = network.FromComposeNetwork(networkName, networkConfig)
+
+			// Check if we should use Podman's default naming with systemd- prefix
+			if !usePodmanNames {
+				network.NetworkName = prefixedName
+			}
 
 			// Create the quadlet unit
 			quadletUnit := QuadletUnit{

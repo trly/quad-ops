@@ -186,6 +186,11 @@ func (u *QuadletUnit) generateVolumeSection() string {
 		content += formatKeyValue("Label", label)
 	}
 
+	// Set VolumeName to override systemd- prefix if configured
+	if u.Volume.VolumeName != "" {
+		content += formatKeyValue("VolumeName", u.Volume.VolumeName)
+	}
+
 	if u.Volume.Device != "" {
 		content += formatKeyValue("Device", u.Volume.Device)
 	}
@@ -219,6 +224,11 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	sort.Strings(slice)
 	for _, label := range slice {
 		content += formatKeyValue("Label", label)
+	}
+
+	// Set NetworkName to override systemd- prefix if configured
+	if u.Network.NetworkName != "" {
+		content += formatKeyValue("NetworkName", u.Network.NetworkName)
 	}
 
 	if u.Network.Driver != "" {

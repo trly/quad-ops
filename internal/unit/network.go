@@ -16,7 +16,8 @@ type Network struct {
 	IPv6     bool     `yaml:"ipv6"`
 	Internal bool     `yaml:"internal"`
 	// DNSEnabled removed - not supported by podman-systemd
-	Options []string `yaml:"options"`
+	Options     []string `yaml:"options"`
+	NetworkName string   `yaml:"network_name"`
 
 	// Systemd unit properties
 	Name     string
@@ -80,9 +81,9 @@ func (n *Network) Show() error {
 func (n *Network) FromComposeNetwork(name string, network types.NetworkConfig) *Network {
 	// Set network name if specified in compose file, otherwise use the key name
 	if network.Name != "" {
-		// We still keep the original name for the unit itself
-		// This is just for reference if needed
-		n.Name = name
+		n.NetworkName = network.Name
+	} else {
+		n.NetworkName = name
 	}
 
 	// Set driver if specified
