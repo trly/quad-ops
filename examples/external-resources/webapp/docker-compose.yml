@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  webapp:
+    image: docker.io/library/wordpress:latest
+    ports:
+      - "8080:80"
+    volumes:
+      - wp-content:/var/www/html/wp-content
+    environment:
+      - WORDPRESS_DB_HOST=database-db  # Uses the fully qualified name from quad-ops
+      - WORDPRESS_DB_NAME=wordpress
+      - WORDPRESS_DB_USER=wp_user
+      - WORDPRESS_DB_PASSWORD=db_password
+    restart: always
+    networks:
+      - external-db-network
+
+volumes:
+  wp-content:
+
+networks:
+  external-db-network:
+    external: true
+    name: database-db-network  # Must match the name format: <project>-<network>

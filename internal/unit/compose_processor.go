@@ -95,6 +95,18 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 				log.Printf("processing volume: %s", volumeName)
 			}
 
+			// Skip external volumes
+			if bool(volumeConfig.External) {
+				if config.GetConfig().Verbose {
+					log.Printf("skipping external volume: %s", volumeName)
+				}
+				// Mark as processed so we don't try to clean it up later
+				prefixedName := fmt.Sprintf("%s-%s", project.Name, volumeName)
+				unitKey := fmt.Sprintf("%s.%s", prefixedName, "volume")
+				processedUnits[unitKey] = true
+				continue
+			}
+
 			// Create prefixed volume name using project name for consistency
 			prefixedName := fmt.Sprintf("%s-%s", project.Name, volumeName)
 			volume := NewVolume(prefixedName)
@@ -117,6 +129,18 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 		for networkName, networkConfig := range project.Networks {
 			if config.GetConfig().Verbose {
 				log.Printf("processing network: %s", networkName)
+			}
+
+			// Skip external networks
+			if bool(networkConfig.External) {
+				if config.GetConfig().Verbose {
+					log.Printf("skipping external network: %s", networkName)
+				}
+				// Mark as processed so we don't try to clean it up later
+				prefixedName := fmt.Sprintf("%s-%s", project.Name, networkName)
+				unitKey := fmt.Sprintf("%s.%s", prefixedName, "network")
+				processedUnits[unitKey] = true
+				continue
 			}
 
 			// Create prefixed network name using project name for consistency
