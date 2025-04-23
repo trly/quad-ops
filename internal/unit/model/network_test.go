@@ -1,4 +1,4 @@
-package unit
+package model
 
 import (
 	"testing"

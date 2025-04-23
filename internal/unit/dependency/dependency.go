@@ -1,10 +1,12 @@
-package unit
+// Package dependency handles service dependency management
+package dependency
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/trly/quad-ops/internal/unit/model"
 )
 
 // ServiceDependency represents the dependencies of a service in both directions.
@@ -42,8 +44,7 @@ func BuildServiceDependencyTree(project *types.Project) map[string]*ServiceDepen
 
 // ApplyDependencyRelationships applies both regular dependencies (After/Requires) and reverse
 // dependencies (PartOf) to a quadlet unit based on the dependency tree.
-func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, dependencies map[string]*ServiceDependency, projectName string) { //nolint:whitespace // False positive
-
+func ApplyDependencyRelationships(unit *model.QuadletUnitConfig, serviceName string, dependencies map[string]*ServiceDependency, projectName string) { 
 	// Apply regular dependencies (services this one depends on)
 	for depName := range dependencies[serviceName].Dependencies {
 		depPrefixedName := fmt.Sprintf("%s-%s", projectName, depName)
@@ -92,4 +93,28 @@ func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, depende
 			}
 		}
 	}
+}
+
+// FindTopLevelDependentService finds the top-most (leaf) service that depends on this service.
+func FindTopLevelDependentService(serviceName string, dependencyTree map[string]*ServiceDependency) string {
+	// If no dependent services, return empty string
+	if len(dependencyTree[serviceName].DependentServices) == 0 {
+		return ""
+	}
+
+	// Get one of the dependent services
+	var dependentService string
+	for dep := range dependencyTree[serviceName].DependentServices {
+		dependentService = dep
+		break
+	}
+
+	// Recursively find the top-level dependent service
+	higherDep := FindTopLevelDependentService(dependentService, dependencyTree)
+	if higherDep != "" {
+		return higherDep
+	}
+
+	// This is the top-level dependent service
+	return dependentService
 }
