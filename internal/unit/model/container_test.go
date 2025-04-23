@@ -126,8 +126,7 @@ func TestFromComposeService(t *testing.T) {
 	}
 
 	container := NewContainer(serviceName)
-	// Debug volume info
-	DebugVolumeTypes(service)
+
 	// Call the function being tested
 	container = container.FromComposeService(service, "test")
 
