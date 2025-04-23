@@ -44,7 +44,7 @@ func BuildServiceDependencyTree(project *types.Project) map[string]*ServiceDepen
 
 // ApplyDependencyRelationships applies both regular dependencies (After/Requires) and reverse
 // dependencies (PartOf) to a quadlet unit based on the dependency tree.
-func ApplyDependencyRelationships(unit *model.QuadletUnitConfig, serviceName string, dependencies map[string]*ServiceDependency, projectName string) { 
+func ApplyDependencyRelationships(unit *model.QuadletUnitConfig, serviceName string, dependencies map[string]*ServiceDependency, projectName string) {
 	// Apply regular dependencies (services this one depends on)
 	for depName := range dependencies[serviceName].Dependencies {
 		depPrefixedName := fmt.Sprintf("%s-%s", projectName, depName)

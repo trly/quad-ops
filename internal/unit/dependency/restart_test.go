@@ -27,8 +27,6 @@ func TestSplitUnitName(t *testing.T) {
 	}
 }
 
-
-
 func TestMarkDependentsAsRestarted(t *testing.T) {
 	// Create a dependency tree
 	dependencyTree := map[string]*ServiceDependency{

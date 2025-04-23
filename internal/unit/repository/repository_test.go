@@ -79,7 +79,7 @@ func TestFindByUnitType(t *testing.T) {
 		unitType,
 	).WillReturnRows(
 		sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy", "user_mode", "repository_id", "created_at"}).
-			AddRow(expectedUnits[0].ID, expectedUnits[0].Name, expectedUnits[0].Type, expectedUnits[0].SHA1Hash, 
+			AddRow(expectedUnits[0].ID, expectedUnits[0].Name, expectedUnits[0].Type, expectedUnits[0].SHA1Hash,
 				expectedUnits[0].CleanupPolicy, expectedUnits[0].UserMode, expectedUnits[0].RepositoryID, expectedUnits[0].CreatedAt),
 	)
 
@@ -108,7 +108,7 @@ func TestFindById(t *testing.T) {
 		unitID,
 	).WillReturnRows(
 		sqlmock.NewRows([]string{"id", "name", "type", "sha1_hash", "cleanup_policy", "user_mode", "repository_id", "created_at"}).
-			AddRow(expectedUnit.ID, expectedUnit.Name, expectedUnit.Type, expectedUnit.SHA1Hash, 
+			AddRow(expectedUnit.ID, expectedUnit.Name, expectedUnit.Type, expectedUnit.SHA1Hash,
 				expectedUnit.CleanupPolicy, expectedUnit.UserMode, expectedUnit.RepositoryID, expectedUnit.CreatedAt),
 	)
 
