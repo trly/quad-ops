@@ -372,6 +372,11 @@ func formatKeyValueSlice(key string, values []string) string {
 func formatSecret(secret Secret) string {
 	secretOpts := []string{secret.Source}
 
+	// Add type if specified (needed for env secrets)
+	if secret.Type != "" {
+		secretOpts = append(secretOpts, fmt.Sprintf("type=%s", secret.Type))
+	}
+
 	if secret.Target != "" {
 		secretOpts = append(secretOpts, fmt.Sprintf("target=%s", secret.Target))
 	}

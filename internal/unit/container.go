@@ -146,7 +146,20 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 	c.HostName = service.Hostname
 
 	if len(service.Secrets) > 0 {
+		// Check for env secrets extension
+		envSecretMap := make(map[string]string)
+		if ext, ok := service.Extensions["x-podman-env-secrets"]; ok {
+			if envSecrets, isMap := ext.(map[string]interface{}); isMap {
+				for secretName, envVar := range envSecrets {
+					if envVarStr, isString := envVar.(string); isString {
+						envSecretMap[secretName] = envVarStr
+					}
+				}
+			}
+		}
+
 		for _, secret := range service.Secrets {
+			// Create regular file-based secret (default behavior)
 			unitSecret := Secret{
 				Source: secret.Source,
 				Target: secret.Target,
@@ -161,6 +174,17 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 				unitSecret.Mode = secret.Mode.String()
 			}
 			c.Secrets = append(c.Secrets, unitSecret)
+
+			// If this secret should also be exposed as an environment variable
+			if envVar, exists := envSecretMap[secret.Source]; exists {
+				// Create additional env-based secret
+				envSecret := Secret{
+					Source: secret.Source,
+					Type:   "env",
+					Target: envVar, // Target becomes the environment variable name
+				}
+				c.Secrets = append(c.Secrets, envSecret)
+			}
 		}
 	}
 
@@ -219,4 +243,5 @@ type Secret struct {
 	UID    string
 	GID    string
 	Mode   string
+	Type   string
 }

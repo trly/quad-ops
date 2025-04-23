@@ -181,3 +181,58 @@ func TestFromComposeService(t *testing.T) {
 	assert.Equal(t, gid, container.Secrets[0].GID)
 	assert.Equal(t, "0644", container.Secrets[0].Mode)
 }
+
+func TestFromComposeServiceWithEnvSecrets(t *testing.T) {
+	// Setup test data
+	serviceName := "app"
+	image := "nginx:latest"
+
+	// Secret configurations
+	service := types.ServiceConfig{
+		Name:  serviceName,
+		Image: image,
+		Secrets: []types.ServiceSecretConfig{
+			{
+				Source: "db_password",
+				Target: "/run/secrets/db_password",
+			},
+			{
+				Source: "api_key",
+			},
+		},
+		Extensions: map[string]interface{}{
+			"x-podman-env-secrets": map[string]interface{}{
+				"db_password": "DB_PASSWORD",
+				"api_key":     "API_KEY",
+			},
+		},
+	}
+
+	container := NewContainer(serviceName)
+	// Call the function being tested
+	container = container.FromComposeService(service, "test")
+
+	// There should be 4 secrets: 2 file-based ones (default) and 2 env-based ones
+	assert.Equal(t, 4, len(container.Secrets))
+
+	// Find and verify the env-based secrets
+	var dbPasswordEnvSecret *Secret
+	var apiKeyEnvSecret *Secret
+
+	for i := range container.Secrets {
+		if container.Secrets[i].Source == "db_password" && container.Secrets[i].Type == "env" {
+			dbPasswordEnvSecret = &container.Secrets[i]
+		} else if container.Secrets[i].Source == "api_key" && container.Secrets[i].Type == "env" {
+			apiKeyEnvSecret = &container.Secrets[i]
+		}
+	}
+
+	// Verify the env secrets were created correctly
+	assert.NotNil(t, dbPasswordEnvSecret, "db_password env secret should exist")
+	assert.Equal(t, "env", dbPasswordEnvSecret.Type)
+	assert.Equal(t, "DB_PASSWORD", dbPasswordEnvSecret.Target)
+
+	assert.NotNil(t, apiKeyEnvSecret, "api_key env secret should exist")
+	assert.Equal(t, "env", apiKeyEnvSecret.Type)
+	assert.Equal(t, "API_KEY", apiKeyEnvSecret.Target)
+}

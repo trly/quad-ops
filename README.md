@@ -11,7 +11,8 @@ Quad-Ops is a lightweight GitOps framework for Podman containers managed by [Qua
 ## Key Features
 
 - Monitor multiple Git repositories for container configurations
-- Support for standard Docker Compose files (services, networks, volumes, secrets) 
+- Support for standard Docker Compose files (services, networks, volumes, secrets)
+- Support for Podman-specific features like exposing secrets as environment variables
 - Automated dependencies via systemd unit relationships
 - Intelligent restarts - only restarts services that changed and their dependents
 - Works in both system-wide and user (rootless) modes
