@@ -70,7 +70,8 @@ type Unit struct {
 	CleanupPolicy string    `db:"cleanup_policy"`
 	SHA1Hash      []byte    `db:"sha1_hash"`
 	UserMode      bool      `db:"user_mode"`
-	CreatedAt     time.Time `db:"created_at"` // Set by database, but not updated on every change
+	RepositoryID  int64     `db:"repository_id"` // Foreign key to repositories table
+	CreatedAt     time.Time `db:"created_at"`    // Set by database, but not updated on every change
 }
 
 func (u *QuadletUnit) generateContainerSection() string {

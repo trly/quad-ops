@@ -22,7 +22,7 @@ func TestUserModeHandling(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = db.Close() }()
 
-	// Create test table
+	// Create test table with repository_id column
 	_, err = db.Exec(`CREATE TABLE units (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name VARCHAR,
@@ -30,6 +30,7 @@ func TestUserModeHandling(t *testing.T) {
 		cleanup_policy VARCHAR,
 		sha1_hash BLOB,
 		user_mode BOOLEAN DEFAULT 0,
+		repository_id INTEGER,
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 	);
 	CREATE UNIQUE INDEX unique_name_type ON units(name, type);`)

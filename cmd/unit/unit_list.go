@@ -50,7 +50,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 		Run: func(_ *cobra.Command, _ []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()
-			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Cleanup Policy", "Created At")
+			tbl := table.New("ID", "Name", "Type", "Repository", "Unit State", "SHA1", "Cleanup Policy", "Created At")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
 			dbConn, err := db.Connect()
@@ -93,6 +93,25 @@ func findAndDisplayUnits(unitRepo unit.Repository, tbl table.Table, unitType str
 		log.Fatal(err)
 	}
 
+	// Get repository information
+	dbConn, err := db.Connect()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() { _ = dbConn.Close() }()
+
+	repoRepo := db.NewRepositoryRepository(dbConn)
+	repos, err := repoRepo.FindAll()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Create a map of repository ID to name for quick lookups
+	repoNames := make(map[int64]string)
+	for _, repo := range repos {
+		repoNames[repo.ID] = repo.Name
+	}
+
 	for _, u := range units {
 		systemdUnit := &unit.BaseSystemdUnit{
 			Name: u.Name,
@@ -106,7 +125,16 @@ func findAndDisplayUnits(unitRepo unit.Repository, tbl table.Table, unitType str
 			}
 			unitStatus = "UNKNOWN"
 		}
-		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), u.CleanupPolicy, u.CreatedAt)
+
+		// Look up repository name
+		repoName := "-"
+		if u.RepositoryID != 0 {
+			if name, ok := repoNames[u.RepositoryID]; ok {
+				repoName = name
+			}
+		}
+
+		tbl.AddRow(u.ID, u.Name, u.Type, repoName, unitStatus, hex.EncodeToString(u.SHA1Hash), u.CleanupPolicy, u.CreatedAt)
 	}
 	tbl.Print()
 }

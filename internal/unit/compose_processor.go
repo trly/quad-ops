@@ -166,20 +166,51 @@ func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) 
 	// Get repository cleanup policy from config
 	cleanupPolicy := "keep" // Default
 
-	// Check for repository-specific cleanup policy
-	for _, repo := range config.GetConfig().Repositories {
-		if strings.Contains(unit.Name, repo.Name) && repo.Cleanup != "" {
-			cleanupPolicy = repo.Cleanup
-			break
-		}
-	}
+	// Find repository ID for this unit
+	var repositoryID int64
 
-	// Check if the unit exists and update its cleanup policy if needed
+	// First check if the unit already exists and has a repository ID
 	existingUnits, err := unitRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("error fetching existing units: %w", err)
 	}
 
+	// Try to find matching repository based on unit name
+	dbConn, err := db.Connect()
+	if err != nil {
+		return fmt.Errorf("error connecting to database: %w", err)
+	}
+	defer func() { _ = dbConn.Close() }()
+
+	repoRepo := db.NewRepositoryRepository(dbConn)
+
+	// Find all repositories to match against
+	repos, err := repoRepo.FindAll()
+	if err != nil {
+		return fmt.Errorf("error fetching repositories: %w", err)
+	}
+
+	// Find the longest matching repository name prefix
+	var bestMatch db.Repository
+	var bestMatchLen int
+
+	for _, repo := range repos {
+		if strings.HasPrefix(unit.Name, repo.Name+"-") && len(repo.Name) > bestMatchLen {
+			bestMatch = repo
+			bestMatchLen = len(repo.Name)
+			// We'll set the cleanup policy later when checking if CleanupPolicy.Valid is true
+		}
+	}
+
+	if bestMatchLen > 0 {
+		repositoryID = bestMatch.ID
+		// Use cleanup policy from repository if it's valid
+		if bestMatch.CleanupPolicy.Valid {
+			cleanupPolicy = bestMatch.CleanupPolicy.String
+		}
+	}
+
+	// Check if the unit exists and update its cleanup policy if needed
 	for _, existingUnit := range existingUnits {
 		if existingUnit.Name == unit.Name && existingUnit.Type == unit.Type {
 			if existingUnit.CleanupPolicy != cleanupPolicy {
@@ -198,6 +229,7 @@ func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) 
 		SHA1Hash:      contentHash,
 		CleanupPolicy: cleanupPolicy,
 		UserMode:      config.GetConfig().UserMode,
+		RepositoryID:  repositoryID,
 		// CreatedAt removed - no need to update timestamp every time
 	})
 	return err
@@ -205,23 +237,54 @@ func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) 
 
 // Removed reloadUnits - replaced by RestartChangedUnits in restart.go
 
-func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) error {
+// CleanupOrphanedUnits cleans up units that are no longer in use or belong to removed repositories.
+// This function is exported so it can be called directly from the sync command.
+func CleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) error {
 	dbUnits, err := unitRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("error fetching units from database: %w", err)
 	}
 
+	// Get active repository IDs
+	dbConn, err := db.Connect()
+	if err != nil {
+		return fmt.Errorf("error connecting to database: %w", err)
+	}
+	defer func() { _ = dbConn.Close() }()
+
+	repoRepo := db.NewRepositoryRepository(dbConn)
+
+	// Make sure repositories in database match config
+	if err := repoRepo.SyncFromConfig(); err != nil {
+		return fmt.Errorf("error syncing repositories from config: %w", err)
+	}
+
+	// Get all active repositories after sync
+	activeRepos, err := repoRepo.FindAll()
+	if err != nil {
+		return fmt.Errorf("error fetching repositories: %w", err)
+	}
+
+	activeRepoIDs := make(map[int64]bool)
+	for _, repo := range activeRepos {
+		activeRepoIDs[repo.ID] = true
+	}
+
 	for _, dbUnit := range dbUnits {
 		unitKey := fmt.Sprintf("%s.%s", dbUnit.Name, dbUnit.Type)
 
-		// Check if unit is orphaned or if there's a mode mismatch
+		// Check if unit is orphaned, has no repository association, or if there's a mode mismatch
 		isOrphaned := !processedUnits[unitKey] && (dbUnit.CleanupPolicy == "delete")
 		hasModeMismatch := dbUnit.UserMode != config.GetConfig().UserMode && processedUnits[unitKey]
+		repoRemoved := dbUnit.RepositoryID != 0 && !activeRepoIDs[dbUnit.RepositoryID] && (dbUnit.CleanupPolicy == "delete")
 
-		if isOrphaned || hasModeMismatch {
+		if isOrphaned || hasModeMismatch || repoRemoved {
 			if config.GetConfig().Verbose {
 				if isOrphaned {
 					log.Printf("cleaning up orphaned unit %s with policy %s", unitKey, dbUnit.CleanupPolicy)
+				} else if repoRemoved {
+					// Get the repository name for logging
+					log.Printf("cleaning up unit %s because its repository was removed from config", unitKey)
 				} else {
 					log.Printf("cleaning up unit %s due to user mode mismatch: DB=%t, Current=%t",
 						unitKey, dbUnit.UserMode, config.GetConfig().UserMode)
@@ -419,28 +482,12 @@ func handleChangesAndCleanup(projects []*types.Project, unitRepo Repository, cha
 	}
 
 	// Handle cleanup if needed
-	if shouldCleanup && len(projects) > 0 && isLastRepositoryInConfig(projects) {
-		if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
+	// Always run cleanup to handle repository removal detection
+	if shouldCleanup {
+		if err := CleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
 			log.Printf("Error cleaning up orphaned units: %v", err)
 		}
 	}
 
 	return nil
-}
-
-// isLastRepositoryInConfig checks if any of the projects belong to the last repository in config.
-func isLastRepositoryInConfig(projects []*types.Project) bool {
-	repos := config.GetConfig().Repositories
-	if len(repos) == 0 || len(projects) == 0 {
-		return false
-	}
-
-	lastRepo := repos[len(repos)-1]
-	for _, project := range projects {
-		if strings.Contains(project.Name, lastRepo.Name) {
-			return true
-		}
-	}
-
-	return false
 }

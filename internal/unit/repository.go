@@ -26,7 +26,7 @@ func NewUnitRepository(db *sql.DB) Repository {
 
 // FindAll retrieves all units from the database.
 func (r *SQLRepository) FindAll() ([]Unit, error) {
-	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, created_at FROM units")
+	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, repository_id, created_at FROM units")
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (r *SQLRepository) FindAll() ([]Unit, error) {
 
 // FindByUnitType retrieves units filtered by type.
 func (r *SQLRepository) FindByUnitType(unitType string) ([]Unit, error) {
-	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, created_at FROM units WHERE type = ?", unitType)
+	rows, err := r.db.Query("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, repository_id, created_at FROM units WHERE type = ?", unitType)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (r *SQLRepository) FindByUnitType(unitType string) ([]Unit, error) {
 
 // FindByID retrieves a single unit by ID.
 func (r *SQLRepository) FindByID(id int64) (Unit, error) {
-	row := r.db.QueryRow("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, created_at FROM units WHERE id = ?", id)
+	row := r.db.QueryRow("SELECT id, name, type, sha1_hash, cleanup_policy, user_mode, repository_id, created_at FROM units WHERE id = ?", id)
 	units, err := scanUnits(row)
 	if err != nil {
 		return Unit{}, err
@@ -60,13 +60,14 @@ func (r *SQLRepository) FindByID(id int64) (Unit, error) {
 // Create inserts or updates a unit in the database.
 func (r *SQLRepository) Create(unit *Unit) (int64, error) {
 	result, err := r.db.Exec(`
-		INSERT INTO units (name, type, sha1_hash, cleanup_policy, user_mode)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO units (name, type, sha1_hash, cleanup_policy, user_mode, repository_id)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(name, type) DO UPDATE SET
 		sha1_hash = excluded.sha1_hash,
 		cleanup_policy = excluded.cleanup_policy,
-		user_mode = excluded.user_mode
-	`, unit.Name, unit.Type, unit.SHA1Hash, unit.CleanupPolicy, unit.UserMode)
+		user_mode = excluded.user_mode,
+		repository_id = excluded.repository_id
+	`, unit.Name, unit.Type, unit.SHA1Hash, unit.CleanupPolicy, unit.UserMode, unit.RepositoryID)
 	if err != nil {
 		return 0, err
 	}
@@ -90,14 +91,14 @@ func scanUnits(scanner interface{}) ([]Unit, error) {
 	case *sql.Rows:
 		for s.Next() {
 			var unit Unit
-			if err := s.Scan(&unit.ID, &unit.Name, &unit.Type, &unit.SHA1Hash, &unit.CleanupPolicy, &unit.UserMode, &unit.CreatedAt); err != nil {
+			if err := s.Scan(&unit.ID, &unit.Name, &unit.Type, &unit.SHA1Hash, &unit.CleanupPolicy, &unit.UserMode, &unit.RepositoryID, &unit.CreatedAt); err != nil {
 				return nil, err
 			}
 			units = append(units, unit)
 		}
 	case *sql.Row:
 		var unit Unit
-		if err := s.Scan(&unit.ID, &unit.Name, &unit.Type, &unit.SHA1Hash, &unit.CleanupPolicy, &unit.UserMode, &unit.CreatedAt); err != nil {
+		if err := s.Scan(&unit.ID, &unit.Name, &unit.Type, &unit.SHA1Hash, &unit.CleanupPolicy, &unit.UserMode, &unit.RepositoryID, &unit.CreatedAt); err != nil {
 			return nil, err
 		}
 		units = append(units, unit)
