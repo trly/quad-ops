@@ -8,12 +8,12 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
-func TestGetConnectionString(t *testing.T) {
+func Test_getConnectionString(t *testing.T) {
 	cfg := config.Config{
 		DBPath: "/test/path/db.sqlite",
 	}
 	expected := "sqlite3:///test/path/db.sqlite"
-	assert.Equal(t, expected, GetConnectionString(cfg))
+	assert.Equal(t, expected, getConnectionString(cfg))
 }
 
 func TestConnect(t *testing.T) {
