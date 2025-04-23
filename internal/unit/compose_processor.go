@@ -25,7 +25,8 @@ func ProcessComposeProjects(projects []*types.Project, force bool, processedUnit
 	unitRepo := NewUnitRepository(dbConn)
 
 	// If processedUnits is nil, create a new map
-	if processedUnits == nil {
+	cleanupUnits := processedUnits == nil
+	if cleanupUnits {
 		processedUnits = make(map[string]bool)
 	}
 	changedUnits := make([]QuadletUnit, 0)
@@ -40,186 +41,14 @@ func ProcessComposeProjects(projects []*types.Project, force bool, processedUnit
 		// Build the bidirectional dependency tree for the project
 		dependencyTree := BuildServiceDependencyTree(project)
 
-		// Process services (containers)
-		for serviceName, service := range project.Services {
-			if config.GetConfig().Verbose {
-				log.Printf("processing service: %s", serviceName)
-			}
-
-			// Create prefixed container name using project name to enable proper DNS resolution
-			// Format: <project>-<service> (e.g., myproject-db, myproject-web)
-			prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
-			container := NewContainer(prefixedName)
-			container = container.FromComposeService(service, project.Name)
-
-			// Check if we should use Podman's default naming with systemd- prefix
-			// By default, Podman prefixes container hostnames with "systemd-"
-			// We can override this by setting the ContainerName in the unit file
-			usePodmanNames := config.GetConfig().UsePodmanDefaultNames
-
-			// Repository-specific setting overrides global setting if present
-			for _, repo := range config.GetConfig().Repositories {
-				if strings.Contains(project.Name, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
-					usePodmanNames = repo.UsePodmanDefaultNames
-					break
-				}
-			}
-
-			// If we don't want Podman's default names, set ContainerName to override the systemd- prefix
-			if !usePodmanNames {
-				container.ContainerName = prefixedName
-			}
-
-			// Always add the service name as a NetworkAlias to allow using just the service name for connections
-			// This makes Docker Compose files more portable by allowing references like 'db' instead of 'quad-ops-multi-service-db'
-			container.NetworkAlias = append(container.NetworkAlias, serviceName)
-
-			// Create the quadlet unit with proper systemd configuration
-			quadletUnit := QuadletUnit{
-				Name:      prefixedName, // Use prefixed name for DNS resolution
-				Type:      "container",
-				Container: *container,
-				Systemd:   SystemdConfig{},
-			}
-
-			// Apply dependency relationships (both regular and reverse)
-			ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyTree, project.Name)
-
-			// Process the quadlet unit
-			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
-				log.Printf("Error processing unit: %v", err)
-			}
-		}
-
-		// Process volumes
-		for volumeName, volumeConfig := range project.Volumes {
-			if config.GetConfig().Verbose {
-				log.Printf("processing volume: %s", volumeName)
-			}
-
-			// Check if we should use Podman's default naming with systemd- prefix
-			// By default, Podman prefixes volume names with "systemd-"
-			usePodmanNames := config.GetConfig().UsePodmanDefaultNames
-
-			// Repository-specific setting overrides global setting if present
-			for _, repo := range config.GetConfig().Repositories {
-				if strings.Contains(project.Name, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
-					usePodmanNames = repo.UsePodmanDefaultNames
-					break
-				}
-			}
-
-			// Create prefixed volume name using project name for consistency
-			prefixedName := fmt.Sprintf("%s-%s", project.Name, volumeName)
-			volume := NewVolume(prefixedName)
-			volume = volume.FromComposeVolume(volumeName, volumeConfig)
-
-			// Check if we should use Podman's default naming with systemd- prefix
-			if !usePodmanNames {
-				volume.VolumeName = prefixedName
-			}
-
-			// Create the quadlet unit
-			quadletUnit := QuadletUnit{
-				Name:   prefixedName,
-				Type:   "volume",
-				Volume: *volume,
-			}
-
-			// Process the quadlet unit
-			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
-				log.Printf("Error processing volume unit: %v", err)
-			}
-		}
-
-		// Process networks
-		for networkName, networkConfig := range project.Networks {
-			if config.GetConfig().Verbose {
-				log.Printf("processing network: %s", networkName)
-			}
-
-			// Check if we should use Podman's default naming with systemd- prefix
-			// By default, Podman prefixes network names with "systemd-"
-			usePodmanNames := config.GetConfig().UsePodmanDefaultNames
-
-			// Repository-specific setting overrides global setting if present
-			for _, repo := range config.GetConfig().Repositories {
-				if strings.Contains(project.Name, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
-					usePodmanNames = repo.UsePodmanDefaultNames
-					break
-				}
-			}
-
-			// Create prefixed network name using project name for consistency
-			prefixedName := fmt.Sprintf("%s-%s", project.Name, networkName)
-			network := NewNetwork(prefixedName)
-			network = network.FromComposeNetwork(networkName, networkConfig)
-
-			// Check if we should use Podman's default naming with systemd- prefix
-			if !usePodmanNames {
-				network.NetworkName = prefixedName
-			}
-
-			// Create the quadlet unit
-			quadletUnit := QuadletUnit{
-				Name:    prefixedName,
-				Type:    "network",
-				Network: *network,
-			}
-
-			// Process the quadlet unit
-			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
-				log.Printf("Error processing network unit: %v", err)
-			}
-		}
-
-		// Process secrets - note that in Podman, secrets are handled as part of containers
-		// and don't need separate units like in Docker Swarm. The secret handling is already
-		// implemented in the Container.FromComposeService method
+		// Process components by type
+		processServicesInProject(project, dependencyTree, unitRepo, force, processedUnits, &changedUnits)
+		processVolumesInProject(project, unitRepo, force, processedUnits, &changedUnits)
+		processNetworksInProject(project, unitRepo, force, processedUnits, &changedUnits)
 	}
 
-	// Reload systemd units if any changed
-	if len(changedUnits) > 0 {
-		// Create a map to store project dependency trees
-		projectDependencyTrees := make(map[string]map[string]*ServiceDependency)
-
-		// Store dependency trees for each project processed
-		for _, project := range projects {
-			projectDependencyTrees[project.Name] = BuildServiceDependencyTree(project)
-		}
-
-		// Use dependency-aware restart for changed units
-		if err := RestartChangedUnits(changedUnits, projectDependencyTrees); err != nil {
-			log.Printf("Error restarting changed units: %v", err)
-		}
-	}
-
-	// Only clean up orphaned units if running in standalone mode
-	// This avoids cleaning up units that belong to other repositories
-	if processedUnits != nil && len(projects) > 0 {
-		// Check if this is the end of processing by seeing if project name matches the last repository
-		// This is determined by checking if the project name contains the name of the last repository in config
-		isLastRepository := false
-		repos := config.GetConfig().Repositories
-		if len(repos) > 0 && len(projects) > 0 {
-			lastRepo := repos[len(repos)-1]
-			for _, project := range projects {
-				if strings.Contains(project.Name, lastRepo.Name) {
-					isLastRepository = true
-					break
-				}
-			}
-		}
-
-		// Only cleanup if this is the last repository being processed
-		if isLastRepository {
-			if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
-				log.Printf("Error cleaning up orphaned units: %v", err)
-			}
-		}
-	}
-
-	return nil
+	// Process changed units and cleanup if needed
+	return handleChangesAndCleanup(projects, unitRepo, changedUnits, cleanupUnits, processedUnits)
 }
 
 // processUnit processes a single quadlet unit.
@@ -448,4 +277,170 @@ func getContentHash(content string) []byte {
 	hash := sha1.New() //nolint:gosec // Not used for security purposes, just for content tracking
 	hash.Write([]byte(content))
 	return hash.Sum(nil)
+}
+
+// processServicesInProject processes all services (containers) in a project.
+func processServicesInProject(project *types.Project, dependencyTree map[string]*ServiceDependency, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) {
+	for serviceName, service := range project.Services {
+		if config.GetConfig().Verbose {
+			log.Printf("processing service: %s", serviceName)
+		}
+
+		// Create prefixed container name using project name to enable proper DNS resolution
+		prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
+		container := NewContainer(prefixedName)
+		container = container.FromComposeService(service, project.Name)
+
+		// Check if we should use Podman's default naming with systemd- prefix
+		usePodmanNames := getPodmanNamingPreference(project.Name)
+
+		// If we don't want Podman's default names, set ContainerName to override the systemd- prefix
+		if !usePodmanNames {
+			container.ContainerName = prefixedName
+		}
+
+		// Always add the service name as a NetworkAlias to allow using just the service name for connections
+		// This makes Docker Compose files more portable by allowing references like 'db' instead of 'quad-ops-multi-service-db'
+		container.NetworkAlias = append(container.NetworkAlias, serviceName)
+
+		// Create the quadlet unit with proper systemd configuration
+		quadletUnit := QuadletUnit{
+			Name:      prefixedName, // Use prefixed name for DNS resolution
+			Type:      "container",
+			Container: *container,
+			Systemd:   SystemdConfig{},
+		}
+
+		// Apply dependency relationships (both regular and reverse)
+		ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyTree, project.Name)
+
+		// Process the quadlet unit
+		if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
+			log.Printf("Error processing unit: %v", err)
+		}
+	}
+}
+
+// processVolumesInProject processes all volumes in a project.
+func processVolumesInProject(project *types.Project, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) {
+	for volumeName, volumeConfig := range project.Volumes {
+		if config.GetConfig().Verbose {
+			log.Printf("processing volume: %s", volumeName)
+		}
+
+		// Check if we should use Podman's default naming
+		usePodmanNames := getPodmanNamingPreference(project.Name)
+
+		// Create prefixed volume name using project name for consistency
+		prefixedName := fmt.Sprintf("%s-%s", project.Name, volumeName)
+		volume := NewVolume(prefixedName)
+		volume = volume.FromComposeVolume(volumeName, volumeConfig)
+
+		// Set explicit volume name if not using Podman defaults
+		if !usePodmanNames {
+			volume.VolumeName = prefixedName
+		}
+
+		// Create the quadlet unit
+		quadletUnit := QuadletUnit{
+			Name:   prefixedName,
+			Type:   "volume",
+			Volume: *volume,
+		}
+
+		// Process the quadlet unit
+		if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
+			log.Printf("Error processing volume unit: %v", err)
+		}
+	}
+}
+
+// processNetworksInProject processes all networks in a project.
+func processNetworksInProject(project *types.Project, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) {
+	for networkName, networkConfig := range project.Networks {
+		if config.GetConfig().Verbose {
+			log.Printf("processing network: %s", networkName)
+		}
+
+		// Check if we should use Podman's default naming
+		usePodmanNames := getPodmanNamingPreference(project.Name)
+
+		// Create prefixed network name using project name for consistency
+		prefixedName := fmt.Sprintf("%s-%s", project.Name, networkName)
+		network := NewNetwork(prefixedName)
+		network = network.FromComposeNetwork(networkName, networkConfig)
+
+		// Set explicit network name if not using Podman defaults
+		if !usePodmanNames {
+			network.NetworkName = prefixedName
+		}
+
+		// Create the quadlet unit
+		quadletUnit := QuadletUnit{
+			Name:    prefixedName,
+			Type:    "network",
+			Network: *network,
+		}
+
+		// Process the quadlet unit
+		if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
+			log.Printf("Error processing network unit: %v", err)
+		}
+	}
+}
+
+// getPodmanNamingPreference determines if Podman's default naming scheme should be used for a project.
+func getPodmanNamingPreference(projectName string) bool {
+	usePodmanNames := config.GetConfig().UsePodmanDefaultNames
+
+	// Repository-specific setting overrides global setting if present
+	for _, repo := range config.GetConfig().Repositories {
+		if strings.Contains(projectName, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
+			usePodmanNames = repo.UsePodmanDefaultNames
+			break
+		}
+	}
+
+	return usePodmanNames
+}
+
+// handleChangesAndCleanup manages restarting changed units and cleaning up orphaned units.
+func handleChangesAndCleanup(projects []*types.Project, unitRepo Repository, changedUnits []QuadletUnit, shouldCleanup bool, processedUnits map[string]bool) error {
+	// Handle changed units - reload/restart as needed
+	if len(changedUnits) > 0 {
+		projectDependencyTrees := make(map[string]map[string]*ServiceDependency)
+		for _, project := range projects {
+			projectDependencyTrees[project.Name] = BuildServiceDependencyTree(project)
+		}
+
+		if err := RestartChangedUnits(changedUnits, projectDependencyTrees); err != nil {
+			log.Printf("Error restarting changed units: %v", err)
+		}
+	}
+
+	// Handle cleanup if needed
+	if shouldCleanup && len(projects) > 0 && isLastRepositoryInConfig(projects) {
+		if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
+			log.Printf("Error cleaning up orphaned units: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// isLastRepositoryInConfig checks if any of the projects belong to the last repository in config.
+func isLastRepositoryInConfig(projects []*types.Project) bool {
+	repos := config.GetConfig().Repositories
+	if len(repos) == 0 || len(projects) == 0 {
+		return false
+	}
+
+	lastRepo := repos[len(repos)-1]
+	for _, project := range projects {
+		if strings.Contains(project.Name, lastRepo.Name) {
+			return true
+		}
+	}
+
+	return false
 }
