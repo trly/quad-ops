@@ -1,81 +1,92 @@
 package unit
 
 import (
-	"os"
+	"database/sql"
 	"testing"
 
-	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
 )
 
-func TestProcessComposeProjectsMultiRepository(t *testing.T) {
-	// Create a temporary directory for testing
-	tempDir, err := os.MkdirTemp("", "quad-ops-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer func() { _ = os.RemoveAll(tempDir) }()
+func TestUpdateUnitDatabaseCleanupPolicy(t *testing.T) {
+	// Create a test database
+	db, err := sql.Open("sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() {
+		err := db.Close()
+		if err != nil {
+			t.Errorf("Failed to close database: %v", err)
+		}
+	}()
 
-	// Set up fake config for testing
+	// Create units table
+	_, err = db.Exec(`
+		CREATE TABLE units (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			type TEXT NOT NULL,
+			sha1_hash BLOB NOT NULL,
+			cleanup_policy TEXT NOT NULL,
+			user_mode BOOLEAN DEFAULT 0,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(name, type)
+		);
+	`)
+	require.NoError(t, err)
+
+	// Create a repository with config
+	unitRepo := NewUnitRepository(db)
+
+	// Setup test config with repositories
 	cfg := &config.Config{
-		QuadletDir: tempDir,
 		Repositories: []config.RepositoryConfig{
 			{
-				Name:    "repo1",
+				Name:    "test-repo",
 				Cleanup: "delete",
 			},
 			{
-				Name:    "repo2",
-				Cleanup: "delete",
+				Name:    "keep-repo",
+				Cleanup: "keep",
+			},
+			{
+				Name: "default-repo", // no cleanup policy specified
 			},
 		},
 	}
 	config.SetConfig(cfg)
 
-	// Create mock projects from two different repositories
-	project1 := &types.Project{
-		Name: "repo1-service",
-		Services: types.Services{
-			"service1": types.ServiceConfig{
-				Image: "image1",
-			},
-		},
+	// Test cases
+	tests := []struct {
+		name           string
+		unitName       string
+		expectedPolicy string
+	}{
+		{"Delete policy", "test-repo-service", "delete"},
+		{"Keep policy", "keep-repo-service", "keep"},
+		{"Default policy", "default-repo-service", "keep"},
+		{"Unknown repo", "unknown-service", "keep"},
 	}
 
-	project2 := &types.Project{
-		Name: "repo2-service",
-		Services: types.Services{
-			"service2": types.ServiceConfig{
-				Image: "image2",
-			},
-		},
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Create a unit with the test name
+			unit := &QuadletUnit{
+				Name: tc.unitName,
+				Type: "container",
+			}
+
+			// Update the database
+			err := updateUnitDatabase(unitRepo, unit, "test content")
+			require.NoError(t, err)
+
+			// Query the database to verify the cleanup policy
+			var policy string
+			err = db.QueryRow("SELECT cleanup_policy FROM units WHERE name = ?", tc.unitName).Scan(&policy)
+			require.NoError(t, err)
+
+			// Assert the cleanup policy matches the expected value
+			assert.Equal(t, tc.expectedPolicy, policy)
+		})
 	}
-
-	// Override the QuadletDir for testing
-	// This will affect the getUnitFilePath function without needing to mock it directly
-	config.GetConfig().QuadletDir = tempDir
-
-	// Create a shared processedUnits map to simulate proper usage
-	processedUnits := make(map[string]bool)
-
-	// Process the first project
-	_ = ProcessComposeProjects([]*types.Project{project1}, false, processedUnits)
-	// We expect an error due to database connection in test, but the processedUnits should still be updated
-	// We're testing the tracking of units across multiple calls, not the actual database operations
-
-	// Verify the first service was tracked in processedUnits
-	assert.True(t, processedUnits["repo1-service-service1.container"], "First service should be tracked in processedUnits")
-
-	// Process the second project with the same processedUnits map
-	_ = ProcessComposeProjects([]*types.Project{project2}, false, processedUnits)
-	// Again, we expect database errors but are testing the processedUnits tracking
-
-	// Verify both services are tracked in processedUnits
-	assert.True(t, processedUnits["repo1-service-service1.container"], "First service should still be tracked in processedUnits")
-	assert.True(t, processedUnits["repo2-service-service2.container"], "Second service should be tracked in processedUnits")
-
-	// At this point, cleanup should not have removed the first service because both are still in processedUnits
-	// This test verifies the fix for the issue where services from the first repository were being
-	// deleted when processing the second repository.
 }

@@ -15,7 +15,7 @@ import (
 )
 
 // ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units.
-func ProcessComposeProjects(projects []*types.Project, force bool, processedUnits map[string]bool) error {
+func ProcessComposeProjects(projects []*types.Project, force bool) error {
 	dbConn, err := db.Connect()
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
@@ -24,10 +24,8 @@ func ProcessComposeProjects(projects []*types.Project, force bool, processedUnit
 
 	unitRepo := NewUnitRepository(dbConn)
 
-	// If processedUnits is nil, create a new map
-	if processedUnits == nil {
-		processedUnits = make(map[string]bool)
-	}
+	// Track processed units to handle orphaned cleanup later
+	processedUnits := make(map[string]bool)
 	changedUnits := make([]QuadletUnit, 0)
 
 	// Process each project
@@ -194,29 +192,9 @@ func ProcessComposeProjects(projects []*types.Project, force bool, processedUnit
 		}
 	}
 
-	// Only clean up orphaned units if running in standalone mode
-	// This avoids cleaning up units that belong to other repositories
-	if processedUnits != nil && len(projects) > 0 {
-		// Check if this is the end of processing by seeing if project name matches the last repository
-		// This is determined by checking if the project name contains the name of the last repository in config
-		isLastRepository := false
-		repos := config.GetConfig().Repositories
-		if len(repos) > 0 && len(projects) > 0 {
-			lastRepo := repos[len(repos)-1]
-			for _, project := range projects {
-				if strings.Contains(project.Name, lastRepo.Name) {
-					isLastRepository = true
-					break
-				}
-			}
-		}
-
-		// Only cleanup if this is the last repository being processed
-		if isLastRepository {
-			if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
-				log.Printf("Error cleaning up orphaned units: %v", err)
-			}
-		}
+	// Clean up any orphaned units
+	if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
+		log.Printf("Error cleaning up orphaned units: %v", err)
 	}
 
 	return nil

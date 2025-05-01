@@ -89,8 +89,6 @@ repositories:
 	return syncCmd
 }
 func syncRepositories(cfg *config.Config) {
-	// Track processed units across all repositories
-	processedUnits := make(map[string]bool)
 	for _, repoConfig := range cfg.Repositories {
 		if repoName != "" && repoConfig.Name != repoName {
 			if config.GetConfig().Verbose {
@@ -126,9 +124,7 @@ func syncRepositories(cfg *config.Config) {
 				continue
 			}
 
-			// processedUnits is already initialized at the function start
-
-			err = unit.ProcessComposeProjects(projects, force, processedUnits)
+			err = unit.ProcessComposeProjects(projects, force)
 			if err != nil {
 				log.Printf("error processing projects from repository %s: %v", repoConfig.Name, err)
 				continue
