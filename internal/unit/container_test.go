@@ -213,9 +213,10 @@ func TestSeparateSecretsHandling(t *testing.T) {
 		var apiKeySecret *Secret
 
 		for i := range container.Secrets {
-			if container.Secrets[i].Source == "db_password" {
+			switch container.Secrets[i].Source {
+			case "db_password":
 				dbPasswordSecret = &container.Secrets[i]
-			} else if container.Secrets[i].Source == "api_key" {
+			case "api_key":
 				apiKeySecret = &container.Secrets[i]
 			}
 		}
@@ -257,9 +258,10 @@ func TestSeparateSecretsHandling(t *testing.T) {
 		var apiKeySecret *Secret
 
 		for i := range container.Secrets {
-			if container.Secrets[i].Source == "db_password" {
+			switch container.Secrets[i].Source {
+			case "db_password":
 				dbPasswordSecret = &container.Secrets[i]
-			} else if container.Secrets[i].Source == "api_key" {
+			case "api_key":
 				apiKeySecret = &container.Secrets[i]
 			}
 		}

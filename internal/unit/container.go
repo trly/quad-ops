@@ -153,7 +153,6 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 			// If no target is specified, use default path /run/secrets/<source>
 			targetPath = "/run/secrets/" + secret.Source
 		}
-		
 		unitSecret := Secret{
 			Source: secret.Source,
 			Target: targetPath,
