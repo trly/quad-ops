@@ -4,11 +4,11 @@ go 1.24.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/compose-spec/compose-go/v2 v2.6.0
+	github.com/compose-spec/compose-go/v2 v2.6.1
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-git/v5 v5.16.0
-	github.com/golang-migrate/migrate/v4 v4.18.2
+	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/rodaine/table v1.3.0
 	github.com/spf13/cobra v1.9.1
