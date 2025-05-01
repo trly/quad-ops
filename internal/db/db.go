@@ -23,7 +23,7 @@ import (
 var migrationsFS embed.FS
 
 // GetConnectionString returns the database connection string.
-func getConnectionString(cfg config.Config) string {
+func GetConnectionString(cfg config.Config) string {
 	return "sqlite3://" + cfg.DBPath
 }
 
@@ -106,7 +106,7 @@ func Down(cfg config.Config) error {
 	return nil
 }
 func getMigrationInstance(cfg config.Config) (*migrate.Migrate, error) {
-	dbConnStr := getConnectionString(cfg)
+	dbConnStr := GetConnectionString(cfg)
 	sourceDriver, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
 		return nil, err
