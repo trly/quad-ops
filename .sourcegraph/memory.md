@@ -10,7 +10,6 @@
 - Quad-Ops manages Podman containers through Quadlet by synchronizing from Git repositories
 - Supports standard Docker Compose files (version 3.x)
 - Creates systemd unit files for containers, volumes, and networks
-- Tracks repository-to-unit relationships in a SQLite database
 
 ## Documentation
 - [podman-systemd (quadlet)](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
@@ -22,8 +21,6 @@
 - Always use fully qualified image names with registry prefix (docker.io/, quay.io/, etc.)
 - Container dependencies must be expressed in systemd unit files using the service name format
 - Use After/Requires with .service suffix (e.g., 'After=db.service', not 'After=db.container')
-- Network dependencies must use `networkname-network.service` format, not `.network`
-- Volume dependencies must use `volumename-volume.service` format, not `.volume`
 - By default, quad-ops creates containers with hostnames that match their service names (without the systemd- prefix)
 - Container hostnames can be configured via `usePodmanDefaultNames` option in config.yaml (default: false)
 - Setting `usePodmanDefaultNames: true` allows Podman to use its default naming scheme with systemd- prefix
@@ -36,23 +33,17 @@
 - `internal/unit/`: Converts Docker Compose objects to Podman Quadlet units
 - `internal/git/`: Manages Git repository operations
 - `internal/config/`: Handles application configuration
-- `internal/db/`: Database management and repository tracking
 - `cmd/`: Contains CLI commands and entry points
 
-## Repository Tracking
-- Units are linked to their source repositories in the database
-- Repository information is displayed in `quad-ops unit list` command
-- When a repository is removed from config, all its units with cleanup policy "delete" are removed
-- Clean database migrations handle schema changes and data updates
-
 ## Important Bug Fixes
-- Fixed dependency references to use proper systemd service naming (`name-volume.service` not `.volume`)
-- Fixed NULL handling in database for optional repository fields using sql.NullString
 - Always initialize RunInit field in container.go to prevent nil pointer dereference
+- Use proper project naming format for Docker Compose projects
+- Handle nil networks when alias is not present in container.go
 - Fix unsupported quadlet keys in unit files (removed DNSEnabled, SecurityLabel, Privileged)
+- Ensure fully qualified image names (docker.io/ prefix) to prevent quadlet warnings
 - Fixed container name resolution for inter-container communication
 - Fixed service dependency configuration for containers with custom naming
-- Added NetworkAlias support to allow referring to services by their simple names
+- Added NetworkAlias support to allow referring to services by their simple names (e.g., "db" instead of full hostname)
 
 ## Docker Compose Support
 - `compose/reader.go`: Detects and reads Docker Compose files with robust error handling
@@ -70,7 +61,6 @@
 - Reverse dependencies are tracked and converted to `PartOf` relationships for proper restart propagation
 - The dependency-aware restart logic only restarts the most foundational service when multiple dependent services change
 - File content change detection ensures only services with actual changes are restarted
-- All systemd unit dependencies use the `.service` suffix, even for container/volume/network units
 
 ## Configuration
 - Repository settings are defined in `config.yaml`
@@ -78,6 +68,12 @@
 - Optional settings include: `ref` (branch/tag), `composeDir` (subdirectory for Docker Compose files), `cleanup` policy, and `usePodmanDefaultNames`
 - Cleanup policy: "keep" (default) or "delete" for auto-removal of units from deleted compose files
 - `usePodmanDefaultNames`: Controls container hostname prefix (default: false). When false, container hostnames match service names without systemd- prefix
+
+## Build & Test Commands
+- Build: `go build -o quad-ops cmd/quad-ops/main.go`
+- Run tests: `go test -v ./...`
+- Run single test: `go test -v github.com/trly/quad-ops/internal/unit -run TestFromComposeService`
+- Lint: `golangci-lint run`
 
 ## Code Style
 - Use gofmt for formatting
@@ -99,14 +95,11 @@
   - godot: Comment sentences must end with a period
   - gofmt: Use proper Go formatting (handled by `gofmt` formatter)
   - gosec: Address all security concerns
-  - revive: Detects various issues like unused parameters, unreachable code, etc.
 - When ignoring errors in deferred functions, use `defer func() { _ = file.Close() }()` pattern
-- For unused function parameters, prefix them with underscore: `func Example(_ int, name string) {}`
 - Common linting errors to avoid:
   - Unchecked errors in `defer` statements
   - Missing periods at the end of comments
   - Improper formatting, especially in multi-line conditions
   - Redundant newlines or whitespace
-  - Unused parameters (use `_` prefix to acknowledge intentional non-use)
 - golangci-lint v2.1.2 is used with golangci-lint-action v7 for GitHub Actions
 - Run linting as part of the verification workflow after making changes
