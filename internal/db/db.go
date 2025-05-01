@@ -4,7 +4,6 @@ package db
 import (
 	"database/sql"
 	"embed"
-	"fmt"
 	"log"
 	"strings"
 
@@ -55,7 +54,6 @@ func Up(cfg config.Config) error {
 		return err
 	}
 
-	// Apply database schema migrations
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return err
 	} else if config.GetConfig().Verbose {
@@ -63,24 +61,6 @@ func Up(cfg config.Config) error {
 			log.Println("[database] no new migrations to apply")
 		} else {
 			log.Println("[database] migrations applied successfully")
-		}
-	}
-
-	// Apply repository sync migration if we have any repositories in config
-	if len(cfg.Repositories) > 0 {
-		dbConn, err := Connect()
-		if err != nil {
-			return fmt.Errorf("error connecting to database for repository sync: %w", err)
-		}
-		defer func() { _ = dbConn.Close() }()
-
-		repoRepo := NewRepositoryRepository(dbConn)
-		if err := repoRepo.SyncFromConfig(); err != nil {
-			return fmt.Errorf("error syncing repositories from config: %w", err)
-		}
-
-		if config.GetConfig().Verbose {
-			log.Println("[database] repository sync completed successfully")
 		}
 	}
 
@@ -121,9 +101,6 @@ func getMigrationInstance(cfg config.Config) (*migrate.Migrate, error) {
 	if config.GetConfig().Verbose {
 		m.Log = &migrationLogger{verbose: config.GetConfig().Verbose}
 	}
-
-	// Register custom callbacks for repository migration
-	RegisterMigrationCallbacks(m)
 
 	return m, nil
 }

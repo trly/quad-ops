@@ -31,7 +31,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/git"
 	"github.com/trly/quad-ops/internal/unit"
 )
@@ -92,16 +91,6 @@ repositories:
 func syncRepositories(cfg *config.Config) {
 	// Track processed units across all repositories
 	processedUnits := make(map[string]bool)
-
-	// Skip processing if dry run
-	if dryRun {
-		for _, repoConfig := range cfg.Repositories {
-			log.Printf("dry-run: would process repository: %s", repoConfig.Name)
-		}
-		return
-	}
-
-	// Process each repository
 	for _, repoConfig := range cfg.Repositories {
 		if repoName != "" && repoConfig.Name != repoName {
 			if config.GetConfig().Verbose {
@@ -110,54 +99,42 @@ func syncRepositories(cfg *config.Config) {
 			continue
 		}
 
-		if config.GetConfig().Verbose {
-			log.Printf("processing repository: %s", repoConfig.Name)
-		}
+		if !dryRun {
+			if config.GetConfig().Verbose {
+				log.Printf("processing repository: %s", repoConfig.Name)
+			}
 
-		gitRepo := git.NewGitRepository(repoConfig)
-		if err := gitRepo.SyncRepository(); err != nil {
-			log.Printf("error syncing repository %s: %v", repoConfig.Name, err)
-			continue
-		}
+			gitRepo := git.NewGitRepository(repoConfig)
+			if err := gitRepo.SyncRepository(); err != nil {
+				log.Printf("error syncing repository %s: %v", repoConfig.Name, err)
+				continue
+			}
 
-		// Determine compose directory path
-		composeDir := gitRepo.Path
-		if repoConfig.ComposeDir != "" {
-			composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
-		}
+			// Determine compose directory path
+			composeDir := gitRepo.Path
+			if repoConfig.ComposeDir != "" {
+				composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
+			}
 
-		if config.GetConfig().Verbose {
-			log.Printf("looking for compose files in: %s", composeDir)
-		}
+			if config.GetConfig().Verbose {
+				log.Printf("looking for compose files in: %s", composeDir)
+			}
 
-		projects, err := compose.ReadProjects(composeDir)
-		if err != nil {
-			log.Printf("error reading projects from repository %s: %v", repoConfig.Name, err)
-			continue
-		}
+			projects, err := compose.ReadProjects(composeDir)
+			if err != nil {
+				log.Printf("error reading projects from repository %s: %v", repoConfig.Name, err)
+				continue
+			}
 
-		// Process the projects and update the processedUnits map
-		err = unit.ProcessComposeProjects(projects, force, processedUnits)
-		if err != nil {
-			log.Printf("error processing projects from repository %s: %v", repoConfig.Name, err)
-			continue
-		}
-	}
+			// processedUnits is already initialized at the function start
 
-	// After processing all repositories, call for a final cleanup with empty projects list
-	// This ensures that we clean up units from removed repositories
-	if !dryRun {
-		dbConn, err := db.Connect()
-		if err != nil {
-			log.Printf("error connecting to database for final cleanup: %v", err)
-			return
-		}
-		defer func() { _ = dbConn.Close() }()
-
-		// Create an empty projects list to force cleanup while keeping processedUnits
-		unitRepo := unit.NewUnitRepository(dbConn)
-		if err := unit.CleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
-			log.Printf("Error performing final cleanup: %v", err)
+			err = unit.ProcessComposeProjects(projects, force, processedUnits)
+			if err != nil {
+				log.Printf("error processing projects from repository %s: %v", repoConfig.Name, err)
+				continue
+			}
+		} else {
+			log.Printf("dry-run: would process repository: %s", repoConfig.Name)
 		}
 	}
 }
