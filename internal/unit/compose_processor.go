@@ -1,5 +1,5 @@
-// Package processor provides the orchestration logic for processing units
-package processor
+// Package unit provides quadlet unit generation and management functionality
+package unit
 
 import (
 	"crypto/sha1" //nolint:gosec // Not used for security purposes, just content comparison
@@ -12,10 +12,6 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
-	"github.com/trly/quad-ops/internal/unit/dependency"
-	"github.com/trly/quad-ops/internal/unit/model"
-	"github.com/trly/quad-ops/internal/unit/quadlet"
-	"github.com/trly/quad-ops/internal/unit/repository"
 )
 
 // ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units.
@@ -26,14 +22,14 @@ func ProcessComposeProjects(projects []*types.Project, force bool, processedUnit
 	}
 	defer func() { _ = dbConn.Close() }()
 
-	unitRepo := repository.NewUnitRepository(dbConn)
+	unitRepo := NewUnitRepository(dbConn)
 
 	// If processedUnits is nil, create a new map
 	cleanupUnits := processedUnits == nil
 	if cleanupUnits {
 		processedUnits = make(map[string]bool)
 	}
-	changedUnits := make([]model.QuadletUnitConfig, 0)
+	changedUnits := make([]QuadletUnit, 0)
 
 	// Process each project
 	for _, project := range projects {
@@ -43,7 +39,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool, processedUnit
 		}
 
 		// Build the bidirectional dependency tree for the project
-		dependencyTree := dependency.BuildServiceDependencyTree(project)
+		dependencyTree := BuildServiceDependencyTree(project)
 
 		// Process components by type
 		processServicesInProject(project, dependencyTree, unitRepo, force, processedUnits, &changedUnits)
@@ -56,13 +52,13 @@ func ProcessComposeProjects(projects []*types.Project, force bool, processedUnit
 }
 
 // processUnit processes a single quadlet unit.
-func processUnit(unitRepo repository.Repository, unit *model.QuadletUnitConfig, force bool, processedUnits map[string]bool, changedUnits *[]model.QuadletUnitConfig) error {
+func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	// Track this unit as processed
 	unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
 	processedUnits[unitKey] = true
 
 	// Generate unit content
-	content := quadlet.GenerateQuadletUnit(*unit, config.GetConfig().Verbose)
+	content := GenerateQuadletUnit(*unit, config.GetConfig().Verbose)
 
 	// Get unit file path
 	unitPath := getUnitFilePath(unit.Name, unit.Type)
@@ -127,12 +123,11 @@ func processUnit(unitRepo repository.Repository, unit *model.QuadletUnitConfig, 
 	return nil
 }
 
-// getUnitFilePath returns the path to a unit file.
+// Helper functions extracted from the Processor struct.
 func getUnitFilePath(name, unitType string) string {
 	return filepath.Join(config.GetConfig().QuadletDir, fmt.Sprintf("%s.%s", name, unitType))
 }
 
-// hasUnitChanged checks if a unit's content has changed.
 func hasUnitChanged(unitPath, content string) bool {
 	existingContent, err := os.ReadFile(unitPath) //nolint:gosec // Safe as path is internally constructed, not user-controlled
 	if err != nil {
@@ -158,7 +153,6 @@ func hasUnitChanged(unitPath, content string) bool {
 	return true
 }
 
-// writeUnitFile writes a unit file to disk.
 func writeUnitFile(unitPath, content string) error {
 	if config.GetConfig().Verbose {
 		log.Printf("writing quadlet unit to: %s", unitPath)
@@ -166,8 +160,7 @@ func writeUnitFile(unitPath, content string) error {
 	return os.WriteFile(unitPath, []byte(content), 0600)
 }
 
-// updateUnitDatabase updates the database entry for a unit.
-func updateUnitDatabase(unitRepo repository.Repository, unit *model.QuadletUnitConfig, content string) error {
+func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) error {
 	contentHash := getContentHash(content)
 
 	// Get repository cleanup policy from config
@@ -230,19 +223,23 @@ func updateUnitDatabase(unitRepo repository.Repository, unit *model.QuadletUnitC
 		}
 	}
 
-	_, err = unitRepo.Create(&model.Unit{
+	_, err = unitRepo.Create(&Unit{
 		Name:          unit.Name,
 		Type:          unit.Type,
 		SHA1Hash:      contentHash,
 		CleanupPolicy: cleanupPolicy,
 		UserMode:      config.GetConfig().UserMode,
 		RepositoryID:  repositoryID,
+		// CreatedAt removed - no need to update timestamp every time
 	})
 	return err
 }
 
+// Removed reloadUnits - replaced by RestartChangedUnits in restart.go
+
 // CleanupOrphanedUnits cleans up units that are no longer in use or belong to removed repositories.
-func CleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[string]bool) error {
+// This function is exported so it can be called directly from the sync command.
+func CleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) error {
 	dbUnits, err := unitRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("error fetching units from database: %w", err)
@@ -295,8 +292,17 @@ func CleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 			}
 
 			// First, stop the unit
+			systemdUnit := &BaseSystemdUnit{
+				Name: dbUnit.Name,
+				Type: dbUnit.Type,
+			}
+
 			// Attempt to stop the unit, but continue with cleanup even if stop fails
-			// TODO: replace with systemd calls when we implement it
+			if err := systemdUnit.Stop(); err != nil {
+				log.Printf("warning: error stopping unit %s: %v", unitKey, err)
+			} else if config.GetConfig().Verbose {
+				log.Printf("successfully stopped unit %s", unitKey)
+			}
 
 			// Then remove the unit file
 			unitPath := getUnitFilePath(dbUnit.Name, dbUnit.Type)
@@ -321,8 +327,10 @@ func CleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 		}
 	}
 
-	// TODO: Replace with systemd calls when we implement it
 	// Reload systemd after we've removed units
+	if err := ReloadSystemd(); err != nil {
+		log.Printf("warning: error reloading systemd after cleanup: %v", err)
+	}
 
 	return nil
 }
@@ -335,7 +343,7 @@ func getContentHash(content string) []byte {
 }
 
 // processServicesInProject processes all services (containers) in a project.
-func processServicesInProject(project *types.Project, dependencyTree map[string]*dependency.ServiceDependency, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]model.QuadletUnitConfig) {
+func processServicesInProject(project *types.Project, dependencyTree map[string]*ServiceDependency, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) {
 	for serviceName, service := range project.Services {
 		if config.GetConfig().Verbose {
 			log.Printf("processing service: %s", serviceName)
@@ -343,7 +351,7 @@ func processServicesInProject(project *types.Project, dependencyTree map[string]
 
 		// Create prefixed container name using project name to enable proper DNS resolution
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
-		container := model.NewContainer(prefixedName)
+		container := NewContainer(prefixedName)
 		container = container.FromComposeService(service, project.Name)
 
 		// Check if we should use Podman's default naming with systemd- prefix
@@ -359,15 +367,15 @@ func processServicesInProject(project *types.Project, dependencyTree map[string]
 		container.NetworkAlias = append(container.NetworkAlias, serviceName)
 
 		// Create the quadlet unit with proper systemd configuration
-		quadletUnit := model.QuadletUnitConfig{
+		quadletUnit := QuadletUnit{
 			Name:      prefixedName, // Use prefixed name for DNS resolution
 			Type:      "container",
 			Container: *container,
-			Systemd:   model.SystemdConfig{},
+			Systemd:   SystemdConfig{},
 		}
 
 		// Apply dependency relationships (both regular and reverse)
-		dependency.ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyTree, project.Name)
+		ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyTree, project.Name)
 
 		// Process the quadlet unit
 		if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
@@ -377,7 +385,7 @@ func processServicesInProject(project *types.Project, dependencyTree map[string]
 }
 
 // processVolumesInProject processes all volumes in a project.
-func processVolumesInProject(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]model.QuadletUnitConfig) {
+func processVolumesInProject(project *types.Project, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) {
 	for volumeName, volumeConfig := range project.Volumes {
 		if config.GetConfig().Verbose {
 			log.Printf("processing volume: %s", volumeName)
@@ -388,7 +396,7 @@ func processVolumesInProject(project *types.Project, unitRepo repository.Reposit
 
 		// Create prefixed volume name using project name for consistency
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, volumeName)
-		volume := model.NewVolume(prefixedName)
+		volume := NewVolume(prefixedName)
 		volume = volume.FromComposeVolume(volumeName, volumeConfig)
 
 		// Set explicit volume name if not using Podman defaults
@@ -397,7 +405,7 @@ func processVolumesInProject(project *types.Project, unitRepo repository.Reposit
 		}
 
 		// Create the quadlet unit
-		quadletUnit := model.QuadletUnitConfig{
+		quadletUnit := QuadletUnit{
 			Name:   prefixedName,
 			Type:   "volume",
 			Volume: *volume,
@@ -411,7 +419,7 @@ func processVolumesInProject(project *types.Project, unitRepo repository.Reposit
 }
 
 // processNetworksInProject processes all networks in a project.
-func processNetworksInProject(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]model.QuadletUnitConfig) {
+func processNetworksInProject(project *types.Project, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) {
 	for networkName, networkConfig := range project.Networks {
 		if config.GetConfig().Verbose {
 			log.Printf("processing network: %s", networkName)
@@ -422,7 +430,7 @@ func processNetworksInProject(project *types.Project, unitRepo repository.Reposi
 
 		// Create prefixed network name using project name for consistency
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, networkName)
-		network := model.NewNetwork(prefixedName)
+		network := NewNetwork(prefixedName)
 		network = network.FromComposeNetwork(networkName, networkConfig)
 
 		// Set explicit network name if not using Podman defaults
@@ -431,7 +439,7 @@ func processNetworksInProject(project *types.Project, unitRepo repository.Reposi
 		}
 
 		// Create the quadlet unit
-		quadletUnit := model.QuadletUnitConfig{
+		quadletUnit := QuadletUnit{
 			Name:    prefixedName,
 			Type:    "network",
 			Network: *network,
@@ -460,18 +468,17 @@ func getPodmanNamingPreference(projectName string) bool {
 }
 
 // handleChangesAndCleanup manages restarting changed units and cleaning up orphaned units.
-func handleChangesAndCleanup(projects []*types.Project, unitRepo repository.Repository, changedUnits []model.QuadletUnitConfig, shouldCleanup bool, processedUnits map[string]bool) error {
+func handleChangesAndCleanup(projects []*types.Project, unitRepo Repository, changedUnits []QuadletUnit, shouldCleanup bool, processedUnits map[string]bool) error {
 	// Handle changed units - reload/restart as needed
 	if len(changedUnits) > 0 {
-		projectDependencyTrees := make(map[string]map[string]*dependency.ServiceDependency)
+		projectDependencyTrees := make(map[string]map[string]*ServiceDependency)
 		for _, project := range projects {
-			projectDependencyTrees[project.Name] = dependency.BuildServiceDependencyTree(project)
+			projectDependencyTrees[project.Name] = BuildServiceDependencyTree(project)
 		}
 
-		// TODO: Implement RestartChangedUnits
-		// if err := RestartChangedUnits(changedUnits, projectDependencyTrees); err != nil {
-		// 	log.Printf("Error restarting changed units: %v", err)
-		// }
+		if err := RestartChangedUnits(changedUnits, projectDependencyTrees); err != nil {
+			log.Printf("Error restarting changed units: %v", err)
+		}
 	}
 
 	// Handle cleanup if needed

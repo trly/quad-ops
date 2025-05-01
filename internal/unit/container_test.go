@@ -1,4 +1,4 @@
-package model
+package unit
 
 import (
 	"testing"
@@ -17,6 +17,8 @@ func TestContainer_GetSystemdUnit(t *testing.T) {
 	assert.Equal(t, "container", container.GetUnitType())
 	assert.Equal(t, "test-container.service", container.GetServiceName())
 }
+
+// Removed automatic variable conversion - users should specify the exact values in compose files
 
 func TestFromComposeService(t *testing.T) {
 	// Setup test data
@@ -126,8 +128,6 @@ func TestFromComposeService(t *testing.T) {
 	}
 
 	container := NewContainer(serviceName)
-	// Debug volume info
-	DebugVolumeTypes(service)
 	// Call the function being tested
 	container = container.FromComposeService(service, "test")
 
@@ -149,9 +149,9 @@ func TestFromComposeService(t *testing.T) {
 	// Verify env files
 	assert.ElementsMatch(t, []string{"./env.local"}, container.EnvironmentFile)
 
-	// Verify volumes - now using prefixed volumes with .volume suffix
+	// Verify volumes - no automatic conversion to named volumes
 	assert.Contains(t, container.Volume, "./data:/app/data")
-	assert.Contains(t, container.Volume, "test-logs.volume:/var/logs")
+	assert.Contains(t, container.Volume, "logs:/var/logs")
 
 	// Verify networks - now using .network suffix for all networks
 	assert.ElementsMatch(t, []string{"test-backend.network", "test-frontend.network", "test-default.network"}, container.Network)

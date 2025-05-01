@@ -1,4 +1,4 @@
-package processor
+package unit
 
 import (
 	"database/sql"
@@ -8,8 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/unit/model"
-	"github.com/trly/quad-ops/internal/unit/repository"
 )
 
 // TestUserModeHandling tests the user mode tracking and cleanup functionality.
@@ -39,7 +37,7 @@ func TestUserModeHandling(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Create repository with mocked units
-	repo := repository.NewUnitRepository(db)
+	repo := NewUnitRepository(db)
 
 	// 1. Test userMode tracking
 	cfg := &config.Config{
@@ -48,7 +46,7 @@ func TestUserModeHandling(t *testing.T) {
 	config.SetConfig(cfg)
 
 	// Create a unit with userMode=false
-	unit := &model.Unit{
+	unit := &Unit{
 		Name:          "test-container",
 		Type:          "container",
 		SHA1Hash:      []byte("test-hash"),
@@ -79,7 +77,7 @@ func TestUserModeHandling(t *testing.T) {
 
 	// 3. Test usePodmanDefaultNames conflict detection
 	// Create a mock unit that would be from usePodmanDefaultNames=true (with systemd- prefix)
-	systemdUnit := &model.Unit{
+	systemdUnit := &Unit{
 		Name:          "systemd-test-db",
 		Type:          "container",
 		SHA1Hash:      []byte("systemd-hash"),
@@ -91,7 +89,7 @@ func TestUserModeHandling(t *testing.T) {
 	assert.Greater(t, id3, int64(0))
 
 	// Now create a similar unit but without the systemd- prefix
-	nonSystemdUnit := &model.Unit{
+	nonSystemdUnit := &Unit{
 		Name:          "test-db",
 		Type:          "container",
 		SHA1Hash:      []byte("non-systemd-hash"),
