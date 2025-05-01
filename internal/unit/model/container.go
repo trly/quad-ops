@@ -10,26 +10,26 @@ import (
 
 // Container represents the configuration for a container unit.
 type Container struct {
-	Name            string
-	UnitType        string
-	Image           string
-	Label           []string
-	PublishPort     []string
-	Environment     map[string]string
+	Name           string
+	UnitType       string
+	Image          string
+	Label          []string
+	PublishPort    []string
+	Environment    map[string]string
 	EnvironmentFile []string
-	Volume          []string
-	Network         []string
-	NetworkAlias    []string
-	Exec            []string
-	Entrypoint      []string
-	User            string
-	Group           string
-	WorkingDir      string
-	RunInit         *bool
-	ReadOnly        bool
-	HostName        string
-	ContainerName   string
-	Secrets         []Secret
+	Volume         []string
+	Network        []string
+	NetworkAlias   []string
+	Exec           []string
+	Entrypoint     []string
+	User           string
+	Group          string
+	WorkingDir     string
+	RunInit        *bool
+	ReadOnly       bool
+	HostName       string
+	ContainerName  string
+	Secrets        []Secret
 }
 
 // Secret represents a secret configuration for a container.
@@ -53,17 +53,20 @@ func NewContainer(name string) *Container {
 	}
 }
 
-// processLabels processes container labels from a Docker Compose service.
-func (c *Container) processLabels(service types.ServiceConfig) {
+// FromComposeService converts a Docker Compose service to a Container.
+func (c *Container) FromComposeService(service types.ServiceConfig, projectName string) *Container {
+	// Default settings
+	c.Image = service.Image
+	c.UnitType = "container"
+
+	// Process container labels
 	for k, v := range service.Labels {
 		c.Label = append(c.Label, fmt.Sprintf("%s=%s", k, v))
 	}
 	// Sort for consistent output
 	sort.Strings(c.Label)
-}
 
-// processPorts processes port mappings from a Docker Compose service.
-func (c *Container) processPorts(service types.ServiceConfig) {
+	// Process port mappings
 	for _, portConfig := range service.Ports {
 		port := fmt.Sprintf("%s:%d", portConfig.Published, portConfig.Target)
 		if portConfig.Protocol != "" && portConfig.Protocol != "tcp" {
@@ -73,10 +76,8 @@ func (c *Container) processPorts(service types.ServiceConfig) {
 	}
 	// Sort for consistent output
 	sort.Strings(c.PublishPort)
-}
 
-// processEnvironment processes environment variables from a Docker Compose service.
-func (c *Container) processEnvironment(service types.ServiceConfig) {
+	// Process environment variables
 	for k, v := range service.Environment {
 		if v != nil {
 			c.Environment[k] = *v
@@ -85,12 +86,11 @@ func (c *Container) processEnvironment(service types.ServiceConfig) {
 
 	// Process environment files
 	for _, envFile := range service.EnvFiles {
+		// EnvFile in compose-go is a string
 		c.EnvironmentFile = append(c.EnvironmentFile, envFile.Path)
 	}
-}
 
-// processVolumes processes volume mounts from a Docker Compose service.
-func (c *Container) processVolumes(service types.ServiceConfig, projectName string) {
+	// Process volumes
 	for _, vol := range service.Volumes {
 		// For test compatibility, if Type is not set, try to infer type from source string
 		vType := vol.Type
@@ -99,27 +99,26 @@ func (c *Container) processVolumes(service types.ServiceConfig, projectName stri
 			if len(vol.Source) > 0 && (vol.Source[0] == '/' || (len(vol.Source) > 1 && vol.Source[0] == '.' && vol.Source[1] == '/')) {
 				vType = "bind"
 			} else {
-				// Otherwise treat as a named volume
+				// Otherwise treat as a named volume 
 				vType = "volume"
 			}
 		}
 
-		switch vType {
-		case "volume":
+		if vType == "volume" {
 			// Named volume - use project prefixed name and add .volume suffix for quadlet
 			namedVolume := fmt.Sprintf("%s-%s.volume:%s", projectName, vol.Source, vol.Target)
 			if vol.ReadOnly {
 				namedVolume += ":ro"
 			}
 			c.Volume = append(c.Volume, namedVolume)
-		case "bind":
+		} else if vType == "bind" {
 			// Bind mount
 			bindVolume := fmt.Sprintf("%s:%s", vol.Source, vol.Target)
 			if vol.ReadOnly {
 				bindVolume += ":ro"
 			}
 			c.Volume = append(c.Volume, bindVolume)
-		case "tmpfs":
+		} else if vType == "tmpfs" {
 			// tmpfs mount
 			tmpfsVolume := fmt.Sprintf("tmpfs:%s", vol.Target)
 			c.Volume = append(c.Volume, tmpfsVolume)
@@ -127,10 +126,8 @@ func (c *Container) processVolumes(service types.ServiceConfig, projectName stri
 	}
 	// Sort for consistent output
 	sort.Strings(c.Volume)
-}
 
-// processNetworks processes network configurations from a Docker Compose service.
-func (c *Container) processNetworks(service types.ServiceConfig, projectName string) {
+	// Process networks
 	for netName, netConfig := range service.Networks {
 		// Add project-prefixed network name with .network suffix for quadlet
 		network := fmt.Sprintf("%s-%s.network", projectName, netName)
@@ -138,27 +135,24 @@ func (c *Container) processNetworks(service types.ServiceConfig, projectName str
 
 		// Process network aliases
 		if netConfig != nil && len(netConfig.Aliases) > 0 {
-			c.NetworkAlias = append(c.NetworkAlias, netConfig.Aliases...)
+			for _, alias := range netConfig.Aliases {
+				c.NetworkAlias = append(c.NetworkAlias, alias)
+			}
 		}
 	}
 	// Sort for consistent output
 	sort.Strings(c.Network)
 	sort.Strings(c.NetworkAlias)
-}
 
-// processExecConfig processes entrypoint and command settings from a Docker Compose service.
-func (c *Container) processExecConfig(service types.ServiceConfig) {
+	// Process entrypoint and command
 	if len(service.Entrypoint) > 0 {
 		c.Entrypoint = service.Entrypoint
 	}
 	if len(service.Command) > 0 {
 		c.Exec = service.Command
 	}
-}
 
-// processBasicSettings processes basic container settings from a Docker Compose service.
-func (c *Container) processBasicSettings(service types.ServiceConfig) {
-	// Process user setting
+	// Process other settings
 	if service.User != "" {
 		c.User = service.User
 	}
@@ -186,11 +180,8 @@ func (c *Container) processBasicSettings(service types.ServiceConfig) {
 		boolTrue := true
 		c.RunInit = &boolTrue
 	}
-}
 
-// processSecrets processes secrets from a Docker Compose service.
-func (c *Container) processSecrets(service types.ServiceConfig) {
-	// Process standard secrets
+	// Process secrets
 	for _, secretConfig := range service.Secrets {
 		secret := Secret{
 			Source: secretConfig.Source,
@@ -218,7 +209,7 @@ func (c *Container) processSecrets(service types.ServiceConfig) {
 		c.Secrets = append(c.Secrets, secret)
 	}
 
-	// Process podman-specific environment secrets extension
+	// Process podman-specific extensions
 	if envSecretExt, ok := service.Extensions["x-podman-env-secrets"]; ok {
 		if envSecrets, ok := envSecretExt.(map[string]interface{}); ok {
 			for secretName, envVar := range envSecrets {
@@ -234,23 +225,6 @@ func (c *Container) processSecrets(service types.ServiceConfig) {
 			}
 		}
 	}
-}
-
-// FromComposeService converts a Docker Compose service to a Container.
-func (c *Container) FromComposeService(service types.ServiceConfig, projectName string) *Container {
-	// Default settings
-	c.Image = service.Image
-	c.UnitType = "container"
-
-	// Process various aspects of the service config
-	c.processLabels(service)
-	c.processPorts(service)
-	c.processEnvironment(service)
-	c.processVolumes(service, projectName)
-	c.processNetworks(service, projectName)
-	c.processExecConfig(service)
-	c.processBasicSettings(service)
-	c.processSecrets(service)
 
 	return c
 }

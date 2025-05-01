@@ -12,9 +12,9 @@ type QuadletUnitConfig struct {
 	Name      string
 	Type      string
 	Systemd   SystemdConfig
-	Container Container `yaml:"container,omitempty"`
-	Volume    Volume    `yaml:"volume,omitempty"`
-	Network   Network   `yaml:"network,omitempty"`
+	Container Container    `yaml:"container,omitempty"`
+	Volume    Volume       `yaml:"volume,omitempty"`
+	Network   Network      `yaml:"network,omitempty"`
 }
 
 // SystemdConfig represents the configuration for a systemd unit.
@@ -36,12 +36,12 @@ type SystemdConfig struct {
 
 // Unit represents a database record for a unit.
 type Unit struct {
-	ID            int64
-	Name          string
-	Type          string
-	CleanupPolicy string
-	SHA1Hash      []byte
-	UserMode      bool
-	RepositoryID  int64
-	CreatedAt     string
+	ID            int64  
+	Name          string 
+	Type          string 
+	CleanupPolicy string 
+	SHA1Hash      []byte 
+	UserMode      bool   
+	RepositoryID  int64  
+	CreatedAt     string 
 }

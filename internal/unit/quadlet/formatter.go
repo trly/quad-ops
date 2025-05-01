@@ -6,7 +6,7 @@ import (
 	"log"
 	"sort"
 	"strings"
-
+	
 	"github.com/trly/quad-ops/internal/unit/model"
 )
 
@@ -182,7 +182,7 @@ func generateContainerSection(unit model.QuadletUnitConfig) string {
 	for _, k := range envKeys {
 		content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, unit.Container.Environment[k]))
 	}
-
+	
 	// Sort environment files for consistent output
 	slice = make([]string, len(unit.Container.EnvironmentFile))
 	copy(slice, unit.Container.EnvironmentFile)
@@ -214,7 +214,7 @@ func generateContainerSection(unit model.QuadletUnitConfig) string {
 	for _, alias := range slice {
 		content += formatKeyValue("NetworkAlias", alias)
 	}
-
+	
 	if len(unit.Container.Exec) > 0 {
 		content += formatKeyValueSlice("Exec", unit.Container.Exec)
 	}
