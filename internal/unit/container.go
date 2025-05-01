@@ -168,7 +168,7 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 		}
 		c.Secrets = append(c.Secrets, unitSecret)
 	}
-	
+
 	// Process environment variable secrets separately
 	if ext, ok := service.Extensions["x-podman-env-secrets"]; ok {
 		if envSecrets, isMap := ext.(map[string]interface{}); isMap {
