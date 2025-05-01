@@ -182,57 +182,154 @@ func TestFromComposeService(t *testing.T) {
 	assert.Equal(t, "0644", container.Secrets[0].Mode)
 }
 
-func TestFromComposeServiceWithEnvSecrets(t *testing.T) {
-	// Setup test data
-	serviceName := "app"
-	image := "nginx:latest"
+func TestSeparateSecretsHandling(t *testing.T) {
+	// Test case 1: Only file-based secrets (standard Docker Compose)
+	t.Run("OnlyFileBasedSecrets", func(t *testing.T) {
+		serviceName := "app1"
+		image := "nginx:latest"
 
-	// Secret configurations
-	service := types.ServiceConfig{
-		Name:  serviceName,
-		Image: image,
-		Secrets: []types.ServiceSecretConfig{
-			{
-				Source: "db_password",
-				Target: "/run/secrets/db_password",
+		service := types.ServiceConfig{
+			Name:  serviceName,
+			Image: image,
+			Secrets: []types.ServiceSecretConfig{
+				{
+					Source: "db_password",
+					Target: "/run/secrets/db_password",
+				},
+				{
+					Source: "api_key", // No target specified
+				},
 			},
-			{
-				Source: "api_key",
-			},
-		},
-		Extensions: map[string]interface{}{
-			"x-podman-env-secrets": map[string]interface{}{
-				"db_password": "DB_PASSWORD",
-				"api_key":     "API_KEY",
-			},
-		},
-	}
-
-	container := NewContainer(serviceName)
-	// Call the function being tested
-	container = container.FromComposeService(service, "test")
-
-	// There should be 4 secrets: 2 file-based ones (default) and 2 env-based ones
-	assert.Equal(t, 4, len(container.Secrets))
-
-	// Find and verify the env-based secrets
-	var dbPasswordEnvSecret *Secret
-	var apiKeyEnvSecret *Secret
-
-	for i := range container.Secrets {
-		if container.Secrets[i].Source == "db_password" && container.Secrets[i].Type == "env" {
-			dbPasswordEnvSecret = &container.Secrets[i]
-		} else if container.Secrets[i].Source == "api_key" && container.Secrets[i].Type == "env" {
-			apiKeyEnvSecret = &container.Secrets[i]
 		}
-	}
 
-	// Verify the env secrets were created correctly
-	assert.NotNil(t, dbPasswordEnvSecret, "db_password env secret should exist")
-	assert.Equal(t, "env", dbPasswordEnvSecret.Type)
-	assert.Equal(t, "DB_PASSWORD", dbPasswordEnvSecret.Target)
+		container := NewContainer(serviceName)
+		container = container.FromComposeService(service, "test")
 
-	assert.NotNil(t, apiKeyEnvSecret, "api_key env secret should exist")
-	assert.Equal(t, "env", apiKeyEnvSecret.Type)
-	assert.Equal(t, "API_KEY", apiKeyEnvSecret.Target)
+		// There should be 2 file-based secrets
+		assert.Equal(t, 2, len(container.Secrets))
+
+		// Find and verify both secrets are file-based
+		var dbPasswordSecret *Secret
+		var apiKeySecret *Secret
+
+		for i := range container.Secrets {
+			if container.Secrets[i].Source == "db_password" {
+				dbPasswordSecret = &container.Secrets[i]
+			} else if container.Secrets[i].Source == "api_key" {
+				apiKeySecret = &container.Secrets[i]
+			}
+		}
+
+		// Verify the file-based secrets
+		assert.NotNil(t, dbPasswordSecret)
+		assert.Equal(t, "/run/secrets/db_password", dbPasswordSecret.Target)
+		assert.Empty(t, dbPasswordSecret.Type) // File-based secrets don't use Type
+
+		assert.NotNil(t, apiKeySecret)
+		assert.Equal(t, "/run/secrets/api_key", apiKeySecret.Target) // Default path
+		assert.Empty(t, apiKeySecret.Type)
+	})
+
+	// Test case 2: Only env-based secrets (x-podman-env-secrets)
+	t.Run("OnlyEnvBasedSecrets", func(t *testing.T) {
+		serviceName := "app2"
+		image := "nginx:latest"
+
+		service := types.ServiceConfig{
+			Name:  serviceName,
+			Image: image,
+			Extensions: map[string]interface{}{
+				"x-podman-env-secrets": map[string]interface{}{
+					"db_password": "DB_PASSWORD",
+					"api_key":     "API_KEY",
+				},
+			},
+		}
+
+		container := NewContainer(serviceName)
+		container = container.FromComposeService(service, "test")
+
+		// There should be 2 env-based secrets
+		assert.Equal(t, 2, len(container.Secrets))
+
+		// Find and verify the env-based secrets
+		var dbPasswordSecret *Secret
+		var apiKeySecret *Secret
+
+		for i := range container.Secrets {
+			if container.Secrets[i].Source == "db_password" {
+				dbPasswordSecret = &container.Secrets[i]
+			} else if container.Secrets[i].Source == "api_key" {
+				apiKeySecret = &container.Secrets[i]
+			}
+		}
+
+		// Verify the env-based secrets
+		assert.NotNil(t, dbPasswordSecret)
+		assert.Equal(t, "env", dbPasswordSecret.Type)
+		assert.Equal(t, "DB_PASSWORD", dbPasswordSecret.Target)
+
+		assert.NotNil(t, apiKeySecret)
+		assert.Equal(t, "env", apiKeySecret.Type)
+		assert.Equal(t, "API_KEY", apiKeySecret.Target)
+	})
+
+	// Test case 3: Both file and env secrets in the same compose file
+	t.Run("BothFileAndEnvSecrets", func(t *testing.T) {
+		serviceName := "app3"
+		image := "nginx:latest"
+
+		service := types.ServiceConfig{
+			Name:  serviceName,
+			Image: image,
+			Secrets: []types.ServiceSecretConfig{
+				{
+					Source: "db_password",
+					Target: "/run/secrets/db_password",
+				},
+				{
+					Source: "api_key",
+				},
+			},
+			Extensions: map[string]interface{}{
+				"x-podman-env-secrets": map[string]interface{}{
+					"db_password": "DB_PASSWORD",
+					"api_key":     "API_KEY",
+					"extra_key":   "EXTRA_ENV", // Key not in file-based secrets
+				},
+			},
+		}
+
+		container := NewContainer(serviceName)
+		container = container.FromComposeService(service, "test")
+
+		// There should be 5 secrets: 2 file-based + 3 env-based
+		assert.Equal(t, 5, len(container.Secrets))
+
+		// Count the number of each type
+		fileCount := 0
+		envCount := 0
+
+		for i := range container.Secrets {
+			if container.Secrets[i].Type == "env" {
+				envCount++
+			} else {
+				fileCount++
+			}
+		}
+
+		// Verify counts
+		assert.Equal(t, 2, fileCount, "Should have 2 file-based secrets")
+		assert.Equal(t, 3, envCount, "Should have 3 env-based secrets")
+
+		// Check for specific env secrets
+		var foundExtraKey bool
+		for i := range container.Secrets {
+			if container.Secrets[i].Source == "extra_key" && container.Secrets[i].Type == "env" {
+				foundExtraKey = true
+				assert.Equal(t, "EXTRA_ENV", container.Secrets[i].Target)
+			}
+		}
+		assert.True(t, foundExtraKey, "Should have found the extra_key env secret")
+	})
 }
