@@ -88,7 +88,18 @@
 - Initialize maps and slices properly before use
 
 ## Linting
+- Always run `mise exec -- golangci-lint run` before committing to ensure code passes lint checks
+- All code must pass linting before being merged
+- Address all lint issues, especially those from the following linters:
+  - errcheck: Always check error return values, use `if err := foo(); err != nil` or use `_ = foo()` to explicitly ignore
+  - godot: Comment sentences must end with a period
+  - gofmt: Use proper Go formatting (handled by `gofmt` formatter)
+  - gosec: Address all security concerns
+- When ignoring errors in deferred functions, use `defer func() { _ = file.Close() }()` pattern
+- Common linting errors to avoid:
+  - Unchecked errors in `defer` statements
+  - Missing periods at the end of comments
+  - Improper formatting, especially in multi-line conditions
+  - Redundant newlines or whitespace
 - golangci-lint v2.1.2 is used with golangci-lint-action v7 for GitHub Actions
-- Version field is specified as a string: `version: '2'` in .golangci.yml
-- Common configuration works for both local and CI environments
-- Using formatters section for gofmt instead of including it in linters
+- Run linting as part of the verification workflow after making changes

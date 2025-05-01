@@ -145,45 +145,44 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 	// Use specific security label options like SecurityLabelType instead
 	c.HostName = service.Hostname
 
-	if len(service.Secrets) > 0 {
-		// Check for env secrets extension
-		envSecretMap := make(map[string]string)
-		if ext, ok := service.Extensions["x-podman-env-secrets"]; ok {
-			if envSecrets, isMap := ext.(map[string]interface{}); isMap {
-				for secretName, envVar := range envSecrets {
-					if envVarStr, isString := envVar.(string); isString {
-						envSecretMap[secretName] = envVarStr
-					}
-				}
-			}
+	// Process standard file-based Docker Compose secrets
+	for _, secret := range service.Secrets {
+		// Create file-based secret (standard Docker behavior)
+		targetPath := secret.Target
+		if targetPath == "" {
+			// If no target is specified, use default path /run/secrets/<source>
+			targetPath = "/run/secrets/" + secret.Source
+		}
+		
+		unitSecret := Secret{
+			Source: secret.Source,
+			Target: targetPath,
+			UID:    secret.UID,
+			GID:    secret.GID,
 		}
 
-		for _, secret := range service.Secrets {
-			// Create regular file-based secret (default behavior)
-			unitSecret := Secret{
-				Source: secret.Source,
-				Target: secret.Target,
-				UID:    secret.UID,
-				GID:    secret.GID,
-			}
-
-			if secret.Mode == nil {
-				defaultMode := types.FileMode(0644)
-				unitSecret.Mode = defaultMode.String()
-			} else {
-				unitSecret.Mode = secret.Mode.String()
-			}
-			c.Secrets = append(c.Secrets, unitSecret)
-
-			// If this secret should also be exposed as an environment variable
-			if envVar, exists := envSecretMap[secret.Source]; exists {
-				// Create additional env-based secret
-				envSecret := Secret{
-					Source: secret.Source,
-					Type:   "env",
-					Target: envVar, // Target becomes the environment variable name
+		if secret.Mode == nil {
+			defaultMode := types.FileMode(0644)
+			unitSecret.Mode = defaultMode.String()
+		} else {
+			unitSecret.Mode = secret.Mode.String()
+		}
+		c.Secrets = append(c.Secrets, unitSecret)
+	}
+	
+	// Process environment variable secrets separately
+	if ext, ok := service.Extensions["x-podman-env-secrets"]; ok {
+		if envSecrets, isMap := ext.(map[string]interface{}); isMap {
+			for secretName, envVar := range envSecrets {
+				if envVarStr, isString := envVar.(string); isString {
+					// Create env-based secret
+					envSecret := Secret{
+						Source: secretName,
+						Type:   "env",
+						Target: envVarStr, // Target becomes the environment variable name
+					}
+					c.Secrets = append(c.Secrets, envSecret)
 				}
-				c.Secrets = append(c.Secrets, envSecret)
 			}
 		}
 	}

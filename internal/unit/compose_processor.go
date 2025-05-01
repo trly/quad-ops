@@ -15,7 +15,7 @@ import (
 )
 
 // ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units.
-func ProcessComposeProjects(projects []*types.Project, force bool) error {
+func ProcessComposeProjects(projects []*types.Project, force bool, processedUnits map[string]bool) error {
 	dbConn, err := db.Connect()
 	if err != nil {
 		return fmt.Errorf("connecting to database: %w", err)
@@ -24,8 +24,10 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 
 	unitRepo := NewUnitRepository(dbConn)
 
-	// Track processed units to handle orphaned cleanup later
-	processedUnits := make(map[string]bool)
+	// If processedUnits is nil, create a new map
+	if processedUnits == nil {
+		processedUnits = make(map[string]bool)
+	}
 	changedUnits := make([]QuadletUnit, 0)
 
 	// Process each project
@@ -192,9 +194,29 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 		}
 	}
 
-	// Clean up any orphaned units
-	if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
-		log.Printf("Error cleaning up orphaned units: %v", err)
+	// Only clean up orphaned units if running in standalone mode
+	// This avoids cleaning up units that belong to other repositories
+	if processedUnits != nil && len(projects) > 0 {
+		// Check if this is the end of processing by seeing if project name matches the last repository
+		// This is determined by checking if the project name contains the name of the last repository in config
+		isLastRepository := false
+		repos := config.GetConfig().Repositories
+		if len(repos) > 0 && len(projects) > 0 {
+			lastRepo := repos[len(repos)-1]
+			for _, project := range projects {
+				if strings.Contains(project.Name, lastRepo.Name) {
+					isLastRepository = true
+					break
+				}
+			}
+		}
+
+		// Only cleanup if this is the last repository being processed
+		if isLastRepository {
+			if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
+				log.Printf("Error cleaning up orphaned units: %v", err)
+			}
+		}
 	}
 
 	return nil
@@ -215,11 +237,38 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 	// Check if unit file content has changed
 	hasChanged := hasUnitChanged(unitPath, content)
 
-	// If forcing update or content has changed, write the file
-	if force || hasChanged {
+	// Check for potential naming conflicts due to usePodmanDefaultNames changes
+	// This occurs when a unit with a different naming scheme exists
+	hasNamingConflict := false
+	existingUnits, err := unitRepo.FindAll()
+	if err == nil {
+		for _, existingUnit := range existingUnits {
+			// If an existing unit with the same type exists that almost matches but differs in naming scheme,
+			// this could indicate a usePodmanDefaultNames change
+			if existingUnit.Type == unit.Type &&
+				existingUnit.Name != unit.Name &&
+				(strings.HasSuffix(existingUnit.Name, unit.Name) || strings.HasSuffix(unit.Name, existingUnit.Name)) {
+				hasNamingConflict = true
+				if config.GetConfig().Verbose {
+					log.Printf("Detected potential naming conflict: existing=%s, new=%s",
+						existingUnit.Name, unit.Name)
+				}
+				break
+			}
+		}
+	}
+
+	// If forcing update or content has changed or there's a naming conflict, write the file
+	if force || hasChanged || hasNamingConflict {
 		// When verbose, log that a change was detected
-		if config.GetConfig().Verbose && hasChanged {
-			log.Printf("Unit content has changed: %s (%s)", unit.Name, unit.Type)
+		if config.GetConfig().Verbose {
+			if hasChanged {
+				log.Printf("Unit content has changed: %s (%s)", unit.Name, unit.Type)
+			} else if hasNamingConflict {
+				log.Printf("Unit naming scheme has changed: %s (%s)", unit.Name, unit.Type)
+			} else {
+				log.Printf("Force updating unit: %s (%s)", unit.Name, unit.Type)
+			}
 		}
 
 		// Write the file
@@ -296,11 +345,30 @@ func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) 
 		}
 	}
 
-	_, err := unitRepo.Create(&Unit{
+	// Check if the unit exists and update its cleanup policy if needed
+	existingUnits, err := unitRepo.FindAll()
+	if err != nil {
+		return fmt.Errorf("error fetching existing units: %w", err)
+	}
+
+	for _, existingUnit := range existingUnits {
+		if existingUnit.Name == unit.Name && existingUnit.Type == unit.Type {
+			if existingUnit.CleanupPolicy != cleanupPolicy {
+				if config.GetConfig().Verbose {
+					log.Printf("Updating cleanup policy for %s.%s from %s to %s",
+						existingUnit.Name, existingUnit.Type, existingUnit.CleanupPolicy, cleanupPolicy)
+				}
+			}
+			break
+		}
+	}
+
+	_, err = unitRepo.Create(&Unit{
 		Name:          unit.Name,
 		Type:          unit.Type,
 		SHA1Hash:      contentHash,
 		CleanupPolicy: cleanupPolicy,
+		UserMode:      config.GetConfig().UserMode,
 		// CreatedAt removed - no need to update timestamp every time
 	})
 	return err
@@ -316,9 +384,19 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 
 	for _, dbUnit := range dbUnits {
 		unitKey := fmt.Sprintf("%s.%s", dbUnit.Name, dbUnit.Type)
-		if !processedUnits[unitKey] && (dbUnit.CleanupPolicy == "delete") {
+
+		// Check if unit is orphaned or if there's a mode mismatch
+		isOrphaned := !processedUnits[unitKey] && (dbUnit.CleanupPolicy == "delete")
+		hasModeMismatch := dbUnit.UserMode != config.GetConfig().UserMode && processedUnits[unitKey]
+
+		if isOrphaned || hasModeMismatch {
 			if config.GetConfig().Verbose {
-				log.Printf("cleaning up orphaned unit %s with policy %s", unitKey, dbUnit.CleanupPolicy)
+				if isOrphaned {
+					log.Printf("cleaning up orphaned unit %s with policy %s", unitKey, dbUnit.CleanupPolicy)
+				} else {
+					log.Printf("cleaning up unit %s due to user mode mismatch: DB=%t, Current=%t",
+						unitKey, dbUnit.UserMode, config.GetConfig().UserMode)
+				}
 			}
 
 			// First, stop the unit
@@ -329,29 +407,30 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 
 			// Attempt to stop the unit, but continue with cleanup even if stop fails
 			if err := systemdUnit.Stop(); err != nil {
-				log.Printf("warning: error stopping orphaned unit %s: %v", unitKey, err)
+				log.Printf("warning: error stopping unit %s: %v", unitKey, err)
 			} else if config.GetConfig().Verbose {
-				log.Printf("successfully stopped orphaned unit %s", unitKey)
+				log.Printf("successfully stopped unit %s", unitKey)
 			}
 
 			// Then remove the unit file
 			unitPath := getUnitFilePath(dbUnit.Name, dbUnit.Type)
 			if err := os.Remove(unitPath); err != nil {
 				if !os.IsNotExist(err) {
-					log.Printf("error removing orphaned unit file %s: %v", unitPath, err)
+					log.Printf("error removing unit file %s: %v", unitPath, err)
 				}
 			} else if config.GetConfig().Verbose {
-				log.Printf("removed orphaned unit file %s", unitPath)
+				log.Printf("removed unit file %s", unitPath)
 			}
 
-			// Finally, remove from database
+			// For mode mismatches, we delete from the database, but the unit will be recreated
+			// in the next processUnit call with the correct mode
 			if err := unitRepo.Delete(dbUnit.ID); err != nil {
 				log.Printf("error deleting unit %s from database: %v", unitKey, err)
 				continue
 			}
 
 			if config.GetConfig().Verbose {
-				log.Printf("successfully cleaned up orphaned unit %s", unitKey)
+				log.Printf("successfully cleaned up unit %s", unitKey)
 			}
 		}
 	}
