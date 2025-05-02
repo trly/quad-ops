@@ -7,6 +7,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/trly/quad-ops/internal/config"
 )
 
 func TestDeterministicUnitContent(t *testing.T) {
@@ -59,4 +60,57 @@ func GetContentHash(content string) string {
 	hash := sha1.New() //nolint:gosec // Not used for security purposes
 	hash.Write([]byte(content))
 	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+func TestCustomHostnameNetworkAlias(t *testing.T) {
+	// Create mock configuration
+	cfg := config.InitConfig() // Initialize default config
+	config.SetConfig(cfg)
+
+	// Create basic service with custom hostname
+	service := types.ServiceConfig{
+		Name:     "db",
+		Image:    "docker.io/postgres:latest",
+		Hostname: "photoprism-db", // Custom hostname
+	}
+
+	// Create project
+	project := types.Project{
+		Name: "test-project",
+		Services: types.Services{
+			"db": service,
+		},
+	}
+
+	// Process the container
+	prefixedName := fmt.Sprintf("%s-%s", project.Name, "db")
+	container := NewContainer(prefixedName)
+	container = container.FromComposeService(service, project.Name)
+
+	// Set custom container name (usePodmanNames=false)
+	container.ContainerName = prefixedName
+
+	// Add service name as network alias
+	container.NetworkAlias = append(container.NetworkAlias, "db")
+
+	// Add custom hostname as network alias if specified
+	if container.HostName != "" && container.HostName != "db" {
+		container.NetworkAlias = append(container.NetworkAlias, container.HostName)
+	}
+
+	// Check that both the service name and custom hostname are in network aliases
+	assert.Contains(t, container.NetworkAlias, "db", "Service name should be included in network aliases")
+	assert.Contains(t, container.NetworkAlias, "photoprism-db", "Custom hostname should be included in network aliases")
+
+	// Generate unit to verify output
+	unit := &QuadletUnit{
+		Name:      prefixedName,
+		Type:      "container",
+		Container: *container,
+	}
+
+	// Generate the content and check it contains both network aliases
+	content := GenerateQuadletUnit(*unit, false)
+	assert.Contains(t, content, "NetworkAlias=db", "Unit content should include service name as NetworkAlias")
+	assert.Contains(t, content, "NetworkAlias=photoprism-db", "Unit content should include custom hostname as NetworkAlias")
 }

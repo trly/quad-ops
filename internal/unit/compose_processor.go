@@ -362,6 +362,11 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 		// This makes Docker Compose files more portable by allowing references like 'db' instead of 'quad-ops-multi-service-db'
 		container.NetworkAlias = append(container.NetworkAlias, serviceName)
 
+		// Also add custom hostname as a NetworkAlias if specified in the service
+		if container.HostName != "" && container.HostName != serviceName {
+			container.NetworkAlias = append(container.NetworkAlias, container.HostName)
+		}
+
 		// Create the quadlet unit with proper systemd configuration
 		quadletUnit := QuadletUnit{
 			Name:      prefixedName, // Use prefixed name for DNS resolution
