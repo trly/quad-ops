@@ -14,7 +14,9 @@ Secrets in Docker Compose are converted to Podman secret mounts. This allows you
 - `gid`: Group ID for the secret file (defaults to container's default group)
 - `mode`: File permissions expressed as an octal number (defaults to "0644")
 
-## Example
+## Examples
+
+### Basic File-Based Secret
 
 ```yaml
 services:
@@ -30,6 +32,44 @@ services:
 secrets:
   db_password:
     file: /path/to/secrets/db_password
+```
+
+### Podman Environment Variable Secrets
+
+```yaml
+services:
+  webapp:
+    image: docker.io/myapp:latest
+    secrets:
+      - db_password
+    # Podman-specific extension for environment variable secrets
+    x-podman-env-secrets:
+      db_password: DATABASE_PASSWORD  # Will be available as $DATABASE_PASSWORD in container
+
+secrets:
+  db_password:
+    file: /path/to/secrets/db_password
+```
+
+### Using Both File and Environment Secrets
+
+```yaml
+services:
+  webapp:
+    image: docker.io/myapp:latest
+    secrets:
+      - source: db_password
+        target: /run/secrets/db_password
+      - api_key
+    x-podman-env-secrets:
+      db_password: DATABASE_PASSWORD  # Available both as file and environment variable
+      api_key: API_KEY                # Available only as environment variable
+
+secrets:
+  db_password:
+    file: /path/to/secrets/db_pass.txt
+  api_key:
+    file: /path/to/secrets/api_key.txt
 ```
 
 ## Conversion to Podman Secret Mounts

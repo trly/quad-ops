@@ -11,7 +11,10 @@ services:
       - WORDPRESS_DB_HOST=db  # Uses NetworkAlias for simple service name access
       - WORDPRESS_DB_NAME=wordpress
       - WORDPRESS_DB_USER=wp_user
-      - WORDPRESS_DB_PASSWORD=db_password
+    secrets:
+      - db_password
+    x-podman-env-secrets:
+      db_password: WORDPRESS_DB_PASSWORD  # Available as $WORDPRESS_DB_PASSWORD
     depends_on:
       - db
     restart: always
@@ -25,8 +28,11 @@ services:
     environment:
       - MYSQL_DATABASE=wordpress
       - MYSQL_USER=wp_user
-      - MYSQL_PASSWORD=db_password
       - MYSQL_ROOT_PASSWORD=root_password
+    secrets:
+      - db_password
+    x-podman-env-secrets:
+      db_password: MYSQL_PASSWORD  # Available as $MYSQL_PASSWORD
     restart: always
     networks:
       - app-network
@@ -37,3 +43,7 @@ volumes:
 
 networks:
   app-network:
+
+secrets:
+  db_password:
+    external: true # create this secret in podman

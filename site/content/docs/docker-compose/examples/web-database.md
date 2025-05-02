@@ -22,7 +22,10 @@ services:
       - WORDPRESS_DB_HOST=myapp-db
       - WORDPRESS_DB_NAME=wordpress
       - WORDPRESS_DB_USER=wp_user
-      - WORDPRESS_DB_PASSWORD=db_password
+    secrets:
+      - db_password
+    x-podman-env-secrets:
+      db_password: WORDPRESS_DB_PASSWORD  # Available as $WORDPRESS_DB_PASSWORD
     depends_on:
       - db
     restart: always
@@ -36,8 +39,11 @@ services:
     environment:
       - MYSQL_DATABASE=wordpress
       - MYSQL_USER=wp_user
-      - MYSQL_PASSWORD=db_password
       - MYSQL_ROOT_PASSWORD=root_password
+    secrets:
+      - db_password
+    x-podman-env-secrets:
+      db_password: MYSQL_PASSWORD  # Available as $MYSQL_PASSWORD
     restart: always
     networks:
       - app-network
@@ -49,6 +55,10 @@ volumes:
 networks:
   app-network:
     driver: bridge
+
+secrets:
+  db_password:
+    external: true # create this secret in podman
 ```
 
 ## Generated Systemd Units
@@ -71,7 +81,7 @@ PublishPort=8080:80
 Environment=WORDPRESS_DB_HOST=myapp-db
 Environment=WORDPRESS_DB_NAME=wordpress
 Environment=WORDPRESS_DB_USER=wp_user
-Environment=WORDPRESS_DB_PASSWORD=db_password
+Secret=db_password,type=env,target=WORDPRESS_DB_PASSWORD
 Network=app-network.network
 
 [Service]
@@ -93,7 +103,7 @@ Image=docker.io/mariadb:10.6
 Volume=db-data.volume:/var/lib/mysql
 Environment=MYSQL_DATABASE=wordpress
 Environment=MYSQL_USER=wp_user
-Environment=MYSQL_PASSWORD=db_password
+Secret=db_password,type=env,target=MYSQL_PASSWORD
 Environment=MYSQL_ROOT_PASSWORD=root_password
 Network=app-network.network
 

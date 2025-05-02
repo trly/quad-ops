@@ -47,8 +47,26 @@ Quad-Ops supports Docker Compose version 3.x files with comprehensive feature co
 |--------------------|----------------------|
 | ✅ **Container Configuration** | ❌ **Privileged Mode** |
 | ✅ **Container Relationships** | ❌ **Security Labels** |
-| ✅ **Secrets** | ❌ **DNS Configuration in Networks** |
-| ✅ **Networks**| ❌ **Swarm Mode** |
+| ✅ **Secrets (File & Environment)** | ❌ **DNS Configuration in Networks** |
+| ✅ **Networks with Aliases** | ❌ **Swarm Mode** |
 | ✅ **Volumes** | ❌ **Health Checks** |
-| ✅ **Resource Dependencies**  | ❌ **Docker-specific Extensions** |
+| ✅ **Resource Dependencies** | ❌ **Docker-specific Extensions** |
+| ✅ **Podman Extensions** | |
+
+### Podman-Specific Extensions
+
+Quad-Ops supports several Podman-specific extensions through Docker Compose extension fields:
+
+| Extension | Description |
+|-----------|-------------|
+| `x-podman-env-secrets` | Maps secrets to environment variables instead of files |
+
+### Container Naming
+
+Quad-Ops provides two container naming modes controlled by the `usePodmanDefaultNames` option:
+
+- **Default (false)**: Container hostnames match their service names without the systemd- prefix
+  - Example: `myapp-db` for a service named "db" in project "myapp"
+- **Podman Default (true)**: Container hostnames use Podman's default naming with systemd- prefix 
+  - Example: `systemd-myapp-db` for the same service
 
