@@ -1,10 +1,11 @@
+// Package util provides utility functions for operations like sorting and iterating over slices and maps
 package util
 
 import (
 	"sort"
 )
 
-// SliceProcessor is a function that processes a string item
+// SliceProcessor is a function that processes a string item.
 type SliceProcessor func(string)
 
 // SortAndIterateSlice sorts a slice and applies a function to each item.
@@ -15,18 +16,18 @@ func SortAndIterateSlice(slice []string, fn SliceProcessor) {
 		return
 	}
 
-	// Create a copy to avoid modifying the original
+	// Create a copy to avoid modifying the original.
 	sorted := make([]string, len(slice))
 	copy(sorted, slice)
 	sort.Strings(sorted)
 
-	// Process each item in sorted order
+	// Process each item in sorted order.
 	for _, item := range sorted {
 		fn(item)
 	}
 }
 
-// GetSortedMapKeys returns a sorted slice of keys from a map for deterministic iteration
+// GetSortedMapKeys returns a sorted slice of keys from a map for deterministic iteration.
 func GetSortedMapKeys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {

@@ -8,7 +8,7 @@ import (
 
 func TestSortAndIterateSlice(t *testing.T) {
 	// Test empty slice
-	SortAndIterateSlice([]string{}, func(s string) {
+	SortAndIterateSlice([]string{}, func(_ string) {
 		t.Error("Function should not be called for empty slice")
 	})
 

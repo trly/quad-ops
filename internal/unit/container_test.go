@@ -1,7 +1,7 @@
 package unit
 
 import (
-	"crypto/sha1"
+	"crypto/sha1" //nolint:gosec // Not used for security purposes, just content comparison
 	"fmt"
 	"testing"
 
@@ -56,7 +56,6 @@ func TestDeterministicUnitContent(t *testing.T) {
 }
 
 func GetContentHash(content string) string {
-	// Import the crypto/sha1 package
 	hash := sha1.New() //nolint:gosec // Not used for security purposes
 	hash.Write([]byte(content))
 	return fmt.Sprintf("%x", hash.Sum(nil))
