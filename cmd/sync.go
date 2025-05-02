@@ -89,6 +89,8 @@ repositories:
 	return syncCmd
 }
 func syncRepositories(cfg *config.Config) {
+	// Create a shared map to track processed units across all repositories
+	processedUnits := make(map[string]bool)
 	for _, repoConfig := range cfg.Repositories {
 		if repoName != "" && repoConfig.Name != repoName {
 			if config.GetConfig().Verbose {
@@ -124,11 +126,22 @@ func syncRepositories(cfg *config.Config) {
 				continue
 			}
 
-			err = unit.ProcessComposeProjects(projects, force)
-			if err != nil {
-				log.Printf("error processing projects from repository %s: %v", repoConfig.Name, err)
-				continue
-			}
+			// Process projects with the shared map, only perform cleanup after the last repository
+			isLastRepo := repoConfig.Name == cfg.Repositories[len(cfg.Repositories)-1].Name
+			
+			// If specific repo is specified, always do cleanup
+			if repoName != "" {
+					isLastRepo = true
+				}
+				
+				updatedMap, err := unit.ProcessComposeProjects(projects, force, processedUnits, isLastRepo)
+				if err != nil {
+					log.Printf("error processing projects from repository %s: %v", repoConfig.Name, err)
+					continue
+				}
+				
+				// Update the shared map with units from this repository
+				processedUnits = updatedMap
 		} else {
 			log.Printf("dry-run: would process repository: %s", repoConfig.Name)
 		}

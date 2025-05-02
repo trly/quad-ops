@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/trly/quad-ops/internal/util"
 )
 
 // Container represents the configuration for a container unit.
@@ -13,6 +14,8 @@ type Container struct {
 	Label           []string
 	PublishPort     []string
 	Environment     map[string]string
+	// Stores environment keys in sorted order for deterministic output
+	sortedEnvKeys   []string
 	EnvironmentFile []string
 	Volume          []string
 	Network         []string
@@ -46,6 +49,9 @@ func NewContainer(name string) *Container {
 
 // FromComposeService converts a Docker Compose service to a Podman Quadlet container configuration.
 func (c *Container) FromComposeService(service types.ServiceConfig, projectName string) *Container {
+	// Initialize RunInit to avoid nil pointer dereference
+	c.RunInit = new(bool)
+	*c.RunInit = true
 	// No automatic image name conversion - use exactly what's provided in the compose file
 	c.Image = service.Image
 	c.Label = append(c.Label, service.Labels.AsList()...)
@@ -186,6 +192,9 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 		}
 	}
 
+	// Sort all container fields for deterministic output
+	sortContainer(c)
+
 	return c
 }
 
@@ -242,4 +251,62 @@ type Secret struct {
 	GID    string
 	Mode   string
 	Type   string
+}
+
+// sortContainer ensures all slices in a container config are sorted deterministically in-place.
+// This is called when the container is created to ensure all data structures are immediately sorted.
+func sortContainer(container *Container) {
+	// Sort environment variables (already sorted in FromComposeService, but ensure it's done everywhere)
+	if len(container.Environment) > 0 {
+		// Create a sorted list of environment keys for deterministic unit generation
+		// Note: This doesn't change the map, just ensures deterministic unit file generation
+		container.sortedEnvKeys = util.GetSortedMapKeys(container.Environment)
+	}
+
+	// Sort all slices for deterministic output
+	if len(container.Label) > 0 {
+		sort.Strings(container.Label)
+	}
+	
+	if len(container.PublishPort) > 0 {
+		sort.Strings(container.PublishPort)
+	}
+	
+	if len(container.EnvironmentFile) > 0 {
+		sort.Strings(container.EnvironmentFile)
+	}
+	
+	if len(container.Volume) > 0 {
+		sort.Strings(container.Volume)
+	}
+	
+	if len(container.Network) > 0 {
+		sort.Strings(container.Network)
+	}
+	
+	if len(container.NetworkAlias) > 0 {
+		sort.Strings(container.NetworkAlias)
+	}
+	
+	if len(container.Exec) > 0 {
+		sort.Strings(container.Exec)
+	}
+	
+	if len(container.Entrypoint) > 0 {
+		sort.Strings(container.Entrypoint)
+	}
+	
+	// Sort secrets by source
+	sort.Slice(container.Secrets, func(i, j int) bool {
+		// Primary sort by Source
+		if container.Secrets[i].Source != container.Secrets[j].Source {
+			return container.Secrets[i].Source < container.Secrets[j].Source
+		}
+		// Secondary sort by Target (if Sources are equal)
+		if container.Secrets[i].Target != container.Secrets[j].Target {
+			return container.Secrets[i].Target < container.Secrets[j].Target
+		}
+		// Final sort by Type
+		return container.Secrets[i].Type < container.Secrets[j].Type
+	})
 }

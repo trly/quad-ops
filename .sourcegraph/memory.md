@@ -56,6 +56,22 @@
 - Project naming format: `<repo>-<folder>` (e.g., `test-photoprism` for repositories/home/test/photoprism)
 - Supported file names: `docker-compose.yml`, `docker-compose.yaml`, `compose.yml`, `compose.yaml`
 
+### Unit Naming Conventions
+- Containers: `<project-name>-<service-name>.container` 
+- Volumes: `<project-name>-<volume-name>.volume`
+- Networks: `<project-name>-<network-name>.network`
+- Service file naming in systemd:
+  - Container services: `<project-name>-<service-name>.service`
+  - Volume services: `<project-name>-<volume-name>-volume.service`
+  - Network services: `<project-name>-<network-name>-network.service`
+
+#### Docker Compose Name Mapping
+- Project name becomes a prefix for all units to maintain uniqueness
+- Service names from compose files become part of container names
+- Network aliases are automatically created to allow containers to reference each other by their simple Docker Compose service names
+- Dependency relationships (depends_on) are converted to systemd unit dependencies
+- This maintains Docker Compose's naming simplicity while conforming to Quadlet's systemd integration requirements
+
 ### Dependency Management
 - Docker Compose `depends_on` relationships are converted to systemd's `After` and `Requires` directives
 - Reverse dependencies are tracked and converted to `PartOf` relationships for proper restart propagation

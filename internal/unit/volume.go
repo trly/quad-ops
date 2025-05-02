@@ -2,6 +2,7 @@ package unit
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
 )
@@ -106,5 +107,32 @@ func (v *Volume) FromComposeVolume(name string, volume types.VolumeConfig) *Volu
 		v.Label = append(v.Label, volume.Labels.AsList()...)
 	}
 
+	// Sort all slices for deterministic output
+	sortVolume(v)
+
 	return v
+}
+
+// sortVolume ensures all slices in a volume config are sorted deterministically in-place.
+func sortVolume(v *Volume) {
+	// Sort all slices for deterministic output
+	if len(v.ContainersConfModule) > 0 {
+		sort.Strings(v.ContainersConfModule)
+	}
+	
+	if len(v.GlobalArgs) > 0 {
+		sort.Strings(v.GlobalArgs)
+	}
+	
+	if len(v.Label) > 0 {
+		sort.Strings(v.Label)
+	}
+	
+	if len(v.Options) > 0 {
+		sort.Strings(v.Options)
+	}
+	
+	if len(v.PodmanArgs) > 0 {
+		sort.Strings(v.PodmanArgs)
+	}
 }

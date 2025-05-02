@@ -2,6 +2,7 @@ package unit
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
 )
@@ -133,5 +134,20 @@ func (n *Network) FromComposeNetwork(name string, network types.NetworkConfig) *
 
 	// DNS is configured via driver options in podman-systemd
 
+	// Sort all slices for deterministic output
+	sortNetwork(n)
+
 	return n
+}
+
+// sortNetwork ensures all slices in a network config are sorted deterministically in-place.
+func sortNetwork(n *Network) {
+	// Sort all slices for deterministic output
+	if len(n.Label) > 0 {
+		sort.Strings(n.Label)
+	}
+	
+	if len(n.Options) > 0 {
+		sort.Strings(n.Options)
+	}
 }

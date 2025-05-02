@@ -15,17 +15,23 @@ import (
 )
 
 // ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units.
-func ProcessComposeProjects(projects []*types.Project, force bool) error {
+// It accepts an existing processedUnits map to track units across multiple repository calls
+// and a cleanup flag to control when orphaned unit cleanup should occur.
+func ProcessComposeProjects(projects []*types.Project, force bool, existingProcessedUnits map[string]bool, doCleanup bool) (map[string]bool, error) {
 	dbConn, err := db.Connect()
 	if err != nil {
-		return fmt.Errorf("connecting to database: %w", err)
+		return nil, fmt.Errorf("connecting to database: %w", err)
 	}
 	defer func() { _ = dbConn.Close() }()
 
 	unitRepo := NewUnitRepository(dbConn)
 
-	// Track processed units to handle orphaned cleanup later
-	processedUnits := make(map[string]bool)
+	// Use existing map if provided, otherwise create a new one
+	processedUnits := existingProcessedUnits
+	if processedUnits == nil {
+		processedUnits = make(map[string]bool)
+	}
+
 	changedUnits := make([]QuadletUnit, 0)
 
 	// Process each project
@@ -84,7 +90,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyTree, project.Name)
 
 			// Process the quadlet unit
-			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
+			if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
 				log.Printf("Error processing unit: %v", err)
 			}
 		}
@@ -125,7 +131,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			}
 
 			// Process the quadlet unit
-			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
+			if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
 				log.Printf("Error processing volume unit: %v", err)
 			}
 		}
@@ -166,7 +172,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 			}
 
 			// Process the quadlet unit
-			if err := processUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
+			if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, &changedUnits); err != nil {
 				log.Printf("Error processing network unit: %v", err)
 			}
 		}
@@ -192,15 +198,37 @@ func ProcessComposeProjects(projects []*types.Project, force bool) error {
 		}
 	}
 
-	// Clean up any orphaned units
-	if err := cleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
-		log.Printf("Error cleaning up orphaned units: %v", err)
+	// Clean up any orphaned units only if requested
+	if doCleanup {
+		if err := CleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
+			log.Printf("Error cleaning up orphaned units: %v", err)
+		}
 	}
 
-	return nil
+	return processedUnits, nil
 }
 
 // processUnit processes a single quadlet unit.
+// ProcessUnitFunc is the function signature for processing a unit
+type ProcessUnitFunc func(unitRepo Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error
+
+// CleanupOrphanedUnitsFunc is the function signature for cleaning up orphaned units
+type CleanupOrphanedUnitsFunc func(unitRepo Repository, processedUnits map[string]bool) error
+
+// WriteUnitFileFunc is the function signature for writing a unit file
+type WriteUnitFileFunc func(unitPath, content string) error
+
+// UpdateUnitDatabaseFunc is the function signature for updating the unit database
+type UpdateUnitDatabaseFunc func(unitRepo Repository, unit *QuadletUnit, content string) error
+
+// Package variables for testing
+var (
+	ProcessUnit           ProcessUnitFunc           = processUnit
+	CleanupOrphanedUnits  CleanupOrphanedUnitsFunc  = cleanupOrphanedUnits
+	WriteUnitFile         WriteUnitFileFunc         = writeUnitFile
+	UpdateUnitDatabase    UpdateUnitDatabaseFunc    = updateUnitDatabase
+)
+
 func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	// Track this unit as processed
 	unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
@@ -250,12 +278,12 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 		}
 
 		// Write the file
-		if err := writeUnitFile(unitPath, content); err != nil {
-			return fmt.Errorf("writing unit file for %s: %w", unit.Name, err)
+		if err := WriteUnitFile(unitPath, content); err != nil {
+		return fmt.Errorf("writing unit file for %s: %w", unit.Name, err)
 		}
 
 		// Update database
-		if err := updateUnitDatabase(unitRepo, unit, content); err != nil {
+		if err := UpdateUnitDatabase(unitRepo, unit, content); err != nil {
 			return fmt.Errorf("updating unit database for %s: %w", unit.Name, err)
 		}
 
@@ -264,7 +292,7 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 	} else {
 		// Even when the file hasn't changed, we still need to update the database
 		// to ensure the unit's existence is recorded, but we don't add it to changedUnits
-		if err := updateUnitDatabase(unitRepo, unit, content); err != nil {
+		if err := UpdateUnitDatabase(unitRepo, unit, content); err != nil {
 			return fmt.Errorf("updating unit database for %s: %w", unit.Name, err)
 		}
 	}

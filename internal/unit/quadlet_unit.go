@@ -3,9 +3,10 @@ package unit
 import (
 	"fmt"
 	"log"
-	"sort"
 	"strings"
 	"time"
+
+	"github.com/trly/quad-ops/internal/util"
 )
 
 // QuadletUnit represents the configuration for a Quadlet unit, which can include
@@ -80,64 +81,49 @@ func (u *QuadletUnit) generateContainerSection() string {
 	}
 	content += formatKeyValue("Label", "managed-by=quad-ops")
 
-	// Sort labels for consistent output
-	slice := make([]string, len(u.Container.Label))
-	copy(slice, u.Container.Label)
-	sort.Strings(slice)
-	for _, label := range slice {
+	// Use centralized sorting function for consistent output
+	util.SortAndIterateSlice(u.Container.Label, func(label string) {
 		content += formatKeyValue("Label", label)
-	}
+	})
 
-	// Sort ports for consistent output
-	slice = make([]string, len(u.Container.PublishPort))
-	copy(slice, u.Container.PublishPort)
-	sort.Strings(slice)
-	for _, port := range slice {
+	// Use centralized sorting function for ports
+	util.SortAndIterateSlice(u.Container.PublishPort, func(port string) {
 		content += formatKeyValue("PublishPort", port)
-	}
+	})
 
-	// Sort environment variables for consistent output
-	envKeys := make([]string, 0, len(u.Container.Environment))
-	for k := range u.Container.Environment {
-		envKeys = append(envKeys, k)
+	// Use sortedEnvKeys if available (populated by SortAllSlices), 
+	// otherwise generate sorted keys on the fly
+	var envKeys []string
+	if len(u.Container.sortedEnvKeys) > 0 {
+		envKeys = u.Container.sortedEnvKeys
+	} else {
+		// Sort environment variables for consistent output
+		envKeys = util.GetSortedMapKeys(u.Container.Environment)
 	}
-	sort.Strings(envKeys)
 
 	// Add environment variables in sorted order
 	for _, k := range envKeys {
 		content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, u.Container.Environment[k]))
 	}
-	// Sort environment files for consistent output
-	slice = make([]string, len(u.Container.EnvironmentFile))
-	copy(slice, u.Container.EnvironmentFile)
-	sort.Strings(slice)
-	for _, envFile := range slice {
+	// Use centralized sorting function for environment files
+	util.SortAndIterateSlice(u.Container.EnvironmentFile, func(envFile string) {
 		content += formatKeyValue("EnvironmentFile", envFile)
-	}
+	})
 
-	// Sort volumes for consistent output
-	slice = make([]string, len(u.Container.Volume))
-	copy(slice, u.Container.Volume)
-	sort.Strings(slice)
-	for _, vol := range slice {
+	// Use centralized sorting function for volumes
+	util.SortAndIterateSlice(u.Container.Volume, func(vol string) {
 		content += formatKeyValue("Volume", vol)
-	}
+	})
 
-	// Sort networks for consistent output
-	slice = make([]string, len(u.Container.Network))
-	copy(slice, u.Container.Network)
-	sort.Strings(slice)
-	for _, net := range slice {
+	// Use centralized sorting function for networks
+	util.SortAndIterateSlice(u.Container.Network, func(net string) {
 		content += formatKeyValue("Network", net)
-	}
+	})
 
-	// Sort network aliases for consistent output
-	slice = make([]string, len(u.Container.NetworkAlias))
-	copy(slice, u.Container.NetworkAlias)
-	sort.Strings(slice)
-	for _, alias := range slice {
+	// Use centralized sorting function for network aliases
+	util.SortAndIterateSlice(u.Container.NetworkAlias, func(alias string) {
 		content += formatKeyValue("NetworkAlias", alias)
-	}
+	})
 	if len(u.Container.Exec) > 0 {
 		content += formatKeyValueSlice("Exec", u.Container.Exec)
 	}
@@ -179,13 +165,10 @@ func (u *QuadletUnit) generateVolumeSection() string {
 	content := "\n[Volume]\n"
 	content += formatKeyValue("Label", "managed-by=quad-ops")
 
-	// Sort labels for consistent output
-	slice := make([]string, len(u.Volume.Label))
-	copy(slice, u.Volume.Label)
-	sort.Strings(slice)
-	for _, label := range slice {
+	// Use centralized sorting function for volume labels
+	util.SortAndIterateSlice(u.Volume.Label, func(label string) {
 		content += formatKeyValue("Label", label)
-	}
+	})
 
 	// Set VolumeName to override systemd- prefix if configured
 	if u.Volume.VolumeName != "" {
@@ -196,13 +179,10 @@ func (u *QuadletUnit) generateVolumeSection() string {
 		content += formatKeyValue("Device", u.Volume.Device)
 	}
 
-	// Sort options for consistent output
-	slice = make([]string, len(u.Volume.Options))
-	copy(slice, u.Volume.Options)
-	sort.Strings(slice)
-	for _, opt := range slice {
+	// Use centralized sorting function for volume options
+	util.SortAndIterateSlice(u.Volume.Options, func(opt string) {
 		content += formatKeyValue("Options", opt)
-	}
+	})
 	if u.Volume.Copy {
 		content += formatKeyValue("Copy", "yes")
 	}
@@ -219,13 +199,10 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	content := "\n[Network]\n"
 	content += formatKeyValue("Label", "managed-by=quad-ops")
 
-	// Sort labels for consistent output
-	slice := make([]string, len(u.Network.Label))
-	copy(slice, u.Network.Label)
-	sort.Strings(slice)
-	for _, label := range slice {
+	// Use centralized sorting function for network labels
+	util.SortAndIterateSlice(u.Network.Label, func(label string) {
 		content += formatKeyValue("Label", label)
-	}
+	})
 
 	// Set NetworkName to override systemd- prefix if configured
 	if u.Network.NetworkName != "" {
@@ -252,13 +229,10 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	}
 	// DNSEnabled is not supported by podman-systemd
 
-	// Sort options for consistent output
-	slice = make([]string, len(u.Network.Options))
-	copy(slice, u.Network.Options)
-	sort.Strings(slice)
-	for _, opt := range slice {
+	// Use centralized sorting function for network options
+	util.SortAndIterateSlice(u.Network.Options, func(opt string) {
 		content += formatKeyValue("Options", opt)
-	}
+	})
 	return content
 }
 
@@ -270,52 +244,31 @@ func (u *QuadletUnit) generateUnitSection() string {
 
 	// Sort all systemd directives for consistent output
 	if len(u.Systemd.After) > 0 {
-		slice := make([]string, len(u.Systemd.After))
-		copy(slice, u.Systemd.After)
-		sort.Strings(slice)
-		content += formatKeyValueSlice("After", slice)
+		content += formatKeyValueSlice("After", u.Systemd.After)
 	}
 
 	if len(u.Systemd.Before) > 0 {
-		slice := make([]string, len(u.Systemd.Before))
-		copy(slice, u.Systemd.Before)
-		sort.Strings(slice)
-		content += formatKeyValueSlice("Before", slice)
+		content += formatKeyValueSlice("Before", u.Systemd.Before)
 	}
 
 	if len(u.Systemd.Requires) > 0 {
-		slice := make([]string, len(u.Systemd.Requires))
-		copy(slice, u.Systemd.Requires)
-		sort.Strings(slice)
-		content += formatKeyValueSlice("Requires", slice)
+		content += formatKeyValueSlice("Requires", u.Systemd.Requires)
 	}
 
 	if len(u.Systemd.Wants) > 0 {
-		slice := make([]string, len(u.Systemd.Wants))
-		copy(slice, u.Systemd.Wants)
-		sort.Strings(slice)
-		content += formatKeyValueSlice("Wants", slice)
+		content += formatKeyValueSlice("Wants", u.Systemd.Wants)
 	}
 
 	if len(u.Systemd.Conflicts) > 0 {
-		slice := make([]string, len(u.Systemd.Conflicts))
-		copy(slice, u.Systemd.Conflicts)
-		sort.Strings(slice)
-		content += formatKeyValueSlice("Conflicts", slice)
+		content += formatKeyValueSlice("Conflicts", u.Systemd.Conflicts)
 	}
 
 	if len(u.Systemd.PartOf) > 0 {
-		slice := make([]string, len(u.Systemd.PartOf))
-		copy(slice, u.Systemd.PartOf)
-		sort.Strings(slice)
-		content += formatKeyValueSlice("PartOf", slice)
+		content += formatKeyValueSlice("PartOf", u.Systemd.PartOf)
 	}
 
 	if len(u.Systemd.PropagatesReloadTo) > 0 {
-		slice := make([]string, len(u.Systemd.PropagatesReloadTo))
-		copy(slice, u.Systemd.PropagatesReloadTo)
-		sort.Strings(slice)
-		content += formatKeyValueSlice("PropagatesReloadTo", slice)
+		content += formatKeyValueSlice("PropagatesReloadTo", u.Systemd.PropagatesReloadTo)
 	}
 	return content
 }
@@ -363,32 +316,48 @@ func formatKeyValue(key, value string) string {
 }
 
 func formatKeyValueSlice(key string, values []string) string {
-	// Make a copy to avoid modifying the original slice
-	sorted := make([]string, len(values))
-	copy(sorted, values)
-	sort.Strings(sorted)
-	return fmt.Sprintf("%s=%s\n", key, strings.Join(sorted, " "))
+	// Create empty string slice to collect sorted values
+	sortedValues := make([]string, 0, len(values))
+	
+	// Use our helper to collect values in sorted order
+	util.SortAndIterateSlice(values, func(item string) {
+		sortedValues = append(sortedValues, item)
+	})
+	
+	// Join them with spaces
+	return fmt.Sprintf("%s=%s\n", key, strings.Join(sortedValues, " "))
 }
 
 func formatSecret(secret Secret) string {
+	// Always start with the source
 	secretOpts := []string{secret.Source}
-
-	// Add type if specified (needed for env secrets)
+	
+	// Add optional fields in a deterministic order
+	// Create options in a specific order based on field name
+	options := make(map[string]string)
+	
 	if secret.Type != "" {
-		secretOpts = append(secretOpts, fmt.Sprintf("type=%s", secret.Type))
+		options["type"] = secret.Type
 	}
-
 	if secret.Target != "" {
-		secretOpts = append(secretOpts, fmt.Sprintf("target=%s", secret.Target))
+		options["target"] = secret.Target
 	}
 	if secret.UID != "" {
-		secretOpts = append(secretOpts, fmt.Sprintf("uid=%s", secret.UID))
+		options["uid"] = secret.UID
 	}
 	if secret.GID != "" {
-		secretOpts = append(secretOpts, fmt.Sprintf("gid=%s", secret.GID))
+		options["gid"] = secret.GID
 	}
 	if secret.Mode != "" {
-		secretOpts = append(secretOpts, fmt.Sprintf("mode=%s", secret.Mode))
+		options["mode"] = secret.Mode
+	}
+	
+	// Get sorted keys for deterministic ordering
+	keys := util.GetSortedMapKeys(options)
+	
+	// Add options in sorted order
+	for _, k := range keys {
+		secretOpts = append(secretOpts, fmt.Sprintf("%s=%s", k, options[k]))
 	}
 
 	return strings.Join(secretOpts, ",")
