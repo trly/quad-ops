@@ -146,7 +146,7 @@ func sortNetwork(n *Network) {
 	if len(n.Label) > 0 {
 		sort.Strings(n.Label)
 	}
-	
+
 	if len(n.Options) > 0 {
 		sort.Strings(n.Options)
 	}

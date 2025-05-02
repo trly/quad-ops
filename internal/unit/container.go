@@ -10,10 +10,10 @@ import (
 
 // Container represents the configuration for a container unit.
 type Container struct {
-	Image           string
-	Label           []string
-	PublishPort     []string
-	Environment     map[string]string
+	Image       string
+	Label       []string
+	PublishPort []string
+	Environment map[string]string
 	// Stores environment keys in sorted order for deterministic output
 	sortedEnvKeys   []string
 	EnvironmentFile []string
@@ -267,35 +267,35 @@ func sortContainer(container *Container) {
 	if len(container.Label) > 0 {
 		sort.Strings(container.Label)
 	}
-	
+
 	if len(container.PublishPort) > 0 {
 		sort.Strings(container.PublishPort)
 	}
-	
+
 	if len(container.EnvironmentFile) > 0 {
 		sort.Strings(container.EnvironmentFile)
 	}
-	
+
 	if len(container.Volume) > 0 {
 		sort.Strings(container.Volume)
 	}
-	
+
 	if len(container.Network) > 0 {
 		sort.Strings(container.Network)
 	}
-	
+
 	if len(container.NetworkAlias) > 0 {
 		sort.Strings(container.NetworkAlias)
 	}
-	
+
 	if len(container.Exec) > 0 {
 		sort.Strings(container.Exec)
 	}
-	
+
 	if len(container.Entrypoint) > 0 {
 		sort.Strings(container.Entrypoint)
 	}
-	
+
 	// Sort secrets by source
 	sort.Slice(container.Secrets, func(i, j int) bool {
 		// Primary sort by Source

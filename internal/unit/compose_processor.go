@@ -223,10 +223,10 @@ type UpdateUnitDatabaseFunc func(unitRepo Repository, unit *QuadletUnit, content
 
 // Package variables for testing
 var (
-	ProcessUnit           ProcessUnitFunc           = processUnit
-	CleanupOrphanedUnits  CleanupOrphanedUnitsFunc  = cleanupOrphanedUnits
-	WriteUnitFile         WriteUnitFileFunc         = writeUnitFile
-	UpdateUnitDatabase    UpdateUnitDatabaseFunc    = updateUnitDatabase
+	ProcessUnit          ProcessUnitFunc          = processUnit
+	CleanupOrphanedUnits CleanupOrphanedUnitsFunc = cleanupOrphanedUnits
+	WriteUnitFile        WriteUnitFileFunc        = writeUnitFile
+	UpdateUnitDatabase   UpdateUnitDatabaseFunc   = updateUnitDatabase
 )
 
 func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
@@ -279,7 +279,7 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 
 		// Write the file
 		if err := WriteUnitFile(unitPath, content); err != nil {
-		return fmt.Errorf("writing unit file for %s: %w", unit.Name, err)
+			return fmt.Errorf("writing unit file for %s: %w", unit.Name, err)
 		}
 
 		// Update database

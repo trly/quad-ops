@@ -30,14 +30,14 @@ func TestDeterministicUnitContent(t *testing.T) {
 
 	// Generate quadlet units
 	unit1 := &QuadletUnit{
-		Name: "test-container",
-		Type: "container",
+		Name:      "test-container",
+		Type:      "container",
 		Container: *container1,
 	}
 
 	unit2 := &QuadletUnit{
-		Name: "test-container",
-		Type: "container",
+		Name:      "test-container",
+		Type:      "container",
 		Container: *container2,
 	}
 
@@ -51,7 +51,7 @@ func TestDeterministicUnitContent(t *testing.T) {
 	// Check if content hashing is deterministic
 	hash1 := GetContentHash(content1)
 	hash2 := GetContentHash(content2)
-	
+
 	assert.Equal(t, hash1, hash2, "Content hashes should be identical for identical content")
 }
 

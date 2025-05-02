@@ -14,12 +14,12 @@ func SortAndIterateSlice(slice []string, fn SliceProcessor) {
 	if len(slice) == 0 {
 		return
 	}
-	
+
 	// Create a copy to avoid modifying the original
 	sorted := make([]string, len(slice))
 	copy(sorted, slice)
 	sort.Strings(sorted)
-	
+
 	// Process each item in sorted order
 	for _, item := range sorted {
 		fn(item)

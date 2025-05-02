@@ -91,7 +91,7 @@ func (u *QuadletUnit) generateContainerSection() string {
 		content += formatKeyValue("PublishPort", port)
 	})
 
-	// Use sortedEnvKeys if available (populated by SortAllSlices), 
+	// Use sortedEnvKeys if available (populated by SortAllSlices),
 	// otherwise generate sorted keys on the fly
 	var envKeys []string
 	if len(u.Container.sortedEnvKeys) > 0 {
@@ -318,12 +318,12 @@ func formatKeyValue(key, value string) string {
 func formatKeyValueSlice(key string, values []string) string {
 	// Create empty string slice to collect sorted values
 	sortedValues := make([]string, 0, len(values))
-	
+
 	// Use our helper to collect values in sorted order
 	util.SortAndIterateSlice(values, func(item string) {
 		sortedValues = append(sortedValues, item)
 	})
-	
+
 	// Join them with spaces
 	return fmt.Sprintf("%s=%s\n", key, strings.Join(sortedValues, " "))
 }
@@ -331,11 +331,11 @@ func formatKeyValueSlice(key string, values []string) string {
 func formatSecret(secret Secret) string {
 	// Always start with the source
 	secretOpts := []string{secret.Source}
-	
+
 	// Add optional fields in a deterministic order
 	// Create options in a specific order based on field name
 	options := make(map[string]string)
-	
+
 	if secret.Type != "" {
 		options["type"] = secret.Type
 	}
@@ -351,10 +351,10 @@ func formatSecret(secret Secret) string {
 	if secret.Mode != "" {
 		options["mode"] = secret.Mode
 	}
-	
+
 	// Get sorted keys for deterministic ordering
 	keys := util.GetSortedMapKeys(options)
-	
+
 	// Add options in sorted order
 	for _, k := range keys {
 		secretOpts = append(secretOpts, fmt.Sprintf("%s=%s", k, options[k]))

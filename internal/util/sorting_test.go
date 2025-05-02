@@ -24,7 +24,7 @@ func TestSortAndIterateSlice(t *testing.T) {
 
 	// Check if original slice is unchanged
 	assert.Equal(t, originalCopy, original, "Original slice should not be modified")
-	
+
 	// Check if items were processed in sorted order
 	assert.Equal(t, []string{"a", "b", "c"}, result, "Items should be processed in sorted order")
 }

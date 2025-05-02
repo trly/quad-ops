@@ -119,19 +119,19 @@ func sortVolume(v *Volume) {
 	if len(v.ContainersConfModule) > 0 {
 		sort.Strings(v.ContainersConfModule)
 	}
-	
+
 	if len(v.GlobalArgs) > 0 {
 		sort.Strings(v.GlobalArgs)
 	}
-	
+
 	if len(v.Label) > 0 {
 		sort.Strings(v.Label)
 	}
-	
+
 	if len(v.Options) > 0 {
 		sort.Strings(v.Options)
 	}
-	
+
 	if len(v.PodmanArgs) > 0 {
 		sort.Strings(v.PodmanArgs)
 	}
