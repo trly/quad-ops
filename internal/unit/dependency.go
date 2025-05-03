@@ -69,8 +69,10 @@ func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, depende
 		for _, networkRef := range unit.Container.Network {
 			// Only add dependency if it's a project-defined network (has .network suffix)
 			if strings.HasSuffix(networkRef, ".network") {
-				unit.Systemd.After = append(unit.Systemd.After, networkRef)
-				unit.Systemd.Requires = append(unit.Systemd.Requires, networkRef)
+				// Convert to service name by replacing .network with -network.service
+				networkServiceName := strings.Replace(networkRef, ".network", "-network.service", 1)
+				unit.Systemd.After = append(unit.Systemd.After, networkServiceName)
+				unit.Systemd.Requires = append(unit.Systemd.Requires, networkServiceName)
 			}
 		}
 
@@ -82,8 +84,10 @@ func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, depende
 				volumeName := parts[0]
 				// Only add dependency if it's a project-defined volume (has .volume suffix)
 				if strings.HasSuffix(volumeName, ".volume") {
-					unit.Systemd.After = append(unit.Systemd.After, volumeName)
-					unit.Systemd.Requires = append(unit.Systemd.Requires, volumeName)
+					// Convert to service name by replacing .volume with -volume.service
+					volumeServiceName := strings.Replace(volumeName, ".volume", "-volume.service", 1)
+					unit.Systemd.After = append(unit.Systemd.After, volumeServiceName)
+					unit.Systemd.Requires = append(unit.Systemd.Requires, volumeServiceName)
 				}
 			}
 		}

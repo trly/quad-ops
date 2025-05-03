@@ -21,6 +21,7 @@
 - Always use fully qualified image names with registry prefix (docker.io/, quay.io/, etc.)
 - Container dependencies must be expressed in systemd unit files using the service name format
 - Use After/Requires with .service suffix (e.g., 'After=db.service', not 'After=db.container')
+- Volume and network dependencies must use the -volume.service and -network.service suffix format (e.g., 'After=data-volume.service', not 'After=data.volume')
 - By default, quad-ops creates containers with hostnames that match their service names (without the systemd- prefix)
 - Container hostnames can be configured via `usePodmanDefaultNames` option in config.yaml (default: false)
 - Setting `usePodmanDefaultNames: true` allows Podman to use its default naming scheme with systemd- prefix
