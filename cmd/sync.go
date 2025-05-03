@@ -100,9 +100,7 @@ func syncRepositories(cfg *config.Config) {
 		}
 
 		if !dryRun {
-			if config.GetConfig().Verbose {
-				log.Printf("processing repository: %s", repoConfig.Name)
-			}
+			log.Printf("processing repository: %s", repoConfig.Name)
 
 			gitRepo := git.NewGitRepository(repoConfig)
 			if err := gitRepo.SyncRepository(); err != nil {

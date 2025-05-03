@@ -36,10 +36,8 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 
 	// Process each project
 	for _, project := range projects {
-		if config.GetConfig().Verbose {
-			log.Printf("processing compose project: %s (services: %d, networks: %d, volumes: %d)",
-				project.Name, len(project.Services), len(project.Networks), len(project.Volumes))
-		}
+		log.Printf("processing compose project: %s (services: %d, networks: %d, volumes: %d)",
+			project.Name, len(project.Services), len(project.Networks), len(project.Volumes))
 
 		// Build the bidirectional dependency tree for the project
 		dependencyTree := BuildServiceDependencyTree(project)
