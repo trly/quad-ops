@@ -69,8 +69,10 @@ When Quad-Ops processes a network definition from a Docker Compose file, it crea
    Network=frontend.network
    ```
 
-4. **Default Network**: If no networks are defined, containers are connected to the default Podman network.
+4. **Default Network**: If no networks are defined, a default network named `<project-name>-default.network` is automatically created and all services will connect to it.
 
 5. **Driver Support**: Only network drivers supported by Podman can be used.
 
 6. **DNSEnabled**: This property is not supported by Podman Quadlet. Configure DNS via driver options instead.
+
+7. **External Networks**: Networks marked with `external: true` are not created by Quad-Ops as they are expected to be managed elsewhere. These can be referenced by containers but must exist before the container starts.
