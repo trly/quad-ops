@@ -1,0 +1,29 @@
+version: '3'
+
+vars:
+  BINARY_NAME: quad-ops
+
+tasks:
+  build:
+    desc: Build the application
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+      - go build -o {{.BINARY_NAME}} cmd/quad-ops/main.go
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test -v ./...
+
+  lint:
+    desc: Run linter
+    cmds:
+      - golangci-lint run
+
+  fmt:
+    desc: Format code
+    cmds:
+      - go fmt ./...
+
