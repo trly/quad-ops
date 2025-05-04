@@ -1,10 +1,11 @@
 # Quad-Ops Development Memory
 
 ## Build & Test Commands
-- Build: `go build -o quad-ops cmd/quad-ops/main.go`
-- Run tests: `go test -v ./...`
+- Build: `task build`
+- Run tests: `task test` (uses gotestsum under the hood)
 - Run single test: `go test -v github.com/trly/quad-ops/internal/unit -run TestFromComposeService`
-- Lint: `mise exec -- golangci-lint run`
+- Lint: `task lint` (runs golangci-lint)
+- Format: `task fmt` (runs go fmt)
 
 ## Project Overview
 - Quad-Ops manages Podman containers through Quadlet by synchronizing from Git repositories
@@ -58,7 +59,7 @@
 - Supported file names: `docker-compose.yml`, `docker-compose.yaml`, `compose.yml`, `compose.yaml`
 
 ### Unit Naming Conventions
-- Containers: `<project-name>-<service-name>.container` 
+- Containers: `<project-name>-<service-name>.container`
 - Volumes: `<project-name>-<volume-name>.volume`
 - Networks: `<project-name>-<network-name>.network`
 - Service file naming in systemd:
@@ -86,11 +87,12 @@
 - Cleanup policy: "keep" (default) or "delete" for auto-removal of units from deleted compose files
 - `usePodmanDefaultNames`: Controls container hostname prefix (default: false). When false, container hostnames match service names without systemd- prefix
 
-## Build & Test Commands
+## Manual Build & Test Commands
 - Build: `go build -o quad-ops cmd/quad-ops/main.go`
 - Run tests: `go test -v ./...`
 - Run single test: `go test -v github.com/trly/quad-ops/internal/unit -run TestFromComposeService`
-- Lint: `golangci-lint run`
+- Lint: `mise exec -- golangci-lint run`
+- Format: `go fmt ./...`
 
 ## Code Style
 - Use gofmt for formatting
