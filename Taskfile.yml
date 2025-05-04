@@ -15,7 +15,7 @@ tasks:
   test:
     desc: Run all tests
     cmds:
-      - go test -v ./...
+      - gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...
 
   lint:
     desc: Run linter
