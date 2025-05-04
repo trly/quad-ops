@@ -41,6 +41,28 @@ type Container struct {
 	HealthStartPeriod   string
 	HealthStartInterval string
 
+	// Resource constraints
+	Memory            string
+	MemoryReservation string
+	MemorySwap        string
+	CPUShares         int64
+	CPUQuota          int64
+	CPUPeriod         int64
+	PidsLimit         int64
+
+	// Advanced container configuration
+	Ulimit           []string
+	Sysctl           map[string]string
+	sortedSysctlKeys []string
+	Tmpfs            []string
+	UserNS           string
+
+	// Logging and monitoring configuration
+	LogDriver        string
+	LogOpt           map[string]string
+	sortedLogOptKeys []string
+	RestartPolicy    string
+
 	// Systemd unit properties
 	Name     string
 	UnitType string
@@ -77,6 +99,12 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 
 	// Process health check configuration
 	c.processServiceHealthCheck(service)
+
+	// Process resource constraints
+	c.processServiceResources(service)
+
+	// Process advanced container configuration
+	c.processAdvancedConfig(service)
 
 	// Process secrets
 	c.processServiceSecrets(service)
@@ -272,6 +300,137 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 	}
 }
 
+// processServiceResources processes resource constraints from a Docker Compose service.
+func (c *Container) processServiceResources(service types.ServiceConfig) {
+	// Memory limits
+	if service.Deploy != nil && service.Deploy.Resources.Limits != nil {
+		// Memory limit
+		if service.Deploy.Resources.Limits.MemoryBytes != 0 {
+			c.Memory = fmt.Sprintf("%d", service.Deploy.Resources.Limits.MemoryBytes)
+		}
+	}
+
+	// Direct resource configs (alternative to Deploy section)
+	if service.MemLimit != 0 {
+		c.Memory = fmt.Sprintf("%d", service.MemLimit)
+	}
+
+	// Memory reservation
+	if service.MemReservation != 0 {
+		c.MemoryReservation = fmt.Sprintf("%d", service.MemReservation)
+	}
+
+	// Memory swap
+	if service.MemSwapLimit != 0 {
+		c.MemorySwap = fmt.Sprintf("%d", service.MemSwapLimit)
+	}
+
+	// CPU shares
+	if service.CPUShares != 0 {
+		c.CPUShares = service.CPUShares
+	} else if service.Deploy != nil && service.Deploy.Resources.Limits != nil && service.Deploy.Resources.Limits.NanoCPUs != 0 {
+		// Convert NanoCPUs to CPU shares (1 CPU = 1024 shares, per Docker implementation)
+		c.CPUShares = int64(service.Deploy.Resources.Limits.NanoCPUs / 1e9 * 1024)
+	}
+
+	// CPU quota
+	if service.CPUQuota != 0 {
+		c.CPUQuota = service.CPUQuota
+	}
+
+	// CPU period
+	if service.CPUPeriod != 0 {
+		c.CPUPeriod = service.CPUPeriod
+	}
+
+	// Process limit
+	if service.PidsLimit != 0 {
+		c.PidsLimit = service.PidsLimit
+	}
+}
+
+// processAdvancedConfig processes advanced container configuration from a Docker Compose service.
+func (c *Container) processAdvancedConfig(service types.ServiceConfig) {
+	// Process ulimits
+	if len(service.Ulimits) > 0 {
+		for name, ulimit := range service.Ulimits {
+			if ulimit.Hard == ulimit.Soft {
+				// Single value format
+				c.Ulimit = append(c.Ulimit, fmt.Sprintf("%s=%d", name, ulimit.Soft))
+			} else {
+				// Soft:hard format
+				c.Ulimit = append(c.Ulimit, fmt.Sprintf("%s=%d:%d", name, ulimit.Soft, ulimit.Hard))
+			}
+		}
+	}
+
+	// Process sysctls
+	if len(service.Sysctls) > 0 {
+		if c.Sysctl == nil {
+			c.Sysctl = make(map[string]string)
+		}
+		for k, v := range service.Sysctls {
+			c.Sysctl[k] = v
+		}
+	}
+
+	// Process tmpfs
+	if len(service.Tmpfs) > 0 {
+		for _, tmpfs := range service.Tmpfs {
+			c.Tmpfs = append(c.Tmpfs, tmpfs)
+		}
+	}
+
+	// Process user namespace mode
+	if service.UserNSMode != "" {
+		c.UserNS = service.UserNSMode
+	}
+
+	// Process logging configuration
+	c.processLoggingConfig(service)
+
+	// Process restart policy
+	c.processRestartPolicy(service)
+}
+
+// processLoggingConfig processes logging configuration from a Docker Compose service.
+func (c *Container) processLoggingConfig(service types.ServiceConfig) {
+	// Handle logging driver
+	if service.LogDriver != "" {
+		c.LogDriver = service.LogDriver
+	}
+
+	// Handle logging options
+	if len(service.LogOpt) > 0 {
+		if c.LogOpt == nil {
+			c.LogOpt = make(map[string]string)
+		}
+		for k, v := range service.LogOpt {
+			c.LogOpt[k] = v
+		}
+	}
+}
+
+// processRestartPolicy processes restart policy from a Docker Compose service.
+func (c *Container) processRestartPolicy(service types.ServiceConfig) {
+	// Map Docker Compose restart policy to systemd equivalent
+	switch service.Restart {
+	case "no":
+		c.RestartPolicy = "no"
+	case "always":
+		c.RestartPolicy = "always"
+	case "on-failure":
+		c.RestartPolicy = "on-failure"
+	case "unless-stopped":
+		// unless-stopped doesn't have an exact systemd equivalent
+		// 'always' is the closest match as it will restart unless explicitly stopped
+		c.RestartPolicy = "always"
+	default:
+		// Use systemd default which is 'no'
+		c.RestartPolicy = "no"
+	}
+}
+
 // convertUint64ToInt safely converts uint64 to int, preventing overflow.
 func convertUint64ToInt(val uint64) int {
 	const maxInt = int(^uint(0) >> 1) // Maximum int value
@@ -382,6 +541,25 @@ func sortContainer(container *Container) {
 	// Sort HealthCmd if present
 	if len(container.HealthCmd) > 0 {
 		sort.Strings(container.HealthCmd)
+	}
+
+	// Sort advanced configuration slices
+	if len(container.Ulimit) > 0 {
+		sort.Strings(container.Ulimit)
+	}
+
+	if len(container.Tmpfs) > 0 {
+		sort.Strings(container.Tmpfs)
+	}
+
+	// Sort sysctls keys for deterministic output
+	if len(container.Sysctl) > 0 {
+		container.sortedSysctlKeys = util.GetSortedMapKeys(container.Sysctl)
+	}
+
+	// Sort LogOpt keys for deterministic output
+	if len(container.LogOpt) > 0 {
+		container.sortedLogOptKeys = util.GetSortedMapKeys(container.LogOpt)
 	}
 
 	// Sort secrets by source

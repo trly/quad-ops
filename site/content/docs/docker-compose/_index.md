@@ -29,6 +29,8 @@ Project names are generated based on repository structure:
 | **Bind Mounts** | Directories must exist before containers start (not auto-created) |
 | **Service Discovery** | Simple service names (db) work as DNS names regardless of actual container hostname |
 | **Management** | Containers are managed via systemd commands, not docker-compose commands |
+| **Resource Constraints** | Memory, CPU, and process limits are mapped to Podman Quadlet directives |
+| **Advanced Configuration** | Support for ulimits, sysctls, tmpfs mounts, and user namespaces |
 
 ## Component Documentation
 
@@ -38,4 +40,6 @@ Each Docker Compose component is converted to a corresponding Podman resource:
 - [Networks](networks) - Container networking
 - [Volumes](volumes) - Persistent storage
 - [Secrets](secrets) - Sensitive data management
+- [Resource Constraints](resource-constraints) - Memory, CPU, and process limits
+- [Logging](logging) - Container logging configuration
 - [Dependency Management](../dependency-management) - How service relationships are handled

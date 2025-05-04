@@ -364,11 +364,18 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 		}
 
 		// Create the quadlet unit with proper systemd configuration
+		systemdConfig := SystemdConfig{}
+
+		// Apply restart policy if set in the container
+		if container.RestartPolicy != "" {
+			systemdConfig.RestartPolicy = container.RestartPolicy
+		}
+
 		quadletUnit := QuadletUnit{
 			Name:      prefixedName, // Use prefixed name for DNS resolution
 			Type:      "container",
 			Container: *container,
-			Systemd:   SystemdConfig{},
+			Systemd:   systemdConfig,
 		}
 
 		// Apply dependency relationships (both regular and reverse)

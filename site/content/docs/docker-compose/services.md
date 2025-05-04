@@ -29,6 +29,25 @@ Services in Docker Compose are the core components that define your containers. 
 - `cap_drop`: Drop container capabilities
 - `healthcheck`: Container health checks
 
+### Resource Constraints
+- `mem_limit`: Memory limit
+- `mem_reservation`: Memory soft limit (reservation)
+- `memswap_limit`: Memory swap limit
+- `cpu_shares`: CPU shares (relative weight)
+- `cpu_quota`: CPU quota
+- `cpu_period`: CPU period
+- `pids_limit`: Process limit
+
+### Advanced Container Configuration
+- `ulimits`: Resource limits (file descriptors, process count, etc)
+- `sysctls`: Kernel parameters
+- `tmpfs`: Mount tmpfs volumes
+- `userns_mode`: User namespace mode
+
+### Logging and Monitoring
+- `log_driver`: Logging driver (journald, json-file, etc)
+- `log_opt`: Logging driver options (max-size, max-file, etc)
+
 ## Example
 
 ```yaml
@@ -111,6 +130,30 @@ When Quad-Ops processes a service definition from a Docker Compose file, it crea
 | `healthcheck.retries` | `HealthRetries` |
 | `healthcheck.start_period` | `HealthStartPeriod` |
 | `healthcheck.start_interval` | `HealthStartupInterval` |
+| `mem_limit` | `Memory` |
+| `mem_reservation` | `MemoryReservation` |
+| `memswap_limit` | `MemorySwap` |
+| `cpu_shares` | `CPUShares` |
+| `cpu_quota` | `CPUQuota` |
+| `cpu_period` | `CPUPeriod` |
+| `pids_limit` | `PidsLimit` |
+| `ulimits` | `Ulimit` |
+| `sysctls` | `Sysctl` |
+| `tmpfs` | `Tmpfs` |
+| `userns_mode` | `UserNS` |
+| `log_driver` | `LogDriver` |
+| `log_opt` | `LogOpt` |
+
+## Restart Policies
+
+Docker Compose restart policies are mapped to systemd restart policies in the following way:
+
+| Docker Compose Policy | systemd Policy | Description |
+|-----------------------|----------------|-------------|
+| `no` | `no` | Do not restart the container automatically |
+| `always` | `always` | Always restart the container regardless of exit status |
+| `on-failure` | `on-failure` | Restart only when the container exits with non-zero status |
+| `unless-stopped` | `always` | Maps to `always` in systemd which is the closest equivalent |
 
 ## Important Notes
 

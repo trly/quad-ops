@@ -74,8 +74,8 @@ type Unit struct {
 	CreatedAt     time.Time `db:"created_at"` // Set by database, but not updated on every change
 }
 
-func (u *QuadletUnit) generateContainerSection() string {
-	content := "\n[Container]\n"
+// addBasicConfig adds basic container configuration like image and labels.
+func (u *QuadletUnit) addBasicConfig(content string) string {
 	if u.Container.Image != "" {
 		content += formatKeyValue("Image", u.Container.Image)
 	}
@@ -91,6 +91,11 @@ func (u *QuadletUnit) generateContainerSection() string {
 		content += formatKeyValue("PublishPort", port)
 	})
 
+	return content
+}
+
+// addEnvironmentConfig adds environment variables and environment files.
+func (u *QuadletUnit) addEnvironmentConfig(content string) string {
 	// Use sortedEnvKeys if available (populated by SortAllSlices),
 	// otherwise generate sorted keys on the fly
 	var envKeys []string
@@ -110,6 +115,11 @@ func (u *QuadletUnit) generateContainerSection() string {
 		content += formatKeyValue("EnvironmentFile", envFile)
 	})
 
+	return content
+}
+
+// addVolumeNetworkConfig adds volume and network configuration.
+func (u *QuadletUnit) addVolumeNetworkConfig(content string) string {
 	// Use centralized sorting function for volumes
 	util.SortAndIterateSlice(u.Container.Volume, func(vol string) {
 		content += formatKeyValue("Volume", vol)
@@ -124,6 +134,12 @@ func (u *QuadletUnit) generateContainerSection() string {
 	util.SortAndIterateSlice(u.Container.NetworkAlias, func(alias string) {
 		content += formatKeyValue("NetworkAlias", alias)
 	})
+
+	return content
+}
+
+// addExecutionConfig adds execution configuration like entrypoint, user, working directory.
+func (u *QuadletUnit) addExecutionConfig(content string) string {
 	if len(u.Container.Exec) > 0 {
 		content += formatKeyValueSlice("Exec", u.Container.Exec)
 	}
@@ -156,7 +172,11 @@ func (u *QuadletUnit) generateContainerSection() string {
 		content += formatKeyValue("ContainerName", u.Container.ContainerName)
 	}
 
-	// Health check configuration
+	return content
+}
+
+// addHealthCheckConfig adds health check configuration.
+func (u *QuadletUnit) addHealthCheckConfig(content string) string {
 	if len(u.Container.HealthCmd) > 0 {
 		content += formatKeyValueSlice("HealthCmd", u.Container.HealthCmd)
 	}
@@ -176,9 +196,112 @@ func (u *QuadletUnit) generateContainerSection() string {
 		content += formatKeyValue("HealthStartupInterval", u.Container.HealthStartInterval)
 	}
 
+	return content
+}
+
+// addResourceConstraints adds resource constraints like memory and CPU limits.
+func (u *QuadletUnit) addResourceConstraints(content string) string {
+	if u.Container.Memory != "" {
+		content += formatKeyValue("Memory", u.Container.Memory)
+	}
+	if u.Container.MemoryReservation != "" {
+		content += formatKeyValue("MemoryReservation", u.Container.MemoryReservation)
+	}
+	if u.Container.MemorySwap != "" {
+		content += formatKeyValue("MemorySwap", u.Container.MemorySwap)
+	}
+	if u.Container.CPUShares != 0 {
+		content += formatKeyValue("CPUShares", fmt.Sprintf("%d", u.Container.CPUShares))
+	}
+	if u.Container.CPUQuota != 0 {
+		content += formatKeyValue("CPUQuota", fmt.Sprintf("%d", u.Container.CPUQuota))
+	}
+	if u.Container.CPUPeriod != 0 {
+		content += formatKeyValue("CPUPeriod", fmt.Sprintf("%d", u.Container.CPUPeriod))
+	}
+	if u.Container.PidsLimit != 0 {
+		content += formatKeyValue("PidsLimit", fmt.Sprintf("%d", u.Container.PidsLimit))
+	}
+
+	return content
+}
+
+// addAdvancedConfig adds advanced configuration like ulimit, tmpfs, sysctl.
+func (u *QuadletUnit) addAdvancedConfig(content string) string {
+	util.SortAndIterateSlice(u.Container.Ulimit, func(ulimit string) {
+		content += formatKeyValue("Ulimit", ulimit)
+	})
+
+	util.SortAndIterateSlice(u.Container.Tmpfs, func(tmpfs string) {
+		content += formatKeyValue("Tmpfs", tmpfs)
+	})
+
+	// Use sortedSysctlKeys if available, otherwise generate sorted keys on the fly
+	var sysctlKeys []string
+	if len(u.Container.sortedSysctlKeys) > 0 {
+		sysctlKeys = u.Container.sortedSysctlKeys
+	} else {
+		// Sort sysctl variables for consistent output
+		sysctlKeys = util.GetSortedMapKeys(u.Container.Sysctl)
+	}
+
+	// Add sysctl variables in sorted order
+	for _, k := range sysctlKeys {
+		content += formatKeyValue("Sysctl", fmt.Sprintf("%s=%s", k, u.Container.Sysctl[k]))
+	}
+
+	if u.Container.UserNS != "" {
+		content += formatKeyValue("UserNS", u.Container.UserNS)
+	}
+
+	return content
+}
+
+// addLoggingConfig adds logging configuration.
+func (u *QuadletUnit) addLoggingConfig(content string) string {
+	if u.Container.LogDriver != "" {
+		content += formatKeyValue("LogDriver", u.Container.LogDriver)
+	}
+
+	// Add LogOpt options in sorted order
+	var logOptKeys []string
+	if len(u.Container.sortedLogOptKeys) > 0 {
+		logOptKeys = u.Container.sortedLogOptKeys
+	} else {
+		// Sort log options for consistent output
+		logOptKeys = util.GetSortedMapKeys(u.Container.LogOpt)
+	}
+
+	// Add log options in sorted order
+	for _, k := range logOptKeys {
+		content += formatKeyValue("LogOpt", fmt.Sprintf("%s=%s", k, u.Container.LogOpt[k]))
+	}
+
+	return content
+}
+
+// addSecretsConfig adds secrets configuration.
+func (u *QuadletUnit) addSecretsConfig(content string) string {
 	for _, secret := range u.Container.Secrets {
 		content += formatKeyValue("Secret", formatSecret(secret))
 	}
+	return content
+}
+
+func (u *QuadletUnit) generateContainerSection() string {
+	content := "\n[Container]\n"
+
+	// Add configuration in logical groups
+	content = u.addBasicConfig(content)
+	content = u.addEnvironmentConfig(content)
+	content = u.addVolumeNetworkConfig(content)
+	content = u.addExecutionConfig(content)
+	content = u.addHealthCheckConfig(content)
+	content = u.addResourceConstraints(content)
+	content = u.addAdvancedConfig(content)
+	content = u.addLoggingConfig(content)
+	content = u.addSecretsConfig(content)
+
 	return content
 }
 
