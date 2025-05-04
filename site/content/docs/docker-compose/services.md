@@ -107,3 +107,33 @@ When Quad-Ops processes a service definition from a Docker Compose file, it crea
 5. **Volumes**: Named volumes require the `.volume` suffix in Volume directives (e.g., `Volume=data.volume:/data`).
 
 6. **Networks**: When using networks with aliases, the service name is automatically used as a network alias for simple service discovery.
+
+7. **Service-Specific Environment Files**: Quad-Ops automatically detects and uses service-specific environment files present in the compose directory.
+
+## Service-Specific Environment Files
+
+Quad-Ops can automatically detect and use service-specific environment files to help manage environment variables, especially those with special characters that might cause issues with shell interpretation.
+
+For a service named `service1`, Quad-Ops looks for the following files in the Docker Compose directory:
+
+- `.env.service1` - Hidden env file with service name suffix
+- `service1.env` - Service name with .env extension
+- `env/service1.env` - In env subdirectory
+- `envs/service1.env` - In envs subdirectory
+
+These files are automatically added to the Quadlet unit with the `EnvironmentFile` directive, which allows Podman to properly handle environment variables with special characters like asterisks, spaces, quotes, and more.
+
+### Example
+
+For a service named `webapp` in a Docker Compose file, you could create a file named `webapp.env` in the same directory:
+
+```env
+# webapp.env
+APP_DOMAINS=*.example.com
+APP_NAME="My Web Application"
+ALLOWED_HOSTS=host1,host2,host3
+```
+
+This is especially useful for environment variables that contain special characters that might otherwise be interpreted by the shell, such as asterisks (`*`), quotes (`"'`), spaces, or other special characters.
+
+With this approach, you don't need to escape or specially quote these values in your Docker Compose file, as they will be properly handled by Podman through the environment file.

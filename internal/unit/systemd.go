@@ -176,11 +176,19 @@ func (u *BaseSystemdUnit) Show() error {
 		content, err := os.ReadFile(fragmentPath) //nolint:gosec // Safe as path comes from systemd D-Bus interface, not user input
 		if err == nil {
 			unitConfig, _ := ini.Load(content)
-			sectionName := fmt.Sprintf("X-%s", caser.String(u.Type))
-			if section, err := unitConfig.GetSection(sectionName); err == nil {
+			quadletSectionName := fmt.Sprintf("X-%s", caser.String(u.Type))
+			if section, err := unitConfig.GetSection(quadletSectionName); err == nil {
 				fmt.Printf("\n%s Configuration:\n", caser.String(u.Type))
 				for _, key := range section.Keys() {
 					fmt.Printf("  %-20s: %s\n", key.Name(), key.Value())
+				}
+			}
+			if section, err := unitConfig.GetSection("Service"); err == nil {
+				fmt.Printf("\n%s Configuration:\n", caser.String("service"))
+				for _, key := range section.Keys() {
+					if key.Name() == "ExecStart" {
+						fmt.Printf("  %-20s: %s\n", key.Name(), key.Value())
+					}
 				}
 			}
 		}

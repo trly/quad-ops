@@ -143,5 +143,8 @@ func ParseComposeFile(path string) (*types.Project, error) {
 		return nil, err
 	}
 
+	// Set the working directory to allow access to environment files
+	project.WorkingDir = filepath.Dir(path)
+
 	return project, nil
 }

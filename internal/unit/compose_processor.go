@@ -327,6 +327,25 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 		container := NewContainer(prefixedName)
 		container = container.FromComposeService(service, project.Name)
 
+		// Check for service-specific .env files in the project directory
+		if project.WorkingDir != "" {
+			// Look for .env files with various naming patterns
+			possibleEnvFiles := []string{
+				fmt.Sprintf("%s/.env.%s", project.WorkingDir, serviceName),
+				fmt.Sprintf("%s/%s.env", project.WorkingDir, serviceName),
+				fmt.Sprintf("%s/env/%s.env", project.WorkingDir, serviceName),
+				fmt.Sprintf("%s/envs/%s.env", project.WorkingDir, serviceName),
+			}
+
+			for _, envFilePath := range possibleEnvFiles {
+				// Check if file exists
+				if _, err := os.Stat(envFilePath); err == nil {
+					logger.GetLogger().Debug("Found service-specific environment file", "service", serviceName, "file", envFilePath)
+					container.EnvironmentFile = append(container.EnvironmentFile, envFilePath)
+				}
+			}
+		}
+
 		// Check if we should use Podman's default naming with systemd- prefix
 		usePodmanNames := getUsePodmanNames(project.Name)
 

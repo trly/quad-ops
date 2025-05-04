@@ -58,6 +58,16 @@
 - Project naming format: `<repo>-<folder>` (e.g., `test-photoprism` for repositories/home/test/photoprism)
 - Supported file names: `docker-compose.yml`, `docker-compose.yaml`, `compose.yml`, `compose.yaml`
 
+### Service-Specific Environment Files
+- Automatically detects and uses service-specific environment files present in the compose directory
+- Supported file patterns for a service named `service1`:
+  - `.env.service1` - Hidden env file with service name suffix
+  - `service1.env` - Service name with .env extension
+  - `env/service1.env` - In env subdirectory
+  - `envs/service1.env` - In envs subdirectory
+- Environment files are automatically added to the Quadlet unit with `EnvironmentFile` directive
+- Helps avoid issues with special characters (asterisks, spaces, etc.) in environment values
+
 ### Unit Naming Conventions
 - Containers: `<project-name>-<service-name>.container`
 - Volumes: `<project-name>-<volume-name>.volume`
