@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/logger"
 )
 
 func TestGetConnectionString(t *testing.T) {
@@ -31,6 +32,9 @@ func TestConnect(t *testing.T) {
 	}
 	config.SetConfig(testConfig)
 
+	// Initialize logger
+	logger.Init(true)
+
 	// Test connection
 	db, err := Connect()
 	assert.NoError(t, err)
@@ -48,6 +52,9 @@ func TestConnectError(t *testing.T) {
 		DBPath: "/nonexistent/path/db.sqlite",
 	}
 	config.SetConfig(testConfig)
+
+	// Initialize logger
+	logger.Init(false)
 
 	db, err := Connect()
 	assert.Error(t, err)
@@ -67,6 +74,9 @@ func TestMigrations(t *testing.T) {
 		Verbose: true,
 	}
 
+	// Initialize logger
+	logger.Init(true)
+
 	// Test Up migration
 	err = Up(testConfig)
 	assert.NoError(t, err)
@@ -81,6 +91,9 @@ func TestMigrationsWithInvalidPath(t *testing.T) {
 		DBPath:  "/nonexistent/path/db.sqlite",
 		Verbose: true,
 	}
+
+	// Initialize logger
+	logger.Init(true)
 
 	// Test Up migration with invalid path
 	err := Up(testConfig)

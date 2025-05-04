@@ -23,9 +23,10 @@ THE SOFTWARE.
 package unit
 
 import (
-	"log"
+	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/trly/quad-ops/internal/logger"
 	"github.com/trly/quad-ops/internal/unit"
 )
 
@@ -47,7 +48,8 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 
 			err := systemdUnit.Show()
 			if err != nil {
-				log.Fatal(err)
+				logger.GetLogger().Error("Failed to show unit", "error", err)
+				os.Exit(1)
 			}
 		},
 	}

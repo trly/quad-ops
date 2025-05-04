@@ -8,9 +8,13 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/logger"
 )
 
 func TestDeterministicUnitContent(t *testing.T) {
+	// Initialize logger
+	logger.Init(false)
+
 	// Create two identical container configs
 	container1 := NewContainer("test-container")
 	container2 := NewContainer("test-container")
@@ -43,8 +47,8 @@ func TestDeterministicUnitContent(t *testing.T) {
 	}
 
 	// Generate the content - this should be deterministic
-	content1 := GenerateQuadletUnit(*unit1, false)
-	content2 := GenerateQuadletUnit(*unit2, false)
+	content1 := GenerateQuadletUnit(*unit1)
+	content2 := GenerateQuadletUnit(*unit2)
 
 	// Should produce identical content
 	assert.Equal(t, content1, content2, "Unit content should be identical when generated from identical configs")
@@ -63,6 +67,9 @@ func GetContentHash(content string) string {
 }
 
 func TestCustomHostnameNetworkAlias(t *testing.T) {
+	// Initialize logger
+	logger.Init(false)
+
 	// Create mock configuration
 	cfg := config.InitConfig() // Initialize default config
 	config.SetConfig(cfg)
@@ -110,7 +117,7 @@ func TestCustomHostnameNetworkAlias(t *testing.T) {
 	}
 
 	// Generate the content and check it contains both network aliases
-	content := GenerateQuadletUnit(*unit, false)
+	content := GenerateQuadletUnit(*unit)
 	assert.Contains(t, content, "NetworkAlias=db", "Unit content should include service name as NetworkAlias")
 	assert.Contains(t, content, "NetworkAlias=photoprism-db", "Unit content should include custom hostname as NetworkAlias")
 }

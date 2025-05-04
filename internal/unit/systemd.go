@@ -3,10 +3,10 @@ package unit
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/logger"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/ini.v1"
@@ -99,9 +99,7 @@ func (u *BaseSystemdUnit) Start() error {
 		return fmt.Errorf("error starting unit %s: %w", serviceName, err)
 	}
 
-	if config.GetConfig().Verbose {
-		log.Printf("successfully started unit %s\n", serviceName)
-	}
+	logger.GetLogger().Info("Successfully started unit", "name", serviceName)
 	return nil
 }
 
@@ -120,9 +118,7 @@ func (u *BaseSystemdUnit) Stop() error {
 		return fmt.Errorf("error stopping unit %s: %w", serviceName, err)
 	}
 
-	if config.GetConfig().Verbose {
-		log.Printf("successfully stopped unit %s\n", serviceName)
-	}
+	logger.GetLogger().Info("Successfully stopped unit", "name", serviceName)
 	return nil
 }
 
@@ -146,9 +142,7 @@ func (u *BaseSystemdUnit) Restart() error {
 		return fmt.Errorf("unit restart failed: %s", result)
 	}
 
-	if config.GetConfig().Verbose {
-		log.Printf("successfully restarted unit %s\n", serviceName)
-	}
+	logger.GetLogger().Info("Successfully restarted unit", "name", serviceName)
 	return nil
 }
 
@@ -204,9 +198,7 @@ func ReloadSystemd() error {
 	}
 	defer conn.Close()
 
-	if config.GetConfig().Verbose {
-		log.Printf("reloading systemd...")
-	}
+	logger.GetLogger().Debug("Reloading systemd")
 	err = conn.ReloadContext(ctx)
 	if err != nil {
 		return fmt.Errorf("error reloading systemd: %w", err)
@@ -246,12 +238,10 @@ func ShowUnit(unitName string, unitType string) error {
 }
 
 func getSystemdConnection() (*dbus.Conn, error) {
-	if config.GetConfig().Verbose {
-		if config.GetConfig().UserMode {
-			log.Printf("establishing user connection to systemd...")
-		} else {
-			log.Printf("establishing system connection to systemd...")
-		}
+	if config.GetConfig().UserMode {
+		logger.GetLogger().Debug("Establishing user connection to systemd")
+	} else {
+		logger.GetLogger().Debug("Establishing system connection to systemd")
 	}
 
 	if config.GetConfig().UserMode {

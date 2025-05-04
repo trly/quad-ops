@@ -23,7 +23,6 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -32,6 +31,7 @@ import (
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/git"
+	"github.com/trly/quad-ops/internal/logger"
 	"github.com/trly/quad-ops/internal/unit"
 )
 
@@ -65,7 +65,8 @@ repositories:
 
 		Run: func(_ *cobra.Command, _ []string) {
 			if err := os.MkdirAll(config.GetConfig().QuadletDir, 0750); err != nil {
-				log.Fatal("Failed to create quadlet directory:", err)
+				logger.GetLogger().Error("Failed to create quadlet directory", "error", err)
+				os.Exit(1)
 			}
 
 			if syncInterval > 0 {
@@ -93,18 +94,16 @@ func syncRepositories(cfg *config.Config) {
 	processedUnits := make(map[string]bool)
 	for _, repoConfig := range cfg.Repositories {
 		if repoName != "" && repoConfig.Name != repoName {
-			if config.GetConfig().Verbose {
-				log.Printf("skipping repository %s as it does not match the specified repository name", repoConfig.Name)
-			}
+			logger.GetLogger().Debug("Skipping repository as it does not match the specified name", "repo", repoConfig.Name)
 			continue
 		}
 
 		if !dryRun {
-			log.Printf("processing repository: %s", repoConfig.Name)
+			logger.GetLogger().Info("Processing repository", "name", repoConfig.Name)
 
 			gitRepo := git.NewGitRepository(repoConfig)
 			if err := gitRepo.SyncRepository(); err != nil {
-				log.Printf("error syncing repository %s: %v", repoConfig.Name, err)
+				logger.GetLogger().Error("Failed to sync repository", "name", repoConfig.Name, "error", err)
 				continue
 			}
 
@@ -114,13 +113,11 @@ func syncRepositories(cfg *config.Config) {
 				composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
 			}
 
-			if config.GetConfig().Verbose {
-				log.Printf("looking for compose files in: %s", composeDir)
-			}
+			logger.GetLogger().Debug("Looking for compose files", "dir", composeDir)
 
 			projects, err := compose.ReadProjects(composeDir)
 			if err != nil {
-				log.Printf("error reading projects from repository %s: %v", repoConfig.Name, err)
+				logger.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "error", err)
 				continue
 			}
 
@@ -134,25 +131,25 @@ func syncRepositories(cfg *config.Config) {
 
 			updatedMap, err := unit.ProcessComposeProjects(projects, force, processedUnits, isLastRepo)
 			if err != nil {
-				log.Printf("error processing projects from repository %s: %v", repoConfig.Name, err)
+				logger.GetLogger().Error("Failed to process projects from repository", "name", repoConfig.Name, "error", err)
 				continue
 			}
 
 			// Update the shared map with units from this repository
 			processedUnits = updatedMap
 		} else {
-			log.Printf("dry-run: would process repository: %s", repoConfig.Name)
+			logger.GetLogger().Info("Dry-run: would process repository", "name", repoConfig.Name)
 		}
 	}
 }
 
 func syncDaemon(cfg *config.Config) {
-	log.Printf("starting sync daemon with interval: %v", cfg.SyncInterval)
+	logger.GetLogger().Info("Starting sync daemon", "interval", cfg.SyncInterval)
 	ticker := time.NewTicker(cfg.SyncInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		log.Printf("starting scheduled sync")
+		logger.GetLogger().Info("Starting scheduled sync")
 		syncRepositories(cfg)
 	}
 }

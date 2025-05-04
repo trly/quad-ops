@@ -2,13 +2,13 @@
 package git
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/logger"
 )
 
 // Repository represents a Git repository with its local path, remote URL,
@@ -34,9 +34,7 @@ func NewGitRepository(repository config.RepositoryConfig) *Repository {
 // or opens the existing repository and pulls the latest changes if it does.
 // It returns an error if any Git operations fail.
 func (r *Repository) SyncRepository() error {
-	if r.verbose {
-		log.Printf("syncing repository to %s from %s", r.Path, r.URL)
-	}
+	logger.GetLogger().Info("Syncing repository", "path", r.Path, "url", r.URL)
 
 	repo, err := git.PlainClone(r.Path, false, &git.CloneOptions{
 		URL:      r.URL,
@@ -45,9 +43,7 @@ func (r *Repository) SyncRepository() error {
 
 	if err != nil {
 		if err == git.ErrRepositoryAlreadyExists {
-			if r.verbose {
-				log.Printf("repository already exists, opening from %s", r.Path)
-			}
+			logger.GetLogger().Debug("Repository already exists, opening", "path", r.Path)
 
 			repo, err = git.PlainOpen(r.Path)
 			if err != nil {
@@ -66,9 +62,7 @@ func (r *Repository) SyncRepository() error {
 	r.repo = repo
 
 	if r.Reference != "" {
-		if r.verbose {
-			log.Printf("checking out target: %s", r.Reference)
-		}
+		logger.GetLogger().Debug("Checking out target", "ref", r.Reference)
 		return r.checkoutTarget()
 	}
 	return nil
@@ -81,9 +75,7 @@ func (r *Repository) checkoutTarget() error {
 	if err != nil {
 		return err
 	}
-	if r.verbose {
-		log.Printf("attempting to checkout target as commit hash: %s", r.Reference)
-	}
+	logger.GetLogger().Debug("Attempting to checkout target as commit hash", "hash", r.Reference)
 
 	hash := plumbing.NewHash(r.Reference)
 	err = worktree.Checkout(&git.CheckoutOptions{
@@ -92,9 +84,7 @@ func (r *Repository) checkoutTarget() error {
 	if err == nil {
 		return nil
 	}
-	if r.verbose {
-		log.Printf("attempting to checkout target as branch/tag: %s", r.Reference)
-	}
+	logger.GetLogger().Debug("Attempting to checkout target as branch/tag", "ref", r.Reference)
 
 	return worktree.Checkout(&git.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName(r.Reference),
@@ -105,9 +95,7 @@ func (r *Repository) checkoutTarget() error {
 // It returns an error if any Git operations fail, except when the repository
 // is already up to date.
 func (r *Repository) pullLatest() error {
-	if r.verbose {
-		log.Printf("pulling latest changes from origin")
-	}
+	logger.GetLogger().Debug("Pulling latest changes from origin")
 
 	worktree, err := r.repo.Worktree()
 	if err != nil {
@@ -118,8 +106,8 @@ func (r *Repository) pullLatest() error {
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
 	}
-	if r.verbose && err == git.NoErrAlreadyUpToDate {
-		log.Printf("repository is already up to date")
+	if err == git.NoErrAlreadyUpToDate {
+		logger.GetLogger().Debug("Repository is already up to date")
 	}
 	return nil
 }

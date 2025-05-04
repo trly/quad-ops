@@ -2,10 +2,10 @@ package unit
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
+	"github.com/trly/quad-ops/internal/logger"
 	"github.com/trly/quad-ops/internal/util"
 )
 
@@ -291,10 +291,8 @@ func (u *QuadletUnit) generateServiceSection() string {
 }
 
 // GenerateQuadletUnit generates a quadlet unit file content from a unit configuration.
-func GenerateQuadletUnit(unit QuadletUnit, verbose bool) string {
-	if verbose {
-		log.Printf("generating Quadlet unit for %s of type %s", unit.Name, unit.Type)
-	}
+func GenerateQuadletUnit(unit QuadletUnit) string {
+	logger.GetLogger().Debug("Generating Quadlet unit", "name", unit.Name, "type", unit.Type)
 
 	content := unit.generateUnitSection()
 

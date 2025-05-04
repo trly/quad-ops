@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/logger"
 )
 
 // MockCommandRunner implements CommandRunner for testing.
@@ -51,6 +52,9 @@ func TestVerifySystemRequirements_Success(t *testing.T) {
 	}
 	config.SetConfig(testConfig)
 
+	// Initialize logger
+	logger.Init(true)
+
 	// Create mock runner that simulates all commands succeeding
 	mock := &MockCommandRunner{
 		CommandOutputs: map[string]struct {
@@ -88,6 +92,9 @@ func TestVerifySystemRequirements_MissingSystemd(t *testing.T) {
 	}
 	config.SetConfig(testConfig)
 
+	// Initialize logger
+	logger.Init(true)
+
 	// Create mock runner that simulates systemd missing
 	mock := &MockCommandRunner{
 		CommandOutputs: map[string]struct {
@@ -117,6 +124,9 @@ func TestVerifySystemRequirements_InvalidSystemd(t *testing.T) {
 		Verbose: true,
 	}
 	config.SetConfig(testConfig)
+
+	// Initialize logger
+	logger.Init(true)
 
 	// Create mock runner that simulates invalid systemd output
 	mock := &MockCommandRunner{
@@ -158,6 +168,9 @@ func TestVerifySystemRequirements_MissingPodman(t *testing.T) {
 	}
 	config.SetConfig(testConfig)
 
+	// Initialize logger
+	logger.Init(true)
+
 	// Create mock runner that simulates podman missing
 	mock := &MockCommandRunner{
 		CommandOutputs: map[string]struct {
@@ -191,6 +204,9 @@ func TestVerifySystemRequirements_MissingPodmanGenerator(t *testing.T) {
 		Verbose: true,
 	}
 	config.SetConfig(testConfig)
+
+	// Initialize logger
+	logger.Init(true)
 
 	// Create mock runner that simulates podman-system-generator missing
 	mock := &MockCommandRunner{

@@ -6,9 +6,13 @@ import (
 	"testing"
 
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/logger"
 )
 
 func TestNewRepository(t *testing.T) {
+	// Initialize logger
+	logger.Init(true)
+
 	// Create temporary directory for test
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
 	if err != nil {
@@ -46,6 +50,9 @@ func TestNewRepository(t *testing.T) {
 }
 
 func TestSyncRepository(t *testing.T) {
+	// Initialize logger
+	logger.Init(true)
+
 	// Create temporary directory for test
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
 	if err != nil {
@@ -76,6 +83,9 @@ func TestSyncRepository(t *testing.T) {
 }
 
 func TestCheckoutTarget(t *testing.T) {
+	// Initialize logger
+	logger.Init(true)
+
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
 	if err != nil {
 		t.Fatal(err)

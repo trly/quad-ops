@@ -24,7 +24,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -96,7 +95,8 @@ It automatically generates systemd unit files from Docker Compose files and hand
 
 			err = db.Up(*cfg)
 			if err != nil {
-				log.Fatalf("failed to initialize database: %v", err)
+				logger.GetLogger().Error("Failed to initialize database", "error", err)
+				os.Exit(1)
 			}
 		},
 	}

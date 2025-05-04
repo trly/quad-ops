@@ -4,12 +4,12 @@ package db
 import (
 	"database/sql"
 	"embed"
-	"log"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/logger"
 
 	// Register migrate's sqlite3 driver.
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
@@ -40,9 +40,7 @@ func Connect() (*sql.DB, error) {
 		return nil, err
 	}
 
-	if config.GetConfig().Verbose {
-		log.Printf("Connected to database at %s", dbPath)
-	}
+	logger.GetLogger().Info("Connected to database", "path", dbPath)
 
 	return db, nil
 }
@@ -56,12 +54,12 @@ func Up(cfg config.Config) error {
 
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		return err
-	} else if config.GetConfig().Verbose {
-		if err == migrate.ErrNoChange {
-			log.Println("[database] no new migrations to apply")
-		} else {
-			log.Println("[database] migrations applied successfully")
-		}
+	}
+
+	if err == migrate.ErrNoChange {
+		logger.GetLogger().Info("No new database migrations to apply")
+	} else {
+		logger.GetLogger().Info("Database migrations applied successfully")
 	}
 
 	return nil
@@ -75,12 +73,12 @@ func Down(cfg config.Config) error {
 	}
 	if err := m.Down(); err != nil && err != migrate.ErrNoChange {
 		return err
-	} else if config.GetConfig().Verbose {
-		if err == migrate.ErrNoChange {
-			log.Println("[database] no new migrations to apply")
-		} else {
-			log.Println("[database] migrations applied successfully")
-		}
+	}
+
+	if err == migrate.ErrNoChange {
+		logger.GetLogger().Info("No new database migrations to apply")
+	} else {
+		logger.GetLogger().Info("Database migrations applied successfully")
 	}
 
 	return nil
@@ -97,24 +95,18 @@ func getMigrationInstance(cfg config.Config) (*migrate.Migrate, error) {
 		return nil, err
 	}
 
-	// Enable verbose logging if requested
-	if config.GetConfig().Verbose {
-		m.Log = &migrationLogger{verbose: config.GetConfig().Verbose}
-	}
+	// Set up migration logger
+	m.Log = &migrationLogger{}
 
 	return m, nil
 }
 
-type migrationLogger struct {
-	verbose bool
-}
+type migrationLogger struct{}
 
 func (l *migrationLogger) Printf(format string, v ...interface{}) {
-	if l.verbose {
-		log.Printf("[migration] "+format, v...)
-	}
+	logger.GetLogger().Debug("Migration: "+format, v...)
 }
 
 func (l *migrationLogger) Verbose() bool {
-	return l.verbose
+	return true
 }
