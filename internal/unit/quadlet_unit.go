@@ -201,24 +201,26 @@ func (u *QuadletUnit) addHealthCheckConfig(content string) string {
 
 // addResourceConstraints adds resource constraints like memory and CPU limits.
 func (u *QuadletUnit) addResourceConstraints(content string) string {
-	if u.Container.Memory != "" {
-		content += formatKeyValue("Memory", u.Container.Memory)
-	}
-	if u.Container.MemoryReservation != "" {
-		content += formatKeyValue("MemoryReservation", u.Container.MemoryReservation)
-	}
-	if u.Container.MemorySwap != "" {
-		content += formatKeyValue("MemorySwap", u.Container.MemorySwap)
-	}
-	if u.Container.CPUShares != 0 {
-		content += formatKeyValue("CPUShares", fmt.Sprintf("%d", u.Container.CPUShares))
-	}
-	if u.Container.CPUQuota != 0 {
-		content += formatKeyValue("CPUQuota", fmt.Sprintf("%d", u.Container.CPUQuota))
-	}
-	if u.Container.CPUPeriod != 0 {
-		content += formatKeyValue("CPUPeriod", fmt.Sprintf("%d", u.Container.CPUPeriod))
-	}
+	// Memory directives are not supported by Podman Quadlet
+	// We keep these fields for internal calculations but don't include them in the output
+	// if u.Container.Memory != "" {
+	// 	content += formatKeyValue("Memory", u.Container.Memory)
+	// }
+	// if u.Container.MemoryReservation != "" {
+	// 	content += formatKeyValue("MemoryReservation", u.Container.MemoryReservation)
+	// }
+	// if u.Container.MemorySwap != "" {
+	// 	content += formatKeyValue("MemorySwap", u.Container.MemorySwap)
+	// }
+	// CPU directives are not supported by Podman Quadlet
+	// We keep these fields for internal calculations but don't include them in the output
+	// if u.Container.CPUShares != 0 {
+	// 	content += formatKeyValue("CPUShares", fmt.Sprintf("%d", u.Container.CPUShares))
+	// }
+	// if u.Container.CPUQuota != 0 {
+	// 	content += formatKeyValue("CPUQuota", fmt.Sprintf("%d", u.Container.CPUQuota))
+	// }
+	// CPUPeriod is no longer used directly as it's not supported in Podman Quadlet
 	if u.Container.PidsLimit != 0 {
 		content += formatKeyValue("PidsLimit", fmt.Sprintf("%d", u.Container.PidsLimit))
 	}

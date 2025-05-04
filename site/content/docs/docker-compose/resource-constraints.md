@@ -11,17 +11,19 @@ Quad-Ops supports Docker Compose resource constraints and advanced container con
 
 Resource constraints allow you to limit and reserve system resources for containers.
 
-### Supported Resource Constraints
+### Resource Constraints Support
 
-| Docker Compose Property | Podman Quadlet Property | Description |
-|--------------------------|--------------------------|-------------|
-| `mem_limit` | `Memory` | Memory limit (e.g., "512m", "2g") |
-| `mem_reservation` | `MemoryReservation` | Soft memory limit/reservation |
-| `memswap_limit` | `MemorySwap` | Memory plus swap limit |
-| `cpu_shares` | `CPUShares` | CPU shares (relative weight) |
-| `cpu_quota` | `CPUQuota` | Limit CPU CFS quota |
-| `cpu_period` | `CPUPeriod` | Limit CPU CFS period |
-| `pids_limit` | `PidsLimit` | Limit number of processes |
+Quad-Ops tracks resource constraints from Docker Compose files internally but has limited support for generating Podman Quadlet properties due to Quadlet's capabilities.
+
+| Docker Compose Property | Supported in Compose | Supported in Quadlet | Description |
+|--------------------------|---------------------|---------------------|-------------|
+| `mem_limit` | ✅ | ❌ | Memory limit (e.g., "512m", "2g") |
+| `mem_reservation` | ✅ | ❌ | Soft memory limit/reservation |
+| `memswap_limit` | ✅ | ❌ | Memory plus swap limit |
+| `cpu_shares` | ✅ | ❌ | CPU shares (relative weight) |
+| `cpu_quota` | ✅ | ❌ | Limit CPU CFS quota |
+| `cpu_period` | ✅ | ❌ | Limit CPU CFS period |
+| `pids_limit` | ✅ | ✅ | Limit number of processes |
 
 ### Example
 
@@ -72,7 +74,7 @@ services:
 
 ## Implementation Details
 
-Quad-Ops maps Docker Compose resource constraints and advanced configuration to Podman Quadlet directives during the conversion process. These directives are included in the generated container unit files that systemd uses to manage the containers.
+Quad-Ops reads and processes Docker Compose resource constraints and maps supported configuration to Podman Quadlet directives during the conversion process. These directives are included in the generated container unit files that systemd uses to manage the containers.
 
 ### Notes
 
@@ -80,3 +82,12 @@ Quad-Ops maps Docker Compose resource constraints and advanced configuration to 
 - Memory values can use suffixes (b, k, m, g) or be specified in bytes
 - Some advanced features like device_cgroup_rules are not yet implemented
 - For security options where Podman Quadlet doesn't match Docker's exactly, we map to the closest equivalent
+
+### Limitations
+
+- Most memory and CPU constraints defined in Docker Compose files **cannot** be represented in Podman Quadlet files
+- Quad-Ops will track these values internally and log warnings when it encounters unsupported features
+- You will see warning messages like: `Service 'api' uses Memory limits (mem_limit) which is not supported by Podman Quadlet. This setting will be ignored.`
+- Only process limits (`pids_limit`) are fully supported among resource constraints
+- This is a limitation of Podman Quadlet, not Quad-Ops itself
+- Despite these limitations, Quad-Ops will still properly convert and manage your services

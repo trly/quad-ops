@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/trly/quad-ops/internal/logger"
 	"github.com/trly/quad-ops/internal/util"
 )
 
@@ -302,50 +303,90 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 
 // processServiceResources processes resource constraints from a Docker Compose service.
 func (c *Container) processServiceResources(service types.ServiceConfig) {
-	// Memory limits
-	if service.Deploy != nil && service.Deploy.Resources.Limits != nil {
-		// Memory limit
-		if service.Deploy.Resources.Limits.MemoryBytes != 0 {
+	// Track unsupported features to warn about
+	var unsupportedFeatures []string
+	// ========= MEMORY LIMITS =========
+	// Handle service-level memory constraints
+	if service.MemLimit != 0 {
+		c.Memory = fmt.Sprintf("%d", service.MemLimit)
+		unsupportedFeatures = append(unsupportedFeatures, "Memory limits (mem_limit)")
+	}
+
+	if service.MemReservation != 0 {
+		c.MemoryReservation = fmt.Sprintf("%d", service.MemReservation)
+		unsupportedFeatures = append(unsupportedFeatures, "Memory reservation (memory_reservation)")
+	}
+
+	if service.MemSwapLimit != 0 {
+		c.MemorySwap = fmt.Sprintf("%d", service.MemSwapLimit)
+		unsupportedFeatures = append(unsupportedFeatures, "Memory swap (memswap_limit)")
+	}
+
+	// Handle deploy section memory constraints
+	// Note: compose-go validation ensures we won't have both service-level AND deploy constraints
+	if service.Deploy != nil {
+		if service.Deploy.Resources.Limits != nil && service.Deploy.Resources.Limits.MemoryBytes != 0 {
 			c.Memory = fmt.Sprintf("%d", service.Deploy.Resources.Limits.MemoryBytes)
+			unsupportedFeatures = append(unsupportedFeatures, "Memory limits (deploy.resources.limits.memory)")
+		}
+
+		if service.Deploy.Resources.Reservations != nil && service.Deploy.Resources.Reservations.MemoryBytes != 0 {
+			c.MemoryReservation = fmt.Sprintf("%d", service.Deploy.Resources.Reservations.MemoryBytes)
+			unsupportedFeatures = append(unsupportedFeatures, "Memory reservation (deploy.resources.reservations.memory)")
 		}
 	}
 
-	// Direct resource configs (alternative to Deploy section)
-	if service.MemLimit != 0 {
-		c.Memory = fmt.Sprintf("%d", service.MemLimit)
-	}
+	// ========= CPU LIMITS =========
+	// Set default CPU period for quota calculations only
+	var cpuPeriod int64 = 100000 // Default period in microseconds
 
-	// Memory reservation
-	if service.MemReservation != 0 {
-		c.MemoryReservation = fmt.Sprintf("%d", service.MemReservation)
+	// Handle service-level CPU constraints
+	if service.CPUPeriod != 0 {
+		cpuPeriod = service.CPUPeriod
+		unsupportedFeatures = append(unsupportedFeatures, "CPU period (cpu_period)")
 	}
+	c.CPUPeriod = cpuPeriod // Stored but not output in quadlet files (used only for calculations)
 
-	// Memory swap
-	if service.MemSwapLimit != 0 {
-		c.MemorySwap = fmt.Sprintf("%d", service.MemSwapLimit)
-	}
-
-	// CPU shares
-	if service.CPUShares != 0 {
-		c.CPUShares = service.CPUShares
-	} else if service.Deploy != nil && service.Deploy.Resources.Limits != nil && service.Deploy.Resources.Limits.NanoCPUs != 0 {
-		// Convert NanoCPUs to CPU shares (1 CPU = 1024 shares, per Docker implementation)
-		c.CPUShares = int64(service.Deploy.Resources.Limits.NanoCPUs / 1e9 * 1024)
-	}
-
-	// CPU quota
 	if service.CPUQuota != 0 {
 		c.CPUQuota = service.CPUQuota
+		unsupportedFeatures = append(unsupportedFeatures, "CPU quota (cpu_quota)")
+	} else if service.CPUS != 0 {
+		// Convert CPUS (float) to quota
+		c.CPUQuota = int64(float64(service.CPUS) * float64(cpuPeriod))
+		unsupportedFeatures = append(unsupportedFeatures, "CPU cores (cpus)")
 	}
 
-	// CPU period
-	if service.CPUPeriod != 0 {
-		c.CPUPeriod = service.CPUPeriod
+	if service.CPUShares != 0 {
+		c.CPUShares = service.CPUShares
+		unsupportedFeatures = append(unsupportedFeatures, "CPU shares (cpu_shares)")
+	}
+
+	// Handle deploy section CPU constraints
+	// Note: compose-go validation ensures we won't have both service-level AND deploy constraints
+	if service.Deploy != nil && service.Deploy.Resources.Limits != nil && service.Deploy.Resources.Limits.NanoCPUs != 0 {
+		// Convert NanoCPUs to quota if not already set
+		if c.CPUQuota == 0 {
+			c.CPUQuota = int64(float64(service.Deploy.Resources.Limits.NanoCPUs) * float64(cpuPeriod) / 1e9)
+			unsupportedFeatures = append(unsupportedFeatures, "CPU limits (deploy.resources.limits.cpus)")
+		}
+
+		// Convert NanoCPUs to shares if not already set
+		if c.CPUShares == 0 {
+			c.CPUShares = int64(float64(service.Deploy.Resources.Limits.NanoCPUs) / 1e9 * 1024)
+			// Warning already added for CPUQuota, no need to add another one for shares
+		}
 	}
 
 	// Process limit
 	if service.PidsLimit != 0 {
 		c.PidsLimit = service.PidsLimit
+	}
+
+	// Log warnings for unsupported features
+	if len(unsupportedFeatures) > 0 {
+		for _, feature := range unsupportedFeatures {
+			logger.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not supported by Podman Quadlet. This setting will be ignored.", service.Name, feature))
+		}
 	}
 }
 
