@@ -27,6 +27,7 @@ Services in Docker Compose are the core components that define your containers. 
 - `restart`: Restart policy
 - `cap_add`: Add container capabilities
 - `cap_drop`: Drop container capabilities
+- `healthcheck`: Container health checks
 
 ## Example
 
@@ -52,6 +53,12 @@ services:
     labels:
       - "com.example.description=WordPress web application"
     hostname: webapp
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
   
   db:
     image: docker.io/library/mariadb:latest
@@ -67,6 +74,11 @@ services:
       - app-network
     cap_add:
       - SYS_NICE
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 ```
 
 ## Conversion to Podman Container Units
@@ -93,6 +105,12 @@ When Quad-Ops processes a service definition from a Docker Compose file, it crea
 | `restart` | Converted to systemd unit restart policy |
 | `cap_add` | `AddCapability` |
 | `cap_drop` | `DropCapability` |
+| `healthcheck.test` | `HealthCmd` |
+| `healthcheck.interval` | `HealthInterval` |
+| `healthcheck.timeout` | `HealthTimeout` |
+| `healthcheck.retries` | `HealthRetries` |
+| `healthcheck.start_period` | `HealthStartPeriod` |
+| `healthcheck.start_interval` | `HealthStartupInterval` |
 
 ## Important Notes
 
@@ -137,3 +155,41 @@ ALLOWED_HOSTS=host1,host2,host3
 This is especially useful for environment variables that contain special characters that might otherwise be interpreted by the shell, such as asterisks (`*`), quotes (`"'`), spaces, or other special characters.
 
 With this approach, you don't need to escape or specially quote these values in your Docker Compose file, as they will be properly handled by Podman through the environment file.
+
+## Health Checks
+
+Quad-Ops supports Docker Compose health checks, mapping them to Podman Quadlet health check directives. Health checks help ensure that containers are functioning properly and can be used to monitor the health of your services.
+
+### Health Check Configuration
+
+Example health check configuration:
+
+```yaml
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s
+  start_interval: 5s
+```
+
+### Health Check Properties
+
+- **test**: The command to run to check container health
+- **interval**: How often to check health
+- **timeout**: Maximum time to wait for check to complete
+- **retries**: Number of consecutive failures needed to report unhealthy
+- **start_period**: Initial period to wait before first check
+- **start_interval**: Interval between checks during the start period
+
+### Disabling Health Checks
+
+You can disable health checks by setting `disable: true`:
+
+```yaml
+healthcheck:
+  disable: true
+```
+
+When disabled, no health check directives are generated in the resulting Podman Quadlet unit.

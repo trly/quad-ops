@@ -49,9 +49,10 @@ Quad-Ops supports Docker Compose version 3.x files with comprehensive feature co
 | ✅ **Container Relationships** | ❌ **Security Labels** |
 | ✅ **Secrets (File & Environment)** | ❌ **DNS Configuration in Networks** |
 | ✅ **Networks with Aliases** | ❌ **Swarm Mode** |
-| ✅ **Volumes** | ❌ **Health Checks** |
-| ✅ **Resource Dependencies** | ❌ **Docker-specific Extensions** |
+| ✅ **Volumes** | ❌ **Docker-specific Extensions** |
+| ✅ **Resource Dependencies** | |
 | ✅ **Podman Extensions** | |
+| ✅ **Health Checks** | |
 
 ### Podman-Specific Extensions
 

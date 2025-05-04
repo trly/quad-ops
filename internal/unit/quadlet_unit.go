@@ -155,6 +155,27 @@ func (u *QuadletUnit) generateContainerSection() string {
 	if u.Container.ContainerName != "" {
 		content += formatKeyValue("ContainerName", u.Container.ContainerName)
 	}
+
+	// Health check configuration
+	if len(u.Container.HealthCmd) > 0 {
+		content += formatKeyValueSlice("HealthCmd", u.Container.HealthCmd)
+	}
+	if u.Container.HealthInterval != "" {
+		content += formatKeyValue("HealthInterval", u.Container.HealthInterval)
+	}
+	if u.Container.HealthTimeout != "" {
+		content += formatKeyValue("HealthTimeout", u.Container.HealthTimeout)
+	}
+	if u.Container.HealthRetries != 0 {
+		content += formatKeyValue("HealthRetries", fmt.Sprintf("%d", u.Container.HealthRetries))
+	}
+	if u.Container.HealthStartPeriod != "" {
+		content += formatKeyValue("HealthStartPeriod", u.Container.HealthStartPeriod)
+	}
+	if u.Container.HealthStartInterval != "" {
+		content += formatKeyValue("HealthStartupInterval", u.Container.HealthStartInterval)
+	}
+
 	for _, secret := range u.Container.Secrets {
 		content += formatKeyValue("Secret", formatSecret(secret))
 	}

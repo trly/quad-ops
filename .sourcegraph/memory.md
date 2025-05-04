@@ -58,6 +58,17 @@
 - Project naming format: `<repo>-<folder>` (e.g., `test-photoprism` for repositories/home/test/photoprism)
 - Supported file names: `docker-compose.yml`, `docker-compose.yaml`, `compose.yml`, `compose.yaml`
 
+### Health Check Support
+- Docker Compose health checks are mapped to Podman Quadlet health check directives
+- The mapping follows this pattern: (compose → quadlet)
+  - `healthcheck.test` → `HealthCmd`
+  - `healthcheck.interval` → `HealthInterval`
+  - `healthcheck.timeout` → `HealthTimeout`
+  - `healthcheck.retries` → `HealthRetries`
+  - `healthcheck.start_period` → `HealthStartPeriod`
+  - `healthcheck.start_interval` → `HealthStartupInterval`
+- When the `disable: true` flag is set in the health check config, no health check directives are generated
+
 ### Service-Specific Environment Files
 - Automatically detects and uses service-specific environment files present in the compose directory
 - Supported file patterns for a service named `service1`:

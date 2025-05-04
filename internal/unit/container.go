@@ -33,6 +33,13 @@ type Container struct {
 	HostName      string
 	ContainerName string
 	Secrets       []Secret
+	// Health check settings
+	HealthCmd           []string
+	HealthInterval      string
+	HealthTimeout       string
+	HealthRetries       int
+	HealthStartPeriod   string
+	HealthStartInterval string
 
 	// Systemd unit properties
 	Name     string
@@ -52,16 +59,71 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 	// Initialize RunInit to avoid nil pointer dereference
 	c.RunInit = new(bool)
 	*c.RunInit = true
+
+	// Basic fields
+	c.setBasicServiceFields(service)
+
+	// Process ports
+	c.processServicePorts(service)
+
+	// Process environment variables and files
+	c.processServiceEnvironment(service)
+
+	// Process volumes
+	c.processServiceVolumes(service, projectName)
+
+	// Process networks
+	c.processServiceNetworks(service, projectName)
+
+	// Process health check configuration
+	c.processServiceHealthCheck(service)
+
+	// Process secrets
+	c.processServiceSecrets(service)
+
+	// Sort all container fields for deterministic output
+	sortContainer(c)
+
+	return c
+}
+
+// setBasicServiceFields sets simple fields directly from the service config.
+func (c *Container) setBasicServiceFields(service types.ServiceConfig) {
 	// No automatic image name conversion - use exactly what's provided in the compose file
 	c.Image = service.Image
 	c.Label = append(c.Label, service.Labels.AsList()...)
+	c.Exec = service.Command
+	c.Entrypoint = service.Entrypoint
+	c.User = service.User
+	c.WorkingDir = service.WorkingDir
 
+	// Handle the RunInit field - make sure it's not nil before assigning
+	if service.Init != nil {
+		c.RunInit = service.Init
+	} else {
+		// Set a default value for RunInit
+		defaultInit := false
+		c.RunInit = &defaultInit
+	}
+
+	// Privileged is not supported by podman-systemd
+	c.ReadOnly = service.ReadOnly
+	// SecurityLabel is not supported by podman-systemd
+	c.HostName = service.Hostname
+}
+
+// processServicePorts converts service ports to container ports.
+func (c *Container) processServicePorts(service types.ServiceConfig) {
 	if len(service.Ports) > 0 {
 		for _, port := range service.Ports {
 			c.PublishPort = append(c.PublishPort, fmt.Sprintf("%s:%d", port.Published, port.Target))
 		}
 	}
+}
 
+// processServiceEnvironment handles environment variables and files.
+func (c *Container) processServiceEnvironment(service types.ServiceConfig) {
+	// Process environment variables
 	if service.Environment != nil {
 		if c.Environment == nil {
 			c.Environment = make(map[string]string)
@@ -83,12 +145,16 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 		}
 	}
 
+	// Process environment files
 	if len(service.EnvFiles) > 0 {
 		for _, envFile := range service.EnvFiles {
 			c.EnvironmentFile = append(c.EnvironmentFile, envFile.Path)
 		}
 	}
+}
 
+// processServiceVolumes handles volume mounts.
+func (c *Container) processServiceVolumes(service types.ServiceConfig, projectName string) {
 	if len(service.Volumes) > 0 {
 		for _, vol := range service.Volumes {
 			// Handle different volume types
@@ -102,7 +168,10 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 			}
 		}
 	}
+}
 
+// processServiceNetworks handles network connections.
+func (c *Container) processServiceNetworks(service types.ServiceConfig, projectName string) {
 	if len(service.Networks) > 0 {
 		for netName, net := range service.Networks {
 			networkRef := ""
@@ -132,25 +201,35 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 		defaultNetworkRef := fmt.Sprintf("%s-default.network", projectName)
 		c.Network = append(c.Network, defaultNetworkRef)
 	}
+}
 
-	c.Exec = service.Command
-	c.Entrypoint = service.Entrypoint
-	c.User = service.User
-	c.WorkingDir = service.WorkingDir
-	// Handle the RunInit field - make sure it's not nil before assigning
-	if service.Init != nil {
-		c.RunInit = service.Init
-	} else {
-		// Set a default value for RunInit
-		defaultInit := false
-		c.RunInit = &defaultInit
+// processServiceHealthCheck converts health check configuration.
+func (c *Container) processServiceHealthCheck(service types.ServiceConfig) {
+	if service.HealthCheck != nil && !service.HealthCheck.Disable {
+		if len(service.HealthCheck.Test) > 0 {
+			c.HealthCmd = service.HealthCheck.Test
+		}
+		if service.HealthCheck.Interval != nil {
+			c.HealthInterval = service.HealthCheck.Interval.String()
+		}
+		if service.HealthCheck.Timeout != nil {
+			c.HealthTimeout = service.HealthCheck.Timeout.String()
+		}
+		if service.HealthCheck.Retries != nil {
+			// Using a safe conversion for healthcheck retries
+			c.HealthRetries = convertUint64ToInt(*service.HealthCheck.Retries)
+		}
+		if service.HealthCheck.StartPeriod != nil {
+			c.HealthStartPeriod = service.HealthCheck.StartPeriod.String()
+		}
+		if service.HealthCheck.StartInterval != nil {
+			c.HealthStartInterval = service.HealthCheck.StartInterval.String()
+		}
 	}
-	// Privileged is not supported by podman-systemd
-	c.ReadOnly = service.ReadOnly
-	// SecurityLabel is not supported by podman-systemd
-	// Use specific security label options like SecurityLabelType instead
-	c.HostName = service.Hostname
+}
 
+// processServiceSecrets converts Docker Compose secrets to Podman Quadlet secrets.
+func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 	// Process standard file-based Docker Compose secrets
 	for _, secret := range service.Secrets {
 		// Create file-based secret (standard Docker behavior)
@@ -191,11 +270,15 @@ func (c *Container) FromComposeService(service types.ServiceConfig, projectName 
 			}
 		}
 	}
+}
 
-	// Sort all container fields for deterministic output
-	sortContainer(c)
-
-	return c
+// convertUint64ToInt safely converts uint64 to int, preventing overflow.
+func convertUint64ToInt(val uint64) int {
+	const maxInt = int(^uint(0) >> 1) // Maximum int value
+	if val > uint64(maxInt) {
+		return maxInt
+	}
+	return int(val)
 }
 
 // GetServiceName returns the full systemd service name.
@@ -294,6 +377,11 @@ func sortContainer(container *Container) {
 
 	if len(container.Entrypoint) > 0 {
 		sort.Strings(container.Entrypoint)
+	}
+
+	// Sort HealthCmd if present
+	if len(container.HealthCmd) > 0 {
+		sort.Strings(container.HealthCmd)
 	}
 
 	// Sort secrets by source
