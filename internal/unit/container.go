@@ -404,8 +404,7 @@ func (c *Container) processServiceResources(service types.ServiceConfig) {
 	// Process limit
 	if service.PidsLimit != 0 {
 		c.PidsLimit = service.PidsLimit
-		// PidsLimit is supported by Quadlet, but add for consistency
-		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--pids-limit=%d", service.PidsLimit))
+		// PidsLimit is natively supported by Quadlet, so no need to add to PodmanArgs
 	}
 
 	// Handle Privileged mode (not directly supported by Quadlet)
