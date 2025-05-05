@@ -10,18 +10,18 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 // initTestLogger initializes a logger for testing that discards output.
 func initTestLogger() {
 	// Create a handler that discards output
 	handler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
-	log := slog.New(handler)
-	slog.SetDefault(log)
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
 
 	// Set it as default in our logger package too
-	logger.Init(false)
+	log.Init(false)
 }
 
 func TestServiceSpecificEnvironmentFiles(t *testing.T) {

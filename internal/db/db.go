@@ -9,7 +9,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 
 	// Register migrate's sqlite3 driver.
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
@@ -22,7 +22,7 @@ import (
 var migrationsFS embed.FS
 
 // GetConnectionString returns the database connection string.
-func GetConnectionString(cfg config.Config) string {
+func GetConnectionString(cfg config.Settings) string {
 	return "sqlite3://" + cfg.DBPath
 }
 
@@ -40,13 +40,13 @@ func Connect() (*sql.DB, error) {
 		return nil, err
 	}
 
-	logger.GetLogger().Info("Connected to database", "path", dbPath)
+	log.GetLogger().Info("Connected to database", "path", dbPath)
 
 	return db, nil
 }
 
 // Up runs database migrations to latest version.
-func Up(cfg config.Config) error {
+func Up(cfg config.Settings) error {
 	m, err := getMigrationInstance(cfg)
 	if err != nil {
 		return err
@@ -57,16 +57,16 @@ func Up(cfg config.Config) error {
 	}
 
 	if err == migrate.ErrNoChange {
-		logger.GetLogger().Info("No new database migrations to apply")
+		log.GetLogger().Info("No new database migrations to apply")
 	} else {
-		logger.GetLogger().Info("Database migrations applied successfully")
+		log.GetLogger().Info("Database migrations applied successfully")
 	}
 
 	return nil
 }
 
 // Down rolls back all database migrations.
-func Down(cfg config.Config) error {
+func Down(cfg config.Settings) error {
 	m, err := getMigrationInstance(cfg)
 	if err != nil {
 		return err
@@ -76,14 +76,14 @@ func Down(cfg config.Config) error {
 	}
 
 	if err == migrate.ErrNoChange {
-		logger.GetLogger().Info("No new database migrations to apply")
+		log.GetLogger().Info("No new database migrations to apply")
 	} else {
-		logger.GetLogger().Info("Database migrations applied successfully")
+		log.GetLogger().Info("Database migrations applied successfully")
 	}
 
 	return nil
 }
-func getMigrationInstance(cfg config.Config) (*migrate.Migrate, error) {
+func getMigrationInstance(cfg config.Settings) (*migrate.Migrate, error) {
 	dbConnStr := GetConnectionString(cfg)
 	sourceDriver, err := iofs.New(migrationsFS, "migrations")
 	if err != nil {
@@ -104,7 +104,7 @@ func getMigrationInstance(cfg config.Config) (*migrate.Migrate, error) {
 type migrationLogger struct{}
 
 func (l *migrationLogger) Printf(format string, v ...interface{}) {
-	logger.GetLogger().Debug("Migration: "+format, v...)
+	log.GetLogger().Debug("Migration: "+format, v...)
 }
 
 func (l *migrationLogger) Verbose() bool {

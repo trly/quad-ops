@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"gopkg.in/ini.v1"
@@ -99,7 +99,7 @@ func (u *BaseSystemdUnit) Start() error {
 		return fmt.Errorf("error starting unit %s: %w", serviceName, err)
 	}
 
-	logger.GetLogger().Info("Successfully started unit", "name", serviceName)
+	log.GetLogger().Info("Successfully started unit", "name", serviceName)
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (u *BaseSystemdUnit) Stop() error {
 		return fmt.Errorf("error stopping unit %s: %w", serviceName, err)
 	}
 
-	logger.GetLogger().Info("Successfully stopped unit", "name", serviceName)
+	log.GetLogger().Info("Successfully stopped unit", "name", serviceName)
 	return nil
 }
 
@@ -142,7 +142,7 @@ func (u *BaseSystemdUnit) Restart() error {
 		return fmt.Errorf("unit restart failed: %s", result)
 	}
 
-	logger.GetLogger().Info("Successfully restarted unit", "name", serviceName)
+	log.GetLogger().Info("Successfully restarted unit", "name", serviceName)
 	return nil
 }
 
@@ -206,7 +206,7 @@ func ReloadSystemd() error {
 	}
 	defer conn.Close()
 
-	logger.GetLogger().Debug("Reloading systemd")
+	log.GetLogger().Debug("Reloading systemd")
 	err = conn.ReloadContext(ctx)
 	if err != nil {
 		return fmt.Errorf("error reloading systemd: %w", err)
@@ -215,31 +215,41 @@ func ReloadSystemd() error {
 	return nil
 }
 
-// GetUnitStatus - Legacy function for backward compatibility.
+// GetUnitStatus returns the status of a systemd unit.
+//
+// Deprecated: Use SystemdUnit interface methods instead. This function will be removed in v2.0.
 func GetUnitStatus(unitName string, unitType string) (string, error) {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.GetStatus()
 }
 
-// RestartUnit - Legacy function for backward compatibility.
+// RestartUnit restarts a systemd unit.
+//
+// Deprecated: Use SystemdUnit interface methods instead. This function will be removed in v2.0.
 func RestartUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Restart()
 }
 
-// StartUnit - Legacy function for backward compatibility.
+// StartUnit starts a systemd unit.
+//
+// Deprecated: Use SystemdUnit interface methods instead. This function will be removed in v2.0.
 func StartUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Start()
 }
 
-// StopUnit - Legacy function for backward compatibility.
+// StopUnit stops a systemd unit.
+//
+// Deprecated: Use SystemdUnit interface methods instead. This function will be removed in v2.0.
 func StopUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Stop()
 }
 
-// ShowUnit - Legacy function for backward compatibility.
+// ShowUnit displays information about a systemd unit.
+//
+// Deprecated: Use SystemdUnit interface methods instead. This function will be removed in v2.0.
 func ShowUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Show()
@@ -247,9 +257,9 @@ func ShowUnit(unitName string, unitType string) error {
 
 func getSystemdConnection() (*dbus.Conn, error) {
 	if config.GetConfig().UserMode {
-		logger.GetLogger().Debug("Establishing user connection to systemd")
+		log.GetLogger().Debug("Establishing user connection to systemd")
 	} else {
-		logger.GetLogger().Debug("Establishing system connection to systemd")
+		log.GetLogger().Debug("Establishing system connection to systemd")
 	}
 
 	if config.GetConfig().UserMode {

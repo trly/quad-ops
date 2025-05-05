@@ -10,7 +10,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/cli"
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 // ReadProjects reads all Docker Compose projects from a directory path.
@@ -36,21 +36,21 @@ func ReadProjects(path string) ([]*types.Project, error) {
 		return nil, fmt.Errorf("path is not a directory: %s", path)
 	}
 
-	logger.GetLogger().Debug("Reading docker-compose files", "path", path)
+	log.GetLogger().Debug("Reading docker-compose files", "path", path)
 
 	composeFilesFound := false
 
-	logger.GetLogger().Debug("Walking directory to find compose files", "path", path)
+	log.GetLogger().Debug("Walking directory to find compose files", "path", path)
 
 	err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			// Log the error but continue walking if possible
-			logger.GetLogger().Debug("Error accessing path", "path", filePath, "error", err)
+			log.GetLogger().Debug("Error accessing path", "path", filePath, "error", err)
 			return nil
 		}
 
 		// Add verbose logging for all files
-		logger.GetLogger().Debug("Examining path", "path", filePath, "isDir", info.IsDir(), "ext", filepath.Ext(filePath))
+		log.GetLogger().Debug("Examining path", "path", filePath, "isDir", info.IsDir(), "ext", filepath.Ext(filePath))
 
 		if !info.IsDir() && (filepath.Ext(filePath) == ".yaml" || filepath.Ext(filePath) == ".yml") {
 			// Check if the file name starts with docker-compose or compose
@@ -61,7 +61,7 @@ func ReadProjects(path string) ([]*types.Project, error) {
 			if baseName == "docker-compose.yml" || baseName == "docker-compose.yaml" ||
 				baseName == "compose.yml" || baseName == "compose.yaml" {
 				isComposeFile = true
-				logger.GetLogger().Debug("Found compose file", "path", filePath)
+				log.GetLogger().Debug("Found compose file", "path", filePath)
 			}
 
 			if isComposeFile {
@@ -69,7 +69,7 @@ func ReadProjects(path string) ([]*types.Project, error) {
 				project, err := ParseComposeFile(filePath)
 				if err != nil {
 					// Log parsing errors at error level so they're visible without verbose mode
-					logger.GetLogger().Error("Error parsing compose file", "path", filePath, "error", err)
+					log.GetLogger().Error("Error parsing compose file", "path", filePath, "error", err)
 					// Continue processing other files
 					return nil
 				}
@@ -85,7 +85,7 @@ func ReadProjects(path string) ([]*types.Project, error) {
 
 	// No compose files found in the directory
 	if !composeFilesFound {
-		logger.GetLogger().Debug("No docker-compose files found", "path", path)
+		log.GetLogger().Debug("No docker-compose files found", "path", path)
 		// Return empty list instead of error, as this is not necessarily an error condition
 	}
 

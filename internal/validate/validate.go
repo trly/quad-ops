@@ -1,12 +1,12 @@
-// Package validation provides application validation functionality
-package validation
+// Package validate provides functions to validate various aspects of the application.
+package validate
 
 import (
 	"fmt"
 	"os/exec"
 	"strings"
 
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 // CommandRunner defines an interface for executing commands.
@@ -35,9 +35,9 @@ func ResetCommandRunner() {
 	defaultRunner = &RealCommandRunner{}
 }
 
-// VerifySystemRequirements checks if all required system tools are installed.
-func VerifySystemRequirements() error {
-	logger.GetLogger().Debug("Validating systemd availability")
+// SystemRequirements checks if all required system tools are installed.
+func SystemRequirements() error {
+	log.GetLogger().Debug("Validating systemd availability")
 
 	systemdVersion, err := defaultRunner.Run("systemctl", "--version")
 	if err != nil {
@@ -48,14 +48,14 @@ func VerifySystemRequirements() error {
 		return fmt.Errorf("systemd not properly installed")
 	}
 
-	logger.GetLogger().Debug("Validating podman availability")
+	log.GetLogger().Debug("Validating podman availability")
 
 	_, err = defaultRunner.Run("podman", "--version")
 	if err != nil {
 		return fmt.Errorf("podman not found: %w", err)
 	}
 
-	logger.GetLogger().Debug("Validating podman-system-generator availability")
+	log.GetLogger().Debug("Validating podman-system-generator availability")
 
 	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
 	_, err = defaultRunner.Run("test", "-f", generatorPath)

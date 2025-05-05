@@ -9,6 +9,7 @@ import (
 
 // Network represents the configuration for a network in a Quadlet unit.
 type Network struct {
+	BaseUnit          // Embed the base struct
 	Label    []string `yaml:"label"`
 	Driver   string   `yaml:"driver"`
 	Gateway  string   `yaml:"gateway"`
@@ -19,63 +20,16 @@ type Network struct {
 	// DNSEnabled removed - not supported by podman-systemd
 	Options     []string `yaml:"options"`
 	NetworkName string   `yaml:"network_name"`
-
-	// Systemd unit properties
-	Name     string
-	UnitType string
 }
 
 // NewNetwork creates a new Network with the given name.
 func NewNetwork(name string) *Network {
 	return &Network{
-		Name:     name,
-		UnitType: "network",
+		BaseUnit: BaseUnit{
+			Name:     name,
+			UnitType: "network",
+		},
 	}
-}
-
-// GetServiceName returns the full systemd service name.
-func (n *Network) GetServiceName() string {
-	return n.Name + "-network.service"
-}
-
-// GetUnitType returns the type of the unit.
-func (n *Network) GetUnitType() string {
-	return "network"
-}
-
-// GetUnitName returns the name of the unit.
-func (n *Network) GetUnitName() string {
-	return n.Name
-}
-
-// GetStatus returns the current status of the unit.
-func (n *Network) GetStatus() (string, error) {
-	base := BaseSystemdUnit{Name: n.Name, Type: "network"}
-	return base.GetStatus()
-}
-
-// Start starts the unit.
-func (n *Network) Start() error {
-	base := BaseSystemdUnit{Name: n.Name, Type: "network"}
-	return base.Start()
-}
-
-// Stop stops the unit.
-func (n *Network) Stop() error {
-	base := BaseSystemdUnit{Name: n.Name, Type: "network"}
-	return base.Stop()
-}
-
-// Restart restarts the unit.
-func (n *Network) Restart() error {
-	base := BaseSystemdUnit{Name: n.Name, Type: "network"}
-	return base.Restart()
-}
-
-// Show displays the unit configuration and status.
-func (n *Network) Show() error {
-	base := BaseSystemdUnit{Name: n.Name, Type: "network"}
-	return base.Show()
 }
 
 // FromComposeNetwork creates a Network from a Docker Compose network configuration.

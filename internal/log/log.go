@@ -1,5 +1,5 @@
-// Package logger provides logging functionality for quad-ops
-package logger
+// Package log provides logging functionality for quad-ops.
+package log
 
 import (
 	"log/slog"
@@ -8,7 +8,7 @@ import (
 
 var log *slog.Logger
 
-// Init initializes the application logger.
+// Init initializes the application log.
 func Init(verbose bool) {
 	opts := &slog.HandlerOptions{
 		Level: slog.LevelInfo,

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 // Change tracks changes to a unit.
@@ -16,7 +16,7 @@ type Change struct {
 
 // StartUnitDependencyAware starts or restarts a unit while being dependency-aware.
 func StartUnitDependencyAware(unitName string, unitType string, dependencyTree map[string]*ServiceDependency) error {
-	logger.GetLogger().Debug("Starting/restarting unit with dependency awareness", "unit", unitName, "type", unitType)
+	log.GetLogger().Debug("Starting/restarting unit with dependency awareness", "unit", unitName, "type", unitType)
 
 	// For network and volume units, start them first before containers
 	if unitType == "network" || unitType == "volume" {
@@ -37,7 +37,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyTree m
 	parts := splitUnitName(unitName)
 	if len(parts) != 2 {
 		// Invalid unit name format, fall back to regular restart
-		logger.GetLogger().Info("Invalid unit name format", "unit", unitName)
+		log.GetLogger().Info("Invalid unit name format", "unit", unitName)
 		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 		return unit.Restart()
 	}
@@ -48,7 +48,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyTree m
 	// Check if this service is in the dependency tree
 	if _, ok := dependencyTree[serviceName]; !ok {
 		// Service not in dependency tree, fall back to regular restart
-		logger.GetLogger().Debug("Service not found in dependency tree, using normal restart", "service", serviceName)
+		log.GetLogger().Debug("Service not found in dependency tree, using normal restart", "service", serviceName)
 		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 		return unit.Restart()
 	}
@@ -58,13 +58,13 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyTree m
 
 	// If no dependent service, just restart this one
 	if dependent == "" {
-		logger.GetLogger().Debug("No dependent services found, restarting directly", "service", serviceName)
+		log.GetLogger().Debug("No dependent services found, restarting directly", "service", serviceName)
 		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 		return unit.Restart()
 	}
 
 	// Found a top-level dependent service, restart that instead
-	logger.GetLogger().Debug("Found top-level dependent service, restarting that instead", "dependent", dependent, "service", serviceName)
+	log.GetLogger().Debug("Found top-level dependent service, restarting that instead", "dependent", dependent, "service", serviceName)
 
 	// Format the systemd unit service name correctly
 	dependentUnitName := fmt.Sprintf("%s-%s", projectName, dependent)
@@ -111,7 +111,7 @@ func splitUnitName(unitName string) []string {
 func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[string]map[string]*ServiceDependency) error {
 	err := ReloadSystemd()
 	if err != nil {
-		logger.GetLogger().Error("Failed to reload systemd units", "error", err)
+		log.GetLogger().Error("Failed to reload systemd units", "error", err)
 		return err
 	}
 
@@ -123,9 +123,9 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 		if unit.Type == "network" || unit.Type == "volume" {
 			systemdUnit := unit.GetSystemdUnit()
 			if err := systemdUnit.Restart(); err != nil {
-				logger.GetLogger().Error("Failed to restart unit", "type", unit.Type, "name", unit.Name, "error", err)
+				log.GetLogger().Error("Failed to restart unit", "type", unit.Type, "name", unit.Name, "error", err)
 			} else {
-				logger.GetLogger().Debug("Successfully restarted unit", "name", unit.Name, "type", "service")
+				log.GetLogger().Debug("Successfully restarted unit", "name", unit.Name, "type", "service")
 			}
 		}
 	}
@@ -149,7 +149,7 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 			systemdUnit := unit.GetSystemdUnit()
 			err := systemdUnit.Restart()
 			if err != nil {
-				logger.GetLogger().Error("Failed to restart unit", "name", unit.Name, "error", err)
+				log.GetLogger().Error("Failed to restart unit", "name", unit.Name, "error", err)
 			}
 			restarted[unitKey] = true
 			continue
@@ -162,7 +162,7 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 			systemdUnit := unit.GetSystemdUnit()
 			err := systemdUnit.Restart()
 			if err != nil {
-				logger.GetLogger().Error("Failed to restart unit", "name", unit.Name, "error", err)
+				log.GetLogger().Error("Failed to restart unit", "name", unit.Name, "error", err)
 			}
 			restarted[unitKey] = true
 			continue
@@ -178,7 +178,7 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 			systemdUnit := unit.GetSystemdUnit()
 			err := systemdUnit.Restart()
 			if err != nil {
-				logger.GetLogger().Error("Failed to restart unit", "name", unit.Name, "error", err)
+				log.GetLogger().Error("Failed to restart unit", "name", unit.Name, "error", err)
 			}
 			restarted[unitKey] = true
 			continue
@@ -186,14 +186,14 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 
 		// Skip if this service or any dependent service has already been restarted
 		if isServiceAlreadyRestarted(serviceName, dependencyTree, projectName, restarted) {
-			logger.GetLogger().Debug("Skipping restart as unit or its dependent services were already restarted", "name", unit.Name)
+			log.GetLogger().Debug("Skipping restart as unit or its dependent services were already restarted", "name", unit.Name)
 			continue
 		}
 
 		// Use dependency-aware restart
 		err := StartUnitDependencyAware(unit.Name, unit.Type, dependencyTree)
 		if err != nil {
-			logger.GetLogger().Error("Failed to restart unit", "name", unit.Name, "error", err)
+			log.GetLogger().Error("Failed to restart unit", "name", unit.Name, "error", err)
 		}
 
 		// Mark all dependent services as restarted since they will be restarted by systemd

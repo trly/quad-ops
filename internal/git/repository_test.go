@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 func TestNewRepository(t *testing.T) {
 	// Initialize logger
-	logger.Init(true)
+	log.Init(true)
 
 	// Create temporary directory for test
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
@@ -21,13 +21,13 @@ func TestNewRepository(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Initialize config before running the test
-	cfg := &config.Config{
+	cfg := &config.Settings{
 		RepositoryDir: tmpDir,
 		Verbose:       true,
 	}
 	config.SetConfig(cfg)
 
-	testRepo := config.RepositoryConfig{
+	testRepo := config.Repository{
 		Name:      "test-repo",
 		URL:       "https://github.com/test/repo.git",
 		Reference: "main",
@@ -51,7 +51,7 @@ func TestNewRepository(t *testing.T) {
 
 func TestSyncRepository(t *testing.T) {
 	// Initialize logger
-	logger.Init(true)
+	log.Init(true)
 
 	// Create temporary directory for test
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
@@ -61,13 +61,13 @@ func TestSyncRepository(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Set up test config
-	cfg := &config.Config{
+	cfg := &config.Settings{
 		RepositoryDir: tmpDir,
 		Verbose:       true,
 	}
 	config.SetConfig(cfg)
 
-	testRepo := config.RepositoryConfig{
+	testRepo := config.Repository{
 		Name:      "test-repo",
 		URL:       "https://github.com/test/repo.git",
 		Reference: "main",
@@ -84,7 +84,7 @@ func TestSyncRepository(t *testing.T) {
 
 func TestCheckoutTarget(t *testing.T) {
 	// Initialize logger
-	logger.Init(true)
+	log.Init(true)
 
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
 	if err != nil {
@@ -92,13 +92,13 @@ func TestCheckoutTarget(t *testing.T) {
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	cfg := &config.Config{
+	cfg := &config.Settings{
 		RepositoryDir: tmpDir,
 		Verbose:       true,
 	}
 	config.SetConfig(cfg)
 
-	testRepo := config.RepositoryConfig{
+	testRepo := config.Repository{
 		Name:      "test-repo",
 		URL:       "https://github.com/test/repo.git",
 		Reference: "main",

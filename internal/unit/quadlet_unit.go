@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/util"
 )
 
@@ -443,7 +443,7 @@ func (u *QuadletUnit) generateServiceSection() string {
 
 // GenerateQuadletUnit generates a quadlet unit file content from a unit configuration.
 func GenerateQuadletUnit(unit QuadletUnit) string {
-	logger.GetLogger().Debug("Generating Quadlet unit", "name", unit.Name, "type", unit.Type)
+	log.GetLogger().Debug("Generating Quadlet unit", "name", unit.Name, "type", unit.Type)
 
 	content := unit.generateUnitSection()
 

@@ -11,7 +11,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 // ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units.
@@ -36,24 +36,24 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 
 	// Process each project
 	for _, project := range projects {
-		logger.GetLogger().Info("Processing compose project", "project", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
+		log.GetLogger().Info("Processing compose project", "project", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
 
 		// Build the bidirectional dependency tree for the project
 		dependencyTree := BuildServiceDependencyTree(project)
 
 		// Process services (containers)
 		if err := processServices(project, dependencyTree, unitRepo, force, processedUnits, &changedUnits); err != nil {
-			logger.GetLogger().Error("Failed to process services", "error", err)
+			log.GetLogger().Error("Failed to process services", "error", err)
 		}
 
 		// Process volumes
 		if err := processVolumes(project, unitRepo, force, processedUnits, &changedUnits); err != nil {
-			logger.GetLogger().Error("Failed to process volumes", "error", err)
+			log.GetLogger().Error("Failed to process volumes", "error", err)
 		}
 
 		// Process networks
 		if err := processNetworks(project, unitRepo, force, processedUnits, &changedUnits); err != nil {
-			logger.GetLogger().Error("Failed to process networks", "error", err)
+			log.GetLogger().Error("Failed to process networks", "error", err)
 		}
 
 		// Process secrets - note that in Podman, secrets are handled as part of containers
@@ -73,14 +73,14 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 
 		// Use dependency-aware restart for changed units
 		if err := RestartChangedUnits(changedUnits, projectDependencyTrees); err != nil {
-			logger.GetLogger().Error("Failed to restart changed units", "error", err)
+			log.GetLogger().Error("Failed to restart changed units", "error", err)
 		}
 	}
 
 	// Clean up any orphaned units only if requested
 	if doCleanup {
 		if err := CleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
-			logger.GetLogger().Error("Failed to clean up orphaned units", "error", err)
+			log.GetLogger().Error("Failed to clean up orphaned units", "error", err)
 		}
 	}
 
@@ -133,7 +133,7 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 				existingUnit.Name != unit.Name &&
 				(strings.HasSuffix(existingUnit.Name, unit.Name) || strings.HasSuffix(unit.Name, existingUnit.Name)) {
 				hasNamingConflict = true
-				logger.GetLogger().Debug("Detected potential naming conflict", "existing", existingUnit.Name, "new", unit.Name)
+				log.GetLogger().Debug("Detected potential naming conflict", "existing", existingUnit.Name, "new", unit.Name)
 				break
 			}
 		}
@@ -143,11 +143,11 @@ func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUn
 	if force || hasChanged || hasNamingConflict {
 		// When verbose, log that a change was detected
 		if hasChanged {
-			logger.GetLogger().Debug("Unit content has changed", "name", unit.Name, "type", unit.Type)
+			log.GetLogger().Debug("Unit content has changed", "name", unit.Name, "type", unit.Type)
 		} else if hasNamingConflict {
-			logger.GetLogger().Debug("Unit naming scheme has changed", "name", unit.Name, "type", unit.Type)
+			log.GetLogger().Debug("Unit naming scheme has changed", "name", unit.Name, "type", unit.Type)
 		} else {
-			logger.GetLogger().Debug("Force updating unit", "name", unit.Name, "type", unit.Type)
+			log.GetLogger().Debug("Force updating unit", "name", unit.Name, "type", unit.Type)
 		}
 
 		// Write the file
@@ -186,13 +186,13 @@ func hasUnitChanged(unitPath, content string) bool {
 	}
 
 	// If verbose logging is enabled, print hash comparison details
-	logger.GetLogger().Debug("Content hash comparison",
+	log.GetLogger().Debug("Content hash comparison",
 		"existing", fmt.Sprintf("%x", getContentHash(string(existingContent))),
 		"new", fmt.Sprintf("%x", getContentHash(content)))
 
 	// Compare the actual content directly instead of hashes
 	if string(existingContent) == content {
-		logger.GetLogger().Debug("Unit unchanged, skipping", "path", unitPath)
+		log.GetLogger().Debug("Unit unchanged, skipping", "path", unitPath)
 		return false
 	}
 
@@ -201,7 +201,7 @@ func hasUnitChanged(unitPath, content string) bool {
 }
 
 func writeUnitFile(unitPath, content string) error {
-	logger.GetLogger().Debug("Writing quadlet unit", "path", unitPath)
+	log.GetLogger().Debug("Writing quadlet unit", "path", unitPath)
 	return os.WriteFile(unitPath, []byte(content), 0600)
 }
 
@@ -228,7 +228,7 @@ func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) 
 	for _, existingUnit := range existingUnits {
 		if existingUnit.Name == unit.Name && existingUnit.Type == unit.Type {
 			if existingUnit.CleanupPolicy != cleanupPolicy {
-				logger.GetLogger().Debug("Updating cleanup policy", "name", existingUnit.Name, "type", existingUnit.Type, "old", existingUnit.CleanupPolicy, "new", cleanupPolicy)
+				log.GetLogger().Debug("Updating cleanup policy", "name", existingUnit.Name, "type", existingUnit.Type, "old", existingUnit.CleanupPolicy, "new", cleanupPolicy)
 			}
 			break
 		}
@@ -262,9 +262,9 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 
 		if isOrphaned || hasModeMismatch {
 			if isOrphaned {
-				logger.GetLogger().Info("Cleaning up orphaned unit", "unit", unitKey, "policy", dbUnit.CleanupPolicy)
+				log.GetLogger().Info("Cleaning up orphaned unit", "unit", unitKey, "policy", dbUnit.CleanupPolicy)
 			} else {
-				logger.GetLogger().Info("Cleaning up unit due to user mode mismatch", "unit", unitKey, "dbMode", dbUnit.UserMode, "currentMode", config.GetConfig().UserMode)
+				log.GetLogger().Info("Cleaning up unit due to user mode mismatch", "unit", unitKey, "dbMode", dbUnit.UserMode, "currentMode", config.GetConfig().UserMode)
 			}
 
 			// First, stop the unit
@@ -275,35 +275,35 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 
 			// Attempt to stop the unit, but continue with cleanup even if stop fails
 			if err := systemdUnit.Stop(); err != nil {
-				logger.GetLogger().Warn("Error stopping unit during cleanup", "unit", unitKey, "error", err)
+				log.GetLogger().Warn("Error stopping unit during cleanup", "unit", unitKey, "error", err)
 			} else {
-				logger.GetLogger().Debug("Successfully stopped unit during cleanup", "unit", unitKey)
+				log.GetLogger().Debug("Successfully stopped unit during cleanup", "unit", unitKey)
 			}
 
 			// Then remove the unit file
 			unitPath := getUnitFilePath(dbUnit.Name, dbUnit.Type)
 			if err := os.Remove(unitPath); err != nil {
 				if !os.IsNotExist(err) {
-					logger.GetLogger().Error("Failed to remove unit file", "path", unitPath, "error", err)
+					log.GetLogger().Error("Failed to remove unit file", "path", unitPath, "error", err)
 				}
 			} else {
-				logger.GetLogger().Debug("Removed unit file", "path", unitPath)
+				log.GetLogger().Debug("Removed unit file", "path", unitPath)
 			}
 
 			// For mode mismatches, we delete from the database, but the unit will be recreated
 			// in the next processUnit call with the correct mode
 			if err := unitRepo.Delete(dbUnit.ID); err != nil {
-				logger.GetLogger().Error("Failed to delete unit from database", "unit", unitKey, "error", err)
+				log.GetLogger().Error("Failed to delete unit from database", "unit", unitKey, "error", err)
 				continue
 			}
 
-			logger.GetLogger().Info("Successfully cleaned up unit", "unit", unitKey)
+			log.GetLogger().Info("Successfully cleaned up unit", "unit", unitKey)
 		}
 	}
 
 	// Reload systemd after we've removed units
 	if err := ReloadSystemd(); err != nil {
-		logger.GetLogger().Error("Error reloading systemd after cleanup", "error", err)
+		log.GetLogger().Error("Error reloading systemd after cleanup", "error", err)
 	}
 
 	return nil
@@ -319,7 +319,7 @@ func getContentHash(content string) []byte {
 // processServices processes all container services from a Docker Compose project.
 func processServices(project *types.Project, dependencyTree map[string]*ServiceDependency, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	for serviceName, service := range project.Services {
-		logger.GetLogger().Debug("Processing service", "service", serviceName)
+		log.GetLogger().Debug("Processing service", "service", serviceName)
 
 		// Create prefixed container name using project name to enable proper DNS resolution
 		// Format: <project>-<service> (e.g., myproject-db, myproject-web)
@@ -340,7 +340,7 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 			for _, envFilePath := range possibleEnvFiles {
 				// Check if file exists
 				if _, err := os.Stat(envFilePath); err == nil {
-					logger.GetLogger().Debug("Found service-specific environment file", "service", serviceName, "file", envFilePath)
+					log.GetLogger().Debug("Found service-specific environment file", "service", serviceName, "file", envFilePath)
 					container.EnvironmentFile = append(container.EnvironmentFile, envFilePath)
 				}
 			}
@@ -383,7 +383,7 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 
 		// Process the quadlet unit
 		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
-			logger.GetLogger().Error("Failed to process unit", "error", err)
+			log.GetLogger().Error("Failed to process unit", "error", err)
 		}
 	}
 	return nil
@@ -392,7 +392,7 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 // processVolumes processes all volumes from a Docker Compose project.
 func processVolumes(project *types.Project, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	for volumeName, volumeConfig := range project.Volumes {
-		logger.GetLogger().Debug("Processing volume", "volume", volumeName)
+		log.GetLogger().Debug("Processing volume", "volume", volumeName)
 
 		// Check if we should use Podman's default naming with systemd- prefix
 		usePodmanNames := getUsePodmanNames(project.Name)
@@ -416,7 +416,7 @@ func processVolumes(project *types.Project, unitRepo Repository, force bool, pro
 
 		// Process the quadlet unit
 		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
-			logger.GetLogger().Error("Failed to process volume unit", "error", err)
+			log.GetLogger().Error("Failed to process volume unit", "error", err)
 		}
 	}
 	return nil
@@ -425,7 +425,7 @@ func processVolumes(project *types.Project, unitRepo Repository, force bool, pro
 // processNetworks processes all networks from a Docker Compose project.
 func processNetworks(project *types.Project, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	for networkName, networkConfig := range project.Networks {
-		logger.GetLogger().Debug("Processing network", "network", networkName)
+		log.GetLogger().Debug("Processing network", "network", networkName)
 
 		// Check if we should use Podman's default naming with systemd- prefix
 		usePodmanNames := getUsePodmanNames(project.Name)
@@ -449,7 +449,7 @@ func processNetworks(project *types.Project, unitRepo Repository, force bool, pr
 
 		// Process the quadlet unit
 		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
-			logger.GetLogger().Error("Failed to process network unit", "error", err)
+			log.GetLogger().Error("Failed to process network unit", "error", err)
 		}
 	}
 	return nil

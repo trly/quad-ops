@@ -39,7 +39,7 @@ func TestUserModeHandling(t *testing.T) {
 	repo := NewUnitRepository(db)
 
 	// 1. Test userMode tracking
-	cfg := &config.Config{
+	cfg := &config.Settings{
 		UserMode: false,
 	}
 	config.SetConfig(cfg)

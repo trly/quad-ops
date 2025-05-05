@@ -8,7 +8,30 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfg *Config
+// Provider defines the interface for configuration providers.
+type Provider interface {
+	// GetConfig returns the current application configuration.
+	GetConfig() *Settings
+	// SetConfig sets the application configuration.
+	SetConfig(c *Settings)
+	// InitConfig initializes the application configuration.
+	InitConfig() *Settings
+	// SetConfigFilePath sets the configuration file path.
+	SetConfigFilePath(p string)
+}
+
+// defaultConfigProvider implements the Provider interface.
+type defaultConfigProvider struct {
+	cfg *Settings
+}
+
+// NewDefaultConfigProvider creates a new default config provider.
+func NewDefaultConfigProvider() Provider {
+	return &defaultConfigProvider{}
+}
+
+var defaultProvider = NewDefaultConfigProvider()
+var cfg *Settings
 
 // Default configuration values for the quad-ops system.
 // These constants define the default values for various configuration
@@ -24,10 +47,10 @@ const (
 	DefaultUsePodmanDefaultNames = false
 )
 
-// RepositoryConfig represents a repository that is managed by the quad-ops system.
+// Repository represents a repository that is managed by the quad-ops system.
 // It contains information about the repository, including its name, URL, target
 // directory, and cleanup policy.
-type RepositoryConfig struct {
+type Repository struct {
 	Name                  string `yaml:"name"`
 	URL                   string `yaml:"url"`
 	Reference             string `yaml:"ref,omitempty"`
@@ -36,38 +59,66 @@ type RepositoryConfig struct {
 	UsePodmanDefaultNames bool   `yaml:"usePodmanDefaultNames,omitempty"`
 }
 
-// Config represents the configuration for the quad-ops system. It contains
+// Settings represents the configuration for the quad-ops system. It contains
 // various settings such as the repository directory, sync interval, quadlet
 // directory, database path, user mode, and verbosity.
-type Config struct {
-	RepositoryDir         string             `yaml:"repositoryDir"`
-	SyncInterval          time.Duration      `yaml:"syncInterval"`
-	QuadletDir            string             `yaml:"quadletDir"`
-	Repositories          []RepositoryConfig `yaml:"repositories"`
-	DBPath                string             `yaml:"dbPath"`
-	UserMode              bool               `yaml:"userMode"`
-	Verbose               bool               `yaml:"verbose"`
-	UsePodmanDefaultNames bool               `yaml:"usePodmanDefaultNames"`
+type Settings struct {
+	RepositoryDir         string        `yaml:"repositoryDir"`
+	SyncInterval          time.Duration `yaml:"syncInterval"`
+	QuadletDir            string        `yaml:"quadletDir"`
+	Repositories          []Repository  `yaml:"repositories"`
+	DBPath                string        `yaml:"dbPath"`
+	UserMode              bool          `yaml:"userMode"`
+	Verbose               bool          `yaml:"verbose"`
+	UsePodmanDefaultNames bool          `yaml:"usePodmanDefaultNames"`
 }
 
+// Implementation of ConfigProvider methods for defaultConfigProvider
+
+func (p *defaultConfigProvider) SetConfig(c *Settings) {
+	p.cfg = c
+}
+
+func (p *defaultConfigProvider) GetConfig() *Settings {
+	return p.cfg
+}
+
+func (p *defaultConfigProvider) SetConfigFilePath(path string) {
+	viper.SetConfigFile(path)
+}
+
+func (p *defaultConfigProvider) InitConfig() *Settings {
+	p.cfg = initConfigInternal()
+	return p.cfg
+}
+
+// For backward compatibility - pass through to default provider
+
 // SetConfig sets the application configuration.
-func SetConfig(c *Config) {
+func SetConfig(c *Settings) {
+	defaultProvider.SetConfig(c)
 	cfg = c
 }
 
 // GetConfig returns the current application configuration.
-func GetConfig() *Config {
-	return cfg
+func GetConfig() *Settings {
+	return defaultProvider.GetConfig()
 }
 
 // SetConfigFilePath sets the configuration file path.
 func SetConfigFilePath(p string) {
-	viper.SetConfigFile(p)
+	defaultProvider.SetConfigFilePath(p)
 }
 
 // InitConfig initializes the application configuration.
-func InitConfig() *Config {
-	cfg := &Config{
+func InitConfig() *Settings {
+	cfg = defaultProvider.InitConfig()
+	return cfg
+}
+
+// Internal function to initialize configuration.
+func initConfigInternal() *Settings {
+	cfg := &Settings{
 		RepositoryDir:         DefaultRepositoryDir,
 		SyncInterval:          DefaultSyncInterval,
 		QuadletDir:            DefaultQuadletDir,

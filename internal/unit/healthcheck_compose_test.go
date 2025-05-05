@@ -9,7 +9,10 @@ import (
 func TestDirectHealthCheckImplementation(t *testing.T) {
 	// Directly test our conversion implementation by manually setting health check fields
 	container := &Container{
-		Name:                "test-web",
+		BaseUnit: BaseUnit{
+			Name:     "test-web",
+			UnitType: "container",
+		},
 		Image:               "nginx:latest",
 		HealthCmd:           []string{"CMD-SHELL", "curl -f http://localhost/ || exit 1"},
 		HealthInterval:      "10s",

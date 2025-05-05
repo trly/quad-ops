@@ -6,11 +6,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 func TestGetConnectionString(t *testing.T) {
-	cfg := config.Config{
+	cfg := config.Settings{
 		DBPath: "/test/path/db.sqlite",
 	}
 	expected := "sqlite3:///test/path/db.sqlite"
@@ -26,14 +26,14 @@ func TestConnect(t *testing.T) {
 	defer func() { _ = os.Remove(tmpDB.Name()) }()
 
 	// Set up test config
-	testConfig := &config.Config{
+	testConfig := &config.Settings{
 		DBPath:  tmpDB.Name(),
 		Verbose: true,
 	}
 	config.SetConfig(testConfig)
 
 	// Initialize logger
-	logger.Init(true)
+	log.Init(true)
 
 	// Test connection
 	db, err := Connect()
@@ -48,13 +48,13 @@ func TestConnect(t *testing.T) {
 }
 
 func TestConnectError(t *testing.T) {
-	testConfig := &config.Config{
+	testConfig := &config.Settings{
 		DBPath: "/nonexistent/path/db.sqlite",
 	}
 	config.SetConfig(testConfig)
 
 	// Initialize logger
-	logger.Init(false)
+	log.Init(false)
 
 	db, err := Connect()
 	assert.Error(t, err)
@@ -69,13 +69,13 @@ func TestMigrations(t *testing.T) {
 	}
 	defer func() { _ = os.Remove(tmpDB.Name()) }()
 
-	testConfig := config.Config{
+	testConfig := config.Settings{
 		DBPath:  tmpDB.Name(),
 		Verbose: true,
 	}
 
 	// Initialize logger
-	logger.Init(true)
+	log.Init(true)
 
 	// Test Up migration
 	err = Up(testConfig)
@@ -87,13 +87,13 @@ func TestMigrations(t *testing.T) {
 }
 
 func TestMigrationsWithInvalidPath(t *testing.T) {
-	testConfig := config.Config{
+	testConfig := config.Settings{
 		DBPath:  "/nonexistent/path/db.sqlite",
 		Verbose: true,
 	}
 
 	// Initialize logger
-	logger.Init(true)
+	log.Init(true)
 
 	// Test Up migration with invalid path
 	err := Up(testConfig)

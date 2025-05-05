@@ -8,12 +8,12 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 func TestDeterministicUnitContent(t *testing.T) {
 	// Initialize logger
-	logger.Init(false)
+	log.Init(false)
 
 	// Create two identical container configs
 	container1 := NewContainer("test-container")
@@ -68,7 +68,7 @@ func GetContentHash(content string) string {
 
 func TestCustomHostnameNetworkAlias(t *testing.T) {
 	// Initialize logger
-	logger.Init(false)
+	log.Init(false)
 
 	// Create mock configuration
 	cfg := config.InitConfig() // Initialize default config

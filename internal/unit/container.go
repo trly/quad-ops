@@ -6,12 +6,13 @@ import (
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/util"
 )
 
 // Container represents the configuration for a container unit.
 type Container struct {
+	BaseUnit    // Embed the base struct
 	Image       string
 	Label       []string
 	PublishPort []string
@@ -66,17 +67,15 @@ type Container struct {
 	LogOpt           map[string]string
 	sortedLogOptKeys []string
 	RestartPolicy    string
-
-	// Systemd unit properties
-	Name     string
-	UnitType string
 }
 
 // NewContainer creates a new Container with the given name.
 func NewContainer(name string) *Container {
 	return &Container{
-		Name:     name,
-		UnitType: "container",
+		BaseUnit: BaseUnit{
+			Name:     name,
+			UnitType: "container",
+		},
 	}
 }
 
@@ -430,7 +429,7 @@ func (c *Container) processServiceResources(service types.ServiceConfig) {
 	// Log warnings for unsupported features but indicate we're handling them via PodmanArgs
 	if len(unsupportedFeatures) > 0 {
 		for _, feature := range unsupportedFeatures {
-			logger.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
+			log.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
 		}
 	}
 }
@@ -455,7 +454,7 @@ func (c *Container) processAdvancedConfig(service types.ServiceConfig) {
 	// Log warnings for unsupported features but indicate we're handling them via PodmanArgs
 	if len(unsupportedFeatures) > 0 {
 		for _, feature := range unsupportedFeatures {
-			logger.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
+			log.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
 		}
 	}
 
@@ -657,51 +656,6 @@ func convertUint64ToInt(val uint64) int {
 		return maxInt
 	}
 	return int(val)
-}
-
-// GetServiceName returns the full systemd service name.
-func (c *Container) GetServiceName() string {
-	return c.Name + ".service"
-}
-
-// GetUnitType returns the type of the unit.
-func (c *Container) GetUnitType() string {
-	return "container"
-}
-
-// GetUnitName returns the name of the unit.
-func (c *Container) GetUnitName() string {
-	return c.Name
-}
-
-// GetStatus returns the current status of the unit.
-func (c *Container) GetStatus() (string, error) {
-	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
-	return base.GetStatus()
-}
-
-// Start starts the unit.
-func (c *Container) Start() error {
-	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
-	return base.Start()
-}
-
-// Stop stops the unit.
-func (c *Container) Stop() error {
-	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
-	return base.Stop()
-}
-
-// Restart restarts the unit.
-func (c *Container) Restart() error {
-	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
-	return base.Restart()
-}
-
-// Show displays the unit configuration and status.
-func (c *Container) Show() error {
-	base := BaseSystemdUnit{Name: c.Name, Type: "container"}
-	return base.Show()
 }
 
 // Secret represents a container secret definition.

@@ -30,14 +30,14 @@ func TestInitConfig(t *testing.T) {
 // TestSetAndGetConfig tests the SetConfig and GetConfig functions.
 func TestSetAndGetConfig(t *testing.T) {
 	resetViper()
-	testConfig := &Config{
+	testConfig := &Settings{
 		RepositoryDir: "/custom/path",
 		SyncInterval:  10 * time.Minute,
 		QuadletDir:    "/custom/quadlet",
 		DBPath:        "/custom/db.sqlite",
 		UserMode:      true,
 		Verbose:       true,
-		Repositories: []RepositoryConfig{
+		Repositories: []Repository{
 			{
 				Name:      "test-repo",
 				URL:       "https://github.com/test/repo",
@@ -92,7 +92,7 @@ repositories:
 		t.Fatal(err)
 	}
 
-	cfg := &Config{}
+	cfg := &Settings{}
 	if err := viper.Unmarshal(cfg); err != nil {
 		t.Fatal(err)
 	}

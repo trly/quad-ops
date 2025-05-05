@@ -30,8 +30,8 @@ import (
 	"github.com/trly/quad-ops/cmd/unit"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
-	"github.com/trly/quad-ops/internal/logger"
-	"github.com/trly/quad-ops/internal/validation"
+	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/validate"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -41,7 +41,7 @@ import (
 type RootCommand struct{}
 
 var (
-	cfg            *config.Config
+	cfg            *config.Settings
 	userMode       bool
 	configFilePath string
 	dbPath         string
@@ -59,7 +59,7 @@ func (c *RootCommand) GetCobraCommand() *cobra.Command {
 It automatically generates systemd unit files from Docker Compose files and handles unit reloading and restarting.`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			cfg = config.GetConfig()
-			logger.Init(verbose)
+			log.Init(verbose)
 
 			if verbose {
 				fmt.Printf("%s using config: %s\n\n", cmd.Root().Use, viper.GetViper().ConfigFileUsed())
@@ -88,14 +88,14 @@ It automatically generates systemd unit files from Docker Compose files and hand
 				)
 			}
 
-			err := validation.VerifySystemRequirements()
+			err := validate.SystemRequirements()
 			if err != nil {
-				logger.GetLogger().Error("System requirements not met", "err", err)
+				log.GetLogger().Error("System requirements not met", "err", err)
 			}
 
 			err = db.Up(*cfg)
 			if err != nil {
-				logger.GetLogger().Error("Failed to initialize database", "error", err)
+				log.GetLogger().Error("Failed to initialize database", "error", err)
 				os.Exit(1)
 			}
 		},

@@ -31,7 +31,7 @@ import (
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/db"
-	"github.com/trly/quad-ops/internal/logger"
+	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/unit"
 )
 
@@ -55,7 +55,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 
 			dbConn, err := db.Connect()
 			if err != nil {
-				logger.GetLogger().Error("Error connecting to database", "error", err)
+				log.GetLogger().Error("Error connecting to database", "error", err)
 				os.Exit(1)
 			}
 			defer func() { _ = dbConn.Close() }()
@@ -70,7 +70,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 		return allowedUnitTypes, cobra.ShellCompDirectiveNoFileComp
 	})
 	if err != nil {
-		logger.GetLogger().Error("Error registering flag completion", "error", err)
+		log.GetLogger().Error("Error registering flag completion", "error", err)
 		os.Exit(1)
 	}
 	unitListCmd.PreRunE = func(_ *cobra.Command, _ []string) error {
@@ -92,7 +92,7 @@ func findAndDisplayUnits(unitRepo unit.Repository, tbl table.Table, unitType str
 	}
 
 	if err != nil {
-		logger.GetLogger().Error("Error finding units", "error", err)
+		log.GetLogger().Error("Error finding units", "error", err)
 		os.Exit(1)
 	}
 
@@ -104,7 +104,7 @@ func findAndDisplayUnits(unitRepo unit.Repository, tbl table.Table, unitType str
 
 		unitStatus, err := systemdUnit.GetStatus()
 		if err != nil {
-			logger.GetLogger().Debug("Error getting unit status", "error", err)
+			log.GetLogger().Debug("Error getting unit status", "error", err)
 			unitStatus = "UNKNOWN"
 		}
 		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), u.CleanupPolicy, u.CreatedAt)
