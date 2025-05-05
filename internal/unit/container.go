@@ -3,6 +3,7 @@ package unit
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/logger"
@@ -34,6 +35,8 @@ type Container struct {
 	HostName      string
 	ContainerName string
 	Secrets       []Secret
+	// PodmanArgs contains direct podman run arguments for features not supported by Quadlet
+	PodmanArgs []string
 	// Health check settings
 	HealthCmd           []string
 	HealthInterval      string
@@ -310,16 +313,22 @@ func (c *Container) processServiceResources(service types.ServiceConfig) {
 	if service.MemLimit != 0 {
 		c.Memory = fmt.Sprintf("%d", service.MemLimit)
 		unsupportedFeatures = append(unsupportedFeatures, "Memory limits (mem_limit)")
+		// Add as PodmanArgs instead of ignoring
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory=%d", service.MemLimit))
 	}
 
 	if service.MemReservation != 0 {
 		c.MemoryReservation = fmt.Sprintf("%d", service.MemReservation)
 		unsupportedFeatures = append(unsupportedFeatures, "Memory reservation (memory_reservation)")
+		// Add as PodmanArgs instead of ignoring
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory-reservation=%d", service.MemReservation))
 	}
 
 	if service.MemSwapLimit != 0 {
 		c.MemorySwap = fmt.Sprintf("%d", service.MemSwapLimit)
 		unsupportedFeatures = append(unsupportedFeatures, "Memory swap (memswap_limit)")
+		// Add as PodmanArgs instead of ignoring
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory-swap=%d", service.MemSwapLimit))
 	}
 
 	// Handle deploy section memory constraints
@@ -328,11 +337,15 @@ func (c *Container) processServiceResources(service types.ServiceConfig) {
 		if service.Deploy.Resources.Limits != nil && service.Deploy.Resources.Limits.MemoryBytes != 0 {
 			c.Memory = fmt.Sprintf("%d", service.Deploy.Resources.Limits.MemoryBytes)
 			unsupportedFeatures = append(unsupportedFeatures, "Memory limits (deploy.resources.limits.memory)")
+			// Add as PodmanArgs instead of ignoring
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory=%d", service.Deploy.Resources.Limits.MemoryBytes))
 		}
 
 		if service.Deploy.Resources.Reservations != nil && service.Deploy.Resources.Reservations.MemoryBytes != 0 {
 			c.MemoryReservation = fmt.Sprintf("%d", service.Deploy.Resources.Reservations.MemoryBytes)
 			unsupportedFeatures = append(unsupportedFeatures, "Memory reservation (deploy.resources.reservations.memory)")
+			// Add as PodmanArgs instead of ignoring
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory-reservation=%d", service.Deploy.Resources.Reservations.MemoryBytes))
 		}
 	}
 
@@ -344,21 +357,29 @@ func (c *Container) processServiceResources(service types.ServiceConfig) {
 	if service.CPUPeriod != 0 {
 		cpuPeriod = service.CPUPeriod
 		unsupportedFeatures = append(unsupportedFeatures, "CPU period (cpu_period)")
+		// Add as PodmanArgs instead of ignoring
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpu-period=%d", service.CPUPeriod))
 	}
 	c.CPUPeriod = cpuPeriod // Stored but not output in quadlet files (used only for calculations)
 
 	if service.CPUQuota != 0 {
 		c.CPUQuota = service.CPUQuota
 		unsupportedFeatures = append(unsupportedFeatures, "CPU quota (cpu_quota)")
+		// Add as PodmanArgs instead of ignoring
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpu-quota=%d", service.CPUQuota))
 	} else if service.CPUS != 0 {
 		// Convert CPUS (float) to quota
 		c.CPUQuota = int64(float64(service.CPUS) * float64(cpuPeriod))
 		unsupportedFeatures = append(unsupportedFeatures, "CPU cores (cpus)")
+		// Add as PodmanArgs instead of ignoring - use the direct cpus flag
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpus=%.2f", service.CPUS))
 	}
 
 	if service.CPUShares != 0 {
 		c.CPUShares = service.CPUShares
 		unsupportedFeatures = append(unsupportedFeatures, "CPU shares (cpu_shares)")
+		// Add as PodmanArgs instead of ignoring
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpu-shares=%d", service.CPUShares))
 	}
 
 	// Handle deploy section CPU constraints
@@ -368,30 +389,86 @@ func (c *Container) processServiceResources(service types.ServiceConfig) {
 		if c.CPUQuota == 0 {
 			c.CPUQuota = int64(float64(service.Deploy.Resources.Limits.NanoCPUs) * float64(cpuPeriod) / 1e9)
 			unsupportedFeatures = append(unsupportedFeatures, "CPU limits (deploy.resources.limits.cpus)")
+			// Add as PodmanArgs instead of ignoring - convert nanoCPUs to regular CPUs
+			cpus := float64(service.Deploy.Resources.Limits.NanoCPUs) / 1e9
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpus=%.2f", cpus))
 		}
 
 		// Convert NanoCPUs to shares if not already set
 		if c.CPUShares == 0 {
 			c.CPUShares = int64(float64(service.Deploy.Resources.Limits.NanoCPUs) / 1e9 * 1024)
-			// Warning already added for CPUQuota, no need to add another one for shares
+			// CPU shares handled above with --cpus flag
 		}
 	}
 
 	// Process limit
 	if service.PidsLimit != 0 {
 		c.PidsLimit = service.PidsLimit
+		// PidsLimit is supported by Quadlet, but add for consistency
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--pids-limit=%d", service.PidsLimit))
 	}
 
-	// Log warnings for unsupported features
+	// Handle Privileged mode (not directly supported by Quadlet)
+	if service.Privileged {
+		unsupportedFeatures = append(unsupportedFeatures, "Privileged mode")
+		// Add as PodmanArgs instead of ignoring
+		c.PodmanArgs = append(c.PodmanArgs, "--privileged")
+	}
+
+	// SecurityLabel handling (not directly supported by Quadlet)
+	if len(service.SecurityOpt) > 0 {
+		for _, opt := range service.SecurityOpt {
+			if opt == "label:disable" {
+				unsupportedFeatures = append(unsupportedFeatures, "Security label disable")
+				c.PodmanArgs = append(c.PodmanArgs, "--security-opt=label=disable")
+			} else if strings.HasPrefix(opt, "label:") {
+				unsupportedFeatures = append(unsupportedFeatures, "Security label options")
+				c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--security-opt=%s", opt))
+			}
+		}
+	}
+
+	// Log warnings for unsupported features but indicate we're handling them via PodmanArgs
 	if len(unsupportedFeatures) > 0 {
 		for _, feature := range unsupportedFeatures {
-			logger.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not supported by Podman Quadlet. This setting will be ignored.", service.Name, feature))
+			logger.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
 		}
 	}
 }
 
 // processAdvancedConfig processes advanced container configuration from a Docker Compose service.
 func (c *Container) processAdvancedConfig(service types.ServiceConfig) {
+	// Track unsupported features to warn about
+	var unsupportedFeatures []string
+
+	// Process standard container configuration (directly supported by Quadlet)
+	c.processStandardConfig(service)
+
+	// Process features that need PodmanArgs (not directly supported by Quadlet)
+	c.processCapabilities(service, &unsupportedFeatures)
+	c.processDevices(service, &unsupportedFeatures)
+	c.processDNSSettings(service, &unsupportedFeatures)
+	c.processNamespaceSettings(service, &unsupportedFeatures)
+	c.processResourceTuning(service, &unsupportedFeatures)
+	c.processNetworkConfig(service, &unsupportedFeatures)
+	c.processContainerRuntime(service, &unsupportedFeatures)
+
+	// Log warnings for unsupported features but indicate we're handling them via PodmanArgs
+	if len(unsupportedFeatures) > 0 {
+		for _, feature := range unsupportedFeatures {
+			logger.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
+		}
+	}
+
+	// Process logging configuration
+	c.processLoggingConfig(service)
+
+	// Process restart policy
+	c.processRestartPolicy(service)
+}
+
+// processStandardConfig processes standard configuration supported directly by Quadlet.
+func (c *Container) processStandardConfig(service types.ServiceConfig) {
 	// Process ulimits
 	if len(service.Ulimits) > 0 {
 		for name, ulimit := range service.Ulimits {
@@ -426,12 +503,114 @@ func (c *Container) processAdvancedConfig(service types.ServiceConfig) {
 	if service.UserNSMode != "" {
 		c.UserNS = service.UserNSMode
 	}
+}
 
-	// Process logging configuration
-	c.processLoggingConfig(service)
+// processCapabilities handles Linux capabilities configuration.
+func (c *Container) processCapabilities(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	// Process capabilities
+	if len(service.CapAdd) > 0 {
+		*unsupportedFeatures = append(*unsupportedFeatures, "Capability add (cap_add)")
+		for _, cap := range service.CapAdd {
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cap-add=%s", cap))
+		}
+	}
 
-	// Process restart policy
-	c.processRestartPolicy(service)
+	if len(service.CapDrop) > 0 {
+		*unsupportedFeatures = append(*unsupportedFeatures, "Capability drop (cap_drop)")
+		for _, cap := range service.CapDrop {
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cap-drop=%s", cap))
+		}
+	}
+}
+
+// processDevices handles device mapping settings.
+func (c *Container) processDevices(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	if len(service.Devices) > 0 {
+		*unsupportedFeatures = append(*unsupportedFeatures, "Device mappings (devices)")
+		for _, device := range service.Devices {
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--device=%s", device))
+		}
+	}
+}
+
+// processDNSSettings handles DNS configuration options.
+func (c *Container) processDNSSettings(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	if len(service.DNS) > 0 {
+		*unsupportedFeatures = append(*unsupportedFeatures, "DNS servers (dns)")
+		for _, dns := range service.DNS {
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--dns=%s", dns))
+		}
+	}
+
+	if len(service.DNSSearch) > 0 {
+		*unsupportedFeatures = append(*unsupportedFeatures, "DNS search domains (dns_search)")
+		for _, dnsSearch := range service.DNSSearch {
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--dns-search=%s", dnsSearch))
+		}
+	}
+
+	if len(service.DNSOpts) > 0 {
+		*unsupportedFeatures = append(*unsupportedFeatures, "DNS options (dns_opt)")
+		for _, dnsOpt := range service.DNSOpts {
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--dns-opt=%s", dnsOpt))
+		}
+	}
+}
+
+// processNamespaceSettings handles IPC and PID namespace configuration.
+func (c *Container) processNamespaceSettings(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	// Process IPC mode
+	if service.Ipc != "" {
+		*unsupportedFeatures = append(*unsupportedFeatures, "IPC mode (ipc)")
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--ipc=%s", service.Ipc))
+	}
+
+	// Process PID mode
+	if service.Pid != "" {
+		*unsupportedFeatures = append(*unsupportedFeatures, "PID mode (pid)")
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--pid=%s", service.Pid))
+	}
+}
+
+// processResourceTuning handles resource tuning options like shared memory and cgroups.
+func (c *Container) processResourceTuning(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	// Process SHM size
+	if service.ShmSize != 0 {
+		*unsupportedFeatures = append(*unsupportedFeatures, "Shared memory size (shm_size)")
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--shm-size=%d", service.ShmSize))
+	}
+
+	// Process cgroup parent
+	if service.CgroupParent != "" {
+		*unsupportedFeatures = append(*unsupportedFeatures, "Cgroup parent (cgroup_parent)")
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cgroup-parent=%s", service.CgroupParent))
+	}
+
+	// Process storage options
+	if len(service.StorageOpt) > 0 {
+		*unsupportedFeatures = append(*unsupportedFeatures, "Storage options (storage_opt)")
+		for k, v := range service.StorageOpt {
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--storage-opt=%s=%s", k, v))
+		}
+	}
+}
+
+// processNetworkConfig handles network-related configuration like MAC address.
+func (c *Container) processNetworkConfig(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	// Process MAC address
+	if service.MacAddress != "" {
+		*unsupportedFeatures = append(*unsupportedFeatures, "MAC address (mac_address)")
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--mac-address=%s", service.MacAddress))
+	}
+}
+
+// processContainerRuntime handles container runtime settings.
+func (c *Container) processContainerRuntime(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	// Process runtime
+	if service.Runtime != "" {
+		*unsupportedFeatures = append(*unsupportedFeatures, "Runtime (runtime)")
+		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--runtime=%s", service.Runtime))
+	}
 }
 
 // processLoggingConfig processes logging configuration from a Docker Compose service.
@@ -582,6 +761,11 @@ func sortContainer(container *Container) {
 	// Sort HealthCmd if present
 	if len(container.HealthCmd) > 0 {
 		sort.Strings(container.HealthCmd)
+	}
+
+	// Sort PodmanArgs for deterministic output
+	if len(container.PodmanArgs) > 0 {
+		sort.Strings(container.PodmanArgs)
 	}
 
 	// Sort advanced configuration slices

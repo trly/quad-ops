@@ -41,7 +41,7 @@
 - Always initialize RunInit field in container.go to prevent nil pointer dereference
 - Use proper project naming format for Docker Compose projects
 - Handle nil networks when alias is not present in container.go
-- Fix unsupported quadlet keys in unit files (removed DNSEnabled, SecurityLabel, Privileged, CPUPeriod, CPUShares, CPUQuota, Memory, MemoryReservation, MemorySwap)
+- Fix unsupported quadlet keys in unit files by using PodmanArgs directive for features not directly supported by Quadlet (DNSEnabled, SecurityLabel, Privileged, CPUPeriod, CPUShares, CPUQuota, Memory, MemoryReservation, MemorySwap)
 - Ensure fully qualified image names (docker.io/ prefix) to prevent quadlet warnings
 - Fixed container name resolution for inter-container communication
 - Fixed service dependency configuration for containers with custom naming
@@ -58,20 +58,36 @@
 - Project naming format: `<repo>-<folder>` (e.g., `test-photoprism` for repositories/home/test/photoprism)
 - Supported file names: `docker-compose.yml`, `docker-compose.yaml`, `compose.yml`, `compose.yaml`
 
-### Resource Constraints Support
+### Resource Constraints and Advanced Features Support
 - Comprehensive mapping of Docker Compose resource constraints to Podman Quadlet
 - Support for both service-level fields and deploy section resource limits
 - Following compose-go validation, uses either service-level OR deploy section (not both)
 - For service-level constraints:
   - Memory: mem_limit, memory_reservation, memswap_limit
-  - CPU: cpus, cpu_quota, cpu_shares (note: cpu_period is read but not used in quadlet files)
+  - CPU: cpus, cpu_quota, cpu_shares, cpu_period
   - Process: pids_limit
+  - Security: privileged, security_opt
 - For deploy section constraints:
   - Memory: deploy.resources.limits.memory, deploy.resources.reservations.memory
   - CPU: deploy.resources.limits.cpus (converts to quota and shares)
 - Intelligent conversion for CPU values - NanoCPUs to quota/shares, CPUS float to quota
-- Important note: Memory and CPU constraints are tracked internally but not included in generated quadlet files as they're unsupported by Podman Quadlet
-- Warning messages are generated for unsupported features defined in Docker Compose files
+- Features not directly supported by Quadlet are implemented using the PodmanArgs directive
+- The following unsupported features are mapped to their equivalent podman run arguments:
+  - `--memory=`, `--memory-reservation=`, `--memory-swap=` for memory constraints
+  - `--cpu-period=`, `--cpu-quota=`, `--cpu-shares=`, `--cpus=` for CPU constraints
+  - `--privileged` for privileged mode
+  - `--security-opt=label=...` for SecurityLabel options
+  - `--cap-add=`, `--cap-drop=` for Linux capabilities management
+  - `--device=` for device mappings
+  - `--dns=`, `--dns-search=`, `--dns-opt=` for DNS configuration
+  - `--ipc=` for IPC namespace configuration
+  - `--pid=` for process namespace configuration
+  - `--shm-size=` for shared memory size
+  - `--mac-address=` for container MAC address
+  - `--cgroup-parent=` for cgroup parent
+  - `--runtime=` for custom container runtime
+  - `--storage-opt=` for storage driver options
+- Warning messages inform users that unsupported features are being managed via PodmanArgs
 
 ### Health Check Support
 - Docker Compose health checks are mapped to Podman Quadlet health check directives

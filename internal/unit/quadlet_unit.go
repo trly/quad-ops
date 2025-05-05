@@ -256,6 +256,11 @@ func (u *QuadletUnit) addAdvancedConfig(content string) string {
 		content += formatKeyValue("UserNS", u.Container.UserNS)
 	}
 
+	// Add PodmanArgs for features not directly supported by Quadlet
+	util.SortAndIterateSlice(u.Container.PodmanArgs, func(arg string) {
+		content += formatKeyValue("PodmanArgs", arg)
+	})
+
 	return content
 }
 
