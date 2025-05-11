@@ -59,3 +59,9 @@ func (u *BaseUnit) Show() error {
 	base := BaseSystemdUnit{Name: u.Name, Type: u.UnitType}
 	return base.Show()
 }
+
+// ResetFailed resets the failed state of the unit.
+func (u *BaseUnit) ResetFailed() error {
+	base := BaseSystemdUnit{Name: u.Name, Type: u.UnitType}
+	return base.ResetFailed()
+}

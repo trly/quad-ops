@@ -280,6 +280,14 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 				log.GetLogger().Debug("Successfully stopped unit during cleanup", "unit", unitKey)
 			}
 
+			// Reset failed unit state
+			if err := systemdUnit.ResetFailed(); err != nil {
+				log.GetLogger().Warn("Failed to reset failed unit", "unit", unitKey, "error", err)
+				// Continue with cleanup even if reset fails
+			} else {
+				log.GetLogger().Debug("Successfully reset failed unit", "unit", unitKey)
+			}
+
 			// Then remove the unit file
 			unitPath := getUnitFilePath(dbUnit.Name, dbUnit.Type)
 			if err := os.Remove(unitPath); err != nil {

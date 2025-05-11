@@ -42,6 +42,9 @@ type SystemdUnit interface {
 
 	// Show displays the unit configuration and status
 	Show() error
+
+	// ResetFailed resets the failed state of the unit
+	ResetFailed() error
 }
 
 // BaseSystemdUnit provides common implementation for all systemd units.
@@ -198,6 +201,24 @@ func (u *BaseSystemdUnit) Show() error {
 	return nil
 }
 
+// ResetFailed resets the failed state of the unit.
+func (u *BaseSystemdUnit) ResetFailed() error {
+	conn, err := getSystemdConnection()
+	if err != nil {
+		return fmt.Errorf("error connecting to systemd: %w", err)
+	}
+	defer conn.Close()
+
+	serviceName := u.GetServiceName()
+	log.GetLogger().Debug("Resetting failed unit", "name", serviceName)
+	err = conn.ResetFailedUnitContext(ctx, serviceName)
+	if err != nil {
+		return fmt.Errorf("error resetting failed unit %s: %w", serviceName, err)
+	}
+
+	return nil
+}
+
 // ReloadSystemd reloads the systemd configuration.
 func ReloadSystemd() error {
 	conn, err := getSystemdConnection()
@@ -253,6 +274,14 @@ func StopUnit(unitName string, unitType string) error {
 func ShowUnit(unitName string, unitType string) error {
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Show()
+}
+
+// ResetFailedUnit resets the "failed" state of a systemd unit.
+//
+// Deprecated: Use SystemdUnit interface methods instead. This function will be removed in v2.0.
+func ResetFailedUnit(unitName string, unitType string) error {
+	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+	return unit.ResetFailed()
 }
 
 func getSystemdConnection() (*dbus.Conn, error) {

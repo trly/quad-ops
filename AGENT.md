@@ -52,6 +52,7 @@
 - Fixed container name resolution for inter-container communication
 - Fixed service dependency configuration for containers with custom naming
 - Added NetworkAlias support to allow referring to services by their simple names (e.g., "db" instead of full hostname)
+- Added ResetFailed functionality to properly clean up failed systemd units during unit removal
 
 ## Docker Compose Support
 - `compose/reader.go`: Detects and reads Docker Compose files with robust error handling
