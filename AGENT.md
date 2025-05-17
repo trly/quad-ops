@@ -65,6 +65,16 @@
 - Project naming format: `<repo>-<folder>` (e.g., `test-photoprism` for repositories/home/test/photoprism)
 - Supported file names: `docker-compose.yml`, `docker-compose.yaml`, `compose.yml`, `compose.yaml`
 
+### Environment File Support
+- Standard `.env` file in compose directory is automatically loaded for variable interpolation in compose files
+- Service-specific environment files are supported with the following patterns:
+  - `.env.<service>` - Hidden env file with service name suffix
+  - `<service>.env` - Service name with .env extension
+  - `env/<service>.env` - In env subdirectory
+  - `envs/<service>.env` - In envs subdirectory
+- Environment variables defined in compose files are processed during conversion
+- Service-specific environment files are automatically added to the Quadlet unit
+
 ### Resource Constraints and Advanced Features Support
 - Comprehensive mapping of Docker Compose resource constraints to Podman Quadlet
 - Support for both service-level fields and deploy section resource limits

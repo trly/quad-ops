@@ -127,10 +127,60 @@ func ParseComposeFile(path string) (*types.Project, error) {
 		}
 	}
 
+	// Get directory containing compose file to look for .env file there
+	composeDir := filepath.Dir(path)
+	// Check if .env exists in the compose directory
+	envPath := filepath.Join(composeDir, ".env")
+
+	// Create slice of options
+	projectOpts := []string{path}
+
+	// Add explicit .env file if it exists in compose directory
+	if _, err := os.Stat(envPath); err == nil {
+		log.GetLogger().Debug("Found .env file in compose directory", "path", envPath)
+
+		// Validate file path before reading
+		absPath, err := filepath.Abs(envPath)
+		if err != nil {
+			log.GetLogger().Warn("Failed to get absolute path for .env file", "path", envPath, "error", err)
+		} else {
+			// Load environment variables directly from the file
+			// This file path was constructed using filepath.Join and validated, so it's safe
+			// #nosec G304 -- safe because we're reading a file from a path we constructed with filepath.Join
+			environmentData, err := os.ReadFile(absPath)
+			if err != nil {
+				log.GetLogger().Warn("Failed to read .env file", "path", absPath, "error", err)
+			} else {
+				// Parse .env file content and set environment variables
+				envContent := string(environmentData)
+				for _, line := range strings.Split(envContent, "\n") {
+					// Skip empty lines or comments
+					line = strings.TrimSpace(line)
+					if line == "" || strings.HasPrefix(line, "#") {
+						continue
+					}
+
+					// Parse KEY=VALUE format
+					parts := strings.SplitN(line, "=", 2)
+					if len(parts) == 2 {
+						key := parts[0]
+						value := parts[1]
+						// Set environment variable
+						if err := os.Setenv(key, value); err != nil {
+							log.GetLogger().Warn("Failed to set environment variable", "key", key, "error", err)
+						} else {
+							log.GetLogger().Debug("Set environment variable from .env file", "key", key)
+						}
+					}
+				}
+			}
+		}
+	}
+
 	options, err := cli.NewProjectOptions(
-		[]string{path},
+		projectOpts,
 		cli.WithOsEnv,
-		cli.WithDotEnv,
+		cli.WithDotEnv, // Will now find our copied .env file in the temp directory
 		cli.WithName(projectName),
 	)
 

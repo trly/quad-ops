@@ -335,9 +335,16 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 		container := NewContainer(prefixedName)
 		container = container.FromComposeService(service, project.Name)
 
-		// Check for service-specific .env files in the project directory
+		// Check for environment files in the project directory
 		if project.WorkingDir != "" {
-			// Look for .env files with various naming patterns
+			// First check for general .env file
+			generalEnvFile := fmt.Sprintf("%s/.env", project.WorkingDir)
+			if _, err := os.Stat(generalEnvFile); err == nil {
+				log.GetLogger().Debug("Adding general .env file to container unit", "service", serviceName, "file", generalEnvFile)
+				container.EnvironmentFile = append(container.EnvironmentFile, generalEnvFile)
+			}
+
+			// Look for service-specific .env files with various naming patterns
 			possibleEnvFiles := []string{
 				fmt.Sprintf("%s/.env.%s", project.WorkingDir, serviceName),
 				fmt.Sprintf("%s/%s.env", project.WorkingDir, serviceName),
