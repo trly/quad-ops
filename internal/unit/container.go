@@ -123,7 +123,19 @@ func (c *Container) setBasicServiceFields(service types.ServiceConfig) {
 	// No automatic image name conversion - use exactly what's provided in the compose file
 	c.Image = service.Image
 	c.Label = append(c.Label, service.Labels.AsList()...)
-	c.Exec = service.Command
+
+	// Process command - handle special case for multi-part commands with variables
+	if len(service.Command) > 0 {
+		// If there are multiple command parts that may include variables or special characters
+		// join them into a single string to preserve the exact command structure
+		if commandStr := strings.Join(service.Command, " "); strings.Contains(commandStr, "$") || strings.Contains(commandStr, "-c") {
+			// For commands with variables or shell flags, use a single string to preserve them
+			c.Exec = []string{commandStr}
+		} else {
+			c.Exec = service.Command
+		}
+	}
+
 	c.Entrypoint = service.Entrypoint
 	c.User = service.User
 	c.WorkingDir = service.WorkingDir
@@ -238,7 +250,14 @@ func (c *Container) processServiceNetworks(service types.ServiceConfig, projectN
 func (c *Container) processServiceHealthCheck(service types.ServiceConfig) {
 	if service.HealthCheck != nil && !service.HealthCheck.Disable {
 		if len(service.HealthCheck.Test) > 0 {
-			c.HealthCmd = service.HealthCheck.Test
+			// In Docker Compose, the first element is typically the command type (NONE, CMD, CMD-SHELL)
+			// For complex multi-part commands, we need to ensure the entire command is preserved
+			if len(service.HealthCheck.Test) >= 2 && (service.HealthCheck.Test[0] == "CMD" || service.HealthCheck.Test[0] == "CMD-SHELL") {
+				// Join all parts after the command type into a single string to preserve semicolons
+				c.HealthCmd = []string{service.HealthCheck.Test[0], strings.Join(service.HealthCheck.Test[1:], " ")}
+			} else {
+				c.HealthCmd = service.HealthCheck.Test
+			}
 		}
 		if service.HealthCheck.Interval != nil {
 			c.HealthInterval = service.HealthCheck.Interval.String()
