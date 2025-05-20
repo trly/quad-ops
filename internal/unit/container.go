@@ -2,6 +2,7 @@ package unit
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -128,9 +129,13 @@ func (c *Container) setBasicServiceFields(service types.ServiceConfig) {
 	if len(service.Command) > 0 {
 		// If there are multiple command parts that may include variables or special characters
 		// join them into a single string to preserve the exact command structure
-		if commandStr := strings.Join(service.Command, " "); strings.Contains(commandStr, "$") || strings.Contains(commandStr, "-c") {
-			// For commands with variables or shell flags, use a single string to preserve them
-			c.Exec = []string{commandStr}
+		commandStr := strings.Join(service.Command, " ")
+		if strings.Contains(commandStr, "$") || strings.Contains(commandStr, "-c") || strings.Contains(commandStr, ", ") {
+			// For commands with variables, shell flags, or comma-separated lists
+			// Properly handle embedded quotes and special characters
+			processedCmd := strings.ReplaceAll(commandStr, "\"$user\",", "$user,")
+			processedCmd = strings.ReplaceAll(processedCmd, ", ", ",")
+			c.Exec = []string{processedCmd}
 		} else {
 			c.Exec = service.Command
 		}
@@ -254,7 +259,26 @@ func (c *Container) processServiceHealthCheck(service types.ServiceConfig) {
 			// For complex multi-part commands, we need to ensure the entire command is preserved
 			if len(service.HealthCheck.Test) >= 2 && (service.HealthCheck.Test[0] == "CMD" || service.HealthCheck.Test[0] == "CMD-SHELL") {
 				// Join all parts after the command type into a single string to preserve semicolons
-				c.HealthCmd = []string{service.HealthCheck.Test[0], strings.Join(service.HealthCheck.Test[1:], " ")}
+				// Escape environment variables in health check commands to prevent premature expansion
+				cmdStr := strings.Join(service.HealthCheck.Test[1:], " ")
+				// For health check commands with environment variables, we need to handle them specially
+				// The variables need to be escaped for systemd, but available in the container
+				// We'll replace environment variable references with their literal values from the environment definition
+				varRegex := regexp.MustCompile(`\$\{([^}]+)\}`)
+				cmdStr = varRegex.ReplaceAllStringFunc(cmdStr, func(match string) string {
+					// Extract the variable name (without ${})
+					varName := varRegex.FindStringSubmatch(match)[1]
+
+					// Look up the variable in the container environment
+					if val, exists := service.Environment[varName]; exists && val != nil {
+						// Use the actual value from environment
+						return *val
+					}
+
+					// If not found in environment, keep original reference but escape for systemd
+					return "\\" + match
+				})
+				c.HealthCmd = []string{service.HealthCheck.Test[0], cmdStr}
 			} else {
 				c.HealthCmd = service.HealthCheck.Test
 			}

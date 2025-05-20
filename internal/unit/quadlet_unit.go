@@ -177,8 +177,17 @@ func (u *QuadletUnit) addExecutionConfig(content string) string {
 
 // addHealthCheckConfig adds health check configuration.
 func (u *QuadletUnit) addHealthCheckConfig(content string) string {
+	// Special handling for health check commands with environment variables
 	if len(u.Container.HealthCmd) > 0 {
-		content += formatKeyValueSlice("HealthCmd", u.Container.HealthCmd)
+		// For health checks, we need special handling to ensure environment variables
+		// are preserved and properly escaped for systemd
+		if len(u.Container.HealthCmd) == 2 && (u.Container.HealthCmd[0] == "CMD" || u.Container.HealthCmd[0] == "CMD-SHELL") {
+			// For CMD-SHELL or CMD with specific command string, format specially to preserve env vars
+			content += fmt.Sprintf("HealthCmd=%s %s\n", u.Container.HealthCmd[0], u.Container.HealthCmd[1])
+		} else {
+			// For other cases, use standard slice formatting
+			content += formatKeyValueSlice("HealthCmd", u.Container.HealthCmd)
+		}
 	}
 	if u.Container.HealthInterval != "" {
 		content += formatKeyValue("HealthInterval", u.Container.HealthInterval)
