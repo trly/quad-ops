@@ -569,7 +569,23 @@ func (c *Container) processDevices(service types.ServiceConfig, unsupportedFeatu
 	if len(service.Devices) > 0 {
 		*unsupportedFeatures = append(*unsupportedFeatures, "Device mappings (devices)")
 		for _, device := range service.Devices {
-			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--device=%s", device))
+			// Extract the source path or use the full path if it's a string shorthand
+			var devicePath string
+			if device.Source != "" {
+				devicePath = device.Source
+			} else {
+				// For shorthand string format in compose files (like "/dev/sda")
+				devicePath = fmt.Sprintf("%v", device)
+				// If devicePath contains curly braces, extract the path
+				if strings.HasPrefix(devicePath, "{/") {
+					parts := strings.Split(devicePath, " ")
+					if len(parts) > 0 {
+						// Extract path without leading { character
+						devicePath = strings.TrimPrefix(parts[0], "{")
+					}
+				}
+			}
+			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--device=%s", devicePath))
 		}
 	}
 }

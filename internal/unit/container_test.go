@@ -121,3 +121,45 @@ func TestCustomHostnameNetworkAlias(t *testing.T) {
 	assert.Contains(t, content, "NetworkAlias=db", "Unit content should include service name as NetworkAlias")
 	assert.Contains(t, content, "NetworkAlias=photoprism-db", "Unit content should include custom hostname as NetworkAlias")
 }
+
+func TestDeviceMappingFormat(t *testing.T) {
+	// Initialize logger
+	log.Init(false)
+
+	// Create mock configuration
+	cfg := config.InitConfig() // Initialize default config
+	config.SetConfig(cfg)
+
+	// Create a service with device mappings like in the Scrutiny compose file
+	service := types.ServiceConfig{
+		Name:  "scrutiny",
+		Image: "ghcr.io/analogj/scrutiny:master-omnibus",
+	}
+
+	// Add devices to the service
+	service.Devices = []types.DeviceMapping{
+		{Source: "/dev/nvme0"},
+		{Source: "/dev/nvme1"},
+	}
+
+	// Process the container
+	container := NewContainer("test-scrutiny")
+	container = container.FromComposeService(service, "test-project")
+
+	// Generate unit to verify output
+	unit := &QuadletUnit{
+		Name:      "test-scrutiny",
+		Type:      "container",
+		Container: *container,
+	}
+
+	// Generate the content and check it contains correctly formatted device arguments
+	content := GenerateQuadletUnit(*unit)
+
+	// The device arguments should be properly formatted for podman
+	assert.Contains(t, content, "PodmanArgs=--device=/dev/nvme0", "Device paths should be properly formatted")
+	assert.Contains(t, content, "PodmanArgs=--device=/dev/nvme1", "Device paths should be properly formatted")
+
+	// Should NOT contain the incorrect format with curly braces
+	assert.NotContains(t, content, "PodmanArgs=--device={/dev/nvme0", "Device paths should not include curly braces")
+}
