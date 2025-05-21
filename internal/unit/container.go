@@ -18,8 +18,7 @@ type Container struct {
 	Label       []string
 	PublishPort []string
 	Environment map[string]string
-	// Stores environment keys in sorted order for deterministic output
-	sortedEnvKeys   []string
+	// Environment file paths (will be sorted for deterministic output)
 	EnvironmentFile []string
 	Volume          []string
 	Network         []string
@@ -730,12 +729,7 @@ type Secret struct {
 // sortContainer ensures all slices in a container config are sorted deterministically in-place.
 // This is called when the container is created to ensure all data structures are immediately sorted.
 func sortContainer(container *Container) {
-	// Sort environment variables (already sorted in FromComposeService, but ensure it's done everywhere)
-	if len(container.Environment) > 0 {
-		// Create a sorted list of environment keys for deterministic unit generation
-		// Note: This doesn't change the map, just ensures deterministic unit file generation
-		container.sortedEnvKeys = util.GetSortedMapKeys(container.Environment)
-	}
+	// Environment variables will be sorted on-demand during unit file generation
 
 	// Sort all slices for deterministic output
 	if len(container.Label) > 0 {

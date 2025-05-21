@@ -96,15 +96,8 @@ func (u *QuadletUnit) addBasicConfig(content string) string {
 
 // addEnvironmentConfig adds environment variables and environment files.
 func (u *QuadletUnit) addEnvironmentConfig(content string) string {
-	// Use sortedEnvKeys if available (populated by SortAllSlices),
-	// otherwise generate sorted keys on the fly
-	var envKeys []string
-	if len(u.Container.sortedEnvKeys) > 0 {
-		envKeys = u.Container.sortedEnvKeys
-	} else {
-		// Sort environment variables for consistent output
-		envKeys = util.GetSortedMapKeys(u.Container.Environment)
-	}
+	// Sort environment variables for consistent output
+	envKeys := util.GetSortedMapKeys(u.Container.Environment)
 
 	// Add environment variables in sorted order
 	for _, k := range envKeys {
