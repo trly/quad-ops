@@ -173,7 +173,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Apply dependencies
 	ApplyDependencyRelationships(&dbUnit, "db", deps, project.Name)
 
-	// Check that db has dependencies on networks and volumes, and has PartOf for webapp
+	// Check that db has dependencies on networks and volumes, but no PartOf to avoid circular dependencies
 	// Should have 2 dependencies - 1 network (backend) and 1 volume (db-data)
 	assert.Len(t, dbUnit.Systemd.After, 2)
 	assert.Contains(t, dbUnit.Systemd.After, "test-project-backend-network.service")
@@ -181,8 +181,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	assert.Len(t, dbUnit.Systemd.Requires, 2)
 	assert.Contains(t, dbUnit.Systemd.Requires, "test-project-backend-network.service")
 	assert.Contains(t, dbUnit.Systemd.Requires, "test-project-db-data-volume.service")
-	assert.Len(t, dbUnit.Systemd.PartOf, 1)
-	assert.Contains(t, dbUnit.Systemd.PartOf, "test-project-webapp.service")
+	assert.Empty(t, dbUnit.Systemd.PartOf)
 
 	// Create container for webapp
 	prefixedName = "test-project-webapp"
@@ -198,7 +197,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Apply dependencies
 	ApplyDependencyRelationships(&webappUnit, "webapp", deps, project.Name)
 
-	// Check that webapp has After/Requires for db, networks, volumes and PartOf for proxy
+	// Check that webapp has After/Requires for db, networks, volumes but no PartOf to avoid circular dependencies
 	// Should have 4 dependencies - db service, 2 networks (backend, frontend), and 1 volume (wp-content)
 	assert.Len(t, webappUnit.Systemd.After, 4)
 	assert.Contains(t, webappUnit.Systemd.After, "test-project-db.service")
@@ -210,8 +209,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	assert.Contains(t, webappUnit.Systemd.Requires, "test-project-backend-network.service")
 	assert.Contains(t, webappUnit.Systemd.Requires, "test-project-frontend-network.service")
 	assert.Contains(t, webappUnit.Systemd.Requires, "test-project-wp-content-volume.service")
-	assert.Len(t, webappUnit.Systemd.PartOf, 1)
-	assert.Contains(t, webappUnit.Systemd.PartOf, "test-project-proxy.service")
+	assert.Empty(t, webappUnit.Systemd.PartOf)
 
 	// Create container for proxy
 	prefixedName = "test-project-proxy"

@@ -65,14 +65,12 @@ func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, depende
 		unit.Systemd.Requires = append(unit.Systemd.Requires, formattedDepName)
 	}
 
-	// Apply reverse dependencies (services that depend on this one)
-	for dependentService := range dependencies[serviceName].DependentServices {
-		dependentPrefixedName := fmt.Sprintf("%s-%s", projectName, dependentService)
-		formattedDependentName := fmt.Sprintf("%s.service", dependentPrefixedName)
-
-		// Add PartOf directive to make this service restart when dependent services restart
-		unit.Systemd.PartOf = append(unit.Systemd.PartOf, formattedDependentName)
-	}
+	// Skip PartOf relationships to avoid circular dependencies.
+	// Docker Compose depends_on relationships already establish proper startup order
+	// via After/Requires directives. Adding PartOf creates circular dependencies
+	// when Service A requires Service B, but Service B is also "part of" Service A.
+	// The dependency-aware restart logic in restart.go handles service restarts
+	// without needing PartOf directives.
 
 	// For container units, add dependencies on attached networks and volumes
 	if unit.Type == "container" {

@@ -53,7 +53,8 @@
 - Fixed container name resolution for inter-container communication
 - Fixed service dependency configuration for containers with custom naming
 - Added NetworkAlias support to allow referring to services by their simple names (e.g., "db" instead of full hostname)
-- Added ResetFailed functionality to properly clean up failed systemd units during unit removal
+- Added ResetFailed functionality for clearing failed unit states (used in up command before starting units)
+- ResetFailed is NOT used during cleanup operations as systemd automatically clears unit state when units are unloaded
 
 ## Docker Compose Support
 - `compose/reader.go`: Detects and reads Docker Compose files with robust error handling
@@ -171,6 +172,15 @@
 - Reverse dependencies are tracked and converted to `PartOf` relationships for proper restart propagation
 - The dependency-aware restart logic only restarts the most foundational service when multiple dependent services change
 - File content change detection ensures only services with actual changes are restarted
+
+### One-Shot Service Restart Behavior
+- **Build, Image, Network, Volume units** are treated as one-shot services and use `Start()` instead of `Restart()`
+- **Volume data safety**: When volume configuration changes, Podman preserves existing volume data by default
+  - Safe changes: labels, annotations, ownership settings
+  - Potentially risky: changing driver, device, or driver options (rare in typical Docker Compose usage)
+  - Podman's `--ignore` behavior ensures existing volumes aren't recreated unnecessarily
+- **Network recreation**: Networks are recreated when configuration changes, which is safe as they don't store persistent data
+- **Build units**: Triggered when build configuration changes to rebuild images with updated settings
 
 ## Configuration
 - Repository settings are defined in `config.yaml`

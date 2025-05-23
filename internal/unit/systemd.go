@@ -59,10 +59,6 @@ func (u *BaseSystemdUnit) GetServiceName() string {
 	switch u.Type {
 	case "container":
 		return u.Name + ".service"
-	case "build":
-		// For build units, the -build suffix is already part of the unit name
-		// so we just add .service
-		return u.Name + ".service"
 	default:
 		return u.Name + "-" + u.Type + ".service"
 	}
@@ -152,25 +148,51 @@ func (u *BaseSystemdUnit) Stop() error {
 	return nil
 }
 
-// getUnitFailureDetails retrieves additional details about a unit failure.
+// getUnitFailureDetails retrieves additional details about a unit failure using dbus.
 func getUnitFailureDetails(unitName string) string {
-	// Execute journalctl to get the last few lines of logs for the unit
-	cmd := exec.Command("journalctl", "--user-unit", unitName, "-n", "5", "--no-pager")
+	conn, err := getSystemdConnection()
+	if err != nil {
+		return fmt.Sprintf("Could not connect to systemd: %v", err)
+	}
+	defer conn.Close()
+
+	// Get unit properties via dbus instead of exec.Command
+	prop, err := conn.GetUnitPropertiesContext(ctx, unitName)
+	if err != nil {
+		return fmt.Sprintf("Could not retrieve unit properties: %v", err)
+	}
+
+	// Build status information from dbus properties
+	statusInfo := fmt.Sprintf("Unit: %s\n", unitName)
+	statusInfo += fmt.Sprintf("  Load State: %v\n", prop["LoadState"])
+	statusInfo += fmt.Sprintf("  Active State: %v\n", prop["ActiveState"])
+	statusInfo += fmt.Sprintf("  Sub State: %v\n", prop["SubState"])
+
+	if result, ok := prop["Result"]; ok {
+		statusInfo += fmt.Sprintf("  Result: %v\n", result)
+	}
+
+	if mainPID, ok := prop["MainPID"]; ok && mainPID != uint32(0) {
+		statusInfo += fmt.Sprintf("  Main PID: %v\n", mainPID)
+	}
+
+	if execMainStatus, ok := prop["ExecMainStatus"]; ok {
+		statusInfo += fmt.Sprintf("  Exit Status: %v\n", execMainStatus)
+	}
+
+	// For logs, we still need journalctl as systemd dbus doesn't provide log retrieval
+	// This is the only remaining exec.Command, but it's necessary as dbus doesn't expose logs
+	cmd := exec.Command("journalctl", "--user-unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
+	if !config.GetConfig().UserMode {
+		cmd = exec.Command("journalctl", "--unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
+	}
 	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Sprintf("Could not retrieve failure details: %v", err)
+	logInfo := "Recent logs: (unavailable)"
+	if err == nil && len(output) > 0 {
+		logInfo = fmt.Sprintf("Recent logs:\n%s", string(output))
 	}
 
-	// Also get the unit status
-	cmd = exec.Command("systemctl", "--user", "status", unitName, "--no-pager")
-	statusOutput, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Sprintf("Could not retrieve unit status: %v", err)
-	}
-
-	// Combine the information
-	return fmt.Sprintf("\nUnit status:\n%s\n\nRecent logs:\n%s",
-		string(statusOutput), string(output))
+	return fmt.Sprintf("\nUnit Status (via dbus):\n%s\n%s", statusInfo, logInfo)
 }
 
 // Restart restarts the unit.
@@ -183,6 +205,16 @@ func (u *BaseSystemdUnit) Restart() error {
 
 	serviceName := u.GetServiceName()
 	log.GetLogger().Debug("Attempting to restart unit", "name", serviceName)
+
+	// Check if unit is loaded before attempting restart
+	loadState, err := conn.GetUnitPropertyContext(ctx, serviceName, "LoadState")
+	if err != nil {
+		return fmt.Errorf("error checking unit load state %s: %w", serviceName, err)
+	}
+
+	if loadState.Value.Value().(string) != "loaded" {
+		return fmt.Errorf("unit %s is not loaded (LoadState: %s), cannot restart", serviceName, loadState.Value.Value().(string))
+	}
 
 	ch := make(chan string)
 	_, err = conn.RestartUnitContext(context.Background(), serviceName, "replace", ch)

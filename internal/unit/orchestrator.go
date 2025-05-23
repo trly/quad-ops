@@ -2,7 +2,6 @@ package unit
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/trly/quad-ops/internal/log"
@@ -19,11 +18,13 @@ type Change struct {
 func StartUnitDependencyAware(unitName string, unitType string, dependencyTree map[string]*ServiceDependency) error {
 	log.GetLogger().Debug("Starting/restarting unit with dependency awareness", "unit", unitName, "type", unitType)
 
-	// For network and volume units, start them first before containers
-	if unitType == "network" || unitType == "volume" {
-		log.GetLogger().Debug("Direct restart for infrastructure unit", "unit", unitName, "type", unitType)
+	// Handle different unit types appropriately
+	switch unitType {
+	case "build", "image", "network", "volume":
+		// For one-shot services, use Start() instead of Restart()
+		log.GetLogger().Debug("Starting one-shot service", "unit", unitName, "type", unitType)
 		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
-		return unit.Restart()
+		return unit.Start()
 	}
 
 	// Only handle containers for dependency logic
@@ -61,29 +62,14 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyTree m
 		return unit.Restart()
 	}
 
-	// Find the top-level dependent service that depends on this one (if any)
-	dependent := findTopLevelDependentService(serviceName, dependencyTree)
-
-	// If no dependent service, just restart this one
-	if dependent == "" {
-		log.GetLogger().Debug("No dependent services found, restarting directly",
-			"service", serviceName,
-			"project", projectName,
-			"dependencies", getDependencyListForService(serviceName, dependencyTree))
-		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
-		return unit.Restart()
-	}
-
-	// Found a top-level dependent service, restart that instead
-	log.GetLogger().Debug("Found top-level dependent service, restarting that instead",
-		"dependent", dependent,
+	// Always restart the changed service directly - systemd will handle dependency propagation
+	// The systemd After/Requires directives ensure proper restart order automatically
+	log.GetLogger().Debug("Restarting changed service directly - systemd will handle dependency propagation",
 		"service", serviceName,
 		"project", projectName,
-		"dependencyChain", getDependencyChain(serviceName, dependent, dependencyTree))
+		"dependencies", getDependencyListForService(serviceName, dependencyTree))
 
-	// Format the systemd unit service name correctly
-	dependentUnitName := fmt.Sprintf("%s-%s", projectName, dependent)
-	unit := &BaseSystemdUnit{Name: dependentUnitName, Type: unitType}
+	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Restart()
 }
 
@@ -108,69 +94,6 @@ func getDependencyListForService(serviceName string, dependencyTree map[string]*
 		}
 	}
 	return deps
-}
-
-// getDependencyChain returns a description of the dependency chain between two services.
-func getDependencyChain(serviceName, dependentService string, dependencyTree map[string]*ServiceDependency) string {
-	chain := []string{}
-	current := serviceName
-	for current != dependentService {
-		next := ""
-		for dep := range dependencyTree[current].DependentServices {
-			if isInDependencyPath(dep, dependentService, dependencyTree, make(map[string]bool)) {
-				next = dep
-				break
-			}
-		}
-		if next == "" {
-			break
-		}
-		chain = append(chain, fmt.Sprintf("%s → %s", current, next))
-		current = next
-	}
-	return strings.Join(chain, " → ")
-}
-
-// isInDependencyPath checks if target is in the dependency path of source.
-func isInDependencyPath(source, target string, dependencyTree map[string]*ServiceDependency, visited map[string]bool) bool {
-	if source == target {
-		return true
-	}
-	if visited[source] {
-		return false
-	}
-	visited[source] = true
-
-	for dep := range dependencyTree[source].DependentServices {
-		if isInDependencyPath(dep, target, dependencyTree, visited) {
-			return true
-		}
-	}
-	return false
-}
-
-// findTopLevelDependentService finds the top-most (leaf) service that depends on this service.
-func findTopLevelDependentService(serviceName string, dependencyTree map[string]*ServiceDependency) string {
-	// If no dependent services, return empty string
-	if len(dependencyTree[serviceName].DependentServices) == 0 {
-		return ""
-	}
-
-	// Get one of the dependent services
-	var dependentService string
-	for dep := range dependencyTree[serviceName].DependentServices {
-		dependentService = dep
-		break
-	}
-
-	// Recursively find the top-level dependent service
-	higherDep := findTopLevelDependentService(dependentService, dependencyTree)
-	if higherDep != "" {
-		return higherDep
-	}
-
-	// This is the top-level dependent service
-	return dependentService
 }
 
 // splitUnitName splits a unit name like "project-service" into ["project", "service"].
@@ -199,25 +122,35 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 	// Track units with restart failures
 	restartFailures := make(map[string]error)
 
-	// First restart network and volume units
-	log.GetLogger().Debug("Restarting network and volume units first")
+	// First start one-shot services (network, volume, build, image)
+	log.GetLogger().Debug("Starting one-shot services first")
 	for _, unit := range changedUnits {
-		if unit.Type == "network" || unit.Type == "volume" {
+		switch unit.Type {
+		case "network", "volume", "build", "image":
 			systemdUnit := unit.GetSystemdUnit()
 			unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
-			if err := systemdUnit.Restart(); err != nil {
-				log.GetLogger().Error("Failed to restart unit",
+
+			// For volumes, warn about potential data safety considerations
+			if unit.Type == "volume" {
+				log.GetLogger().Debug("Starting volume unit - existing data should be preserved",
+					"name", unit.Name,
+					"note", "Podman typically preserves existing volume data when configuration changes")
+			}
+
+			// Use Start() for one-shot services since they don't run continuously
+			if err := systemdUnit.Start(); err != nil {
+				log.GetLogger().Error("Failed to start one-shot service",
 					"type", unit.Type,
 					"name", unit.Name,
 					"error", err)
 				restartFailures[unitKey] = err
 			} else {
-				log.GetLogger().Debug("Successfully restarted unit", "name", unit.Name, "type", unit.Type)
+				log.GetLogger().Debug("Successfully started one-shot service", "name", unit.Name, "type", unit.Type)
 			}
 		}
 	}
 
-	// Wait for networks and volumes to be fully available
+	// Wait for one-shot services to complete
 	time.Sleep(1 * time.Second)
 
 	// Track units that have been restarted
@@ -225,9 +158,9 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 
 	log.GetLogger().Debug("Restarting container units with dependency awareness")
 	for _, unit := range changedUnits {
-		// Skip if already restarted or if it's a network or volume (handled earlier)
+		// Skip if already restarted or if it's a one-shot service (handled earlier)
 		unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
-		if restarted[unitKey] || unit.Type == "network" || unit.Type == "volume" {
+		if restarted[unitKey] || unit.Type == "network" || unit.Type == "volume" || unit.Type == "build" || unit.Type == "image" {
 			continue
 		}
 
@@ -311,8 +244,9 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 			restartFailures[unitKey] = err
 		}
 
-		// Mark all dependent services as restarted since they will be restarted by systemd
-		markDependentsAsRestarted(serviceName, dependencyTree, projectName, restarted)
+		// Mark only this service as restarted - systemd will handle dependent service restarts
+		unitKey = fmt.Sprintf("%s-%s.container", projectName, serviceName)
+		restarted[unitKey] = true
 	}
 
 	// Summarize restart failures if any occurred
@@ -336,24 +270,6 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 
 	log.GetLogger().Info("Successfully restarted all changed units", "count", len(changedUnits))
 	return nil
-}
-
-// markDependentsAsRestarted marks all services that depend on the given service as restarted.
-func markDependentsAsRestarted(serviceName string, dependencyTree map[string]*ServiceDependency, projectName string, restarted map[string]bool) { //nolint:whitespace // False positive
-
-	// Mark this service as restarted
-	unitKey := fmt.Sprintf("%s-%s.container", projectName, serviceName)
-	restarted[unitKey] = true
-
-	// Mark all services that depend on this one as restarted
-	for dependent := range dependencyTree[serviceName].DependentServices {
-		// Skip if already marked
-		dependentKey := fmt.Sprintf("%s-%s.container", projectName, dependent)
-		if !restarted[dependentKey] {
-			// Recursively mark all dependent services
-			markDependentsAsRestarted(dependent, dependencyTree, projectName, restarted)
-		}
-	}
 }
 
 // isServiceAlreadyRestarted checks if the service itself is already restarted

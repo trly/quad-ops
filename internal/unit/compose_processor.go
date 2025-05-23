@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/config"
@@ -61,6 +62,15 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 		// implemented in the Container.FromComposeService method
 	}
 
+	// Clean up any orphaned units BEFORE restarting changed units to avoid dependency conflicts
+	if doCleanup {
+		if err := CleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
+			log.GetLogger().Error("Failed to clean up orphaned units", "error", err)
+		}
+		// Wait for systemd to fully process unit removals before proceeding with restarts
+		time.Sleep(1 * time.Second)
+	}
+
 	// Reload systemd units if any changed
 	if len(changedUnits) > 0 {
 		// Create a map to store project dependency trees
@@ -74,13 +84,6 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 		// Use dependency-aware restart for changed units
 		if err := RestartChangedUnits(changedUnits, projectDependencyTrees); err != nil {
 			log.GetLogger().Error("Failed to restart changed units", "error", err)
-		}
-	}
-
-	// Clean up any orphaned units only if requested
-	if doCleanup {
-		if err := CleanupOrphanedUnits(unitRepo, processedUnits); err != nil {
-			log.GetLogger().Error("Failed to clean up orphaned units", "error", err)
 		}
 	}
 
@@ -280,15 +283,12 @@ func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) e
 				log.GetLogger().Debug("Successfully stopped unit during cleanup", "unit", unitKey)
 			}
 
-			// Reset failed unit state
-			if err := systemdUnit.ResetFailed(); err != nil {
-				log.GetLogger().Warn("Failed to reset failed unit", "unit", unitKey, "error", err)
-				// Continue with cleanup even if reset fails
-			} else {
-				log.GetLogger().Debug("Successfully reset failed unit", "unit", unitKey)
-			}
+			// Note: ResetFailed is not called during cleanup because:
+			// 1. We're removing the unit file entirely, so the failed state becomes irrelevant
+			// 2. systemd automatically clears the unit's state when it's unloaded
+			// 3. Calling ResetFailed on units being removed causes warnings about "Unit not loaded"
 
-			// Then remove the unit file
+			// Remove the unit file
 			unitPath := getUnitFilePath(dbUnit.Name, dbUnit.Type)
 			if err := os.Remove(unitPath); err != nil {
 				if !os.IsNotExist(err) {
