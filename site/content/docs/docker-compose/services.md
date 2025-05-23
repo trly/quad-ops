@@ -9,6 +9,7 @@ Services in Docker Compose are the core components that define your containers. 
 ## Supported Properties
 
 - `image`: Container image (fully qualified names with registry prefix recommended)
+- `build`: Build configuration for creating the container image (see [Build](build))
 - `ports`: Port mappings
 - `volumes`: Volume mounts
 - `networks`: Network connections

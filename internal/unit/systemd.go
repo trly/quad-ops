@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
@@ -55,10 +56,16 @@ type BaseSystemdUnit struct {
 
 // GetServiceName returns the full systemd service name based on unit type.
 func (u *BaseSystemdUnit) GetServiceName() string {
-	if u.Type == "container" {
+	switch u.Type {
+	case "container":
 		return u.Name + ".service"
+	case "build":
+		// For build units, the -build suffix is already part of the unit name
+		// so we just add .service
+		return u.Name + ".service"
+	default:
+		return u.Name + "-" + u.Type + ".service"
 	}
-	return u.Name + "-" + u.Type + ".service"
 }
 
 // GetUnitType returns the type of the unit.
@@ -96,10 +103,20 @@ func (u *BaseSystemdUnit) Start() error {
 	defer conn.Close()
 
 	serviceName := u.GetServiceName()
+	log.GetLogger().Debug("Attempting to start unit", "name", serviceName)
+
 	ch := make(chan string)
 	_, err = conn.StartUnitContext(context.Background(), serviceName, "replace", ch)
 	if err != nil {
 		return fmt.Errorf("error starting unit %s: %w", serviceName, err)
+	}
+
+	result := <-ch
+	if result != "done" {
+		// Get detailed failure information
+		details := getUnitFailureDetails(serviceName)
+		return fmt.Errorf("unit start failed: %s\nPossible causes:\n- Missing dependencies\n- Invalid configuration\n- Resource conflicts%s",
+			result, details)
 	}
 
 	log.GetLogger().Info("Successfully started unit", "name", serviceName)
@@ -115,14 +132,45 @@ func (u *BaseSystemdUnit) Stop() error {
 	defer conn.Close()
 
 	serviceName := u.GetServiceName()
+	log.GetLogger().Debug("Attempting to stop unit", "name", serviceName)
+
 	ch := make(chan string)
 	_, err = conn.StopUnitContext(context.Background(), serviceName, "replace", ch)
 	if err != nil {
 		return fmt.Errorf("error stopping unit %s: %w", serviceName, err)
 	}
 
+	result := <-ch
+	if result != "done" {
+		// Get detailed failure information
+		details := getUnitFailureDetails(serviceName)
+		return fmt.Errorf("unit stop failed: %s\nPossible causes:\n- Unit is already stopped\n- Unit has dependent services that need to be stopped first\n- Process is being killed forcefully%s",
+			result, details)
+	}
+
 	log.GetLogger().Info("Successfully stopped unit", "name", serviceName)
 	return nil
+}
+
+// getUnitFailureDetails retrieves additional details about a unit failure.
+func getUnitFailureDetails(unitName string) string {
+	// Execute journalctl to get the last few lines of logs for the unit
+	cmd := exec.Command("journalctl", "--user-unit", unitName, "-n", "5", "--no-pager")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("Could not retrieve failure details: %v", err)
+	}
+
+	// Also get the unit status
+	cmd = exec.Command("systemctl", "--user", "status", unitName, "--no-pager")
+	statusOutput, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("Could not retrieve unit status: %v", err)
+	}
+
+	// Combine the information
+	return fmt.Sprintf("\nUnit status:\n%s\n\nRecent logs:\n%s",
+		string(statusOutput), string(output))
 }
 
 // Restart restarts the unit.
@@ -134,6 +182,8 @@ func (u *BaseSystemdUnit) Restart() error {
 	defer conn.Close()
 
 	serviceName := u.GetServiceName()
+	log.GetLogger().Debug("Attempting to restart unit", "name", serviceName)
+
 	ch := make(chan string)
 	_, err = conn.RestartUnitContext(context.Background(), serviceName, "replace", ch)
 	if err != nil {
@@ -142,7 +192,10 @@ func (u *BaseSystemdUnit) Restart() error {
 
 	result := <-ch
 	if result != "done" {
-		return fmt.Errorf("unit restart failed: %s", result)
+		// Get detailed failure information
+		details := getUnitFailureDetails(serviceName)
+		return fmt.Errorf("unit restart failed: %s\nReason: dependency issues or unit configuration errors%s",
+			result, details)
 	}
 
 	log.GetLogger().Info("Successfully restarted unit", "name", serviceName)

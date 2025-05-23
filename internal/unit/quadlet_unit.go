@@ -2,6 +2,7 @@ package unit
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -18,6 +19,7 @@ type QuadletUnit struct {
 	Container Container     `yaml:"container,omitempty"`
 	Volume    Volume        `yaml:"volume,omitempty"`
 	Network   Network       `yaml:"network,omitempty"`
+	Build     Build         `yaml:"build,omitempty"`
 }
 
 // GetSystemdUnit returns the appropriate SystemdUnit implementation for this QuadletUnit.
@@ -38,6 +40,11 @@ func (u *QuadletUnit) GetSystemdUnit() SystemdUnit {
 		network.Name = u.Name
 		network.UnitType = "network"
 		return &network
+	case "build":
+		build := u.Build
+		build.Name = u.Name
+		build.UnitType = "build"
+		return &build
 	default:
 		// Default to base implementation
 		return &BaseSystemdUnit{Name: u.Name, Type: u.Type}
@@ -389,6 +396,82 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	return content
 }
 
+// generateBuildSection generates the [Build] section for a quadlet build unit.
+func (u *QuadletUnit) generateBuildSection() string {
+	content := "\n[Build]\n"
+	content += formatKeyValue("Label", "managed-by=quad-ops")
+
+	// Add basic configuration
+	if len(u.Build.ImageTag) > 0 {
+		for _, tag := range u.Build.ImageTag {
+			content += formatKeyValue("ImageTag", tag)
+		}
+	}
+
+	if u.Build.File != "" {
+		content += formatKeyValue("File", u.Build.File)
+	}
+
+	if u.Build.SetWorkingDirectory != "" {
+		content += formatKeyValue("SetWorkingDirectory", u.Build.SetWorkingDirectory)
+	}
+
+	// Use centralized sorting function for labels
+	util.SortAndIterateSlice(u.Build.Label, func(label string) {
+		content += formatKeyValue("Label", label)
+	})
+
+	// Use centralized sorting function for annotations
+	util.SortAndIterateSlice(u.Build.Annotation, func(annotation string) {
+		content += formatKeyValue("Annotation", annotation)
+	})
+
+	// Environment variables for build process
+	if len(u.Build.Env) > 0 {
+		// Sort keys for deterministic output
+		keys := make([]string, 0, len(u.Build.Env))
+		for k := range u.Build.Env {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, u.Build.Env[k]))
+		}
+	}
+
+	// Networks for RUN instructions
+	util.SortAndIterateSlice(u.Build.Network, func(network string) {
+		content += formatKeyValue("Network", network)
+	})
+
+	// Volumes for build process
+	util.SortAndIterateSlice(u.Build.Volume, func(volume string) {
+		content += formatKeyValue("Volume", volume)
+	})
+
+	// Secrets for build process
+	util.SortAndIterateSlice(u.Build.Secret, func(secret string) {
+		content += formatKeyValue("Secret", secret)
+	})
+
+	// Add target stage if specified
+	if u.Build.Target != "" {
+		content += formatKeyValue("Target", u.Build.Target)
+	}
+
+	// Add pull policy if specified
+	if u.Build.Pull != "" {
+		content += formatKeyValue("Pull", u.Build.Pull)
+	}
+
+	// Add PodmanArgs for additional options
+	util.SortAndIterateSlice(u.Build.PodmanArgs, func(arg string) {
+		content += formatKeyValue("PodmanArgs", arg)
+	})
+
+	return content
+}
+
 func (u *QuadletUnit) generateUnitSection() string {
 	content := "[Unit]\n"
 	if u.Systemd.Description != "" {
@@ -456,6 +539,8 @@ func GenerateQuadletUnit(unit QuadletUnit) string {
 		content += unit.generateVolumeSection()
 	case "network":
 		content += unit.generateNetworkSection()
+	case "build":
+		content += unit.generateBuildSection()
 	}
 
 	content += unit.generateServiceSection()

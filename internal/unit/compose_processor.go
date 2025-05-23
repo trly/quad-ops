@@ -332,6 +332,76 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 		// Create prefixed container name using project name to enable proper DNS resolution
 		// Format: <project>-<service> (e.g., myproject-db, myproject-web)
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
+
+		// Check if service has a build section first
+		if service.Build != nil {
+			log.GetLogger().Debug("Processing build for service", "service", serviceName)
+
+			// Create a build unit with the same prefixed name
+			buildUnitName := fmt.Sprintf("%s-%s-build", project.Name, serviceName)
+			build := NewBuild(buildUnitName)
+			build = build.FromComposeBuild(*service.Build, service, project.Name)
+
+			// Create the quadlet unit for the build
+			// If build context is marked as "repo", replace it with the actual project working directory
+			if build.SetWorkingDirectory == "repo" {
+				// Use the project's working directory as the build context
+				build.SetWorkingDirectory = project.WorkingDir
+				log.GetLogger().Debug("Setting build context to project working directory",
+					"service", serviceName, "context", build.SetWorkingDirectory)
+			}
+
+			// Remove the Target field if it's pointing to 'production' to prevent errors
+			if build.Target == "production" {
+				// Check if target stage exists in Dockerfile
+				dockerfilePath := filepath.Join(project.WorkingDir, "Dockerfile")
+				if _, err := os.Stat(dockerfilePath); err == nil {
+					content, err := os.ReadFile(dockerfilePath) //nolint:gosec // Safe as path comes from project.WorkingDir, not user input
+					if err == nil {
+						if !strings.Contains(string(content), "FROM ") || !strings.Contains(string(content), " as production") {
+							build.Target = ""
+							log.GetLogger().Debug("Removing target='production' as it doesn't exist in Dockerfile",
+								"service", serviceName)
+						}
+					}
+				}
+			}
+
+			buildQuadletUnit := QuadletUnit{
+				Name:  buildUnitName,
+				Type:  "build",
+				Build: *build,
+				Systemd: SystemdConfig{
+					// Ensure the build completes before the container starts
+					RemainAfterExit: true,
+				},
+			}
+
+			// Process the build unit
+			if err := ProcessUnit(unitRepo, &buildQuadletUnit, force, processedUnits, changedUnits); err != nil {
+				log.GetLogger().Error("Failed to process build unit", "error", err)
+			}
+
+			// Update the service image to reference the build unit
+			service.Image = fmt.Sprintf("%s.build", buildUnitName)
+
+			// Set up the dependency relationship between the container and the build
+			// This ensures that the build completes before the container starts
+			// If the dependency tree doesn't have this service yet, create it
+			if _, exists := dependencyTree[serviceName]; !exists {
+				dependencyTree[serviceName] = &ServiceDependency{
+					Dependencies:      make(map[string]struct{}),
+					DependentServices: make(map[string]struct{}),
+				}
+			}
+
+			// Add build unit as a dependency for this service
+			// Use the bare service name with -build suffix as the dependency name
+			// This needs to match how dependency resolution works in ApplyDependencyRelationships
+			buildName := fmt.Sprintf("%s-build", serviceName)
+			dependencyTree[serviceName].Dependencies[buildName] = struct{}{}
+		}
+
 		container := NewContainer(prefixedName)
 		container = container.FromComposeService(service, project.Name)
 

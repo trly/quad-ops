@@ -1,10 +1,11 @@
 # Quad-Ops Development Memory
 
-## Current State (Updated 2025-05-06)
+## Current State (Updated 2025-05-22)
 - Quad-Ops synchronizes Docker Compose files from Git repositories to Podman Quadlet systemd unit files
 - Includes daemon mode support for continuous monitoring
 - Supports user-mode operation without root privileges
 - Manages multiple Git repositories simultaneously
+- Supports Docker Compose build configurations with Podman Quadlet build units
 
 ## Build & Test Commands
 - Build: `task build`
@@ -59,6 +60,7 @@
 - `unit/container.go`: Converts services to container units with `FromComposeService()`
 - `unit/volume.go`: Converts volumes with `FromComposeVolume()`
 - `unit/network.go`: Converts networks with `FromComposeNetwork()`
+- `unit/build.go`: Converts build configurations to Podman Quadlet build units
 - `unit/compose_processor.go`: Orchestrates conversion with `ProcessComposeProjects()`
 - `unit/dependency.go`: Manages bidirectional dependency relationships between services
 - `unit/restart.go`: Implements dependency-aware service restart logic
@@ -117,6 +119,25 @@
   - `healthcheck.start_interval` → `HealthStartupInterval`
 - When the `disable: true` flag is set in the health check config, no health check directives are generated
 
+### Build Support
+- Docker Compose build configurations are converted to Podman Quadlet build units
+- Build units are created for services that include a build directive in their configuration
+- Images built via build units are automatically used by their corresponding containers
+- Supports essential build options:
+  - Context path for build directory
+  - Dockerfile/Containerfile path with the `dockerfile` property
+  - Build arguments with `args` property
+  - Image labels with `labels` property
+  - Build target stage with `target` property
+  - Network configuration for build with `network` property
+  - Pull policy control with `pull` property
+  - Secret passing with `secrets` property
+- Advanced build features:
+  - SSH authentication (via PodmanArgs)
+  - Cache configuration (via PodmanArgs)
+  - Volume mounts for build context (via x-podman-volumes extension)
+  - Custom build arguments (via x-podman-buildargs extension)
+
 ### Service-Specific Environment Files
 - Automatically detects and uses service-specific environment files present in the compose directory
 - Supported file patterns for a service named `service1`:
@@ -131,10 +152,12 @@
 - Containers: `<project-name>-<service-name>.container`
 - Volumes: `<project-name>-<volume-name>.volume`
 - Networks: `<project-name>-<network-name>.network`
+- Builds: `<project-name>-<service-name>-build.build`
 - Service file naming in systemd:
   - Container services: `<project-name>-<service-name>.service`
   - Volume services: `<project-name>-<volume-name>-volume.service`
   - Network services: `<project-name>-<network-name>-network.service`
+  - Build services: `<project-name>-<service-name>-build.service`
 
 #### Docker Compose Name Mapping
 - Project name becomes a prefix for all units to maintain uniqueness

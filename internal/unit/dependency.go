@@ -47,7 +47,18 @@ func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, depende
 	// Apply regular dependencies (services this one depends on)
 	for depName := range dependencies[serviceName].Dependencies {
 		depPrefixedName := fmt.Sprintf("%s-%s", projectName, depName)
-		formattedDepName := fmt.Sprintf("%s.service", depPrefixedName)
+
+		// Special handling for build dependencies
+		// If the dependency name ends with -build, it's a build unit
+		formattedDepName := ""
+		if strings.HasSuffix(depName, "-build") {
+			// Build units have their service name with an additional -build suffix
+			// from Quadlet, so we need to adjust the service name accordingly
+			formattedDepName = fmt.Sprintf("%s-build.service", depPrefixedName)
+		} else {
+			// Regular container unit
+			formattedDepName = fmt.Sprintf("%s.service", depPrefixedName)
+		}
 
 		// Add dependency to After and Requires lists
 		unit.Systemd.After = append(unit.Systemd.After, formattedDepName)

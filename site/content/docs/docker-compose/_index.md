@@ -26,6 +26,7 @@ Project names are generated based on repository structure:
 |------------|-------------|
 | **Container Naming** | By default, container hostnames match their service names without the systemd- prefix |
 | **Image References** | Always use fully qualified image names (docker.io/library/nginx:latest) |
+| **Build Support** | Docker Compose build configurations are converted to Podman Quadlet build units |
 | **Bind Mounts** | Directories must exist before containers start (not auto-created) |
 | **Service Discovery** | Simple service names (db) work as DNS names regardless of actual container hostname |
 | **Management** | Containers are managed via systemd commands, not docker-compose commands |
@@ -37,6 +38,7 @@ Project names are generated based on repository structure:
 Each Docker Compose component is converted to a corresponding Podman resource:
 
 - [Services](services) - Container configuration
+- [Build](build) - Image build configuration
 - [Networks](networks) - Container networking
 - [Volumes](volumes) - Persistent storage
 - [Secrets](secrets) - Sensitive data management
