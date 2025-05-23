@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"time"
 
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
@@ -109,6 +110,39 @@ func (u *BaseSystemdUnit) Start() error {
 
 	result := <-ch
 	if result != "done" {
+		// Check if the unit is still in the process of starting up, regardless of result
+		activeState, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
+		if err == nil && activeState.Value.Value().(string) == "activating" {
+			// Get sub-state to understand what kind of activation is happening
+			subState, err := conn.GetUnitPropertyContext(ctx, serviceName, "SubState")
+			subStateStr := "unknown"
+			if err == nil {
+				subStateStr = subState.Value.Value().(string)
+			}
+
+			log.GetLogger().Debug("Unit is in activating state, waiting for completion",
+				"name", serviceName, "subState", subStateStr, "result", result)
+
+			// Wait longer for units that are starting (like downloading images)
+			waitTime := 5 * time.Second
+			if subStateStr == "start" {
+				waitTime = 10 * time.Second // More time for container image pulls, etc.
+			}
+
+			time.Sleep(waitTime)
+
+			// Check final state
+			finalActiveState, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
+			if err == nil {
+				finalState := finalActiveState.Value.Value().(string)
+				if finalState == "active" {
+					log.GetLogger().Info("Unit successfully started after activation delay", "name", serviceName)
+					return nil
+				}
+				log.GetLogger().Debug("Unit not active after waiting", "name", serviceName, "finalState", finalState)
+			}
+		}
+
 		// Get detailed failure information
 		details := getUnitFailureDetails(serviceName)
 		return fmt.Errorf("unit start failed: %s\nPossible causes:\n- Missing dependencies\n- Invalid configuration\n- Resource conflicts%s",
@@ -224,6 +258,39 @@ func (u *BaseSystemdUnit) Restart() error {
 
 	result := <-ch
 	if result != "done" {
+		// Check if the unit is still in the process of starting up, regardless of result
+		activeState, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
+		if err == nil && activeState.Value.Value().(string) == "activating" {
+			// Get sub-state to understand what kind of activation is happening
+			subState, err := conn.GetUnitPropertyContext(ctx, serviceName, "SubState")
+			subStateStr := "unknown"
+			if err == nil {
+				subStateStr = subState.Value.Value().(string)
+			}
+
+			log.GetLogger().Debug("Unit is in activating state, waiting for completion",
+				"name", serviceName, "subState", subStateStr, "result", result)
+
+			// Wait longer for units that are starting (like downloading images)
+			waitTime := 5 * time.Second
+			if subStateStr == "start" {
+				waitTime = 10 * time.Second // More time for container image pulls, etc.
+			}
+
+			time.Sleep(waitTime)
+
+			// Check final state
+			finalActiveState, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
+			if err == nil {
+				finalState := finalActiveState.Value.Value().(string)
+				if finalState == "active" {
+					log.GetLogger().Info("Unit successfully restarted after activation delay", "name", serviceName)
+					return nil
+				}
+				log.GetLogger().Debug("Unit not active after waiting", "name", serviceName, "finalState", finalState)
+			}
+		}
+
 		// Get detailed failure information
 		details := getUnitFailureDetails(serviceName)
 		return fmt.Errorf("unit restart failed: %s\nReason: dependency issues or unit configuration errors%s",
