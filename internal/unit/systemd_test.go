@@ -37,14 +37,14 @@ func TestResetFailed(t *testing.T) {
 	// Test that the ResetFailed method is available on all unit types
 	// We can't actually reset units in the test environment, but we can
 	// ensure the interface is implemented properly
-	asserImplementsSystemdUnit(t, containerUnit)
-	asserImplementsSystemdUnit(t, volumeUnit)
-	asserImplementsSystemdUnit(t, networkUnit)
-	asserImplementsSystemdUnit(t, baseSystemdUnit)
+	assertImplementsSystemdUnit(t, containerUnit)
+	assertImplementsSystemdUnit(t, volumeUnit)
+	assertImplementsSystemdUnit(t, networkUnit)
+	assertImplementsSystemdUnit(t, baseSystemdUnit)
 }
 
 // Helper function to assert that a type implements the SystemdUnit interface.
-func asserImplementsSystemdUnit(t *testing.T, unit SystemdUnit) {
+func assertImplementsSystemdUnit(t *testing.T, unit SystemdUnit) {
 	// Assert that the unit implements all required methods
 	assert.NotNil(t, unit.GetServiceName())
 	assert.NotEmpty(t, unit.GetUnitType())
