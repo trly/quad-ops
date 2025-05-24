@@ -56,12 +56,6 @@ func Up(cfg config.Settings) error {
 		return err
 	}
 
-	if err == migrate.ErrNoChange {
-		log.GetLogger().Info("No new database migrations to apply")
-	} else {
-		log.GetLogger().Info("Database migrations applied successfully")
-	}
-
 	return nil
 }
 
@@ -73,12 +67,6 @@ func Down(cfg config.Settings) error {
 	}
 	if err := m.Down(); err != nil && err != migrate.ErrNoChange {
 		return err
-	}
-
-	if err == migrate.ErrNoChange {
-		log.GetLogger().Info("No new database migrations to apply")
-	} else {
-		log.GetLogger().Info("Database migrations applied successfully")
 	}
 
 	return nil
