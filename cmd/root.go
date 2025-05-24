@@ -68,8 +68,11 @@ It automatically generates systemd unit files from Docker Compose files and hand
 
 			if userMode {
 				cfg.UserMode = userMode
-				cfg.RepositoryDir = os.ExpandEnv("$HOME/.config/quad-ops/repositories")
-				cfg.QuadletDir = os.ExpandEnv("$HOME/.config/containers/systemd")
+				cfg.RepositoryDir = os.ExpandEnv(config.DefaultUserRepositoryDir)
+				cfg.QuadletDir = os.ExpandEnv(config.DefaultUserQuadletDir)
+				if dbPath == "" {
+					cfg.DBPath = os.ExpandEnv(config.DefaultUserDBPath)
+				}
 			}
 
 			if repositoryDir != "" {
@@ -82,10 +85,14 @@ It automatically generates systemd unit files from Docker Compose files and hand
 
 			if dbPath != "" {
 				cfg.DBPath = dbPath
-			} else {
-				cfg.DBPath = filepath.Join(
-					filepath.Dir(viper.GetViper().ConfigFileUsed()), "quad-ops.db",
-				)
+			} else if !userMode {
+				// Only use config file path for system mode if no explicit db path
+				configFileUsed := viper.GetViper().ConfigFileUsed()
+				if configFileUsed != "" {
+					cfg.DBPath = filepath.Join(
+						filepath.Dir(configFileUsed), "quad-ops.db",
+					)
+				}
 			}
 
 			err := validate.SystemRequirements()
@@ -104,6 +111,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 	rootCmd.PersistentFlags().BoolVarP(&userMode, "user", "u", false, "Run in user mode")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 	rootCmd.PersistentFlags().StringVar(&configFilePath, "config", "", "Path to the configuration file")
+	rootCmd.PersistentFlags().StringVar(&dbPath, "db-path", "", "Path to the database file")
 	rootCmd.PersistentFlags().StringVar(&quadletDir, "quadlet-dir", "", "Path to the quadlet directory")
 	rootCmd.PersistentFlags().StringVar(&repositoryDir, "repository-dir", "", "Path to the repository directory")
 

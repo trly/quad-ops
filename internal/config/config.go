@@ -42,6 +42,9 @@ const (
 	DefaultSyncInterval          = 5 * time.Minute
 	DefaultQuadletDir            = "/etc/containers/systemd"
 	DefaultDBPath                = "/var/lib/quad-ops/quad-ops.db"
+	DefaultUserRepositoryDir     = "$HOME/.local/share/quad-ops"
+	DefaultUserQuadletDir        = "$HOME/.config/containers/systemd"
+	DefaultUserDBPath            = "$HOME/.local/share/quad-ops/quad-ops.db"
 	DefaultUserMode              = false
 	DefaultVerbose               = false
 	DefaultUsePodmanDefaultNames = false
