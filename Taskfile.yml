@@ -30,8 +30,7 @@ tasks:
   ci-build:
     desc: CI build (without linting - lint job handles that)
     cmds:
-      - task: fmt
-      - task: test
+      - go test -v ./...
       - go build -v ./...
 
   ci-test:
