@@ -23,9 +23,10 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/sanbornm/go-selfupdate/selfupdate"
+	"github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 )
 
@@ -39,35 +40,40 @@ func (c *UpdateCommand) GetCobraCommand() *cobra.Command {
 		Short: "Update quad-ops to the latest version",
 		Long:  `Update quad-ops to the latest version from GitHub releases.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			updater := &selfupdate.Updater{
-				CurrentVersion: Version,
-				ApiURL:         "https://api.github.com/repos/trly/quad-ops/",
-				BinURL:         "https://github.com/trly/quad-ops/releases/download/",
-				DiffURL:        "https://github.com/trly/quad-ops/releases/download/",
-				Dir:            "update/",
-				CmdName:        "quad-ops",
-			}
-
 			fmt.Printf("Current version: %s\n", Version)
 			fmt.Println("Checking for updates...")
 
-			latestVersion, err := updater.UpdateAvailable()
+			// Detect latest version
+			latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.ParseSlug("trly/quad-ops"))
 			if err != nil {
 				return fmt.Errorf("failed to check for updates: %w", err)
 			}
 
-			if latestVersion != "" {
-				fmt.Printf("Update available! New version: %s\n", latestVersion)
-				fmt.Println("Downloading...")
-				err := updater.BackgroundRun()
-				if err != nil {
-					return fmt.Errorf("failed to update: %w", err)
-				}
-				fmt.Println("Update completed successfully!")
-			} else {
-				fmt.Println("You are already running the latest version.")
+			if !found {
+				fmt.Println("No release found")
+				return nil
 			}
 
+			if latest.LessOrEqual(Version) {
+				fmt.Println("You are already running the latest version.")
+				return nil
+			}
+
+			fmt.Printf("Update available! New version: %s\n", latest.Version())
+			fmt.Println("Downloading and applying update...")
+
+			// Get current executable path
+			exe, err := selfupdate.ExecutablePath()
+			if err != nil {
+				return fmt.Errorf("failed to get executable path: %w", err)
+			}
+
+			// Update to the latest version
+			if err := selfupdate.UpdateTo(context.Background(), latest.AssetURL, latest.AssetName, exe); err != nil {
+				return fmt.Errorf("failed to update: %w", err)
+			}
+
+			fmt.Printf("Update completed successfully! Please restart %s to use the new version.\n", "quad-ops")
 			return nil
 		},
 	}
