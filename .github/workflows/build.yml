@@ -24,10 +24,15 @@ jobs:
           rm -rf $HOME/go/pkg/mod
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.24.0'
+          go-version: '1.24'
           cache: false
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
       - name: Download Dependencies
         run: go mod download -x
@@ -52,16 +57,18 @@ jobs:
           rm -rf $HOME/go/pkg/mod
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.24.0'
+          go-version: '1.24'
           cache: false
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
 
       - name: Download Dependencies
         run: go mod download -x
 
-      - name: Build
-        run: go build -v ./...
-
-      - name: Test
-        run: go test -v ./...
+      - name: Build and Test
+        run: task build

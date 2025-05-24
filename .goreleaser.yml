@@ -1,5 +1,10 @@
 version: 2
 
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
 builds:
   - main: ./cmd/quad-ops/main.go
     binary: quad-ops
@@ -8,3 +13,40 @@ builds:
     goarch:
       - amd64
       - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/trly/quad-ops/cmd.Version={{.Version}}
+      - -X github.com/trly/quad-ops/cmd.Commit={{.Commit}}
+      - -X github.com/trly/quad-ops/cmd.Date={{.Date}}
+    env:
+      - CGO_ENABLED=1
+      - CC=gcc
+      - GOAMD64=v1
+    overrides:
+      - goos: linux
+        goarch: arm64
+        env:
+          - CGO_ENABLED=1
+          - CC=aarch64-linux-gnu-gcc
+
+archives:
+  - name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'

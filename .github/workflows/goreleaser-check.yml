@@ -1,15 +1,16 @@
-name: Release
+name: GoReleaser Check
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
-
-permissions:
-  contents: write 
+  pull_request:
+    paths:
+      - '.goreleaser.yml'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'go.mod'
+      - 'go.sum'
 
 jobs:
-  release-binaries:
+  goreleaser-check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -40,11 +41,16 @@ jobs:
       - name: Run tests
         run: go test -v ./...
 
-      - name: Run GoReleaser
+      - name: Check GoReleaser config
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          args: check
+
+      - name: Build snapshot
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: build --snapshot --clean
