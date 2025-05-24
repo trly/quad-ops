@@ -23,9 +23,11 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 
+	"github.com/creativeprojects/go-selfupdate"
 	"github.com/spf13/cobra"
 )
 
@@ -50,8 +52,42 @@ func (c *VersionCommand) GetCobraCommand() *cobra.Command {
 			fmt.Printf("  commit: %s\n", Commit)
 			fmt.Printf("  built: %s\n", Date)
 			fmt.Printf("  go: %s\n", runtime.Version())
+
+			// Check for updates
+			c.checkForUpdates()
 		},
 	}
 
 	return versionCmd
+}
+
+// checkForUpdates checks if a newer version is available and prints a message if so.
+func (c *VersionCommand) checkForUpdates() {
+	// Skip update check for development builds
+	if Version == "dev" {
+		fmt.Println("\nSkipping update check for development build.")
+		return
+	}
+
+	fmt.Println("\nChecking for updates...")
+
+	// Detect latest version
+	latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.ParseSlug("trly/quad-ops"))
+	if err != nil {
+		fmt.Printf("Failed to check for updates: %v\n", err)
+		return
+	}
+
+	if !found {
+		fmt.Println("No release found")
+		return
+	}
+
+	if latest.LessOrEqual(Version) {
+		fmt.Println("You are running the latest version.")
+		return
+	}
+
+	fmt.Printf("🚀 Update available! New version: %s\n", latest.Version())
+	fmt.Println("Run 'quad-ops update' to update to the latest version.")
 }
