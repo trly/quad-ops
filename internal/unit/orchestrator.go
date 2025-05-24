@@ -16,7 +16,7 @@ type Change struct {
 }
 
 // StartUnitDependencyAware starts or restarts a unit while being dependency-aware.
-func StartUnitDependencyAware(unitName string, unitType string, dependencyTree map[string]*ServiceDependency) error {
+func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph *ServiceDependencyGraph) error {
 	log.GetLogger().Debug("Starting/restarting unit with dependency awareness", "unit", unitName, "type", unitType)
 
 	// Handle different unit types appropriately
@@ -52,13 +52,14 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyTree m
 	projectName := parts[0]
 	serviceName := parts[1]
 
-	// Check if this service is in the dependency tree
-	if _, ok := dependencyTree[serviceName]; !ok {
-		// Service not in dependency tree, fall back to regular restart
-		log.GetLogger().Debug("Service not found in dependency tree, using direct restart",
+	// Check if this service is in the dependency graph
+	dependencies, err := dependencyGraph.GetDependencies(serviceName)
+	if err != nil {
+		// Service not in dependency graph, fall back to regular restart
+		log.GetLogger().Debug("Service not found in dependency graph, using direct restart",
 			"service", serviceName,
 			"project", projectName,
-			"availableServices", getDependencyTreeKeys(dependencyTree))
+			"error", err)
 		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 		return unit.Restart()
 	}
@@ -68,33 +69,10 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyTree m
 	log.GetLogger().Debug("Restarting changed service directly - systemd will handle dependency propagation",
 		"service", serviceName,
 		"project", projectName,
-		"dependencies", getDependencyListForService(serviceName, dependencyTree))
+		"dependencies", dependencies)
 
 	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
 	return unit.Restart()
-}
-
-// getDependencyTreeKeys returns a list of all service names in the dependency tree for logging.
-func getDependencyTreeKeys(dependencyTree map[string]*ServiceDependency) []string {
-	keys := make([]string, 0, len(dependencyTree))
-	for key := range dependencyTree {
-		keys = append(keys, key)
-	}
-	return keys
-}
-
-// getDependencyListForService returns a list of dependencies for a service for logging.
-func getDependencyListForService(serviceName string, dependencyTree map[string]*ServiceDependency) []string {
-	deps := make([]string, 0)
-	if depEntry, ok := dependencyTree[serviceName]; ok {
-		for dep := range depEntry.Dependencies {
-			deps = append(deps, dep)
-		}
-		for dep := range depEntry.DependentServices {
-			deps = append(deps, fmt.Sprintf("(dependent) %s", dep))
-		}
-	}
-	return deps
 }
 
 // splitUnitName splits a unit name like "project-service" into ["project", "service"].
@@ -109,7 +87,7 @@ func splitUnitName(unitName string) []string {
 }
 
 // RestartChangedUnits restarts all changed units in dependency-aware order.
-func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[string]map[string]*ServiceDependency) error {
+func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyGraphs map[string]*ServiceDependencyGraph) error {
 	log.GetLogger().Info("Restarting changed units with dependency awareness", "count", len(changedUnits))
 	err := ReloadSystemd()
 	if err != nil {
@@ -188,8 +166,8 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 			projectName := parts[0]
 			serviceName := parts[1]
 
-			if dependencyTree, ok := projectDependencyTrees[projectName]; ok {
-				if isServiceAlreadyRestarted(serviceName, dependencyTree, projectName, restarted) {
+			if dependencyGraph, ok := projectDependencyGraphs[projectName]; ok {
+				if isServiceAlreadyRestarted(serviceName, dependencyGraph, projectName, restarted) {
 					log.GetLogger().Debug("Skipping restart as unit or its dependent services were already restarted",
 						"name", unit.Name, "project", projectName, "service", serviceName)
 					continue
@@ -260,7 +238,7 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyTrees map[
 
 // isServiceAlreadyRestarted checks if the service itself is already restarted
 // or if any services that would cause this service to restart are already restarted.
-func isServiceAlreadyRestarted(serviceName string, dependencyTree map[string]*ServiceDependency, projectName string, restarted map[string]bool) bool {
+func isServiceAlreadyRestarted(serviceName string, dependencyGraph *ServiceDependencyGraph, projectName string, restarted map[string]bool) bool {
 	// Check if this service is already restarted
 	unitKey := fmt.Sprintf("%s-%s.container", projectName, serviceName)
 	if restarted[unitKey] {
@@ -270,9 +248,12 @@ func isServiceAlreadyRestarted(serviceName string, dependencyTree map[string]*Se
 	// For each service this one depends on, check if it's been restarted
 	// We only check dependencies because a change in a dependency causes us to restart
 	// (due to After/Requires). Changes in dependent services don't affect us.
-	for dep := range dependencyTree[serviceName].Dependencies {
-		if restarted[fmt.Sprintf("%s-%s.container", projectName, dep)] {
-			return true
+	dependencies, err := dependencyGraph.GetDependencies(serviceName)
+	if err == nil {
+		for _, dep := range dependencies {
+			if restarted[fmt.Sprintf("%s-%s.container", projectName, dep)] {
+				return true
+			}
 		}
 	}
 

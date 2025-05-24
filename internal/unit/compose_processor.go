@@ -76,16 +76,21 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 
 	// Reload systemd units if any changed
 	if len(changedUnits) > 0 {
-		// Create a map to store project dependency trees
-		projectDependencyTrees := make(map[string]map[string]*ServiceDependency)
+		// Create a map to store project dependency graphs
+		projectDependencyGraphs := make(map[string]*ServiceDependencyGraph)
 
-		// Store dependency trees for each project processed
+		// Store dependency graphs for each project processed
 		for _, project := range projects {
-			projectDependencyTrees[project.Name] = BuildServiceDependencyTree(project)
+			graph, err := BuildServiceDependencyGraph(project)
+			if err != nil {
+				log.GetLogger().Error("Failed to build dependency graph for project", "project", project.Name, "error", err)
+				continue
+			}
+			projectDependencyGraphs[project.Name] = graph
 		}
 
 		// Use dependency-aware restart for changed units
-		if err := RestartChangedUnits(changedUnits, projectDependencyTrees); err != nil {
+		if err := RestartChangedUnits(changedUnits, projectDependencyGraphs); err != nil {
 			log.GetLogger().Error("Failed to restart changed units", "error", err)
 		}
 	}

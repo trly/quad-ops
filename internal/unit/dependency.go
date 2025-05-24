@@ -166,39 +166,3 @@ func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, depende
 
 	return nil
 }
-
-// Legacy compatibility functions
-
-// ServiceDependency represents the legacy dependencies structure for backward compatibility.
-type ServiceDependency struct {
-	// Dependencies is the list of services this service depends on
-	Dependencies map[string]struct{}
-	// DependentServices is the list of services that depend on this service
-	DependentServices map[string]struct{}
-}
-
-// BuildServiceDependencyTree builds a legacy bidirectional dependency tree for backward compatibility.
-// Deprecated: Use BuildServiceDependencyGraph instead.
-func BuildServiceDependencyTree(project *types.Project) map[string]*ServiceDependency {
-	dependencies := make(map[string]*ServiceDependency)
-
-	// Initialize the dependency tree for all services
-	for serviceName := range project.Services {
-		dependencies[serviceName] = &ServiceDependency{
-			Dependencies:      make(map[string]struct{}),
-			DependentServices: make(map[string]struct{}),
-		}
-	}
-
-	// Populate the dependency tree based on depends_on relationships
-	for serviceName, service := range project.Services {
-		for depName := range service.DependsOn {
-			// This service depends on depName
-			dependencies[serviceName].Dependencies[depName] = struct{}{}
-			// depName has this service as a dependent
-			dependencies[depName].DependentServices[serviceName] = struct{}{}
-		}
-	}
-
-	return dependencies
-}

@@ -8,56 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestServicesDependencyTree(t *testing.T) {
-	// Create a mock project with a simple dependency tree
-	// db <- webapp <- proxy
-	project := &types.Project{
-		Name: "test-project",
-		Services: types.Services{
-			"db": types.ServiceConfig{
-				Name:  "db",
-				Image: "mariadb:latest",
-			},
-			"webapp": types.ServiceConfig{
-				Name:  "webapp",
-				Image: "wordpress:latest",
-				DependsOn: types.DependsOnConfig{
-					"db": types.ServiceDependency{},
-				},
-			},
-			"proxy": types.ServiceConfig{
-				Name:  "proxy",
-				Image: "nginx:latest",
-				DependsOn: types.DependsOnConfig{
-					"webapp": types.ServiceDependency{},
-				},
-			},
-		},
-	}
-
-	// Build the dependency tree
-	deps := BuildServiceDependencyTree(project)
-
-	// Check that the dependency tree is correct
-	assert.Len(t, deps, 3)
-
-	// Check db has no dependencies
-	assert.Empty(t, deps["db"].Dependencies)
-	assert.Len(t, deps["db"].DependentServices, 1)
-	assert.Contains(t, deps["db"].DependentServices, "webapp")
-
-	// Check webapp depends on db
-	assert.Len(t, deps["webapp"].Dependencies, 1)
-	assert.Contains(t, deps["webapp"].Dependencies, "db")
-	assert.Len(t, deps["webapp"].DependentServices, 1)
-	assert.Contains(t, deps["webapp"].DependentServices, "proxy")
-
-	// Check proxy depends on webapp
-	assert.Len(t, deps["proxy"].Dependencies, 1)
-	assert.Contains(t, deps["proxy"].Dependencies, "webapp")
-	assert.Empty(t, deps["proxy"].DependentServices)
-}
-
 func TestDependencyCorrectServiceFormat(t *testing.T) {
 	// Create a simple test unit with network and volume dependencies
 	unit := QuadletUnit{
@@ -155,9 +105,6 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 			},
 		},
 	}
-
-	// Build the dependency tree (legacy function for reference)
-	_ = BuildServiceDependencyTree(project)
 
 	// Create container for db
 	prefixedName := "test-project-db"
