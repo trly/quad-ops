@@ -38,9 +38,9 @@ jobs:
         run: go mod download -x
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.2
+          version: v2.1.6
           args: --timeout=5m
 
   build:
@@ -71,4 +71,4 @@ jobs:
         run: go mod download -x
 
       - name: Build and Test
-        run: task build
+        run: task ci-build
