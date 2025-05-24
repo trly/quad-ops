@@ -5,6 +5,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestServicesDependencyTree(t *testing.T) {
@@ -69,16 +70,15 @@ func TestDependencyCorrectServiceFormat(t *testing.T) {
 		},
 	}
 
-	// Create a simple dependency structure
-	deps := map[string]*ServiceDependency{
-		"db": {
-			Dependencies:      map[string]struct{}{},
-			DependentServices: map[string]struct{}{},
-		},
-	}
+	// Create a simple dependency structure (unused, keeping for potential legacy testing)
 
-	// Apply dependencies
-	ApplyDependencyRelationships(&unit, "db", deps, "test-project")
+	// Create a graph for backward compatibility testing
+	graph := NewServiceDependencyGraph()
+	_ = graph.AddService("db")
+
+	// Apply dependencies using the new graph-based function
+	err := ApplyDependencyRelationships(&unit, "db", graph, "test-project")
+	assert.NoError(t, err)
 
 	// Verify proper service naming format for network and volume dependencies
 	assert.Len(t, unit.Systemd.After, 2)
@@ -156,8 +156,8 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 		},
 	}
 
-	// Build the dependency tree
-	deps := BuildServiceDependencyTree(project)
+	// Build the dependency tree (legacy function for reference)
+	_ = BuildServiceDependencyTree(project)
 
 	// Create container for db
 	prefixedName := "test-project-db"
@@ -170,8 +170,13 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 		Systemd:   SystemdConfig{},
 	}
 
+	// Build graph from project for testing
+	graph, err := BuildServiceDependencyGraph(project)
+	require.NoError(t, err)
+
 	// Apply dependencies
-	ApplyDependencyRelationships(&dbUnit, "db", deps, project.Name)
+	err = ApplyDependencyRelationships(&dbUnit, "db", graph, project.Name)
+	assert.NoError(t, err)
 
 	// Check that db has dependencies on networks and volumes, but no PartOf to avoid circular dependencies
 	// Should have 2 dependencies - 1 network (backend) and 1 volume (db-data)
@@ -195,7 +200,8 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	}
 
 	// Apply dependencies
-	ApplyDependencyRelationships(&webappUnit, "webapp", deps, project.Name)
+	err = ApplyDependencyRelationships(&webappUnit, "webapp", graph, project.Name)
+	assert.NoError(t, err)
 
 	// Check that webapp has After/Requires for db, networks, volumes but no PartOf to avoid circular dependencies
 	// Should have 4 dependencies - db service, 2 networks (backend, frontend), and 1 volume (wp-content)
@@ -223,7 +229,8 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	}
 
 	// Apply dependencies
-	ApplyDependencyRelationships(&proxyUnit, "proxy", deps, project.Name)
+	err = ApplyDependencyRelationships(&proxyUnit, "proxy", graph, project.Name)
+	assert.NoError(t, err)
 
 	// Check that proxy has After/Requires for webapp and network but no PartOf
 	// Should have 2 dependencies - webapp service and frontend network

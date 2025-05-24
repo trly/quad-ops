@@ -5,47 +5,109 @@ import (
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/dominikbraun/graph"
 )
 
-// ServiceDependency represents the dependencies of a service in both directions.
-type ServiceDependency struct {
-	// Dependencies is the list of services this service depends on
-	Dependencies map[string]struct{}
-	// DependentServices is the list of services that depend on this service
-	DependentServices map[string]struct{}
+// ServiceDependencyGraph represents the dependency relationships between services using a directed graph.
+type ServiceDependencyGraph struct {
+	graph graph.Graph[string, string]
 }
 
-// BuildServiceDependencyTree builds a bidirectional dependency tree for all services in a project.
-func BuildServiceDependencyTree(project *types.Project) map[string]*ServiceDependency {
-	dependencies := make(map[string]*ServiceDependency)
+// NewServiceDependencyGraph creates a new service dependency graph.
+func NewServiceDependencyGraph() *ServiceDependencyGraph {
+	// Create a directed acyclic graph with string vertices
+	g := graph.New(graph.StringHash, graph.Directed(), graph.Acyclic())
+	return &ServiceDependencyGraph{
+		graph: g,
+	}
+}
 
-	// Initialize the dependency tree for all services
+// AddService adds a service to the dependency graph.
+func (sdg *ServiceDependencyGraph) AddService(serviceName string) error {
+	return sdg.graph.AddVertex(serviceName)
+}
+
+// AddDependency adds a dependency relationship where dependent depends on dependency.
+func (sdg *ServiceDependencyGraph) AddDependency(dependent, dependency string) error {
+	return sdg.graph.AddEdge(dependency, dependent)
+}
+
+// GetDependencies returns the services that the given service depends on.
+func (sdg *ServiceDependencyGraph) GetDependencies(serviceName string) ([]string, error) {
+	predecessors, err := sdg.graph.PredecessorMap()
+	if err != nil {
+		return nil, err
+	}
+
+	deps := make([]string, 0, len(predecessors[serviceName]))
+	for dep := range predecessors[serviceName] {
+		deps = append(deps, dep)
+	}
+
+	return deps, nil
+}
+
+// GetDependents returns the services that depend on the given service.
+func (sdg *ServiceDependencyGraph) GetDependents(serviceName string) ([]string, error) {
+	successors, err := sdg.graph.AdjacencyMap()
+	if err != nil {
+		return nil, err
+	}
+
+	deps := make([]string, 0, len(successors[serviceName]))
+	for dep := range successors[serviceName] {
+		deps = append(deps, dep)
+	}
+
+	return deps, nil
+}
+
+// GetTopologicalOrder returns services in topological order (dependencies first).
+func (sdg *ServiceDependencyGraph) GetTopologicalOrder() ([]string, error) {
+	return graph.TopologicalSort(sdg.graph)
+}
+
+// HasCycles checks if the dependency graph contains cycles.
+func (sdg *ServiceDependencyGraph) HasCycles() bool {
+	// Since we use graph.Acyclic(), cycle creation is prevented at edge addition time
+	// But we can still check for cycles if needed
+	_, err := graph.TopologicalSort(sdg.graph)
+	return err != nil
+}
+
+// BuildServiceDependencyGraph builds a dependency graph for all services in a project.
+func BuildServiceDependencyGraph(project *types.Project) (*ServiceDependencyGraph, error) {
+	sdg := NewServiceDependencyGraph()
+
+	// Add all services as vertices first
 	for serviceName := range project.Services {
-		dependencies[serviceName] = &ServiceDependency{
-			Dependencies:      make(map[string]struct{}),
-			DependentServices: make(map[string]struct{}),
+		if err := sdg.AddService(serviceName); err != nil {
+			return nil, fmt.Errorf("failed to add service %s: %w", serviceName, err)
 		}
 	}
 
-	// Populate the dependency tree based on depends_on relationships
+	// Add dependency edges based on depends_on relationships
 	for serviceName, service := range project.Services {
 		for depName := range service.DependsOn {
-			// This service depends on depName
-			dependencies[serviceName].Dependencies[depName] = struct{}{}
-			// depName has this service as a dependent
-			dependencies[depName].DependentServices[serviceName] = struct{}{}
+			if err := sdg.AddDependency(serviceName, depName); err != nil {
+				return nil, fmt.Errorf("failed to add dependency %s -> %s: %w", serviceName, depName, err)
+			}
 		}
 	}
 
-	return dependencies
+	return sdg, nil
 }
 
-// ApplyDependencyRelationships applies both regular dependencies (After/Requires) and reverse
-// dependencies (PartOf) to a quadlet unit based on the dependency tree.
-func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, dependencies map[string]*ServiceDependency, projectName string) { //nolint:whitespace // False positive
+// ApplyDependencyRelationships applies dependencies to a quadlet unit based on the dependency graph.
+func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, dependencyGraph *ServiceDependencyGraph, projectName string) error {
+	// Get dependencies for this service
+	dependencies, err := dependencyGraph.GetDependencies(serviceName)
+	if err != nil {
+		return fmt.Errorf("failed to get dependencies for service %s: %w", serviceName, err)
+	}
 
 	// Apply regular dependencies (services this one depends on)
-	for depName := range dependencies[serviceName].Dependencies {
+	for _, depName := range dependencies {
 		depPrefixedName := fmt.Sprintf("%s-%s", projectName, depName)
 
 		// Special handling for build dependencies
@@ -101,4 +163,42 @@ func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, depende
 			}
 		}
 	}
+
+	return nil
+}
+
+// Legacy compatibility functions
+
+// ServiceDependency represents the legacy dependencies structure for backward compatibility.
+type ServiceDependency struct {
+	// Dependencies is the list of services this service depends on
+	Dependencies map[string]struct{}
+	// DependentServices is the list of services that depend on this service
+	DependentServices map[string]struct{}
+}
+
+// BuildServiceDependencyTree builds a legacy bidirectional dependency tree for backward compatibility.
+// Deprecated: Use BuildServiceDependencyGraph instead.
+func BuildServiceDependencyTree(project *types.Project) map[string]*ServiceDependency {
+	dependencies := make(map[string]*ServiceDependency)
+
+	// Initialize the dependency tree for all services
+	for serviceName := range project.Services {
+		dependencies[serviceName] = &ServiceDependency{
+			Dependencies:      make(map[string]struct{}),
+			DependentServices: make(map[string]struct{}),
+		}
+	}
+
+	// Populate the dependency tree based on depends_on relationships
+	for serviceName, service := range project.Services {
+		for depName := range service.DependsOn {
+			// This service depends on depName
+			dependencies[serviceName].Dependencies[depName] = struct{}{}
+			// depName has this service as a dependent
+			dependencies[depName].DependentServices[serviceName] = struct{}{}
+		}
+	}
+
+	return dependencies
 }

@@ -39,11 +39,14 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 	for _, project := range projects {
 		log.GetLogger().Info("Processing compose project", "project", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
 
-		// Build the bidirectional dependency tree for the project
-		dependencyTree := BuildServiceDependencyTree(project)
+		// Build the dependency graph for the project
+		dependencyGraph, err := BuildServiceDependencyGraph(project)
+		if err != nil {
+			return processedUnits, fmt.Errorf("failed to build dependency graph for project %s: %w", project.Name, err)
+		}
 
 		// Process services (containers)
-		if err := processServices(project, dependencyTree, unitRepo, force, processedUnits, &changedUnits); err != nil {
+		if err := processServices(project, dependencyGraph, unitRepo, force, processedUnits, &changedUnits); err != nil {
 			log.GetLogger().Error("Failed to process services", "error", err)
 		}
 
@@ -325,7 +328,7 @@ func getContentHash(content string) []byte {
 }
 
 // processServices processes all container services from a Docker Compose project.
-func processServices(project *types.Project, dependencyTree map[string]*ServiceDependency, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func processServices(project *types.Project, dependencyGraph *ServiceDependencyGraph, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	for serviceName, service := range project.Services {
 		log.GetLogger().Debug("Processing service", "service", serviceName)
 
@@ -387,19 +390,16 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 
 			// Set up the dependency relationship between the container and the build
 			// This ensures that the build completes before the container starts
-			// If the dependency tree doesn't have this service yet, create it
-			if _, exists := dependencyTree[serviceName]; !exists {
-				dependencyTree[serviceName] = &ServiceDependency{
-					Dependencies:      make(map[string]struct{}),
-					DependentServices: make(map[string]struct{}),
-				}
-			}
-
 			// Add build unit as a dependency for this service
 			// Use the bare service name with -build suffix as the dependency name
 			// This needs to match how dependency resolution works in ApplyDependencyRelationships
 			buildName := fmt.Sprintf("%s-build", serviceName)
-			dependencyTree[serviceName].Dependencies[buildName] = struct{}{}
+			if err := dependencyGraph.AddService(buildName); err != nil {
+				log.GetLogger().Debug("Build service already exists in dependency graph", "service", buildName)
+			}
+			if err := dependencyGraph.AddDependency(serviceName, buildName); err != nil {
+				log.GetLogger().Error("Failed to add build dependency", "service", serviceName, "dependency", buildName, "error", err)
+			}
 		}
 
 		container := NewContainer(prefixedName)
@@ -464,7 +464,9 @@ func processServices(project *types.Project, dependencyTree map[string]*ServiceD
 		}
 
 		// Apply dependency relationships (both regular and reverse)
-		ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyTree, project.Name)
+		if err := ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyGraph, project.Name); err != nil {
+			log.GetLogger().Error("Failed to apply dependency relationships", "service", serviceName, "error", err)
+		}
 
 		// Process the quadlet unit
 		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
