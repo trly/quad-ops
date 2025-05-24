@@ -216,6 +216,48 @@ fi
 
 print_info "Installation completed successfully!"
 
+# Install systemd service
+install_systemd_service() {
+    local service_name service_url service_path
+    
+    if [[ "$USER_INSTALL" == true ]]; then
+        service_name="quad-ops-user.service"
+        service_url="https://raw.githubusercontent.com/$REPO/$VERSION/build/package/$service_name"
+        service_path="$HOME/.config/systemd/user/$service_name"
+        
+        print_info "Installing user systemd service..."
+        mkdir -p "$(dirname "$service_path")"
+        
+        if curl -L -o "$service_path" "$service_url" 2>/dev/null; then
+            systemctl --user daemon-reload 2>/dev/null || true
+            print_info "User systemd service installed at: $service_path"
+            print_info "To enable and start: systemctl --user enable --now quad-ops-user"
+        else
+            print_warn "Failed to download user systemd service file"
+        fi
+    else
+        service_name="quad-ops.service"
+        service_url="https://raw.githubusercontent.com/$REPO/$VERSION/build/package/$service_name"
+        service_path="/etc/systemd/system/$service_name"
+        
+        print_info "Installing system systemd service..."
+        
+        if curl -L -o "$TEMP_DIR/$service_name" "$service_url" 2>/dev/null; then
+            sudo cp "$TEMP_DIR/$service_name" "$service_path"
+            sudo systemctl daemon-reload 2>/dev/null || true
+            print_info "System systemd service installed at: $service_path"
+            print_info "To enable and start: sudo systemctl enable --now quad-ops"
+        else
+            print_warn "Failed to download system systemd service file"
+        fi
+    fi
+}
+
+# Install systemd service if systemctl is available
+if command -v systemctl >/dev/null 2>&1; then
+    install_systemd_service
+fi
+
 # Check if install path is in PATH
 if [[ ":$PATH:" != *":$FINAL_INSTALL_PATH:"* ]]; then
     print_warn "Warning: $FINAL_INSTALL_PATH is not in your PATH"

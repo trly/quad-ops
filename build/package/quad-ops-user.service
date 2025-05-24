@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/quad-ops --daemon --interval 300 --user-mode
+ExecStart=%h/.local/bin/quad-ops sync --daemon --user
 Restart=always
 RestartSec=10
 

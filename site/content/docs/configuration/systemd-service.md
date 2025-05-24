@@ -26,9 +26,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/quad-ops sync
-Restart=on-failure
-RestartSec=10s
+ExecStart=/opt/quad-ops/quad-ops sync --daemon
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
@@ -59,9 +59,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/quad-ops sync
-Restart=on-failure
-RestartSec=10s
+ExecStart=%h/.local/bin/quad-ops sync --daemon --user
+Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=default.target
@@ -85,23 +85,21 @@ journalctl --user -u quad-ops -f
 
 ```ini
 [Service]
-Environment="QUAD_OPS_CONFIG=/path/to/custom/config.yaml"
-ExecStart=/usr/local/bin/quad-ops sync
+ExecStart=/opt/quad-ops/quad-ops sync --daemon --config /path/to/custom/config.yaml
 ```
 
 ### Custom Sync Interval
 
 ```ini
 [Service]
-ExecStart=/usr/local/bin/quad-ops sync --interval 2m
+ExecStart=/opt/quad-ops/quad-ops sync --daemon --sync-interval 2m
 ```
 
 ### Enable Verbose Logging
 
 ```ini
 [Service]
-Environment="QUAD_OPS_VERBOSE=true"
-ExecStart=/usr/local/bin/quad-ops sync
+ExecStart=/opt/quad-ops/quad-ops sync --daemon --verbose
 ```
 
 ### Required Directories
