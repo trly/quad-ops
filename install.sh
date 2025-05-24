@@ -7,6 +7,7 @@ REPO="trly/quad-ops"
 INSTALL_PATH=""
 USER_INSTALL=false
 BINARY_NAME="quad-ops"
+VERSION_OVERRIDE=""
 
 # Colors for output
 RED='\033[0;31m'
@@ -37,9 +38,11 @@ Install quad-ops from GitHub releases
 OPTIONS:
     -u, --user          Install to \$HOME/.local/bin (user install)
     --install-path PATH Install to specific path (overrides --user)
+    --version VERSION   Install specific version (e.g., v1.2.3)
     -h, --help          Show this help message
 
 Default install location: /opt/quad-ops
+Default behavior: Install latest version
 EOF
 }
 
@@ -52,6 +55,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --install-path)
             INSTALL_PATH="$2"
+            shift 2
+            ;;
+        --version)
+            VERSION_OVERRIDE="$2"
             shift 2
             ;;
         -h|--help)
@@ -102,21 +109,26 @@ for cmd in curl tar sha256sum; do
     fi
 done
 
-# Get latest release info
-print_info "Getting latest release information..."
-RELEASE_INFO=$(curl -s "https://api.github.com/repos/$REPO/releases/latest")
-if [[ $? -ne 0 ]]; then
-    print_error "Failed to get release information"
-    exit 1
-fi
+# Get version to install
+if [[ -n "$VERSION_OVERRIDE" ]]; then
+    VERSION="$VERSION_OVERRIDE"
+    print_info "Installing specified version: $VERSION"
+else
+    print_info "Getting latest release information..."
+    RELEASE_INFO=$(curl -s "https://api.github.com/repos/$REPO/releases/latest")
+    if [[ $? -ne 0 ]]; then
+        print_error "Failed to get release information"
+        exit 1
+    fi
 
-VERSION=$(echo "$RELEASE_INFO" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
-if [[ -z "$VERSION" ]]; then
-    print_error "Failed to parse version from release info"
-    exit 1
-fi
+    VERSION=$(echo "$RELEASE_INFO" | grep '"tag_name":' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
+    if [[ -z "$VERSION" ]]; then
+        print_error "Failed to parse version from release info"
+        exit 1
+    fi
 
-print_info "Latest version: $VERSION"
+    print_info "Latest version: $VERSION"
+fi
 
 # Construct download URLs
 BINARY_FILE="${BINARY_NAME}_${VERSION#v}_linux_${ARCH}.tar.gz"
