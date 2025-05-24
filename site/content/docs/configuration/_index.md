@@ -1,11 +1,12 @@
 ---
 title: "Configuration"
-weight: 10
+weight: 20
+bookCollapseSection: true
 ---
 
 # Configuration
 
-Quad-Ops uses Docker Compose files for defining your container infrastructure. These files are automatically processed and converted to Podman Quadlet units.
+This section covers all configuration options for Quad-Ops, from basic setup to advanced repository management.
 
 ## Global Options
 

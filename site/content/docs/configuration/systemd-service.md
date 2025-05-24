@@ -104,15 +104,6 @@ Environment="QUAD_OPS_VERBOSE=true"
 ExecStart=/usr/local/bin/quad-ops sync
 ```
 
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| No units created | Check Git access: `journalctl -u quad-ops \| grep -i "git"` |
-| Permission denied | System mode: `sudo chmod 755 /etc/containers/systemd`<br>User mode: `mkdir -p ~/.config/containers/systemd && chmod 755 ~/.config/containers/systemd` |
-| Service times out | Add `TimeoutStartSec=120` to `[Service]` section |
-| Service stops after logout | Enable lingering: `loginctl enable-linger $(whoami)` |
-
 ### Required Directories
 
 ```bash

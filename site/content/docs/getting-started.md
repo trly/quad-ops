@@ -1,6 +1,6 @@
 ---
 title: "Getting Started"
-weight: 5
+weight: 10
 ---
 
 # Getting Started with Quad-Ops
@@ -60,7 +60,7 @@ Create a basic config file at `/etc/quad-ops/config.yaml`:
 
 ```yaml
 # Global settings
-syncInterval: 5m 
+syncInterval: 5m
 
 # Sample repository using quad-ops examples
 repositories:
@@ -191,7 +191,7 @@ repositories:
     url: "https://github.com/trly/quad-ops.git"
     ref: "main"
     composeDir: "examples"
-  
+
   - name: my-project
     url: "file:///home/yourusername/my-quad-ops-project"
     cleanup: "delete"  # Remove units when they're deleted from Git
@@ -220,29 +220,18 @@ Options include:
 
 See the [Systemd Service](../configuration/systemd-service/) guide for detailed instructions on setting up either option.
 
-## Troubleshooting
-
-### Common Issues and Solutions
-
-| Issue | Solutions |
-|-------|----------|
-| **Container won't start** | • Check logs: `journalctl -u servicename`<br>• Verify bind mount directories exist<br>• Ensure image names are fully qualified |
-| **Permission denied** | • Verify `/etc/containers/systemd` permissions<br>• Check SELinux contexts if applicable |
-| **Networking issues** | • Check network units: `systemctl status reponame-projectname-networkname.network`<br>• Verify container name resolution with `podman exec container ping servicename` |
-| **Sync failing** | • Check Git access: `journalctl -u quad-ops \| grep "git"`<br>• Verify repository URLs and credentials |
-
 ## Docker Compose Tips for Quad-Ops
 
 ### Best Practices
 
-1. **Always use fully qualified image names**  
-   ✅ `image: docker.io/library/nginx:latest`  
+1. **Always use fully qualified image names**
+   ✅ `image: docker.io/library/nginx:latest`
    ❌ `image: nginx`
 
-2. **Create bind mount directories before syncing**  
+2. **Create bind mount directories before syncing**
    Podman doesn't auto-create directories like Docker does.
 
-3. **Use `depends_on` for proper startup order**  
+3. **Use `depends_on` for proper startup order**
    ```yaml
    services:
      webapp:
@@ -250,7 +239,7 @@ See the [Systemd Service](../configuration/systemd-service/) guide for detailed 
          - db
    ```
 
-4. **Specify custom networks**  
+4. **Specify custom networks**
    ```yaml
    services:
      webapp:
