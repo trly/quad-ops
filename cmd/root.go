@@ -121,6 +121,8 @@ It automatically generates systemd unit files from Docker Compose files and hand
 		(&unit.Command{}).GetCobraCommand(),
 		(&UpCommand{}).GetCobraCommand(),
 		(&DownCommand{}).GetCobraCommand(),
+		(&UpdateCommand{}).GetCobraCommand(),
+		(&VersionCommand{}).GetCobraCommand(),
 	)
 
 	return rootCmd
