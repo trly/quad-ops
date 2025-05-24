@@ -31,6 +31,7 @@ quad-ops [global-options] <command> [command-options] [arguments]
 - **[sync](sync)** - Synchronize repositories and deploy containers
 - **[up](up)** - Start all or specific services
 - **[down](down)** - Stop and remove services
+- **[update](update)** - Update quad-ops to the latest version
 
 ### Unit Management
 - **[unit list](unit-list)** - List deployed units and their status
