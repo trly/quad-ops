@@ -41,7 +41,7 @@ OPTIONS:
     --version VERSION   Install specific version (e.g., v1.2.3)
     -h, --help          Show this help message
 
-Default install location: /opt/quad-ops
+Default install location: /opt/quad-ops/bin
 Default behavior: Install latest version
 EOF
 }
@@ -79,7 +79,7 @@ if [[ -n "$INSTALL_PATH" ]]; then
 elif [[ "$USER_INSTALL" == true ]]; then
     FINAL_INSTALL_PATH="$HOME/.local/bin"
 else
-    FINAL_INSTALL_PATH="/opt/quad-ops"
+    FINAL_INSTALL_PATH="/opt/quad-ops/bin"
 fi
 
 print_info "Install path: $FINAL_INSTALL_PATH"
@@ -223,7 +223,7 @@ install_systemd_service() {
     if [[ "$USER_INSTALL" == true ]]; then
         service_name="quad-ops-user.service"
         service_url="https://raw.githubusercontent.com/$REPO/$VERSION/build/package/$service_name"
-        service_path="$HOME/.config/systemd/user/$service_name"
+        service_path="$HOME/.config/systemd/user/quad-ops.service"
         
         print_info "Installing user systemd service..."
         mkdir -p "$(dirname "$service_path")"
@@ -231,7 +231,7 @@ install_systemd_service() {
         if curl -L -o "$service_path" "$service_url" 2>/dev/null; then
             systemctl --user daemon-reload 2>/dev/null || true
             print_info "User systemd service installed at: $service_path"
-            print_info "To enable and start: systemctl --user enable --now quad-ops-user"
+            print_info "To enable and start: systemctl --user enable --now quad-ops"
         else
             print_warn "Failed to download user systemd service file"
         fi
@@ -247,6 +247,7 @@ install_systemd_service() {
             sudo systemctl daemon-reload 2>/dev/null || true
             print_info "System systemd service installed at: $service_path"
             print_info "To enable and start: sudo systemctl enable --now quad-ops"
+            print_info "For user-specific instances: sudo systemctl enable --now quad-ops@username"
         else
             print_warn "Failed to download system systemd service file"
         fi
@@ -264,9 +265,9 @@ if [[ ":$PATH:" != *":$FINAL_INSTALL_PATH:"* ]]; then
     if [[ "$USER_INSTALL" == true ]]; then
         print_warn "Add this line to your shell profile (.bashrc, .zshrc, etc.):"
         print_warn "export PATH=\"\$PATH:\$HOME/.local/bin\""
-    elif [[ "$FINAL_INSTALL_PATH" == "/opt/quad-ops" ]]; then
+    elif [[ "$FINAL_INSTALL_PATH" == "/opt/quad-ops/bin" ]]; then
         print_warn "Add this line to your shell profile (.bashrc, .zshrc, etc.):"
-        print_warn "export PATH=\"\$PATH:/opt/quad-ops\""
+        print_warn "export PATH=\"\$PATH:/opt/quad-ops/bin\""
     fi
 fi
 
