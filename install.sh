@@ -268,6 +268,24 @@ install_systemd_service() {
     fi
 }
 
+# Install profile.d script for system-wide PATH
+install_profile_script() {
+    if [[ "$USER_INSTALL" != true && "$FINAL_INSTALL_PATH" == "/opt/quad-ops/bin" ]]; then
+        print_info "Installing system-wide PATH script..."
+        
+        cat > "$TEMP_DIR/quad-ops.sh" << 'EOF'
+export PATH="/opt/quad-ops/bin:$PATH"
+EOF
+        
+        sudo cp "$TEMP_DIR/quad-ops.sh" "/etc/profile.d/quad-ops.sh"
+        sudo chmod 644 "/etc/profile.d/quad-ops.sh"
+        sudo chown root:root "/etc/profile.d/quad-ops.sh"
+        
+        print_info "PATH script installed at: /etc/profile.d/quad-ops.sh"
+        print_info "Log out and back in for the PATH change to take effect system-wide"
+    fi
+}
+
 # Install example configuration file
 install_example_config() {
     local config_url config_path
@@ -308,6 +326,9 @@ install_example_config() {
 if command -v systemctl >/dev/null 2>&1; then
     install_systemd_service
 fi
+
+# Install profile.d script for system installs
+install_profile_script
 
 # Install example configuration file
 install_example_config
