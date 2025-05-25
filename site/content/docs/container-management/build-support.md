@@ -317,6 +317,8 @@ services:
 
 ### Build Cache Configuration
 
+Use Quad-Ops' [x-podman-buildargs extension](../docker-compose-support/#build-extensions) for additional build arguments:
+
 ```yaml
 services:
   app:
@@ -328,6 +330,8 @@ services:
 ```
 
 ### Custom Build Volumes
+
+Use Quad-Ops' [x-podman-volumes extension](../docker-compose-support/#volume-extensions) for build-time volume mounts:
 
 ```yaml
 services:

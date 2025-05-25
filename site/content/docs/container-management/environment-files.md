@@ -221,6 +221,19 @@ API_KEY=sk_live_abcdef123456
 JWT_SECRET=super-secret-key
 ```
 
+**✅ Use Podman secrets (recommended):**
+
+For maximum security, use Quad-Ops' [x-podman-env-secrets extension](../docker-compose-support/#environment-secrets) to map Podman secrets to environment variables:
+
+```yaml
+services:
+  app:
+    x-podman-env-secrets:
+      DATABASE_PASSWORD: db_password_secret  # Maps secret to env var
+      API_KEY: api_key_secret
+      JWT_SECRET: jwt_secret
+```
+
 **✅ Use environment-specific files:**
 ```bash
 # .gitignore
