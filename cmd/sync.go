@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/config"
@@ -41,7 +42,7 @@ type SyncCommand struct{}
 var (
 	dryRun       bool
 	repoName     string
-	daemon       bool
+	daemonMode   bool
 	syncInterval time.Duration
 	force        bool
 )
@@ -75,14 +76,14 @@ repositories:
 
 			syncRepositories(cfg)
 
-			if daemon {
+			if daemonMode {
 				syncDaemon(cfg)
 			}
 		},
 	}
 
 	syncCmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "Perform a dry run without making any changes.")
-	syncCmd.Flags().BoolVar(&daemon, "daemon", false, "Run as a daemon.")
+	syncCmd.Flags().BoolVar(&daemonMode, "daemon", false, "Run as a daemon.")
 	syncCmd.Flags().DurationVarP(&syncInterval, "sync-interval", "i", 5*time.Minute, "Interval between synchronization checks.")
 	syncCmd.Flags().StringVarP(&repoName, "repo", "r", "", "Synchronize a single, named, repository.")
 	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "Force synchronization even if the repository has not changed.")
@@ -150,11 +151,33 @@ func syncRepositories(cfg *config.Settings) {
 
 func syncDaemon(cfg *config.Settings) {
 	log.GetLogger().Info("Starting sync daemon", "interval", cfg.SyncInterval)
+
+	// Notify systemd that the daemon is ready
+	if sent, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
+		log.GetLogger().Warn("Failed to notify systemd of readiness", "error", err)
+	} else if sent {
+		log.GetLogger().Info("Notified systemd that daemon is ready")
+	}
+
 	ticker := time.NewTicker(cfg.SyncInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		log.GetLogger().Info("Starting scheduled sync")
-		syncRepositories(cfg)
+	// Send periodic watchdog notifications if configured
+	watchdogTicker := time.NewTicker(30 * time.Second)
+	defer watchdogTicker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			log.GetLogger().Info("Starting scheduled sync")
+			syncRepositories(cfg)
+		case <-watchdogTicker.C:
+			// Send watchdog notification to systemd
+			if sent, err := daemon.SdNotify(false, daemon.SdNotifyWatchdog); err != nil {
+				log.GetLogger().Debug("Failed to send watchdog notification", "error", err)
+			} else if sent {
+				log.GetLogger().Debug("Sent watchdog notification to systemd")
+			}
+		}
 	}
 }

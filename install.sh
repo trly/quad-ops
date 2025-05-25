@@ -221,7 +221,7 @@ install_systemd_service() {
     local service_name service_url service_path
     
     if [[ "$USER_INSTALL" == true ]]; then
-        service_name="quad-ops-user.service"
+        service_name="quad-ops.service"
         service_url="https://raw.githubusercontent.com/$REPO/$VERSION/build/package/$service_name"
         service_path="$HOME/.config/systemd/user/quad-ops.service"
         
@@ -250,21 +250,22 @@ install_systemd_service() {
             print_warn "Failed to download regular systemd service file"
         fi
         
-        # Install template service
+        # Install template service for user mode
         template_name="quad-ops@.service"
         template_url="https://raw.githubusercontent.com/$REPO/$VERSION/build/package/$template_name"
-        template_path="/etc/systemd/system/$template_name"
+        template_path="/etc/systemd/user/$template_name"
         
+        sudo mkdir -p "/etc/systemd/user"
         if curl -L -o "$TEMP_DIR/$template_name" "$template_url" 2>/dev/null; then
             sudo cp "$TEMP_DIR/$template_name" "$template_path"
-            print_info "Template service installed at: $template_path"
+            print_info "User template service installed at: $template_path"
         else
             print_warn "Failed to download template systemd service file"
         fi
         
         sudo systemctl daemon-reload 2>/dev/null || true
         print_info "To enable and start: sudo systemctl enable --now quad-ops"
-        print_info "For user-specific instances: sudo systemctl enable --now quad-ops@username"
+        print_info "For user mode: systemctl --user enable --now quad-ops@"
     fi
 }
 
