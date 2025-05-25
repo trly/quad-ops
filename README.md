@@ -56,8 +56,8 @@ go build -o quad-ops cmd/quad-ops/main.go
 sudo mv quad-ops /usr/local/bin/
 
 # Copy the example config file
-sudo mkdir -p /etc/quad-ops
-sudo cp configs/config.yaml.example /etc/quad-ops/config.yaml
+sudo mkdir -p /etc/opt/quad-ops
+sudo cp configs/config.yaml.example /etc/opt/quad-ops/config.yaml
 
 # Install the systemd service file (optional)
 sudo cp build/quad-ops.service /etc/systemd/system/quad-ops.service

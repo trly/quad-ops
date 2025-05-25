@@ -25,7 +25,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/trly/quad-ops/cmd/unit"
 	"github.com/trly/quad-ops/internal/config"
@@ -85,14 +84,6 @@ It automatically generates systemd unit files from Docker Compose files and hand
 
 			if dbPath != "" {
 				cfg.DBPath = dbPath
-			} else if !userMode {
-				// Only use config file path for system mode if no explicit db path
-				configFileUsed := viper.GetViper().ConfigFileUsed()
-				if configFileUsed != "" {
-					cfg.DBPath = filepath.Join(
-						filepath.Dir(configFileUsed), "quad-ops.db",
-					)
-				}
 			}
 
 			err := validate.SystemRequirements()

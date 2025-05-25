@@ -213,6 +213,12 @@ func hasUnitChanged(unitPath, content string) bool {
 
 func writeUnitFile(unitPath, content string) error {
 	log.GetLogger().Debug("Writing quadlet unit", "path", unitPath)
+
+	// Ensure the parent directory exists
+	if err := os.MkdirAll(filepath.Dir(unitPath), 0750); err != nil {
+		return fmt.Errorf("failed to create quadlet directory: %w", err)
+	}
+
 	return os.WriteFile(unitPath, []byte(content), 0600)
 }
 

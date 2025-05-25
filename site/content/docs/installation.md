@@ -1,11 +1,13 @@
 ---
-title: "Getting Started"
+title: "Installation"
 weight: 10
 ---
 
-# Getting Started with Quad-Ops
+# Getting Started with Quad-Ops (Manual Installation)
 
-This guide walks you through setting up Quad-Ops and syncing your first Docker Compose file in under 10 minutes.
+This guide provides step-by-step manual installation instructions for users who prefer not to use the automated installer script.
+
+> **Quick Start Available:** For faster installation, see our [Quick Start](../quick-start/) guide using the automated installer script.
 
 ## Prerequisites
 
@@ -13,7 +15,7 @@ This guide walks you through setting up Quad-Ops and syncing your first Docker C
 - [Git](https://git-scm.com/downloads)
 - systemd-based Linux distribution
 
-## Installation
+## Manual Installation
 
 ### Option 1: Install Prebuilt Binary (Recommended)
 
@@ -21,12 +23,22 @@ This guide walks you through setting up Quad-Ops and syncing your first Docker C
 # Download latest release (update version as needed)
 wget https://github.com/trly/quad-ops/releases/latest/download/quad-ops_linux_amd64.tar.gz
 
+# Verify checksum (optional but recommended)
+wget https://github.com/trly/quad-ops/releases/latest/download/quad-ops_checksums.txt
+sha256sum -c quad-ops_checksums.txt --ignore-missing
+
 # Extract the binary
 tar -xzf quad-ops_linux_amd64.tar.gz
 
-# Move to system directory
-sudo mv quad-ops /usr/local/bin/
-sudo chmod +x /usr/local/bin/quad-ops
+# Install binary to FHS-compliant location
+sudo mkdir -p /opt/quad-ops/bin
+sudo mv quad-ops /opt/quad-ops/bin/
+sudo chmod +x /opt/quad-ops/bin/quad-ops
+sudo chown root:root /opt/quad-ops/bin/quad-ops
+
+# Add to PATH
+echo 'export PATH="$PATH:/opt/quad-ops/bin"' >> ~/.bashrc
+source ~/.bashrc
 
 # Verify installation
 quad-ops --version
@@ -42,21 +54,46 @@ cd quad-ops
 # Build the binary
 go build -o quad-ops cmd/quad-ops/main.go
 
-# Move to system directory
-sudo mv quad-ops /usr/local/bin/
+# Install to system directory
+sudo mkdir -p /opt/quad-ops/bin
+sudo mv quad-ops /opt/quad-ops/bin/
+sudo chmod +x /opt/quad-ops/bin/quad-ops
+
+# Add to PATH
+echo 'export PATH="$PATH:/opt/quad-ops/bin"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+### Install Configuration Files
+
+```bash
+# Create FHS-compliant configuration directory
+sudo mkdir -p /etc/opt/quad-ops
+
+# Download and install example configuration
+wget https://raw.githubusercontent.com/trly/quad-ops/main/configs/config.yaml.example
+sudo mv config.yaml.example /etc/opt/quad-ops/
+
+# Copy to active configuration and customize
+sudo cp /etc/opt/quad-ops/config.yaml.example /etc/opt/quad-ops/config.yaml
+```
+
+### Install Systemd Service (Optional)
+
+```bash
+# Download systemd service file
+wget https://raw.githubusercontent.com/trly/quad-ops/main/build/package/quad-ops.service
+
+# Install service file
+sudo mv quad-ops.service /etc/systemd/system/
+sudo systemctl daemon-reload
 ```
 
 ## Basic Configuration
 
 ### Creating Your First Project
 
-```bash
-# Create directories
-sudo mkdir -p /etc/quad-ops /etc/containers/systemd
-sudo chmod 755 /etc/containers/systemd
-```
-
-Create a basic config file at `/etc/quad-ops/config.yaml`:
+Edit your configuration file at `/etc/opt/quad-ops/config.yaml`:
 
 ```yaml
 # Global settings
@@ -64,10 +101,10 @@ syncInterval: 5m
 
 # Sample repository using quad-ops examples
 repositories:
-  - name: quad-ops
+  - name: quad-ops-examples
     url: "https://github.com/trly/quad-ops.git"
     ref: "main"
-    composeDir: "examples"
+    composeDir: "examples/multi-service"
 ```
 
 ## Running Your First Sync
@@ -180,7 +217,7 @@ git commit -m "Initial commit with Nginx Docker Compose"
 
 ### 2. Update Quad-Ops Configuration
 
-Add your new repository to `/etc/quad-ops/config.yaml`:
+Add your new repository to `/etc/opt/quad-ops/config.yaml`:
 
 ```yaml
 # Global settings
@@ -212,13 +249,20 @@ sudo podman ps
 
 ## Setting Up for Production
 
-For continuous operation, you should set up Quad-Ops as a systemd service to ensure it runs permanently and automatically monitors your repositories.
+For continuous operation, enable the systemd service:
 
-Options include:
-- **System-wide service**: For managing containers as root
-- **User service**: For rootless container management
+```bash
+# Enable and start the service
+sudo systemctl enable --now quad-ops
 
-See the [Systemd Service](../configuration/systemd-service/) guide for detailed instructions on setting up either option.
+# Check service status
+sudo systemctl status quad-ops
+
+# View logs
+sudo journalctl -u quad-ops -f
+```
+
+For more advanced setups including user services and template services, see the [Systemd Service](../configuration/systemd-service/) guide.
 
 ## Docker Compose Tips for Quad-Ops
 
@@ -251,14 +295,15 @@ See the [Systemd Service](../configuration/systemd-service/) guide for detailed 
 
 ## Success! What's Next?
 
-Congratulations! You now have Quad-Ops running and managing your containers. Here are some next steps:
+Congratulations! You now have Quad-Ops manually installed and running. Here are some next steps:
 
 1. **Create your own Docker Compose files** with your applications
 2. **Push your configurations to Git** repositories for proper GitOps workflow
 3. **Explore more advanced features** like secrets management and network configuration
 
-For more detailed information, check out these guides after you're comfortable with the basics:
+For more detailed information, check out these guides:
 
+- [Quick Start](../quick-start/) - Automated installation for future deployments
 - [Docker Compose Support](../docker-compose/)
 - [Systemd Service Configuration](../configuration/systemd-service/)
 - [Dependency Management](../dependency-management/)

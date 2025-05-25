@@ -1,4 +1,16 @@
 # Global application settings
+
+# Sync interval - how often to check for repository updates
+syncInterval: 5m
+
+# Directory paths (these have sensible defaults based on system/user mode)
+# repositoryDir: "/var/lib/quad-ops"        # System mode default
+# repositoryDir: "~/.local/share/quad-ops"  # User mode default
+# quadletDir: "/etc/containers/systemd"     # System mode default  
+# quadletDir: "~/.config/containers/systemd" # User mode default
+# dbPath: "/var/lib/quad-ops/quad-ops.db"   # System mode default
+# dbPath: "~/.local/share/quad-ops/quad-ops.db" # User mode default
+
 # Whether to use Podman's default container naming (with systemd- prefix)
 # Default is false: container hostnames will match exactly with their service names without systemd- prefix
 # Set to true to allow Podman to use its default naming with systemd- prefix
@@ -6,10 +18,10 @@ usePodmanDefaultNames: false
 
 # Repositories to synchronize
 repositories:
-  - name: quad-ops-manifests
-    url: "https://github.com/trly/quad-ops-manifests.git"
+  - name: quad-ops-examples
+    url: "https://github.com/trly/quad-ops.git"
     ref: "main"  # Git reference (branch, tag, or commit hash) to checkout
-    composeDir: "configs/examples" # Optional subdirectory where Docker Compose files are located
+    composeDir: "examples" # Optional subdirectory where Docker Compose files are located
     cleanup: "delete" # Cleanup policy: "delete" or "keep" (default: "keep")
     # When "delete" is specified, units that were previously deployed from this
     # repository but no longer exist in the Docker Compose files will be stopped and removed

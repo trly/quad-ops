@@ -26,7 +26,7 @@ func ReadProjects(path string) ([]*types.Project, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("compose directory does not exist: %s", path)
+			return nil, fmt.Errorf("compose directory does not exist: %s (check that the composeDir configuration points to a valid directory in the repository)", path)
 		}
 		return nil, fmt.Errorf("failed to access compose directory: %w", err)
 	}

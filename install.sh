@@ -236,20 +236,70 @@ install_systemd_service() {
             print_warn "Failed to download user systemd service file"
         fi
     else
+        print_info "Installing system systemd services..."
+        
+        # Install regular service
         service_name="quad-ops.service"
         service_url="https://raw.githubusercontent.com/$REPO/$VERSION/build/package/$service_name"
         service_path="/etc/systemd/system/$service_name"
         
-        print_info "Installing system systemd service..."
-        
         if curl -L -o "$TEMP_DIR/$service_name" "$service_url" 2>/dev/null; then
             sudo cp "$TEMP_DIR/$service_name" "$service_path"
-            sudo systemctl daemon-reload 2>/dev/null || true
-            print_info "System systemd service installed at: $service_path"
-            print_info "To enable and start: sudo systemctl enable --now quad-ops"
-            print_info "For user-specific instances: sudo systemctl enable --now quad-ops@username"
+            print_info "Regular service installed at: $service_path"
         else
-            print_warn "Failed to download system systemd service file"
+            print_warn "Failed to download regular systemd service file"
+        fi
+        
+        # Install template service
+        template_name="quad-ops@.service"
+        template_url="https://raw.githubusercontent.com/$REPO/$VERSION/build/package/$template_name"
+        template_path="/etc/systemd/system/$template_name"
+        
+        if curl -L -o "$TEMP_DIR/$template_name" "$template_url" 2>/dev/null; then
+            sudo cp "$TEMP_DIR/$template_name" "$template_path"
+            print_info "Template service installed at: $template_path"
+        else
+            print_warn "Failed to download template systemd service file"
+        fi
+        
+        sudo systemctl daemon-reload 2>/dev/null || true
+        print_info "To enable and start: sudo systemctl enable --now quad-ops"
+        print_info "For user-specific instances: sudo systemctl enable --now quad-ops@username"
+    fi
+}
+
+# Install example configuration file
+install_example_config() {
+    local config_url config_path
+    
+    config_url="https://raw.githubusercontent.com/$REPO/$VERSION/configs/config.yaml.example"
+    
+    if [[ "$USER_INSTALL" == true ]]; then
+        config_path="$HOME/.config/quad-ops/config.yaml.example"
+        
+        print_info "Installing user example configuration..."
+        mkdir -p "$(dirname "$config_path")"
+        
+        if curl -L -o "$config_path" "$config_url" 2>/dev/null; then
+            print_info "Example config installed at: $config_path"
+            print_info "Copy to config.yaml and customize: cp '$config_path' '$HOME/.config/quad-ops/config.yaml'"
+        else
+            print_warn "Failed to download example configuration file"
+        fi
+    else
+        config_path="/etc/opt/quad-ops/config.yaml.example"
+        
+        print_info "Installing system example configuration..."
+        sudo mkdir -p "$(dirname "$config_path")"
+        
+        if curl -L -o "$TEMP_DIR/config.yaml.example" "$config_url" 2>/dev/null; then
+            sudo cp "$TEMP_DIR/config.yaml.example" "$config_path"
+            sudo chown root:root "$config_path"
+            sudo chmod 644 "$config_path"
+            print_info "Example config installed at: $config_path"
+            print_info "Copy to config.yaml and customize: sudo cp '$config_path' '/etc/opt/quad-ops/config.yaml'"
+        else
+            print_warn "Failed to download example configuration file"
         fi
     fi
 }
@@ -258,6 +308,9 @@ install_systemd_service() {
 if command -v systemctl >/dev/null 2>&1; then
     install_systemd_service
 fi
+
+# Install example configuration file
+install_example_config
 
 # Check if install path is in PATH
 if [[ ":$PATH:" != *":$FINAL_INSTALL_PATH:"* ]]; then

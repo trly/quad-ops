@@ -142,7 +142,7 @@ func initConfigInternal() *Settings {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(os.ExpandEnv("$HOME/.config/quad-ops"))
-	viper.AddConfigPath("/etc/quad-ops")
+	viper.AddConfigPath("/etc/opt/quad-ops")
 	viper.AddConfigPath(".")
 
 	if err := viper.ReadInConfig(); err != nil {
