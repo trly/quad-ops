@@ -537,7 +537,7 @@ func GenerateQuadletUnit(unit QuadletUnit) string {
 }
 
 func formatKeyValue(key, value string) string {
-	return fmt.Sprintf("%s=%s\n", key, value)
+	return key + "=" + value + "\n"
 }
 
 func formatKeyValueSlice(key string, values []string) string {
@@ -550,7 +550,7 @@ func formatKeyValueSlice(key string, values []string) string {
 	})
 
 	// Join them with spaces
-	return fmt.Sprintf("%s=%s\n", key, strings.Join(sortedValues, " "))
+	return key + "=" + strings.Join(sortedValues, " ") + "\n"
 }
 
 func formatSecret(secret Secret) string {
@@ -582,7 +582,7 @@ func formatSecret(secret Secret) string {
 
 	// Add options in sorted order
 	for _, k := range keys {
-		secretOpts = append(secretOpts, fmt.Sprintf("%s=%s", k, options[k]))
+		secretOpts = append(secretOpts, k+"="+options[k])
 	}
 
 	return strings.Join(secretOpts, ",")

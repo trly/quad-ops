@@ -66,7 +66,7 @@ func (b *Build) setBasicBuildFields(buildConfig types.BuildConfig, service types
 		b.ImageTag = append(b.ImageTag, service.Image)
 	} else {
 		// If no image is specified, create a default image tag based on service name
-		defaultTag := fmt.Sprintf("localhost/%s:latest", service.Name)
+		defaultTag := "localhost/" + service.Name + ":latest"
 		b.ImageTag = append(b.ImageTag, defaultTag)
 	}
 

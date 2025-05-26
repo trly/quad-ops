@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
@@ -163,7 +164,7 @@ func (c *Container) setBasicServiceFields(service types.ServiceConfig) {
 func (c *Container) processServicePorts(service types.ServiceConfig) {
 	if len(service.Ports) > 0 {
 		for _, port := range service.Ports {
-			c.PublishPort = append(c.PublishPort, fmt.Sprintf("%s:%d", port.Published, port.Target))
+			c.PublishPort = append(c.PublishPort, port.Published+":"+strconv.Itoa(int(port.Target)))
 		}
 	}
 }
@@ -352,41 +353,41 @@ func (c *Container) processServiceResources(service types.ServiceConfig) {
 	// ========= MEMORY LIMITS =========
 	// Handle service-level memory constraints
 	if service.MemLimit != 0 {
-		c.Memory = fmt.Sprintf("%d", service.MemLimit)
+		c.Memory = strconv.FormatInt(int64(service.MemLimit), 10)
 		unsupportedFeatures = append(unsupportedFeatures, "Memory limits (mem_limit)")
 		// Add as PodmanArgs instead of ignoring
-		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory=%d", service.MemLimit))
+		c.PodmanArgs = append(c.PodmanArgs, "--memory="+strconv.FormatInt(int64(service.MemLimit), 10))
 	}
 
 	if service.MemReservation != 0 {
-		c.MemoryReservation = fmt.Sprintf("%d", service.MemReservation)
+		c.MemoryReservation = strconv.FormatInt(int64(service.MemReservation), 10)
 		unsupportedFeatures = append(unsupportedFeatures, "Memory reservation (memory_reservation)")
 		// Add as PodmanArgs instead of ignoring
-		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory-reservation=%d", service.MemReservation))
+		c.PodmanArgs = append(c.PodmanArgs, "--memory-reservation="+strconv.FormatInt(int64(service.MemReservation), 10))
 	}
 
 	if service.MemSwapLimit != 0 {
-		c.MemorySwap = fmt.Sprintf("%d", service.MemSwapLimit)
+		c.MemorySwap = strconv.FormatInt(int64(service.MemSwapLimit), 10)
 		unsupportedFeatures = append(unsupportedFeatures, "Memory swap (memswap_limit)")
 		// Add as PodmanArgs instead of ignoring
-		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory-swap=%d", service.MemSwapLimit))
+		c.PodmanArgs = append(c.PodmanArgs, "--memory-swap="+strconv.FormatInt(int64(service.MemSwapLimit), 10))
 	}
 
 	// Handle deploy section memory constraints
 	// Note: compose-go validation ensures we won't have both service-level AND deploy constraints
 	if service.Deploy != nil {
 		if service.Deploy.Resources.Limits != nil && service.Deploy.Resources.Limits.MemoryBytes != 0 {
-			c.Memory = fmt.Sprintf("%d", service.Deploy.Resources.Limits.MemoryBytes)
+			c.Memory = strconv.FormatInt(int64(service.Deploy.Resources.Limits.MemoryBytes), 10)
 			unsupportedFeatures = append(unsupportedFeatures, "Memory limits (deploy.resources.limits.memory)")
 			// Add as PodmanArgs instead of ignoring
-			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory=%d", service.Deploy.Resources.Limits.MemoryBytes))
+			c.PodmanArgs = append(c.PodmanArgs, "--memory="+strconv.FormatInt(int64(service.Deploy.Resources.Limits.MemoryBytes), 10))
 		}
 
 		if service.Deploy.Resources.Reservations != nil && service.Deploy.Resources.Reservations.MemoryBytes != 0 {
-			c.MemoryReservation = fmt.Sprintf("%d", service.Deploy.Resources.Reservations.MemoryBytes)
+			c.MemoryReservation = strconv.FormatInt(int64(service.Deploy.Resources.Reservations.MemoryBytes), 10)
 			unsupportedFeatures = append(unsupportedFeatures, "Memory reservation (deploy.resources.reservations.memory)")
 			// Add as PodmanArgs instead of ignoring
-			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--memory-reservation=%d", service.Deploy.Resources.Reservations.MemoryBytes))
+			c.PodmanArgs = append(c.PodmanArgs, "--memory-reservation="+strconv.FormatInt(int64(service.Deploy.Resources.Reservations.MemoryBytes), 10))
 		}
 	}
 
