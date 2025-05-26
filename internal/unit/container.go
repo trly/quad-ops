@@ -349,7 +349,7 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 // processServiceResources processes resource constraints from a Docker Compose service.
 func (c *Container) processServiceResources(service types.ServiceConfig) {
 	// Track unsupported features to warn about
-	var unsupportedFeatures []string
+	unsupportedFeatures := make([]string, 0, 10)
 	// ========= MEMORY LIMITS =========
 	// Handle service-level memory constraints
 	if service.MemLimit != 0 {
@@ -480,7 +480,7 @@ func (c *Container) processServiceResources(service types.ServiceConfig) {
 // processAdvancedConfig processes advanced container configuration from a Docker Compose service.
 func (c *Container) processAdvancedConfig(service types.ServiceConfig) {
 	// Track unsupported features to warn about
-	var unsupportedFeatures []string
+	unsupportedFeatures := make([]string, 0, 15)
 
 	// Process standard container configuration (directly supported by Quadlet)
 	c.processStandardConfig(service)

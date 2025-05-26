@@ -219,7 +219,7 @@ func TestServiceSpecificEnvironmentFiles(t *testing.T) {
 	}
 
 	// Create a slice to store the test units
-	changedUnits := make([]QuadletUnit, 0)
+	changedUnits := make([]QuadletUnit, 0, len(project.Services))
 
 	// Just manually create the container and check if we can find the env files directly
 	// because the full processServices call needs a configured testing environment

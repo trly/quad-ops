@@ -134,7 +134,7 @@ func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyGraphs map
 
 	// Phase 1: Initiate all container restarts asynchronously
 	log.GetLogger().Debug("Initiating async restarts for container units")
-	containerUnits := []QuadletUnit{}
+	containerUnits := make([]QuadletUnit, 0, len(changedUnits))
 	restarted := make(map[string]bool)
 
 	for _, unit := range changedUnits {

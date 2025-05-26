@@ -33,7 +33,12 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 		processedUnits = make(map[string]bool)
 	}
 
-	changedUnits := make([]QuadletUnit, 0)
+	// Estimate total capacity for all projects (services + networks + volumes + potential builds)
+	estimatedCapacity := 0
+	for _, project := range projects {
+		estimatedCapacity += len(project.Services) + len(project.Networks) + len(project.Volumes) + len(project.Services) // +services again for potential builds
+	}
+	changedUnits := make([]QuadletUnit, 0, estimatedCapacity)
 
 	// Process each project
 	for _, project := range projects {
