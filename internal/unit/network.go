@@ -25,10 +25,7 @@ type Network struct {
 // NewNetwork creates a new Network with the given name.
 func NewNetwork(name string) *Network {
 	return &Network{
-		BaseUnit: BaseUnit{
-			Name:     name,
-			UnitType: "network",
-		},
+		BaseUnit: *NewBaseUnit(name, "network"),
 	}
 }
 

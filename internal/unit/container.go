@@ -73,10 +73,7 @@ type Container struct {
 // NewContainer creates a new Container with the given name.
 func NewContainer(name string) *Container {
 	return &Container{
-		BaseUnit: BaseUnit{
-			Name:     name,
-			UnitType: "container",
-		},
+		BaseUnit: *NewBaseUnit(name, "container"),
 	}
 }
 

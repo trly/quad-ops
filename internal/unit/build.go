@@ -29,10 +29,7 @@ type Build struct {
 // NewBuild creates a new Build with the given name.
 func NewBuild(name string) *Build {
 	return &Build{
-		BaseUnit: BaseUnit{
-			Name:     name,
-			UnitType: "build",
-		},
+		BaseUnit: *NewBaseUnit(name, "build"),
 	}
 }
 

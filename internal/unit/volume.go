@@ -28,10 +28,7 @@ type Volume struct {
 // NewVolume creates a new Volume with the given name.
 func NewVolume(name string) *Volume {
 	return &Volume{
-		BaseUnit: BaseUnit{
-			Name:     name,
-			UnitType: "volume",
-		},
+		BaseUnit: *NewBaseUnit(name, "volume"),
 	}
 }
 

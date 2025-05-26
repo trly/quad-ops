@@ -8,10 +8,7 @@ import (
 
 func TestBaseUnit(t *testing.T) {
 	// Test container unit
-	containerUnit := BaseUnit{
-		Name:     "test-container",
-		UnitType: "container",
-	}
+	containerUnit := NewBaseUnit("test-container", "container")
 
 	// Test GetServiceName for container
 	assert.Equal(t, "test-container.service", containerUnit.GetServiceName())
@@ -21,10 +18,7 @@ func TestBaseUnit(t *testing.T) {
 	assert.Equal(t, "test-container", containerUnit.GetUnitName())
 
 	// Test volume unit
-	volumeUnit := BaseUnit{
-		Name:     "test-volume",
-		UnitType: "volume",
-	}
+	volumeUnit := NewBaseUnit("test-volume", "volume")
 
 	// Test GetServiceName for non-container unit
 	assert.Equal(t, "test-volume-volume.service", volumeUnit.GetServiceName())
@@ -34,10 +28,7 @@ func TestBaseUnit(t *testing.T) {
 	assert.Equal(t, "test-volume", volumeUnit.GetUnitName())
 
 	// Test network unit
-	networkUnit := BaseUnit{
-		Name:     "test-network",
-		UnitType: "network",
-	}
+	networkUnit := NewBaseUnit("test-network", "network")
 
 	// Test GetServiceName for non-container unit
 	assert.Equal(t, "test-network-network.service", networkUnit.GetServiceName())

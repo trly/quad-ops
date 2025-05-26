@@ -8,26 +8,9 @@ import (
 
 func TestResetFailed(t *testing.T) {
 	// Create test units
-	containerUnit := &Container{
-		BaseUnit: BaseUnit{
-			Name:     "test-container",
-			UnitType: "container",
-		},
-	}
-
-	volumeUnit := &Volume{
-		BaseUnit: BaseUnit{
-			Name:     "test-volume",
-			UnitType: "volume",
-		},
-	}
-
-	networkUnit := &Network{
-		BaseUnit: BaseUnit{
-			Name:     "test-network",
-			UnitType: "network",
-		},
-	}
+	containerUnit := NewContainer("test-container")
+	volumeUnit := NewVolume("test-volume")
+	networkUnit := NewNetwork("test-network")
 
 	baseSystemdUnit := &BaseSystemdUnit{
 		Name: "test-base",
