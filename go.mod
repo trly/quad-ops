@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
-	github.com/compose-spec/compose-go/v2 v2.6.2
+	github.com/compose-spec/compose-go/v2 v2.6.4
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/dominikbraun/graph v0.23.0
