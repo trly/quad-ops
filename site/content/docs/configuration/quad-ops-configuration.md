@@ -11,7 +11,7 @@ Quad-Ops uses a YAML configuration file to define global settings and repository
 
 By default, Quad-Ops looks for configuration files in the following locations:
 
-- `/etc/opt/quad-ops/config.yaml` (system-wide)
+- `/etc/quad-ops/config.yaml` (system-wide)
 - `~/.config/quad-ops/config.yaml` (user mode)
 - `./config.yaml` (current directory)
 

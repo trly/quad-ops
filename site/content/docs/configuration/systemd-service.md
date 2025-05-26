@@ -86,7 +86,7 @@ sudo systemctl edit quad-ops
 # Add this content to the override file:
 [Service]
 ExecStart=
-ExecStart=/opt/quad-ops/bin/quad-ops sync --daemon --config /path/to/custom/config.yaml
+ExecStart=/usr/local/bin/quad-ops sync --daemon --config /path/to/custom/config.yaml
 ```
 
 ```bash
@@ -108,7 +108,7 @@ sudo systemctl edit quad-ops
 # Add this content to the override file:
 [Service]
 ExecStart=
-ExecStart=/opt/quad-ops/bin/quad-ops sync --daemon --sync-interval 2m
+ExecStart=/usr/local/bin/quad-ops sync --daemon --sync-interval 2m
 ```
 
 ### Enable Verbose Logging
@@ -120,7 +120,7 @@ sudo systemctl edit quad-ops
 # Add this content to the override file:
 [Service]
 ExecStart=
-ExecStart=/opt/quad-ops/bin/quad-ops sync --daemon --verbose
+ExecStart=/usr/local/bin/quad-ops sync --daemon --verbose
 ```
 
 ### Apply Override Changes

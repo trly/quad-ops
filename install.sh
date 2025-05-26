@@ -41,7 +41,7 @@ OPTIONS:
     --version VERSION   Install specific version (e.g., v1.2.3)
     -h, --help          Show this help message
 
-Default install location: /opt/quad-ops/bin
+Default install location: /usr/local/bin
 Default behavior: Install latest version
 EOF
 }
@@ -79,7 +79,7 @@ if [[ -n "$INSTALL_PATH" ]]; then
 elif [[ "$USER_INSTALL" == true ]]; then
     FINAL_INSTALL_PATH="$HOME/.local/bin"
 else
-    FINAL_INSTALL_PATH="/opt/quad-ops/bin"
+    FINAL_INSTALL_PATH="/usr/local/bin"
 fi
 
 print_info "Install path: $FINAL_INSTALL_PATH"
@@ -192,7 +192,7 @@ fi
 # Create install directory if it doesn't exist
 if [[ ! -d "$FINAL_INSTALL_PATH" ]]; then
     print_info "Creating install directory: $FINAL_INSTALL_PATH"
-    if [[ "$FINAL_INSTALL_PATH" == "/opt/"* ]]; then
+    if [[ "$FINAL_INSTALL_PATH" == "/usr/local/bin" ]] || [[ "$FINAL_INSTALL_PATH" == "/opt/"* ]]; then
         # System install requires sudo
         sudo mkdir -p "$FINAL_INSTALL_PATH"
     else
@@ -204,7 +204,7 @@ fi
 FINAL_BINARY_PATH="$FINAL_INSTALL_PATH/$BINARY_NAME"
 print_info "Installing binary to: $FINAL_BINARY_PATH"
 
-if [[ "$FINAL_INSTALL_PATH" == "/opt/"* ]]; then
+if [[ "$FINAL_INSTALL_PATH" == "/usr/local/bin" ]] || [[ "$FINAL_INSTALL_PATH" == "/opt/"* ]]; then
     # System install requires sudo
     sudo cp "$EXTRACTED_BINARY" "$FINAL_BINARY_PATH"
     sudo chmod +x "$FINAL_BINARY_PATH"
@@ -271,7 +271,9 @@ install_systemd_service() {
 
 # Install profile.d script for system-wide PATH
 install_profile_script() {
-    if [[ "$USER_INSTALL" != true && "$FINAL_INSTALL_PATH" == "/opt/quad-ops/bin" ]]; then
+    # No longer needed since /usr/local/bin is already in PATH by default
+    # Only install for custom paths that aren't already in PATH
+    if [[ "$USER_INSTALL" != true && "$FINAL_INSTALL_PATH" != "/usr/local/bin" && "$FINAL_INSTALL_PATH" == "/opt/quad-ops/bin" ]]; then
         print_info "Installing system-wide PATH script..."
         
         cat > "$TEMP_DIR/quad-ops.sh" << 'EOF'
@@ -306,7 +308,7 @@ install_example_config() {
             print_warn "Failed to download example configuration file"
         fi
     else
-        config_path="/etc/opt/quad-ops/config.yaml.example"
+        config_path="/etc/quad-ops/config.yaml.example"
         
         print_info "Installing system example configuration..."
         sudo mkdir -p "$(dirname "$config_path")"
@@ -316,7 +318,7 @@ install_example_config() {
             sudo chown root:root "$config_path"
             sudo chmod 644 "$config_path"
             print_info "Example config installed at: $config_path"
-            print_info "Copy to config.yaml and customize: sudo cp '$config_path' '/etc/opt/quad-ops/config.yaml'"
+            print_info "Copy to config.yaml and customize: sudo cp '$config_path' '/etc/quad-ops/config.yaml'"
         else
             print_warn "Failed to download example configuration file"
         fi
@@ -340,9 +342,6 @@ if [[ ":$PATH:" != *":$FINAL_INSTALL_PATH:"* ]]; then
     if [[ "$USER_INSTALL" == true ]]; then
         print_warn "Add this line to your shell profile (.bashrc, .zshrc, etc.):"
         print_warn "export PATH=\"\$PATH:\$HOME/.local/bin\""
-    elif [[ "$FINAL_INSTALL_PATH" == "/opt/quad-ops/bin" ]]; then
-        print_warn "Add this line to your shell profile (.bashrc, .zshrc, etc.):"
-        print_warn "export PATH=\"\$PATH:/opt/quad-ops/bin\""
     fi
 fi
 

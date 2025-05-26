@@ -30,15 +30,10 @@ sha256sum -c quad-ops_checksums.txt --ignore-missing
 # Extract the binary
 tar -xzf quad-ops_linux_amd64.tar.gz
 
-# Install binary to FHS-compliant location
-sudo mkdir -p /opt/quad-ops/bin
-sudo mv quad-ops /opt/quad-ops/bin/
-sudo chmod +x /opt/quad-ops/bin/quad-ops
-sudo chown root:root /opt/quad-ops/bin/quad-ops
-
-# Add to PATH
-echo 'export PATH="$PATH:/opt/quad-ops/bin"' >> ~/.bashrc
-source ~/.bashrc
+# Install binary to standard location
+sudo mv quad-ops /usr/local/bin/
+sudo chmod +x /usr/local/bin/quad-ops
+sudo chown root:root /usr/local/bin/quad-ops
 
 # Verify installation
 quad-ops --version
@@ -55,27 +50,22 @@ cd quad-ops
 go build -o quad-ops cmd/quad-ops/main.go
 
 # Install to system directory
-sudo mkdir -p /opt/quad-ops/bin
-sudo mv quad-ops /opt/quad-ops/bin/
-sudo chmod +x /opt/quad-ops/bin/quad-ops
-
-# Add to PATH
-echo 'export PATH="$PATH:/opt/quad-ops/bin"' >> ~/.bashrc
-source ~/.bashrc
+sudo mv quad-ops /usr/local/bin/
+sudo chmod +x /usr/local/bin/quad-ops
 ```
 
 ### Install Configuration Files
 
 ```bash
-# Create FHS-compliant configuration directory
-sudo mkdir -p /etc/opt/quad-ops
+# Create configuration directory
+sudo mkdir -p /etc/quad-ops
 
 # Download and install example configuration
 wget https://raw.githubusercontent.com/trly/quad-ops/main/configs/config.yaml.example
-sudo mv config.yaml.example /etc/opt/quad-ops/
+sudo mv config.yaml.example /etc/quad-ops/
 
 # Copy to active configuration and customize
-sudo cp /etc/opt/quad-ops/config.yaml.example /etc/opt/quad-ops/config.yaml
+sudo cp /etc/quad-ops/config.yaml.example /etc/quad-ops/config.yaml
 ```
 
 ### Install Systemd Service (Optional)
@@ -93,7 +83,7 @@ sudo systemctl daemon-reload
 
 ### Creating Your First Project
 
-Edit your configuration file at `/etc/opt/quad-ops/config.yaml`:
+Edit your configuration file at `/etc/quad-ops/config.yaml`:
 
 ```yaml
 # Global settings
@@ -217,7 +207,7 @@ git commit -m "Initial commit with Nginx Docker Compose"
 
 ### 2. Update Quad-Ops Configuration
 
-Add your new repository to `/etc/opt/quad-ops/config.yaml`:
+Add your new repository to `/etc/quad-ops/config.yaml`:
 
 ```yaml
 # Global settings

@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=notify
-ExecStart=/opt/quad-ops/bin/quad-ops sync --daemon -u
-ExecStartPost=-/opt/quad-ops/bin/quad-ops -u up
+ExecStart=/usr/local/bin/quad-ops sync --daemon -u
+ExecStartPost=-/usr/local/bin/quad-ops -u up
 Restart=always
 RestartSec=10
 KillMode=mixed

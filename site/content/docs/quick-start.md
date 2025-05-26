@@ -25,8 +25,8 @@ curl -fsSL https://raw.githubusercontent.com/trly/quad-ops/main/install.sh | bas
 ```
 
 This installs:
-- Binary: `/opt/quad-ops/bin/quad-ops`
-- Config: `/etc/opt/quad-ops/config.yaml.example`
+- Binary: `/usr/local/bin/quad-ops`
+- Config: `/etc/quad-ops/config.yaml.example`
 - Services: `/etc/systemd/system/quad-ops.service` and `/etc/systemd/system/quad-ops@.service`
 
 ### User Installation
@@ -68,17 +68,13 @@ curl -fsSL https://raw.githubusercontent.com/trly/quad-ops/main/install.sh | bas
 
 The installer will warn you if the install location isn't in your PATH:
 
-**System install:**
-```bash
-echo 'export PATH="$PATH:/opt/quad-ops/bin"' >> ~/.bashrc
-source ~/.bashrc
-```
-
 **User install:**
 ```bash
 echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.bashrc
 source ~/.bashrc
 ```
+
+Note: `/usr/local/bin` is already in PATH by default for system installations.
 
 ### 2. Configure Quad-Ops
 
@@ -86,8 +82,8 @@ Copy and customize the example configuration:
 
 **System install:**
 ```bash
-sudo cp /etc/opt/quad-ops/config.yaml.example /etc/opt/quad-ops/config.yaml
-sudo nano /etc/opt/quad-ops/config.yaml
+sudo cp /etc/quad-ops/config.yaml.example /etc/quad-ops/config.yaml
+sudo nano /etc/quad-ops/config.yaml
 ```
 
 **User install:**
