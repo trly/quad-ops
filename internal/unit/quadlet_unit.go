@@ -82,169 +82,157 @@ type Unit struct {
 }
 
 // addBasicConfig adds basic container configuration like image and labels.
-func (u *QuadletUnit) addBasicConfig(content string) string {
+func (u *QuadletUnit) addBasicConfig(builder *strings.Builder) {
 	if u.Container.Image != "" {
-		content += formatKeyValue("Image", u.Container.Image)
+		builder.WriteString(formatKeyValue("Image", u.Container.Image))
 	}
-	content += formatKeyValue("Label", "managed-by=quad-ops")
+	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
 	// Use centralized sorting function for consistent output
 	util.SortAndIterateSlice(u.Container.Label, func(label string) {
-		content += formatKeyValue("Label", label)
+		builder.WriteString(formatKeyValue("Label", label))
 	})
 
 	// Use centralized sorting function for ports
 	util.SortAndIterateSlice(u.Container.PublishPort, func(port string) {
-		content += formatKeyValue("PublishPort", port)
+		builder.WriteString(formatKeyValue("PublishPort", port))
 	})
-
-	return content
 }
 
 // addEnvironmentConfig adds environment variables and environment files.
-func (u *QuadletUnit) addEnvironmentConfig(content string) string {
+func (u *QuadletUnit) addEnvironmentConfig(builder *strings.Builder) {
 	// Sort environment variables for consistent output
 	envKeys := util.GetSortedMapKeys(u.Container.Environment)
 
 	// Add environment variables in sorted order
 	for _, k := range envKeys {
-		content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, u.Container.Environment[k]))
+		fmt.Fprintf(builder, "Environment=%s=%s\n", k, u.Container.Environment[k])
 	}
 	// Use centralized sorting function for environment files
 	util.SortAndIterateSlice(u.Container.EnvironmentFile, func(envFile string) {
-		content += formatKeyValue("EnvironmentFile", envFile)
+		builder.WriteString(formatKeyValue("EnvironmentFile", envFile))
 	})
-
-	return content
 }
 
 // addVolumeNetworkConfig adds volume and network configuration.
-func (u *QuadletUnit) addVolumeNetworkConfig(content string) string {
+func (u *QuadletUnit) addVolumeNetworkConfig(builder *strings.Builder) {
 	// Use centralized sorting function for volumes
 	util.SortAndIterateSlice(u.Container.Volume, func(vol string) {
-		content += formatKeyValue("Volume", vol)
+		builder.WriteString(formatKeyValue("Volume", vol))
 	})
 
 	// Use centralized sorting function for networks
 	util.SortAndIterateSlice(u.Container.Network, func(net string) {
-		content += formatKeyValue("Network", net)
+		builder.WriteString(formatKeyValue("Network", net))
 	})
 
 	// Use centralized sorting function for network aliases
 	util.SortAndIterateSlice(u.Container.NetworkAlias, func(alias string) {
-		content += formatKeyValue("NetworkAlias", alias)
+		builder.WriteString(formatKeyValue("NetworkAlias", alias))
 	})
-
-	return content
 }
 
 // addExecutionConfig adds execution configuration like entrypoint, user, working directory.
-func (u *QuadletUnit) addExecutionConfig(content string) string {
+func (u *QuadletUnit) addExecutionConfig(builder *strings.Builder) {
 	if len(u.Container.Exec) > 0 {
-		content += formatKeyValueSlice("Exec", u.Container.Exec)
+		builder.WriteString(formatKeyValueSlice("Exec", u.Container.Exec))
 	}
 	if len(u.Container.Entrypoint) > 0 {
-		content += formatKeyValueSlice("Entrypoint", u.Container.Entrypoint)
+		builder.WriteString(formatKeyValueSlice("Entrypoint", u.Container.Entrypoint))
 	}
 	if u.Container.User != "" {
-		content += formatKeyValue("User", u.Container.User)
+		builder.WriteString(formatKeyValue("User", u.Container.User))
 	}
 	if u.Container.Group != "" {
-		content += formatKeyValue("Group", u.Container.Group)
+		builder.WriteString(formatKeyValue("Group", u.Container.Group))
 	}
 	if u.Container.WorkingDir != "" {
-		content += formatKeyValue("WorkingDir", u.Container.WorkingDir)
+		builder.WriteString(formatKeyValue("WorkingDir", u.Container.WorkingDir))
 	}
 	if *u.Container.RunInit {
-		content += formatKeyValue("RunInit", "yes")
+		builder.WriteString(formatKeyValue("RunInit", "yes"))
 	}
 	// Privileged is not supported by podman-systemd
 	if u.Container.ReadOnly {
-		content += formatKeyValue("ReadOnly", "yes")
+		builder.WriteString(formatKeyValue("ReadOnly", "yes"))
 	}
 	// SecurityLabel is not supported by podman-systemd
 	// Use specific labels like SecurityLabelType instead
 	if u.Container.HostName != "" {
-		content += formatKeyValue("HostName", u.Container.HostName)
+		builder.WriteString(formatKeyValue("HostName", u.Container.HostName))
 	}
 	// Set ContainerName to override systemd- prefix if useSystemdDNS is false
 	if u.Container.ContainerName != "" {
-		content += formatKeyValue("ContainerName", u.Container.ContainerName)
+		builder.WriteString(formatKeyValue("ContainerName", u.Container.ContainerName))
 	}
-
-	return content
 }
 
 // addHealthCheckConfig adds health check configuration.
-func (u *QuadletUnit) addHealthCheckConfig(content string) string {
+func (u *QuadletUnit) addHealthCheckConfig(builder *strings.Builder) {
 	// Special handling for health check commands with environment variables
 	if len(u.Container.HealthCmd) > 0 {
 		// For health checks, we need special handling to ensure environment variables
 		// are preserved and properly escaped for systemd
 		if len(u.Container.HealthCmd) == 2 && (u.Container.HealthCmd[0] == "CMD" || u.Container.HealthCmd[0] == "CMD-SHELL") {
 			// For CMD-SHELL or CMD with specific command string, format specially to preserve env vars
-			content += fmt.Sprintf("HealthCmd=%s %s\n", u.Container.HealthCmd[0], u.Container.HealthCmd[1])
+			fmt.Fprintf(builder, "HealthCmd=%s %s\n", u.Container.HealthCmd[0], u.Container.HealthCmd[1])
 		} else {
 			// For other cases, use standard slice formatting
-			content += formatKeyValueSlice("HealthCmd", u.Container.HealthCmd)
+			builder.WriteString(formatKeyValueSlice("HealthCmd", u.Container.HealthCmd))
 		}
 	}
 	if u.Container.HealthInterval != "" {
-		content += formatKeyValue("HealthInterval", u.Container.HealthInterval)
+		builder.WriteString(formatKeyValue("HealthInterval", u.Container.HealthInterval))
 	}
 	if u.Container.HealthTimeout != "" {
-		content += formatKeyValue("HealthTimeout", u.Container.HealthTimeout)
+		builder.WriteString(formatKeyValue("HealthTimeout", u.Container.HealthTimeout))
 	}
 	if u.Container.HealthRetries != 0 {
-		content += formatKeyValue("HealthRetries", fmt.Sprintf("%d", u.Container.HealthRetries))
+		fmt.Fprintf(builder, "HealthRetries=%d\n", u.Container.HealthRetries)
 	}
 	if u.Container.HealthStartPeriod != "" {
-		content += formatKeyValue("HealthStartPeriod", u.Container.HealthStartPeriod)
+		builder.WriteString(formatKeyValue("HealthStartPeriod", u.Container.HealthStartPeriod))
 	}
 	if u.Container.HealthStartInterval != "" {
-		content += formatKeyValue("HealthStartupInterval", u.Container.HealthStartInterval)
+		builder.WriteString(formatKeyValue("HealthStartupInterval", u.Container.HealthStartInterval))
 	}
-
-	return content
 }
 
 // addResourceConstraints adds resource constraints like memory and CPU limits.
-func (u *QuadletUnit) addResourceConstraints(content string) string {
+func (u *QuadletUnit) addResourceConstraints(builder *strings.Builder) {
 	// Memory directives are not supported by Podman Quadlet
 	// We keep these fields for internal calculations but don't include them in the output
 	// if u.Container.Memory != "" {
-	// 	content += formatKeyValue("Memory", u.Container.Memory)
+	// 	builder.WriteString(formatKeyValue("Memory", u.Container.Memory))
 	// }
 	// if u.Container.MemoryReservation != "" {
-	// 	content += formatKeyValue("MemoryReservation", u.Container.MemoryReservation)
+	// 	builder.WriteString(formatKeyValue("MemoryReservation", u.Container.MemoryReservation))
 	// }
 	// if u.Container.MemorySwap != "" {
-	// 	content += formatKeyValue("MemorySwap", u.Container.MemorySwap)
+	// 	builder.WriteString(formatKeyValue("MemorySwap", u.Container.MemorySwap))
 	// }
 	// CPU directives are not supported by Podman Quadlet
 	// We keep these fields for internal calculations but don't include them in the output
 	// if u.Container.CPUShares != 0 {
-	// 	content += formatKeyValue("CPUShares", fmt.Sprintf("%d", u.Container.CPUShares))
+	// 	builder.WriteString(formatKeyValue("CPUShares", fmt.Sprintf("%d", u.Container.CPUShares)))
 	// }
 	// if u.Container.CPUQuota != 0 {
-	// 	content += formatKeyValue("CPUQuota", fmt.Sprintf("%d", u.Container.CPUQuota))
+	// 	builder.WriteString(formatKeyValue("CPUQuota", fmt.Sprintf("%d", u.Container.CPUQuota)))
 	// }
 	// CPUPeriod is no longer used directly as it's not supported in Podman Quadlet
 	if u.Container.PidsLimit != 0 {
-		content += formatKeyValue("PidsLimit", fmt.Sprintf("%d", u.Container.PidsLimit))
+		fmt.Fprintf(builder, "PidsLimit=%d\n", u.Container.PidsLimit)
 	}
-
-	return content
 }
 
 // addAdvancedConfig adds advanced configuration like ulimit, tmpfs, sysctl.
-func (u *QuadletUnit) addAdvancedConfig(content string) string {
+func (u *QuadletUnit) addAdvancedConfig(builder *strings.Builder) {
 	util.SortAndIterateSlice(u.Container.Ulimit, func(ulimit string) {
-		content += formatKeyValue("Ulimit", ulimit)
+		builder.WriteString(formatKeyValue("Ulimit", ulimit))
 	})
 
 	util.SortAndIterateSlice(u.Container.Tmpfs, func(tmpfs string) {
-		content += formatKeyValue("Tmpfs", tmpfs)
+		builder.WriteString(formatKeyValue("Tmpfs", tmpfs))
 	})
 
 	// Use sortedSysctlKeys if available, otherwise generate sorted keys on the fly
@@ -258,25 +246,23 @@ func (u *QuadletUnit) addAdvancedConfig(content string) string {
 
 	// Add sysctl variables in sorted order
 	for _, k := range sysctlKeys {
-		content += formatKeyValue("Sysctl", fmt.Sprintf("%s=%s", k, u.Container.Sysctl[k]))
+		fmt.Fprintf(builder, "Sysctl=%s=%s\n", k, u.Container.Sysctl[k])
 	}
 
 	if u.Container.UserNS != "" {
-		content += formatKeyValue("UserNS", u.Container.UserNS)
+		builder.WriteString(formatKeyValue("UserNS", u.Container.UserNS))
 	}
 
 	// Add PodmanArgs for features not directly supported by Quadlet
 	util.SortAndIterateSlice(u.Container.PodmanArgs, func(arg string) {
-		content += formatKeyValue("PodmanArgs", arg)
+		builder.WriteString(formatKeyValue("PodmanArgs", arg))
 	})
-
-	return content
 }
 
 // addLoggingConfig adds logging configuration.
-func (u *QuadletUnit) addLoggingConfig(content string) string {
+func (u *QuadletUnit) addLoggingConfig(builder *strings.Builder) {
 	if u.Container.LogDriver != "" {
-		content += formatKeyValue("LogDriver", u.Container.LogDriver)
+		builder.WriteString(formatKeyValue("LogDriver", u.Container.LogDriver))
 	}
 
 	// Add LogOpt options in sorted order
@@ -290,140 +276,141 @@ func (u *QuadletUnit) addLoggingConfig(content string) string {
 
 	// Add log options in sorted order
 	for _, k := range logOptKeys {
-		content += formatKeyValue("LogOpt", fmt.Sprintf("%s=%s", k, u.Container.LogOpt[k]))
+		fmt.Fprintf(builder, "LogOpt=%s=%s\n", k, u.Container.LogOpt[k])
 	}
-
-	return content
 }
 
 // addSecretsConfig adds secrets configuration.
-func (u *QuadletUnit) addSecretsConfig(content string) string {
+func (u *QuadletUnit) addSecretsConfig(builder *strings.Builder) {
 	for _, secret := range u.Container.Secrets {
-		content += formatKeyValue("Secret", formatSecret(secret))
+		builder.WriteString(formatKeyValue("Secret", formatSecret(secret)))
 	}
-	return content
 }
 
 func (u *QuadletUnit) generateContainerSection() string {
-	content := "\n[Container]\n"
+	var builder strings.Builder
+	builder.WriteString("\n[Container]\n")
 
 	// Add configuration in logical groups
-	content = u.addBasicConfig(content)
-	content = u.addEnvironmentConfig(content)
-	content = u.addVolumeNetworkConfig(content)
-	content = u.addExecutionConfig(content)
-	content = u.addHealthCheckConfig(content)
-	content = u.addResourceConstraints(content)
-	content = u.addAdvancedConfig(content)
-	content = u.addLoggingConfig(content)
-	content = u.addSecretsConfig(content)
+	u.addBasicConfig(&builder)
+	u.addEnvironmentConfig(&builder)
+	u.addVolumeNetworkConfig(&builder)
+	u.addExecutionConfig(&builder)
+	u.addHealthCheckConfig(&builder)
+	u.addResourceConstraints(&builder)
+	u.addAdvancedConfig(&builder)
+	u.addLoggingConfig(&builder)
+	u.addSecretsConfig(&builder)
 
-	return content
+	return builder.String()
 }
 
 func (u *QuadletUnit) generateVolumeSection() string {
-	content := "\n[Volume]\n"
-	content += formatKeyValue("Label", "managed-by=quad-ops")
+	var builder strings.Builder
+	builder.WriteString("\n[Volume]\n")
+	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
 	// Use centralized sorting function for volume labels
 	util.SortAndIterateSlice(u.Volume.Label, func(label string) {
-		content += formatKeyValue("Label", label)
+		builder.WriteString(formatKeyValue("Label", label))
 	})
 
 	// Set VolumeName to override systemd- prefix if configured
 	if u.Volume.VolumeName != "" {
-		content += formatKeyValue("VolumeName", u.Volume.VolumeName)
+		builder.WriteString(formatKeyValue("VolumeName", u.Volume.VolumeName))
 	}
 
 	if u.Volume.Device != "" {
-		content += formatKeyValue("Device", u.Volume.Device)
+		builder.WriteString(formatKeyValue("Device", u.Volume.Device))
 	}
 
 	// Use centralized sorting function for volume options
 	util.SortAndIterateSlice(u.Volume.Options, func(opt string) {
-		content += formatKeyValue("Options", opt)
+		builder.WriteString(formatKeyValue("Options", opt))
 	})
 	if u.Volume.Copy {
-		content += formatKeyValue("Copy", "yes")
+		builder.WriteString(formatKeyValue("Copy", "yes"))
 	}
 	if u.Volume.Group != "" {
-		content += formatKeyValue("Group", u.Volume.Group)
+		builder.WriteString(formatKeyValue("Group", u.Volume.Group))
 	}
 	if u.Volume.Type != "" {
-		content += formatKeyValue("Type", u.Volume.Type)
+		builder.WriteString(formatKeyValue("Type", u.Volume.Type))
 	}
-	return content
+	return builder.String()
 }
 
 func (u *QuadletUnit) generateNetworkSection() string {
-	content := "\n[Network]\n"
-	content += formatKeyValue("Label", "managed-by=quad-ops")
+	var builder strings.Builder
+	builder.WriteString("\n[Network]\n")
+	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
 	// Use centralized sorting function for network labels
 	util.SortAndIterateSlice(u.Network.Label, func(label string) {
-		content += formatKeyValue("Label", label)
+		builder.WriteString(formatKeyValue("Label", label))
 	})
 
 	// Set NetworkName to override systemd- prefix if configured
 	if u.Network.NetworkName != "" {
-		content += formatKeyValue("NetworkName", u.Network.NetworkName)
+		builder.WriteString(formatKeyValue("NetworkName", u.Network.NetworkName))
 	}
 
 	if u.Network.Driver != "" {
-		content += formatKeyValue("Driver", u.Network.Driver)
+		builder.WriteString(formatKeyValue("Driver", u.Network.Driver))
 	}
 	if u.Network.Gateway != "" {
-		content += formatKeyValue("Gateway", u.Network.Gateway)
+		builder.WriteString(formatKeyValue("Gateway", u.Network.Gateway))
 	}
 	if u.Network.IPRange != "" {
-		content += formatKeyValue("IPRange", u.Network.IPRange)
+		builder.WriteString(formatKeyValue("IPRange", u.Network.IPRange))
 	}
 	if u.Network.Subnet != "" {
-		content += formatKeyValue("Subnet", u.Network.Subnet)
+		builder.WriteString(formatKeyValue("Subnet", u.Network.Subnet))
 	}
 	if u.Network.IPv6 {
-		content += formatKeyValue("IPv6", "yes")
+		builder.WriteString(formatKeyValue("IPv6", "yes"))
 	}
 	if u.Network.Internal {
-		content += formatKeyValue("Internal", "yes")
+		builder.WriteString(formatKeyValue("Internal", "yes"))
 	}
 	// DNSEnabled is not supported by podman-systemd
 
 	// Use centralized sorting function for network options
 	util.SortAndIterateSlice(u.Network.Options, func(opt string) {
-		content += formatKeyValue("Options", opt)
+		builder.WriteString(formatKeyValue("Options", opt))
 	})
-	return content
+	return builder.String()
 }
 
 // generateBuildSection generates the [Build] section for a quadlet build unit.
 func (u *QuadletUnit) generateBuildSection() string {
-	content := "\n[Build]\n"
-	content += formatKeyValue("Label", "managed-by=quad-ops")
+	var builder strings.Builder
+	builder.WriteString("\n[Build]\n")
+	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
 	// Add basic configuration
 	if len(u.Build.ImageTag) > 0 {
 		for _, tag := range u.Build.ImageTag {
-			content += formatKeyValue("ImageTag", tag)
+			builder.WriteString(formatKeyValue("ImageTag", tag))
 		}
 	}
 
 	if u.Build.File != "" {
-		content += formatKeyValue("File", u.Build.File)
+		builder.WriteString(formatKeyValue("File", u.Build.File))
 	}
 
 	if u.Build.SetWorkingDirectory != "" {
-		content += formatKeyValue("SetWorkingDirectory", u.Build.SetWorkingDirectory)
+		builder.WriteString(formatKeyValue("SetWorkingDirectory", u.Build.SetWorkingDirectory))
 	}
 
 	// Use centralized sorting function for labels
 	util.SortAndIterateSlice(u.Build.Label, func(label string) {
-		content += formatKeyValue("Label", label)
+		builder.WriteString(formatKeyValue("Label", label))
 	})
 
 	// Use centralized sorting function for annotations
 	util.SortAndIterateSlice(u.Build.Annotation, func(annotation string) {
-		content += formatKeyValue("Annotation", annotation)
+		builder.WriteString(formatKeyValue("Annotation", annotation))
 	})
 
 	// Environment variables for build process
@@ -435,95 +422,97 @@ func (u *QuadletUnit) generateBuildSection() string {
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			content += formatKeyValue("Environment", fmt.Sprintf("%s=%s", k, u.Build.Env[k]))
+			fmt.Fprintf(&builder, "Environment=%s=%s\n", k, u.Build.Env[k])
 		}
 	}
 
 	// Networks for RUN instructions
 	util.SortAndIterateSlice(u.Build.Network, func(network string) {
-		content += formatKeyValue("Network", network)
+		builder.WriteString(formatKeyValue("Network", network))
 	})
 
 	// Volumes for build process
 	util.SortAndIterateSlice(u.Build.Volume, func(volume string) {
-		content += formatKeyValue("Volume", volume)
+		builder.WriteString(formatKeyValue("Volume", volume))
 	})
 
 	// Secrets for build process
 	util.SortAndIterateSlice(u.Build.Secret, func(secret string) {
-		content += formatKeyValue("Secret", secret)
+		builder.WriteString(formatKeyValue("Secret", secret))
 	})
 
 	// Add target stage if specified
 	if u.Build.Target != "" {
-		content += formatKeyValue("Target", u.Build.Target)
+		builder.WriteString(formatKeyValue("Target", u.Build.Target))
 	}
 
 	// Add pull policy if specified
 	if u.Build.Pull != "" {
-		content += formatKeyValue("Pull", u.Build.Pull)
+		builder.WriteString(formatKeyValue("Pull", u.Build.Pull))
 	}
 
 	// Add PodmanArgs for additional options
 	util.SortAndIterateSlice(u.Build.PodmanArgs, func(arg string) {
-		content += formatKeyValue("PodmanArgs", arg)
+		builder.WriteString(formatKeyValue("PodmanArgs", arg))
 	})
 
-	return content
+	return builder.String()
 }
 
 func (u *QuadletUnit) generateUnitSection() string {
-	content := "[Unit]\n"
+	var builder strings.Builder
+	builder.WriteString("[Unit]\n")
 	if u.Systemd.Description != "" {
-		content += formatKeyValue("Description", u.Systemd.Description)
+		builder.WriteString(formatKeyValue("Description", u.Systemd.Description))
 	}
 
 	// Sort all systemd directives for consistent output
 	if len(u.Systemd.After) > 0 {
-		content += formatKeyValueSlice("After", u.Systemd.After)
+		builder.WriteString(formatKeyValueSlice("After", u.Systemd.After))
 	}
 
 	if len(u.Systemd.Before) > 0 {
-		content += formatKeyValueSlice("Before", u.Systemd.Before)
+		builder.WriteString(formatKeyValueSlice("Before", u.Systemd.Before))
 	}
 
 	if len(u.Systemd.Requires) > 0 {
-		content += formatKeyValueSlice("Requires", u.Systemd.Requires)
+		builder.WriteString(formatKeyValueSlice("Requires", u.Systemd.Requires))
 	}
 
 	if len(u.Systemd.Wants) > 0 {
-		content += formatKeyValueSlice("Wants", u.Systemd.Wants)
+		builder.WriteString(formatKeyValueSlice("Wants", u.Systemd.Wants))
 	}
 
 	if len(u.Systemd.Conflicts) > 0 {
-		content += formatKeyValueSlice("Conflicts", u.Systemd.Conflicts)
+		builder.WriteString(formatKeyValueSlice("Conflicts", u.Systemd.Conflicts))
 	}
 
 	if len(u.Systemd.PartOf) > 0 {
-		content += formatKeyValueSlice("PartOf", u.Systemd.PartOf)
+		builder.WriteString(formatKeyValueSlice("PartOf", u.Systemd.PartOf))
 	}
 
 	if len(u.Systemd.PropagatesReloadTo) > 0 {
-		content += formatKeyValueSlice("PropagatesReloadTo", u.Systemd.PropagatesReloadTo)
+		builder.WriteString(formatKeyValueSlice("PropagatesReloadTo", u.Systemd.PropagatesReloadTo))
 	}
-	return content
+	return builder.String()
 }
 
 func (u *QuadletUnit) generateServiceSection() string {
-	content := "\n[Service]\n"
+	var builder strings.Builder
+	builder.WriteString("\n[Service]\n")
 	if u.Systemd.Type != "" {
-		content += formatKeyValue("Type", u.Systemd.Type)
+		builder.WriteString(formatKeyValue("Type", u.Systemd.Type))
 	}
 	if u.Systemd.RestartPolicy != "" {
-		content += formatKeyValue("Restart", u.Systemd.RestartPolicy)
+		builder.WriteString(formatKeyValue("Restart", u.Systemd.RestartPolicy))
 	}
 	if u.Systemd.TimeoutStartSec != 0 {
-		content += formatKeyValue("TimeoutStartSec", fmt.Sprintf("%d", u.Systemd.TimeoutStartSec))
+		fmt.Fprintf(&builder, "TimeoutStartSec=%d\n", u.Systemd.TimeoutStartSec)
 	}
 	if u.Systemd.RemainAfterExit {
-		content += formatKeyValue("RemainAfterExit", "yes")
+		builder.WriteString(formatKeyValue("RemainAfterExit", "yes"))
 	}
-	return content
+	return builder.String()
 }
 
 // GenerateQuadletUnit generates a quadlet unit file content from a unit configuration.
