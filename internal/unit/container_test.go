@@ -96,18 +96,11 @@ func TestCustomHostnameNetworkAlias(t *testing.T) {
 		Hostname: "photoprism-db", // Custom hostname
 	}
 
-	// Create project
-	project := types.Project{
-		Name: "test-project",
-		Services: types.Services{
-			"db": service,
-		},
-	}
-
 	// Process the container
-	prefixedName := fmt.Sprintf("%s-%s", project.Name, "db")
+	projectName := "test-project"
+	prefixedName := fmt.Sprintf("%s-%s", projectName, "db")
 	container := NewContainer(prefixedName)
-	container = container.FromComposeService(service, project.Name)
+	container = container.FromComposeService(service, projectName)
 
 	// Set custom container name (usePodmanNames=false)
 	container.ContainerName = prefixedName
