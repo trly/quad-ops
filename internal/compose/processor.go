@@ -317,7 +317,7 @@ func processServices(project *types.Project, dependencyGraph *dependency.Service
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
 
 		// Process build if present
-		if err := processBuildIfPresent(service, serviceName, project, dependencyGraph, unitRepo, force, processedUnits, changedUnits); err != nil {
+		if err := processBuildIfPresent(&service, serviceName, project, dependencyGraph, unitRepo, force, processedUnits, changedUnits); err != nil {
 			return err
 		}
 
@@ -335,7 +335,7 @@ func processServices(project *types.Project, dependencyGraph *dependency.Service
 	return nil
 }
 
-func processBuildIfPresent(service types.ServiceConfig, serviceName string, project *types.Project, dependencyGraph *dependency.ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error {
+func processBuildIfPresent(service *types.ServiceConfig, serviceName string, project *types.Project, dependencyGraph *dependency.ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error {
 	if service.Build == nil {
 		return nil
 	}
@@ -344,7 +344,7 @@ func processBuildIfPresent(service types.ServiceConfig, serviceName string, proj
 
 	buildUnitName := fmt.Sprintf("%s-%s-build", project.Name, serviceName)
 	build := unit.NewBuild(buildUnitName)
-	build = build.FromComposeBuild(*service.Build, service, project.Name)
+	build = build.FromComposeBuild(*service.Build, *service, project.Name)
 
 	// Configure build context
 	if build.SetWorkingDirectory == "repo" {
