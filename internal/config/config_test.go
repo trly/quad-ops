@@ -24,18 +24,24 @@ func TestInitConfig(t *testing.T) {
 	assert.Equal(t, DefaultDBPath, cfg.DBPath)
 	assert.Equal(t, DefaultUserMode, cfg.UserMode)
 	assert.Equal(t, DefaultVerbose, cfg.Verbose)
+	assert.Equal(t, DefaultUsePodmanDefaultNames, cfg.UsePodmanDefaultNames)
+	assert.Equal(t, DefaultUnitStartTimeout, cfg.UnitStartTimeout)
+	assert.Equal(t, DefaultImagePullTimeout, cfg.ImagePullTimeout)
 }
 
 // TestSetAndGetConfig tests the SetConfig and GetConfig functions.
 func TestSetAndGetConfig(t *testing.T) {
 	resetViper()
 	testConfig := &Settings{
-		RepositoryDir: "/custom/path",
-		SyncInterval:  10 * time.Minute,
-		QuadletDir:    "/custom/quadlet",
-		DBPath:        "/custom/db.sqlite",
-		UserMode:      true,
-		Verbose:       true,
+		RepositoryDir:         "/custom/path",
+		SyncInterval:          10 * time.Minute,
+		QuadletDir:            "/custom/quadlet",
+		DBPath:                "/custom/db.sqlite",
+		UserMode:              true,
+		Verbose:               true,
+		UsePodmanDefaultNames: true,
+		UnitStartTimeout:      15 * time.Second,
+		ImagePullTimeout:      60 * time.Second,
 		Repositories: []Repository{
 			{
 				Name:      "test-repo",
@@ -66,6 +72,9 @@ quadletDir: "/test/quadlet"
 dbPath: "/test/db.sqlite"
 userMode: true
 verbose: true
+usePodmanDefaultNames: true
+unitStartTimeout: 20s
+imagePullTimeout: 90s
 repositories:
 - name: "test-repo"
   url: "https://github.com/test/repo"
@@ -86,6 +95,9 @@ repositories:
 	viper.SetDefault("dbPath", DefaultDBPath)
 	viper.SetDefault("userMode", DefaultUserMode)
 	viper.SetDefault("verbose", DefaultVerbose)
+	viper.SetDefault("usePodmanDefaultNames", DefaultUsePodmanDefaultNames)
+	viper.SetDefault("unitStartTimeout", DefaultUnitStartTimeout)
+	viper.SetDefault("imagePullTimeout", DefaultImagePullTimeout)
 
 	if err := viper.ReadInConfig(); err != nil {
 		t.Fatal(err)
@@ -102,6 +114,9 @@ repositories:
 	assert.Equal(t, "/test/db.sqlite", cfg.DBPath)
 	assert.True(t, cfg.UserMode)
 	assert.True(t, cfg.Verbose)
+	assert.True(t, cfg.UsePodmanDefaultNames)
+	assert.Equal(t, 20*time.Second, cfg.UnitStartTimeout)
+	assert.Equal(t, 90*time.Second, cfg.ImagePullTimeout)
 	assert.Len(t, cfg.Repositories, 1)
 	assert.Equal(t, "test-repo", cfg.Repositories[0].Name)
 }

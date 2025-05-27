@@ -64,9 +64,9 @@ func (u *BaseUnit) Start() error {
 				"name", serviceName, "subState", subStateStr, "result", result)
 
 			// Wait longer for units that are starting (like downloading images)
-			waitTime := 5 * time.Second
+			waitTime := config.DefaultProvider().GetConfig().UnitStartTimeout
 			if subStateStr == "start" {
-				waitTime = 10 * time.Second // More time for container image pulls, etc.
+				waitTime = config.DefaultProvider().GetConfig().ImagePullTimeout
 			}
 
 			time.Sleep(waitTime)

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/log"
 )
@@ -333,9 +334,9 @@ func checkUnitFinalStatus(unit Unit) error {
 			"name", serviceName, "subState", subStateStr)
 
 		// Wait based on sub-state
-		waitTime := 10 * time.Second
+		waitTime := config.DefaultProvider().GetConfig().UnitStartTimeout
 		if subStateStr == "start" {
-			waitTime = 15 * time.Second // Even more time for startup/image pulls
+			waitTime = config.DefaultProvider().GetConfig().ImagePullTimeout
 		}
 
 		time.Sleep(waitTime)

@@ -52,6 +52,8 @@ const (
 	DefaultUserMode              = false
 	DefaultVerbose               = false
 	DefaultUsePodmanDefaultNames = false
+	DefaultUnitStartTimeout      = 10 * time.Second
+	DefaultImagePullTimeout      = 30 * time.Second
 )
 
 // Repository represents a repository that is managed by the quad-ops system.
@@ -78,6 +80,8 @@ type Settings struct {
 	UserMode              bool          `yaml:"userMode"`
 	Verbose               bool          `yaml:"verbose"`
 	UsePodmanDefaultNames bool          `yaml:"usePodmanDefaultNames"`
+	UnitStartTimeout      time.Duration `yaml:"unitStartTimeout"`
+	ImagePullTimeout      time.Duration `yaml:"imagePullTimeout"`
 }
 
 // Implementation of ConfigProvider methods for defaultConfigProvider
@@ -111,6 +115,8 @@ func initConfigInternal() *Settings {
 		UserMode:              DefaultUserMode,
 		Verbose:               DefaultVerbose,
 		UsePodmanDefaultNames: DefaultUsePodmanDefaultNames,
+		UnitStartTimeout:      DefaultUnitStartTimeout,
+		ImagePullTimeout:      DefaultImagePullTimeout,
 	}
 
 	viper.SetDefault("repositoryDir", DefaultRepositoryDir)
@@ -120,6 +126,8 @@ func initConfigInternal() *Settings {
 	viper.SetDefault("userMode", DefaultUserMode)
 	viper.SetDefault("verbose", DefaultVerbose)
 	viper.SetDefault("usePodmanDefaultNames", DefaultUsePodmanDefaultNames)
+	viper.SetDefault("unitStartTimeout", DefaultUnitStartTimeout)
+	viper.SetDefault("imagePullTimeout", DefaultImagePullTimeout)
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
