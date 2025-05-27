@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/repository"
 	"github.com/trly/quad-ops/internal/unit"
 )
 
@@ -51,7 +52,7 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 			defer func() { _ = dbConn.Close() }()
 
 			// Get all container units
-			unitRepo := unit.NewUnitRepository(dbConn)
+			unitRepo := repository.NewRepository(dbConn)
 			units, err := unitRepo.FindByUnitType("container")
 			if err != nil {
 				log.GetLogger().Error("Failed to get container units from database", "error", err)

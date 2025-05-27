@@ -32,6 +32,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/repository"
 	"github.com/trly/quad-ops/internal/unit"
 )
 
@@ -60,7 +61,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 			}
 			defer func() { _ = dbConn.Close() }()
 
-			unitRepo := unit.NewUnitRepository(dbConn)
+			unitRepo := repository.NewRepository(dbConn)
 			findAndDisplayUnits(unitRepo, tbl, unitType)
 		},
 	}
@@ -80,8 +81,8 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 	return unitListCmd
 }
 
-func findAndDisplayUnits(unitRepo unit.Repository, tbl table.Table, unitType string) {
-	var units []unit.Unit
+func findAndDisplayUnits(unitRepo repository.Repository, tbl table.Table, unitType string) {
+	var units []repository.Unit
 	var err error
 
 	switch unitType {

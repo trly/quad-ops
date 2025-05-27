@@ -1,9 +1,22 @@
-package unit
+// Package repository provides data access layer for quad-ops units.
+package repository
 
 import (
 	"database/sql"
 	"fmt"
+	"time"
 )
+
+// Unit represents a record in the units table.
+type Unit struct {
+	ID            int64     `db:"id"`
+	Name          string    `db:"name"`
+	Type          string    `db:"type"`
+	CleanupPolicy string    `db:"cleanup_policy"`
+	SHA1Hash      []byte    `db:"sha1_hash"`
+	UserMode      bool      `db:"user_mode"`
+	CreatedAt     time.Time `db:"created_at"` // Set by database, but not updated on every change
+}
 
 // Repository defines the interface for unit data access operations.
 type Repository interface {
@@ -14,13 +27,13 @@ type Repository interface {
 	Delete(id int64) error
 }
 
-// SQLRepository implements UnitRepository interface with SQL database.
+// SQLRepository implements Repository interface with SQL database.
 type SQLRepository struct {
 	db *sql.DB
 }
 
-// NewUnitRepository creates a new SQL-based unit repository.
-func NewUnitRepository(db *sql.DB) Repository {
+// NewRepository creates a new SQL-based unit repository.
+func NewRepository(db *sql.DB) Repository {
 	return &SQLRepository{db: db}
 }
 

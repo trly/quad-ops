@@ -13,6 +13,7 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/repository"
 )
 
 // ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units.
@@ -25,7 +26,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 	}
 	defer func() { _ = dbConn.Close() }()
 
-	unitRepo := NewUnitRepository(dbConn)
+	unitRepo := repository.NewRepository(dbConn)
 
 	// Use existing map if provided, otherwise create a new one
 	processedUnits := existingProcessedUnits
@@ -104,16 +105,16 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 }
 
 // ProcessUnitFunc is the function signature for processing a single quadlet unit.
-type ProcessUnitFunc func(unitRepo Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error
+type ProcessUnitFunc func(unitRepo repository.Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error
 
 // CleanupOrphanedUnitsFunc is the function signature for cleaning up orphaned units.
-type CleanupOrphanedUnitsFunc func(unitRepo Repository, processedUnits map[string]bool) error
+type CleanupOrphanedUnitsFunc func(unitRepo repository.Repository, processedUnits map[string]bool) error
 
 // WriteUnitFileFunc is the function signature for writing a unit file.
 type WriteUnitFileFunc func(unitPath, content string) error
 
 // UpdateUnitDatabaseFunc is the function signature for updating the unit database.
-type UpdateUnitDatabaseFunc func(unitRepo Repository, unit *QuadletUnit, content string) error
+type UpdateUnitDatabaseFunc func(unitRepo repository.Repository, unit *QuadletUnit, content string) error
 
 // Package variables for testing.
 var (
@@ -123,7 +124,7 @@ var (
 	UpdateUnitDatabase   UpdateUnitDatabaseFunc   = updateUnitDatabase
 )
 
-func processUnit(unitRepo Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func processUnit(unitRepo repository.Repository, unit *QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	// Track this unit as processed
 	unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
 	processedUnits[unitKey] = true
@@ -227,7 +228,7 @@ func writeUnitFile(unitPath, content string) error {
 	return os.WriteFile(unitPath, []byte(content), 0600)
 }
 
-func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) error {
+func updateUnitDatabase(unitRepo repository.Repository, unit *QuadletUnit, content string) error {
 	contentHash := getContentHash(content)
 
 	// Get repository cleanup policy from config
@@ -256,7 +257,7 @@ func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) 
 		}
 	}
 
-	_, err = unitRepo.Create(&Unit{
+	_, err = unitRepo.Create(&repository.Unit{
 		Name:          unit.Name,
 		Type:          unit.Type,
 		SHA1Hash:      contentHash,
@@ -269,7 +270,7 @@ func updateUnitDatabase(unitRepo Repository, unit *QuadletUnit, content string) 
 
 // Removed reloadUnits - replaced by RestartChangedUnits in restart.go
 
-func cleanupOrphanedUnits(unitRepo Repository, processedUnits map[string]bool) error {
+func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[string]bool) error {
 	dbUnits, err := unitRepo.FindAll()
 	if err != nil {
 		return fmt.Errorf("error fetching units from database: %w", err)
@@ -344,7 +345,7 @@ func getContentHash(content string) []byte {
 }
 
 // processServices processes all container services from a Docker Compose project.
-func processServices(project *types.Project, dependencyGraph *ServiceDependencyGraph, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func processServices(project *types.Project, dependencyGraph *ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	for serviceName, service := range project.Services {
 		log.GetLogger().Debug("Processing service", "service", serviceName)
 
@@ -493,7 +494,7 @@ func processServices(project *types.Project, dependencyGraph *ServiceDependencyG
 }
 
 // processVolumes processes all volumes from a Docker Compose project.
-func processVolumes(project *types.Project, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func processVolumes(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	for volumeName, volumeConfig := range project.Volumes {
 		log.GetLogger().Debug("Processing volume", "volume", volumeName)
 
@@ -526,7 +527,7 @@ func processVolumes(project *types.Project, unitRepo Repository, force bool, pro
 }
 
 // processNetworks processes all networks from a Docker Compose project.
-func processNetworks(project *types.Project, unitRepo Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func processNetworks(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	for networkName, networkConfig := range project.Networks {
 		log.GetLogger().Debug("Processing network", "network", networkName)
 

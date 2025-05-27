@@ -1,4 +1,4 @@
-package unit
+package repository
 
 import (
 	"database/sql"
@@ -9,6 +9,9 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
+
+	// Register sqlite3 driver for testing.
+	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestCreate(t *testing.T) {
@@ -16,7 +19,7 @@ func TestCreate(t *testing.T) {
 	db, mock := setupTestDB()
 	defer teardownTestDB(db)
 
-	r := NewUnitRepository(db)
+	r := NewRepository(db)
 
 	// Prepare test data
 	unit := &Unit{
@@ -43,7 +46,7 @@ func TestFindAll(t *testing.T) {
 	db, mock := setupTestDB()
 	defer teardownTestDB(db)
 
-	r := NewUnitRepository(db)
+	r := NewRepository(db)
 
 	// Prepare test data
 	units := []Unit{
@@ -67,7 +70,7 @@ func TestFindByUnitType(t *testing.T) {
 	db, mock := setupTestDB()
 	defer teardownTestDB(db)
 
-	r := NewUnitRepository(db)
+	r := NewRepository(db)
 
 	// Prepare test data
 	unitType := "pod"
@@ -92,7 +95,7 @@ func TestFindById(t *testing.T) {
 	db, mock := setupTestDB()
 	defer teardownTestDB(db)
 
-	r := NewUnitRepository(db)
+	r := NewRepository(db)
 
 	// Prepare test data
 	unitID := int64(1)
@@ -120,7 +123,7 @@ func TestDelete(t *testing.T) {
 	db, mock := setupTestDB()
 	defer teardownTestDB(db)
 
-	r := NewUnitRepository(db)
+	r := NewRepository(db)
 
 	// Prepare test data
 	unitID := int64(1)
@@ -170,7 +173,7 @@ CREATE UNIQUE INDEX unique_name_type ON units(name, type);`)
 	assert.NoError(t, err)
 
 	// Create repository with mocked units
-	repo := NewUnitRepository(db)
+	repo := NewRepository(db)
 
 	// 1. Test userMode tracking
 	cfg := &config.Settings{

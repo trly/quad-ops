@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/util"
@@ -68,17 +67,6 @@ type SystemdConfig struct {
 	Type               string   `yaml:"type"`
 	RemainAfterExit    bool     `yaml:"remain_after_exit"`
 	WantedBy           []string `yaml:"wanted_by"`
-}
-
-// Unit represents a record in the units table.
-type Unit struct {
-	ID            int64     `db:"id"`
-	Name          string    `db:"name"`
-	Type          string    `db:"type"`
-	CleanupPolicy string    `db:"cleanup_policy"`
-	SHA1Hash      []byte    `db:"sha1_hash"`
-	UserMode      bool      `db:"user_mode"`
-	CreatedAt     time.Time `db:"created_at"` // Set by database, but not updated on every change
 }
 
 // addBasicConfig adds basic container configuration like image and labels.
