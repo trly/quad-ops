@@ -11,6 +11,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/cli"
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/validate"
 )
 
 // ReadProjects reads all Docker Compose projects from a directory path.
@@ -166,9 +167,18 @@ func ParseComposeFile(path string) (*types.Project, error) {
 						key := strings.TrimSpace(parts[0])
 						value := strings.TrimSpace(parts[1])
 						
-						// Validate environment variable key
-						if err := validateEnvKey(key); err != nil {
+						// Create security validator
+						validator := validate.NewSecretValidator()
+						
+						// Validate environment variable key with extended validation
+						if err := validate.ValidateEnvKeyExtended(key); err != nil {
 							log.GetLogger().Warn("Invalid environment variable key", "key", key, "error", err)
+							continue
+						}
+						
+						// Validate environment variable value for size and content
+						if err := validator.ValidateEnvValue(key, value); err != nil {
+							log.GetLogger().Warn("Invalid environment variable value", "key", key, "error", err)
 							continue
 						}
 						
@@ -176,7 +186,9 @@ func ParseComposeFile(path string) (*types.Project, error) {
 						if err := os.Setenv(key, value); err != nil {
 							log.GetLogger().Warn("Failed to set environment variable", "key", key, "error", err)
 						} else {
-							log.GetLogger().Debug("Set environment variable from .env file", "key", key)
+							// Use sanitized logging for potentially sensitive values
+							safeValue := validate.SanitizeForLogging(key, value)
+							log.GetLogger().Debug("Set environment variable from .env file", "key", key, "value", safeValue)
 						}
 					}
 				}

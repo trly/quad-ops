@@ -25,10 +25,10 @@ func (r *RealCommandRunner) Run(name string, args ...string) ([]byte, error) {
 	if name == "" {
 		return nil, fmt.Errorf("command name cannot be empty")
 	}
-	
+
 	// Log command execution for security auditing
 	log.GetLogger().Debug("Executing command", "name", name, "args", args)
-	
+
 	return exec.Command(name, args...).Output()
 }
 

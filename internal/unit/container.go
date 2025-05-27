@@ -11,6 +11,7 @@ import (
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/systemd"
 	"github.com/trly/quad-ops/internal/util"
+	"github.com/trly/quad-ops/internal/validate"
 )
 
 // Container represents the configuration for a container unit.
@@ -306,14 +307,29 @@ func (c *Container) processServiceHealthCheck(service types.ServiceConfig) {
 
 // processServiceSecrets converts Docker Compose secrets to Podman Quadlet secrets.
 func (c *Container) processServiceSecrets(service types.ServiceConfig) {
+	validator := validate.NewSecretValidator()
+	
 	// Process standard file-based Docker Compose secrets
 	for _, secret := range service.Secrets {
+		// Validate secret name
+		if err := validator.ValidateSecretName(secret.Source); err != nil {
+			log.GetLogger().Warn("Invalid secret name, skipping", "secret", secret.Source, "service", service.Name, "error", err)
+			continue
+		}
+		
 		// Create file-based secret (standard Docker behavior)
 		targetPath := secret.Target
 		if targetPath == "" {
 			// If no target is specified, use default path /run/secrets/<source>
 			targetPath = "/run/secrets/" + secret.Source
 		}
+		
+		// Validate target path
+		if err := validator.ValidateSecretTarget(targetPath); err != nil {
+			log.GetLogger().Warn("Invalid secret target path, skipping", "secret", secret.Source, "target", targetPath, "service", service.Name, "error", err)
+			continue
+		}
+		
 		unitSecret := Secret{
 			Source: secret.Source,
 			Target: targetPath,
@@ -321,11 +337,20 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 			GID:    secret.GID,
 		}
 
+		// Always use secure default permissions (0600) for secrets
 		if secret.Mode == nil {
-			defaultMode := types.FileMode(0644)
+			defaultMode := types.FileMode(0600)
 			unitSecret.Mode = defaultMode.String()
 		} else {
-			unitSecret.Mode = secret.Mode.String()
+			// Validate that provided mode is secure (not world-readable)
+			modeVal := uint32(*secret.Mode)
+			if modeVal&0004 != 0 { // Check if world-readable
+				log.GetLogger().Warn("Secret mode is world-readable, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
+				defaultMode := types.FileMode(0600)
+				unitSecret.Mode = defaultMode.String()
+			} else {
+				unitSecret.Mode = secret.Mode.String()
+			}
 		}
 		c.Secrets = append(c.Secrets, unitSecret)
 	}
@@ -335,6 +360,18 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 		if envSecrets, isMap := ext.(map[string]interface{}); isMap {
 			for secretName, envVar := range envSecrets {
 				if envVarStr, isString := envVar.(string); isString {
+					// Validate secret name
+					if err := validator.ValidateSecretName(secretName); err != nil {
+						log.GetLogger().Warn("Invalid env secret name, skipping", "secret", secretName, "service", service.Name, "error", err)
+						continue
+					}
+					
+					// Validate environment variable name
+					if err := validate.ValidateEnvKeyExtended(envVarStr); err != nil {
+						log.GetLogger().Warn("Invalid env variable name for secret, skipping", "secret", secretName, "envVar", envVarStr, "service", service.Name, "error", err)
+						continue
+					}
+					
 					// Create env-based secret
 					envSecret := Secret{
 						Source: secretName,
@@ -342,8 +379,12 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 						Target: envVarStr, // Target becomes the environment variable name
 					}
 					c.Secrets = append(c.Secrets, envSecret)
+				} else {
+					log.GetLogger().Warn("Invalid env secret value type, expected string", "secret", secretName, "service", service.Name)
 				}
 			}
+		} else {
+			log.GetLogger().Warn("Invalid x-podman-env-secrets format, expected map", "service", service.Name)
 		}
 	}
 }

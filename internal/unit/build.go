@@ -8,6 +8,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/systemd"
+	"github.com/trly/quad-ops/internal/validate"
 )
 
 // Build represents the configuration for a build unit.
@@ -176,9 +177,24 @@ func (b *Build) processVolumes(buildConfig types.BuildConfig, projectName string
 
 // processAdvancedConfig processes advanced build configuration options.
 func (b *Build) processAdvancedConfig(buildConfig types.BuildConfig) {
-	// Process secrets
+	// Process secrets with validation
 	if len(buildConfig.Secrets) > 0 {
+		validator := validate.NewSecretValidator()
 		for _, secret := range buildConfig.Secrets {
+			// Validate secret name
+			if err := validator.ValidateSecretName(secret.Source); err != nil {
+				log.GetLogger().Warn("Invalid build secret name, skipping", "secret", secret.Source, "error", err)
+				continue
+			}
+			
+			// Validate target if specified
+			if secret.Target != "" {
+				if err := validator.ValidateSecretTarget(secret.Target); err != nil {
+					log.GetLogger().Warn("Invalid build secret target, skipping", "secret", secret.Source, "target", secret.Target, "error", err)
+					continue
+				}
+			}
+			
 			// Format the secret as expected by podman build --secret
 			secretStr := secret.Source
 			if secret.Target != "" && secret.Target != secret.Source {
