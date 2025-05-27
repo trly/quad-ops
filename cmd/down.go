@@ -36,12 +36,12 @@ import (
 // DownCommand represents the down command for quad-ops CLI.
 type DownCommand struct{}
 
-// GetCobraCommand returns the cobra command for stopping all managed containers.
+// GetCobraCommand returns the cobra command for stopping all managed units.
 func (c *DownCommand) GetCobraCommand() *cobra.Command {
 	downCmd := &cobra.Command{
 		Use:   "down",
-		Short: "Stop all managed containers",
-		Long:  "Stop all managed container units synchronized from repositories.",
+		Short: "Stop all managed units",
+		Long:  "Stop all managed units synchronized from repositories.",
 		Run: func(_ *cobra.Command, _ []string) {
 			// Connect to the database
 			dbConn, err := db.Connect()
@@ -51,25 +51,25 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 			}
 			defer func() { _ = dbConn.Close() }()
 
-			// Get all container units
+			// Get all units
 			unitRepo := repository.NewRepository(dbConn)
-			units, err := unitRepo.FindByUnitType("container")
+			units, err := unitRepo.FindAll()
 			if err != nil {
-				log.GetLogger().Error("Failed to get container units from database", "error", err)
+				log.GetLogger().Error("Failed to get units from database", "error", err)
 				os.Exit(1)
 			}
 
 			if len(units) == 0 {
-				fmt.Println("No managed container units found")
+				fmt.Println("No managed units found")
 				return
 			}
 
-			fmt.Printf("Stopping %d managed container units...\n", len(units))
+			fmt.Printf("Stopping %d managed units...\n", len(units))
 
 			successCount := 0
 			failCount := 0
 
-			// Stop each container unit
+			// Stop each unit
 			for _, u := range units {
 				systemdUnit := systemd.NewBaseUnit(u.Name, u.Type)
 				err := systemdUnit.Stop()
