@@ -98,7 +98,17 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 		}
 
 		// Use dependency-aware restart for changed units
-		if err := RestartChangedUnits(changedUnits, projectDependencyGraphs); err != nil {
+		// Convert QuadletUnit slice to systemd.UnitChange slice
+		systemdUnits := make([]systemd.UnitChange, len(changedUnits))
+		for i, unit := range changedUnits {
+			systemdUnits[i] = systemd.UnitChange{
+				Name: unit.Name,
+				Type: unit.Type,
+				Unit: unit.GetSystemdUnit(),
+			}
+		}
+
+		if err := systemd.RestartChangedUnits(systemdUnits, projectDependencyGraphs); err != nil {
 			log.GetLogger().Error("Failed to restart changed units", "error", err)
 		}
 	}
