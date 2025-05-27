@@ -12,6 +12,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
+	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
 	"github.com/trly/quad-ops/internal/systemd"
@@ -47,7 +48,7 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 		log.GetLogger().Info("Processing compose project", "project", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
 
 		// Build the dependency graph for the project
-		dependencyGraph, err := BuildServiceDependencyGraph(project)
+		dependencyGraph, err := dependency.BuildServiceDependencyGraph(project)
 		if err != nil {
 			return processedUnits, fmt.Errorf("failed to build dependency graph for project %s: %w", project.Name, err)
 		}
@@ -84,11 +85,11 @@ func ProcessComposeProjects(projects []*types.Project, force bool, existingProce
 	// Reload systemd units if any changed
 	if len(changedUnits) > 0 {
 		// Create a map to store project dependency graphs
-		projectDependencyGraphs := make(map[string]*ServiceDependencyGraph)
+		projectDependencyGraphs := make(map[string]*dependency.ServiceDependencyGraph)
 
 		// Store dependency graphs for each project processed
 		for _, project := range projects {
-			graph, err := BuildServiceDependencyGraph(project)
+			graph, err := dependency.BuildServiceDependencyGraph(project)
 			if err != nil {
 				log.GetLogger().Error("Failed to build dependency graph for project", "project", project.Name, "error", err)
 				continue
@@ -343,7 +344,7 @@ func getContentHash(content string) []byte {
 }
 
 // processServices processes all container services from a Docker Compose project.
-func processServices(project *types.Project, dependencyGraph *ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func processServices(project *types.Project, dependencyGraph *dependency.ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	for serviceName, service := range project.Services {
 		log.GetLogger().Debug("Processing service", "service", serviceName)
 
@@ -368,7 +369,7 @@ func processServices(project *types.Project, dependencyGraph *ServiceDependencyG
 	return nil
 }
 
-func processBuildIfPresent(service types.ServiceConfig, serviceName string, project *types.Project, dependencyGraph *ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func processBuildIfPresent(service types.ServiceConfig, serviceName string, project *types.Project, dependencyGraph *dependency.ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	if service.Build == nil {
 		return nil
 	}
@@ -432,7 +433,7 @@ func handleProductionTarget(build *Build, serviceName, workingDir string) error 
 	return nil
 }
 
-func addBuildDependency(dependencyGraph *ServiceDependencyGraph, serviceName string) error {
+func addBuildDependency(dependencyGraph *dependency.ServiceDependencyGraph, serviceName string) error {
 	buildName := fmt.Sprintf("%s-build", serviceName)
 	if err := dependencyGraph.AddService(buildName); err != nil {
 		log.GetLogger().Debug("Build service already exists in dependency graph", "service", buildName)
@@ -516,7 +517,7 @@ func createQuadletUnit(prefixedName string, container *Container) QuadletUnit {
 	}
 }
 
-func finishProcessingService(quadletUnit *QuadletUnit, serviceName string, dependencyGraph *ServiceDependencyGraph, projectName string, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+func finishProcessingService(quadletUnit *QuadletUnit, serviceName string, dependencyGraph *dependency.ServiceDependencyGraph, projectName string, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
 	// Apply dependency relationships
 	if err := ApplyDependencyRelationships(quadletUnit, serviceName, dependencyGraph, projectName); err != nil {
 		log.GetLogger().Error("Failed to apply dependency relationships", "service", serviceName, "error", err)

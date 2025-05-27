@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -65,7 +66,7 @@ func TestRestartChangedUnits_HandlesOneShotServices(_ *testing.T) {
 	// 1. One-shot services (build, volume, network) are processed first
 	// 2. Container services are processed separately
 	// 3. The function doesn't panic with different unit types
-	_ = RestartChangedUnits(changedUnits, make(map[string]*ServiceDependencyGraph))
+	_ = RestartChangedUnits(changedUnits, make(map[string]*dependency.ServiceDependencyGraph))
 }
 
 // These tests have been removed as the dependency-aware restart logic has been simplified.
@@ -74,7 +75,7 @@ func TestRestartChangedUnits_HandlesOneShotServices(_ *testing.T) {
 func TestIsServiceAlreadyRestarted(t *testing.T) {
 	// Create a dependency graph:
 	// A <- B <- C
-	dependencyGraph := NewServiceDependencyGraph()
+	dependencyGraph := dependency.NewServiceDependencyGraph()
 	_ = dependencyGraph.AddService("A")
 	_ = dependencyGraph.AddService("B")
 	_ = dependencyGraph.AddService("C")
