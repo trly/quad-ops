@@ -186,7 +186,7 @@ func (b *Build) processAdvancedConfig(buildConfig types.BuildConfig) {
 				log.GetLogger().Warn("Invalid build secret name, skipping", "secret", secret.Source, "error", err)
 				continue
 			}
-			
+
 			// Validate target if specified
 			if secret.Target != "" {
 				if err := validator.ValidateSecretTarget(secret.Target); err != nil {
@@ -194,7 +194,7 @@ func (b *Build) processAdvancedConfig(buildConfig types.BuildConfig) {
 					continue
 				}
 			}
-			
+
 			// Format the secret as expected by podman build --secret
 			secretStr := secret.Source
 			if secret.Target != "" && secret.Target != secret.Source {

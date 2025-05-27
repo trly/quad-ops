@@ -166,22 +166,22 @@ func ParseComposeFile(path string) (*types.Project, error) {
 					if len(parts) == 2 {
 						key := strings.TrimSpace(parts[0])
 						value := strings.TrimSpace(parts[1])
-						
+
 						// Create security validator
 						validator := validate.NewSecretValidator()
-						
+
 						// Validate environment variable key with extended validation
-						if err := validate.ValidateEnvKeyExtended(key); err != nil {
+						if err := validate.ValidateEnvKey(key); err != nil {
 							log.GetLogger().Warn("Invalid environment variable key", "key", key, "error", err)
 							continue
 						}
-						
+
 						// Validate environment variable value for size and content
 						if err := validator.ValidateEnvValue(key, value); err != nil {
 							log.GetLogger().Warn("Invalid environment variable value", "key", key, "error", err)
 							continue
 						}
-						
+
 						// Set environment variable
 						if err := os.Setenv(key, value); err != nil {
 							log.GetLogger().Warn("Failed to set environment variable", "key", key, "error", err)
@@ -218,23 +218,23 @@ func ParseComposeFile(path string) (*types.Project, error) {
 	return project, nil
 }
 
-// validateEnvKey validates that an environment variable key is safe
+// validateEnvKey validates that an environment variable key is safe.
 func validateEnvKey(key string) error {
 	if key == "" {
 		return fmt.Errorf("environment variable key cannot be empty")
 	}
-	
+
 	// Environment variable names should follow standard conventions
 	// Allow alphanumeric characters and underscores, but not start with digits
 	for i, r := range key {
 		if i == 0 && (r >= '0' && r <= '9') {
 			return fmt.Errorf("environment variable key cannot start with digit")
 		}
-		if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_') {
+		if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') && (r < '0' || r > '9') && r != '_' {
 			return fmt.Errorf("environment variable key contains invalid character: %c", r)
 		}
 	}
-	
+
 	// Prevent overriding critical system environment variables
 	criticalVars := []string{"PATH", "HOME", "USER", "SHELL", "PWD", "OLDPWD", "TERM"}
 	for _, critical := range criticalVars {
@@ -242,6 +242,6 @@ func validateEnvKey(key string) error {
 			return fmt.Errorf("cannot override critical system environment variable: %s", key)
 		}
 	}
-	
+
 	return nil
 }

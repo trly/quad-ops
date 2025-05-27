@@ -387,9 +387,9 @@ func handleProductionTarget(build *unit.Build, serviceName, workingDir string) e
 	if err != nil {
 		return fmt.Errorf("invalid dockerfile path for service %s: %w", serviceName, err)
 	}
-	
+
 	dockerfilePath := validDockerfilePath
-	
+
 	if _, err := os.Stat(dockerfilePath); err != nil {
 		return err
 	}
@@ -584,5 +584,3 @@ func getUsePodmanNames(projectName string) bool {
 
 	return usePodmanNames
 }
-
-

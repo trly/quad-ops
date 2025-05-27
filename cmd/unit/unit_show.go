@@ -42,13 +42,13 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(_ *cobra.Command, args []string) {
 			name := args[0]
-			
+
 			// Validate unit name to prevent command injection
 			if err := util.ValidateUnitName(name); err != nil {
 				log.GetLogger().Error("Invalid unit name", "error", err, "name", name)
 				os.Exit(1)
 			}
-			
+
 			systemdUnit := systemd.NewBaseUnit(name, unitType)
 
 			err := systemdUnit.Show()
@@ -60,5 +60,3 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 	}
 	return unitShowCmd
 }
-
-

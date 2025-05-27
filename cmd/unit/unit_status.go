@@ -37,5 +37,3 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 	}
 	return unitStatusCmd
 }
-
-
