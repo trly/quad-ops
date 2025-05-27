@@ -27,6 +27,13 @@ func SortAndIterateSlice(slice []string, fn SliceProcessor) {
 	}
 }
 
+// SortStringSlice sorts a string slice in-place for deterministic order.
+func SortStringSlice(slice []string) {
+	if len(slice) > 0 {
+		sort.Strings(slice)
+	}
+}
+
 // GetSortedMapKeys returns a sorted slice of keys from a map for deterministic iteration.
 func GetSortedMapKeys(m map[string]string) []string {
 	if len(m) == 0 {
