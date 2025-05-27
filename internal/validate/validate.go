@@ -18,7 +18,17 @@ type CommandRunner interface {
 type RealCommandRunner struct{}
 
 // Run executes a command and returns its output.
+// WARNING: This method executes arbitrary commands and should only be used with trusted input.
+// Callers must validate command names and arguments to prevent command injection.
 func (r *RealCommandRunner) Run(name string, args ...string) ([]byte, error) {
+	// Basic validation - reject empty command names
+	if name == "" {
+		return nil, fmt.Errorf("command name cannot be empty")
+	}
+	
+	// Log command execution for security auditing
+	log.GetLogger().Debug("Executing command", "name", name, "args", args)
+	
 	return exec.Command(name, args...).Output()
 }
 
