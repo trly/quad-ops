@@ -27,7 +27,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/unit"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // ShowCommand represents the unit show command.
@@ -41,10 +41,7 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(_ *cobra.Command, args []string) {
 			name := args[0]
-			systemdUnit := &unit.BaseSystemdUnit{
-				Name: name,
-				Type: unitType,
-			}
+			systemdUnit := systemd.NewBaseUnit(name, unitType)
 
 			err := systemdUnit.Show()
 			if err != nil {

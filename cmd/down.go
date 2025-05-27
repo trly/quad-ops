@@ -30,7 +30,7 @@ import (
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/unit"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // DownCommand represents the down command for quad-ops CLI.
@@ -71,7 +71,7 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 
 			// Stop each container unit
 			for _, u := range units {
-				systemdUnit := &unit.BaseSystemdUnit{Name: u.Name, Type: u.Type}
+				systemdUnit := systemd.NewBaseUnit(u.Name, u.Type)
 				err := systemdUnit.Stop()
 				if err != nil {
 					log.GetLogger().Error("Failed to stop unit", "name", u.Name, "error", err)

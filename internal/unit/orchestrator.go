@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // Change tracks changes to a unit.
@@ -262,7 +263,7 @@ func isServiceAlreadyRestarted(serviceName string, dependencyGraph *ServiceDepen
 
 // initiateAsyncRestart starts a unit restart without waiting for completion.
 func initiateAsyncRestart(unit SystemdUnit) error {
-	conn, err := getSystemdConnection()
+	conn, err := systemd.GetSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -272,7 +273,7 @@ func initiateAsyncRestart(unit SystemdUnit) error {
 	log.GetLogger().Debug("Initiating async restart", "name", serviceName)
 
 	// Check if unit is loaded before attempting restart
-	loadState, err := conn.GetUnitPropertyContext(ctx, serviceName, "LoadState")
+	loadState, err := conn.GetUnitPropertyContext(systemd.GetContext(), serviceName, "LoadState")
 	if err != nil {
 		return fmt.Errorf("error checking unit load state %s: %w", serviceName, err)
 	}
@@ -299,7 +300,7 @@ func initiateAsyncRestart(unit SystemdUnit) error {
 
 // checkUnitFinalStatus checks if a unit has reached active state, with handling for activating states.
 func checkUnitFinalStatus(unit SystemdUnit) error {
-	conn, err := getSystemdConnection()
+	conn, err := systemd.GetSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -308,7 +309,7 @@ func checkUnitFinalStatus(unit SystemdUnit) error {
 	serviceName := unit.GetServiceName()
 
 	// Check current state
-	activeState, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
+	activeState, err := conn.GetUnitPropertyContext(systemd.GetContext(), serviceName, "ActiveState")
 	if err != nil {
 		return fmt.Errorf("error getting unit state %s: %w", serviceName, err)
 	}
@@ -320,7 +321,7 @@ func checkUnitFinalStatus(unit SystemdUnit) error {
 
 	// If it's activating, wait and check again
 	if currentState == "activating" {
-		subState, err := conn.GetUnitPropertyContext(ctx, serviceName, "SubState")
+		subState, err := conn.GetUnitPropertyContext(systemd.GetContext(), serviceName, "SubState")
 		subStateStr := "unknown"
 		if err == nil {
 			subStateStr = subState.Value.Value().(string)
@@ -338,7 +339,7 @@ func checkUnitFinalStatus(unit SystemdUnit) error {
 		time.Sleep(waitTime)
 
 		// Check final state
-		finalActiveState, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
+		finalActiveState, err := conn.GetUnitPropertyContext(systemd.GetContext(), serviceName, "ActiveState")
 		if err == nil {
 			finalState := finalActiveState.Value.Value().(string)
 			if finalState == "active" {
@@ -350,6 +351,6 @@ func checkUnitFinalStatus(unit SystemdUnit) error {
 	}
 
 	// If we get here, the unit is not active
-	details := getUnitFailureDetails(serviceName)
+	details := systemd.GetUnitFailureDetails(serviceName)
 	return fmt.Errorf("unit failed to reach active state: %s%s", currentState, details)
 }

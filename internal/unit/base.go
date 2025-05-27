@@ -1,8 +1,10 @@
 package unit
 
+import "github.com/trly/quad-ops/internal/systemd"
+
 // BaseUnit provides common fields and methods for all unit types.
 type BaseUnit struct {
-	*BaseSystemdUnit
+	*systemd.BaseUnit
 	Name     string
 	UnitType string
 }
@@ -10,8 +12,8 @@ type BaseUnit struct {
 // NewBaseUnit creates a new BaseUnit with the given name and type.
 func NewBaseUnit(name, unitType string) *BaseUnit {
 	return &BaseUnit{
-		BaseSystemdUnit: &BaseSystemdUnit{Name: name, Type: unitType},
-		Name:            name,
-		UnitType:        unitType,
+		BaseUnit: systemd.NewBaseUnit(name, unitType),
+		Name:     name,
+		UnitType: unitType,
 	}
 }

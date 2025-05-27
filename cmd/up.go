@@ -30,7 +30,7 @@ import (
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/unit"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // UpCommand represents the up command for quad-ops CLI.
@@ -71,7 +71,7 @@ func (c *UpCommand) GetCobraCommand() *cobra.Command {
 
 			// Start each container unit
 			for _, u := range units {
-				systemdUnit := &unit.BaseSystemdUnit{Name: u.Name, Type: u.Type}
+				systemdUnit := systemd.NewBaseUnit(u.Name, u.Type)
 
 				// Reset any failed units before attempting to start
 				_ = systemdUnit.ResetFailed()

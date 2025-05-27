@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/unit"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // StatusCommand represents the unit status command.
@@ -20,10 +20,7 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 			name := args[0]
 
 			// Create a base systemd unit with the provided name and type
-			systemdUnit := &unit.BaseSystemdUnit{
-				Name: name,
-				Type: unitType,
-			}
+			systemdUnit := systemd.NewBaseUnit(name, unitType)
 
 			err := systemdUnit.Show()
 			if err != nil {

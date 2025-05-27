@@ -33,7 +33,7 @@ import (
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/unit"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // ListCommand represents the unit list command.
@@ -98,10 +98,7 @@ func findAndDisplayUnits(unitRepo repository.Repository, tbl table.Table, unitTy
 	}
 
 	for _, u := range units {
-		systemdUnit := &unit.BaseSystemdUnit{
-			Name: u.Name,
-			Type: u.Type,
-		}
+		systemdUnit := systemd.NewBaseUnit(u.Name, u.Type)
 
 		unitStatus, err := systemdUnit.GetStatus()
 		if err != nil {
