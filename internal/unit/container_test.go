@@ -495,6 +495,101 @@ func TestContainerResourceConstraints(t *testing.T) {
 	assert.Contains(t, unitFile, "PidsLimit=100")
 }
 
+// TestMemoryConstraints tests the processMemoryConstraints method specifically
+func TestMemoryConstraints(t *testing.T) {
+	container := NewContainer("memory-test")
+	unsupportedFeatures := make([]string, 0)
+
+	// Test service-level memory constraints
+	service := types.ServiceConfig{
+		Name:            "memory-service",
+		MemLimit:        1024 * 1024 * 100, // 100 MB
+		MemReservation:  1024 * 1024 * 50,  // 50 MB
+		MemSwapLimit:    1024 * 1024 * 200, // 200 MB
+	}
+
+	container.processMemoryConstraints(service, &unsupportedFeatures)
+
+	assert.Equal(t, "104857600", container.Memory)
+	assert.Equal(t, "52428800", container.MemoryReservation)
+	assert.Equal(t, "209715200", container.MemorySwap)
+	assert.Len(t, unsupportedFeatures, 3)
+	assert.Contains(t, container.PodmanArgs, "--memory=104857600")
+	assert.Contains(t, container.PodmanArgs, "--memory-reservation=52428800")
+	assert.Contains(t, container.PodmanArgs, "--memory-swap=209715200")
+}
+
+// TestCPUConstraints tests the processCPUConstraints method specifically
+func TestCPUConstraints(t *testing.T) {
+	container := NewContainer("cpu-test")
+	unsupportedFeatures := make([]string, 0)
+
+	// Test service-level CPU constraints
+	service := types.ServiceConfig{
+		Name:      "cpu-service",
+		CPUShares: 512,
+		CPUQuota:  50000,
+		CPUPeriod: 100000,
+		PidsLimit: 100,
+	}
+
+	container.processCPUConstraints(service, &unsupportedFeatures)
+
+	assert.Equal(t, int64(512), container.CPUShares)
+	assert.Equal(t, int64(50000), container.CPUQuota)
+	assert.Equal(t, int64(100000), container.CPUPeriod)
+	assert.Equal(t, int64(100), container.PidsLimit)
+	assert.Len(t, unsupportedFeatures, 3) // CPUShares, CPUQuota, CPUPeriod
+	assert.Contains(t, container.PodmanArgs, "--cpu-shares=512")
+	assert.Contains(t, container.PodmanArgs, "--cpu-quota=50000")
+	assert.Contains(t, container.PodmanArgs, "--cpu-period=100000")
+}
+
+// TestSecurityOptions tests the processSecurityOptions method specifically
+func TestSecurityOptions(t *testing.T) {
+	container := NewContainer("security-test")
+	unsupportedFeatures := make([]string, 0)
+
+	// Test privileged mode and security options
+	service := types.ServiceConfig{
+		Name:        "security-service",
+		Privileged:  true,
+		SecurityOpt: []string{"label:disable", "label:level:s0:c1,c2"},
+	}
+
+	container.processSecurityOptions(service, &unsupportedFeatures)
+
+	assert.Len(t, unsupportedFeatures, 3) // Privileged mode + 2 security options
+	assert.Contains(t, container.PodmanArgs, "--privileged")
+	assert.Contains(t, container.PodmanArgs, "--security-opt=label=disable")
+	assert.Contains(t, container.PodmanArgs, "--security-opt=label:level:s0:c1,c2")
+}
+
+// TestProcessServiceResources tests the main resource processing coordination
+func TestProcessServiceResources(t *testing.T) {
+	container := NewContainer("resource-coordinator-test")
+
+	// Test combined resource processing
+	service := types.ServiceConfig{
+		Name:        "combined-service",
+		Image:       "test/image:latest",
+		MemLimit:    1024 * 1024 * 100, // 100 MB
+		CPUShares:   512,
+		Privileged:  true,
+		SecurityOpt: []string{"label:disable"},
+	}
+
+	container.processServiceResources(service)
+
+	// Verify all resource types were processed
+	assert.Equal(t, "104857600", container.Memory)
+	assert.Equal(t, int64(512), container.CPUShares)
+	assert.Contains(t, container.PodmanArgs, "--memory=104857600")
+	assert.Contains(t, container.PodmanArgs, "--cpu-shares=512")
+	assert.Contains(t, container.PodmanArgs, "--privileged")
+	assert.Contains(t, container.PodmanArgs, "--security-opt=label=disable")
+}
+
 func TestContainerAdvancedConfig(t *testing.T) {
 	// Create a test container with advanced configuration
 	container := NewContainer("advanced-test")
