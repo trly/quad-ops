@@ -70,7 +70,7 @@ func SystemRequirements() error {
 	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
 	_, err = defaultRunner.Run("test", "-f", generatorPath)
 	if err != nil {
-		return fmt.Errorf("podman systemd generator not found at %s", generatorPath)
+		return fmt.Errorf("podman systemd generator not found (ensure podman is properly installed)")
 	}
 
 	return nil

@@ -26,7 +26,7 @@ func ReadProjects(path string) ([]*types.Project, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("compose directory does not exist: %s (check that the composeDir configuration points to a valid directory in the repository)", path)
+			return nil, fmt.Errorf("compose directory does not exist (check that the composeDir configuration points to a valid directory in the repository)")
 		}
 		return nil, fmt.Errorf("failed to access compose directory: %w", err)
 	}
@@ -163,8 +163,15 @@ func ParseComposeFile(path string) (*types.Project, error) {
 					// Parse KEY=VALUE format
 					parts := strings.SplitN(line, "=", 2)
 					if len(parts) == 2 {
-						key := parts[0]
-						value := parts[1]
+						key := strings.TrimSpace(parts[0])
+						value := strings.TrimSpace(parts[1])
+						
+						// Validate environment variable key
+						if err := validateEnvKey(key); err != nil {
+							log.GetLogger().Warn("Invalid environment variable key", "key", key, "error", err)
+							continue
+						}
+						
 						// Set environment variable
 						if err := os.Setenv(key, value); err != nil {
 							log.GetLogger().Warn("Failed to set environment variable", "key", key, "error", err)
@@ -197,4 +204,32 @@ func ParseComposeFile(path string) (*types.Project, error) {
 	project.WorkingDir = filepath.Dir(path)
 
 	return project, nil
+}
+
+// validateEnvKey validates that an environment variable key is safe
+func validateEnvKey(key string) error {
+	if key == "" {
+		return fmt.Errorf("environment variable key cannot be empty")
+	}
+	
+	// Environment variable names should follow standard conventions
+	// Allow alphanumeric characters and underscores, but not start with digits
+	for i, r := range key {
+		if i == 0 && (r >= '0' && r <= '9') {
+			return fmt.Errorf("environment variable key cannot start with digit")
+		}
+		if !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '_') {
+			return fmt.Errorf("environment variable key contains invalid character: %c", r)
+		}
+	}
+	
+	// Prevent overriding critical system environment variables
+	criticalVars := []string{"PATH", "HOME", "USER", "SHELL", "PWD", "OLDPWD", "TERM"}
+	for _, critical := range criticalVars {
+		if strings.EqualFold(key, critical) {
+			return fmt.Errorf("cannot override critical system environment variable: %s", key)
+		}
+	}
+	
+	return nil
 }

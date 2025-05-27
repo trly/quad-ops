@@ -72,3 +72,41 @@ volumes:
 	assert.Contains(t, project.Services["test-service"].Environment, "DB_PASS")
 	assert.Equal(t, "test-password", *project.Services["test-service"].Environment["DB_PASS"])
 }
+
+func TestValidateEnvKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		key       string
+		expectErr bool
+	}{
+		{"valid uppercase key", "MYAPP_CONFIG", false},
+		{"valid mixed case key", "MyApp_Config", false},
+		{"valid with numbers", "CONFIG_V2", false},
+		{"empty key", "", true},
+		{"starts with digit", "2CONFIG", true},
+		{"contains spaces", "MY CONFIG", true},
+		{"contains special chars", "MY-CONFIG", true},
+		{"contains dots", "MY.CONFIG", true},
+		{"critical PATH variable", "PATH", true},
+		{"critical HOME variable", "HOME", true},
+		{"critical USER variable", "USER", true},
+		{"critical SHELL variable", "SHELL", true},
+		{"critical PWD variable", "PWD", true},
+		{"critical OLDPWD variable", "OLDPWD", true},
+		{"critical TERM variable", "TERM", true},
+		{"case insensitive critical", "path", true},
+		{"case insensitive critical", "Home", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateEnvKey(tt.key)
+			if tt.expectErr && err == nil {
+				t.Errorf("expected error for key: %s", tt.key)
+			}
+			if !tt.expectErr && err != nil {
+				t.Errorf("unexpected error for key %s: %v", tt.key, err)
+			}
+		})
+	}
+}

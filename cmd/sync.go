@@ -118,7 +118,7 @@ func syncRepositories(cfg *config.Settings) {
 			projects, err := compose.ReadProjects(composeDir)
 			if err != nil {
 				if repoConfig.ComposeDir != "" {
-					log.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "fullPath", composeDir, "error", err)
+					log.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "error", err)
 					log.GetLogger().Info("Check that the composeDir path exists in the repository", "repository", repoConfig.Name, "expectedPath", repoConfig.ComposeDir)
 				} else {
 					log.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "error", err)
