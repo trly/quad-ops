@@ -25,7 +25,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph 
 	case "build", "image", "network", "volume":
 		// For one-shot services, use Start() instead of Restart()
 		log.GetLogger().Debug("Starting one-shot service", "unit", unitName, "type", unitType)
-		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+		unit := systemd.NewBaseUnit(unitName, unitType)
 		return unit.Start()
 	}
 
@@ -33,7 +33,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph 
 	if unitType != "container" {
 		// For other non-container units, just use the normal restart method
 		log.GetLogger().Debug("Direct restart for non-container unit", "unit", unitName, "type", unitType)
-		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+		unit := systemd.NewBaseUnit(unitName, unitType)
 		return unit.Restart()
 	}
 
@@ -46,7 +46,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph 
 		log.GetLogger().Warn("Invalid unit name format, using direct restart",
 			"unit", unitName,
 			"expected", "project-service")
-		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+		unit := systemd.NewBaseUnit(unitName, unitType)
 		return unit.Restart()
 	}
 
@@ -61,7 +61,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph 
 			"service", serviceName,
 			"project", projectName,
 			"error", err)
-		unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+		unit := systemd.NewBaseUnit(unitName, unitType)
 		return unit.Restart()
 	}
 
@@ -72,7 +72,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph 
 		"project", projectName,
 		"dependencies", dependencies)
 
-	unit := &BaseSystemdUnit{Name: unitName, Type: unitType}
+	unit := systemd.NewBaseUnit(unitName, unitType)
 	return unit.Restart()
 }
 
@@ -90,7 +90,7 @@ func splitUnitName(unitName string) []string {
 // RestartChangedUnits restarts all changed units in dependency-aware order.
 func RestartChangedUnits(changedUnits []QuadletUnit, projectDependencyGraphs map[string]*ServiceDependencyGraph) error {
 	log.GetLogger().Info("Restarting changed units with dependency awareness", "count", len(changedUnits))
-	err := ReloadSystemd()
+	err := systemd.ReloadSystemd()
 	if err != nil {
 		log.GetLogger().Error("Failed to reload systemd units", "error", err)
 		return fmt.Errorf("failed to reload systemd configuration: %w", err)
@@ -262,7 +262,7 @@ func isServiceAlreadyRestarted(serviceName string, dependencyGraph *ServiceDepen
 }
 
 // initiateAsyncRestart starts a unit restart without waiting for completion.
-func initiateAsyncRestart(unit SystemdUnit) error {
+func initiateAsyncRestart(unit systemd.Unit) error {
 	conn, err := systemd.GetSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
@@ -299,7 +299,7 @@ func initiateAsyncRestart(unit SystemdUnit) error {
 }
 
 // checkUnitFinalStatus checks if a unit has reached active state, with handling for activating states.
-func checkUnitFinalStatus(unit SystemdUnit) error {
+func checkUnitFinalStatus(unit systemd.Unit) error {
 	conn, err := systemd.GetSystemdConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)

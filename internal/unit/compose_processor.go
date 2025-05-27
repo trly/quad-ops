@@ -14,6 +14,7 @@ import (
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // ProcessComposeProjects processes Docker Compose projects and converts them to Podman systemd units.
@@ -291,10 +292,7 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 			}
 
 			// First, stop the unit
-			systemdUnit := &BaseSystemdUnit{
-				Name: dbUnit.Name,
-				Type: dbUnit.Type,
-			}
+			systemdUnit := systemd.NewBaseUnit(dbUnit.Name, dbUnit.Type)
 
 			// Attempt to stop the unit, but continue with cleanup even if stop fails
 			if err := systemdUnit.Stop(); err != nil {
@@ -330,7 +328,7 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 	}
 
 	// Reload systemd after we've removed units
-	if err := ReloadSystemd(); err != nil {
+	if err := systemd.ReloadSystemd(); err != nil {
 		log.GetLogger().Error("Error reloading systemd after cleanup", "error", err)
 	}
 

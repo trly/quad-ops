@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/systemd"
 	"github.com/trly/quad-ops/internal/util"
 )
 
@@ -21,8 +22,8 @@ type QuadletUnit struct {
 	Build     Build         `yaml:"build,omitempty"`
 }
 
-// GetSystemdUnit returns the appropriate SystemdUnit implementation for this QuadletUnit.
-func (u *QuadletUnit) GetSystemdUnit() SystemdUnit {
+// GetSystemdUnit returns the appropriate systemd.Unit implementation for this QuadletUnit.
+func (u *QuadletUnit) GetSystemdUnit() systemd.Unit {
 	switch u.Type {
 	case "container":
 		container := u.Container
@@ -46,7 +47,7 @@ func (u *QuadletUnit) GetSystemdUnit() SystemdUnit {
 		return &build
 	default:
 		// Default to base implementation
-		return &BaseSystemdUnit{Name: u.Name, Type: u.Type}
+		return systemd.NewBaseUnit(u.Name, u.Type)
 	}
 }
 

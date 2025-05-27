@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestAddBuildBasicConfig tests the addBuildBasicConfig refactored method
+// TestAddBuildBasicConfig tests the addBuildBasicConfig refactored method.
 func TestAddBuildBasicConfig(t *testing.T) {
 	quadletUnit := &QuadletUnit{
 		Type: "build",
@@ -29,7 +29,7 @@ func TestAddBuildBasicConfig(t *testing.T) {
 	assert.Contains(t, result, "SetWorkingDirectory=/app/src")
 }
 
-// TestAddBuildMetadata tests the addBuildMetadata refactored method
+// TestAddBuildMetadata tests the addBuildMetadata refactored method.
 func TestAddBuildMetadata(t *testing.T) {
 	quadletUnit := &QuadletUnit{
 		Type: "build",
@@ -50,7 +50,7 @@ func TestAddBuildMetadata(t *testing.T) {
 	assert.Contains(t, result, "Annotation=maintainer=dev-team")
 }
 
-// TestAddBuildEnvironment tests the addBuildEnvironment refactored method
+// TestAddBuildEnvironment tests the addBuildEnvironment refactored method.
 func TestAddBuildEnvironment(t *testing.T) {
 	quadletUnit := &QuadletUnit{
 		Type: "build",
@@ -71,17 +71,17 @@ func TestAddBuildEnvironment(t *testing.T) {
 	assert.Contains(t, result, "Environment=API_VERSION=v2")
 	assert.Contains(t, result, "Environment=DEBUG=false")
 	assert.Contains(t, result, "Environment=NODE_ENV=production")
-	
+
 	// Verify they appear in sorted order
 	apiIndex := strings.Index(result, "Environment=API_VERSION=v2")
 	debugIndex := strings.Index(result, "Environment=DEBUG=false")
 	nodeIndex := strings.Index(result, "Environment=NODE_ENV=production")
-	
+
 	assert.True(t, apiIndex < debugIndex, "API_VERSION should come before DEBUG")
 	assert.True(t, debugIndex < nodeIndex, "DEBUG should come before NODE_ENV")
 }
 
-// TestAddBuildResources tests the addBuildResources refactored method
+// TestAddBuildResources tests the addBuildResources refactored method.
 func TestAddBuildResources(t *testing.T) {
 	quadletUnit := &QuadletUnit{
 		Type: "build",
@@ -105,7 +105,7 @@ func TestAddBuildResources(t *testing.T) {
 	assert.Contains(t, result, "Secret=db-password")
 }
 
-// TestAddBuildOptions tests the addBuildOptions refactored method
+// TestAddBuildOptions tests the addBuildOptions refactored method.
 func TestAddBuildOptions(t *testing.T) {
 	quadletUnit := &QuadletUnit{
 		Type: "build",
@@ -127,7 +127,7 @@ func TestAddBuildOptions(t *testing.T) {
 	assert.Contains(t, result, "PodmanArgs=--squash")
 }
 
-// TestGenerateBuildSectionIntegration tests the full generateBuildSection method
+// TestGenerateBuildSectionIntegration tests the full generateBuildSection method.
 func TestGenerateBuildSectionIntegration(t *testing.T) {
 	quadletUnit := &QuadletUnit{
 		Type: "build",
@@ -170,7 +170,7 @@ func TestGenerateBuildSectionIntegration(t *testing.T) {
 	assert.Contains(t, result, "PodmanArgs=--no-cache")
 }
 
-// TestEmptyBuildSection tests generateBuildSection with minimal configuration
+// TestEmptyBuildSection tests generateBuildSection with minimal configuration.
 func TestEmptyBuildSection(t *testing.T) {
 	quadletUnit := &QuadletUnit{
 		Type:  "build",
@@ -182,7 +182,7 @@ func TestEmptyBuildSection(t *testing.T) {
 	// Should still have section header and managed-by label
 	assert.Contains(t, result, "[Build]")
 	assert.Contains(t, result, "Label=managed-by=quad-ops")
-	
+
 	// Should not contain any empty values
 	assert.NotContains(t, result, "ImageTag=")
 	assert.NotContains(t, result, "File=")

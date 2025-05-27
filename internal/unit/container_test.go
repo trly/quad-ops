@@ -495,17 +495,17 @@ func TestContainerResourceConstraints(t *testing.T) {
 	assert.Contains(t, unitFile, "PidsLimit=100")
 }
 
-// TestMemoryConstraints tests the processMemoryConstraints method specifically
+// TestMemoryConstraints tests the processMemoryConstraints method specifically.
 func TestMemoryConstraints(t *testing.T) {
 	container := NewContainer("memory-test")
 	unsupportedFeatures := make([]string, 0)
 
 	// Test service-level memory constraints
 	service := types.ServiceConfig{
-		Name:            "memory-service",
-		MemLimit:        1024 * 1024 * 100, // 100 MB
-		MemReservation:  1024 * 1024 * 50,  // 50 MB
-		MemSwapLimit:    1024 * 1024 * 200, // 200 MB
+		Name:           "memory-service",
+		MemLimit:       1024 * 1024 * 100, // 100 MB
+		MemReservation: 1024 * 1024 * 50,  // 50 MB
+		MemSwapLimit:   1024 * 1024 * 200, // 200 MB
 	}
 
 	container.processMemoryConstraints(service, &unsupportedFeatures)
@@ -519,7 +519,7 @@ func TestMemoryConstraints(t *testing.T) {
 	assert.Contains(t, container.PodmanArgs, "--memory-swap=209715200")
 }
 
-// TestCPUConstraints tests the processCPUConstraints method specifically
+// TestCPUConstraints tests the processCPUConstraints method specifically.
 func TestCPUConstraints(t *testing.T) {
 	container := NewContainer("cpu-test")
 	unsupportedFeatures := make([]string, 0)
@@ -545,7 +545,7 @@ func TestCPUConstraints(t *testing.T) {
 	assert.Contains(t, container.PodmanArgs, "--cpu-period=100000")
 }
 
-// TestSecurityOptions tests the processSecurityOptions method specifically
+// TestSecurityOptions tests the processSecurityOptions method specifically.
 func TestSecurityOptions(t *testing.T) {
 	container := NewContainer("security-test")
 	unsupportedFeatures := make([]string, 0)
@@ -565,7 +565,7 @@ func TestSecurityOptions(t *testing.T) {
 	assert.Contains(t, container.PodmanArgs, "--security-opt=label:level:s0:c1,c2")
 }
 
-// TestProcessServiceResources tests the main resource processing coordination
+// TestProcessServiceResources tests the main resource processing coordination.
 func TestProcessServiceResources(t *testing.T) {
 	container := NewContainer("resource-coordinator-test")
 
