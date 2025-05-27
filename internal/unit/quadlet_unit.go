@@ -376,7 +376,16 @@ func (u *QuadletUnit) generateBuildSection() string {
 	builder.WriteString("\n[Build]\n")
 	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
-	// Add basic configuration
+	u.addBuildBasicConfig(&builder)
+	u.addBuildMetadata(&builder)
+	u.addBuildEnvironment(&builder)
+	u.addBuildResources(&builder)
+	u.addBuildOptions(&builder)
+
+	return builder.String()
+}
+
+func (u *QuadletUnit) addBuildBasicConfig(builder *strings.Builder) {
 	if len(u.Build.ImageTag) > 0 {
 		for _, tag := range u.Build.ImageTag {
 			builder.WriteString(formatKeyValue("ImageTag", tag))
@@ -390,61 +399,57 @@ func (u *QuadletUnit) generateBuildSection() string {
 	if u.Build.SetWorkingDirectory != "" {
 		builder.WriteString(formatKeyValue("SetWorkingDirectory", u.Build.SetWorkingDirectory))
 	}
+}
 
-	// Use centralized sorting function for labels
+func (u *QuadletUnit) addBuildMetadata(builder *strings.Builder) {
 	util.SortAndIterateSlice(u.Build.Label, func(label string) {
 		builder.WriteString(formatKeyValue("Label", label))
 	})
 
-	// Use centralized sorting function for annotations
 	util.SortAndIterateSlice(u.Build.Annotation, func(annotation string) {
 		builder.WriteString(formatKeyValue("Annotation", annotation))
 	})
+}
 
-	// Environment variables for build process
+func (u *QuadletUnit) addBuildEnvironment(builder *strings.Builder) {
 	if len(u.Build.Env) > 0 {
-		// Sort keys for deterministic output
 		keys := make([]string, 0, len(u.Build.Env))
 		for k := range u.Build.Env {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
 		for _, k := range keys {
-			fmt.Fprintf(&builder, "Environment=%s=%s\n", k, u.Build.Env[k])
+			fmt.Fprintf(builder, "Environment=%s=%s\n", k, u.Build.Env[k])
 		}
 	}
+}
 
-	// Networks for RUN instructions
+func (u *QuadletUnit) addBuildResources(builder *strings.Builder) {
 	util.SortAndIterateSlice(u.Build.Network, func(network string) {
 		builder.WriteString(formatKeyValue("Network", network))
 	})
 
-	// Volumes for build process
 	util.SortAndIterateSlice(u.Build.Volume, func(volume string) {
 		builder.WriteString(formatKeyValue("Volume", volume))
 	})
 
-	// Secrets for build process
 	util.SortAndIterateSlice(u.Build.Secret, func(secret string) {
 		builder.WriteString(formatKeyValue("Secret", secret))
 	})
+}
 
-	// Add target stage if specified
+func (u *QuadletUnit) addBuildOptions(builder *strings.Builder) {
 	if u.Build.Target != "" {
 		builder.WriteString(formatKeyValue("Target", u.Build.Target))
 	}
 
-	// Add pull policy if specified
 	if u.Build.Pull != "" {
 		builder.WriteString(formatKeyValue("Pull", u.Build.Pull))
 	}
 
-	// Add PodmanArgs for additional options
 	util.SortAndIterateSlice(u.Build.PodmanArgs, func(arg string) {
 		builder.WriteString(formatKeyValue("PodmanArgs", arg))
 	})
-
-	return builder.String()
 }
 
 func (u *QuadletUnit) generateUnitSection() string {

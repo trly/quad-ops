@@ -345,131 +345,124 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 
 // processServiceResources processes resource constraints from a Docker Compose service.
 func (c *Container) processServiceResources(service types.ServiceConfig) {
-	// Track unsupported features to warn about
 	unsupportedFeatures := make([]string, 0, 10)
-	// ========= MEMORY LIMITS =========
+
+	c.processMemoryConstraints(service, &unsupportedFeatures)
+	c.processCPUConstraints(service, &unsupportedFeatures)
+	c.processSecurityOptions(service, &unsupportedFeatures)
+
+	c.logUnsupportedFeatures(service.Name, unsupportedFeatures)
+}
+
+func (c *Container) processMemoryConstraints(service types.ServiceConfig, unsupportedFeatures *[]string) {
 	// Handle service-level memory constraints
 	if service.MemLimit != 0 {
 		c.Memory = strconv.FormatInt(int64(service.MemLimit), 10)
-		unsupportedFeatures = append(unsupportedFeatures, "Memory limits (mem_limit)")
-		// Add as PodmanArgs instead of ignoring
+		*unsupportedFeatures = append(*unsupportedFeatures, "Memory limits (mem_limit)")
 		c.PodmanArgs = append(c.PodmanArgs, "--memory="+strconv.FormatInt(int64(service.MemLimit), 10))
 	}
 
 	if service.MemReservation != 0 {
 		c.MemoryReservation = strconv.FormatInt(int64(service.MemReservation), 10)
-		unsupportedFeatures = append(unsupportedFeatures, "Memory reservation (memory_reservation)")
-		// Add as PodmanArgs instead of ignoring
+		*unsupportedFeatures = append(*unsupportedFeatures, "Memory reservation (memory_reservation)")
 		c.PodmanArgs = append(c.PodmanArgs, "--memory-reservation="+strconv.FormatInt(int64(service.MemReservation), 10))
 	}
 
 	if service.MemSwapLimit != 0 {
 		c.MemorySwap = strconv.FormatInt(int64(service.MemSwapLimit), 10)
-		unsupportedFeatures = append(unsupportedFeatures, "Memory swap (memswap_limit)")
-		// Add as PodmanArgs instead of ignoring
+		*unsupportedFeatures = append(*unsupportedFeatures, "Memory swap (memswap_limit)")
 		c.PodmanArgs = append(c.PodmanArgs, "--memory-swap="+strconv.FormatInt(int64(service.MemSwapLimit), 10))
 	}
 
 	// Handle deploy section memory constraints
-	// Note: compose-go validation ensures we won't have both service-level AND deploy constraints
 	if service.Deploy != nil {
 		if service.Deploy.Resources.Limits != nil && service.Deploy.Resources.Limits.MemoryBytes != 0 {
 			c.Memory = strconv.FormatInt(int64(service.Deploy.Resources.Limits.MemoryBytes), 10)
-			unsupportedFeatures = append(unsupportedFeatures, "Memory limits (deploy.resources.limits.memory)")
-			// Add as PodmanArgs instead of ignoring
+			*unsupportedFeatures = append(*unsupportedFeatures, "Memory limits (deploy.resources.limits.memory)")
 			c.PodmanArgs = append(c.PodmanArgs, "--memory="+strconv.FormatInt(int64(service.Deploy.Resources.Limits.MemoryBytes), 10))
 		}
 
 		if service.Deploy.Resources.Reservations != nil && service.Deploy.Resources.Reservations.MemoryBytes != 0 {
 			c.MemoryReservation = strconv.FormatInt(int64(service.Deploy.Resources.Reservations.MemoryBytes), 10)
-			unsupportedFeatures = append(unsupportedFeatures, "Memory reservation (deploy.resources.reservations.memory)")
-			// Add as PodmanArgs instead of ignoring
+			*unsupportedFeatures = append(*unsupportedFeatures, "Memory reservation (deploy.resources.reservations.memory)")
 			c.PodmanArgs = append(c.PodmanArgs, "--memory-reservation="+strconv.FormatInt(int64(service.Deploy.Resources.Reservations.MemoryBytes), 10))
 		}
 	}
+}
 
-	// ========= CPU LIMITS =========
-	// Set default CPU period for quota calculations only
+func (c *Container) processCPUConstraints(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	// Set default CPU period for quota calculations
 	var cpuPeriod int64 = 100000 // Default period in microseconds
 
 	// Handle service-level CPU constraints
 	if service.CPUPeriod != 0 {
 		cpuPeriod = service.CPUPeriod
-		unsupportedFeatures = append(unsupportedFeatures, "CPU period (cpu_period)")
-		// Add as PodmanArgs instead of ignoring
+		*unsupportedFeatures = append(*unsupportedFeatures, "CPU period (cpu_period)")
 		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpu-period=%d", service.CPUPeriod))
 	}
-	c.CPUPeriod = cpuPeriod // Stored but not output in quadlet files (used only for calculations)
+	c.CPUPeriod = cpuPeriod
 
 	if service.CPUQuota != 0 {
 		c.CPUQuota = service.CPUQuota
-		unsupportedFeatures = append(unsupportedFeatures, "CPU quota (cpu_quota)")
-		// Add as PodmanArgs instead of ignoring
+		*unsupportedFeatures = append(*unsupportedFeatures, "CPU quota (cpu_quota)")
 		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpu-quota=%d", service.CPUQuota))
 	} else if service.CPUS != 0 {
-		// Convert CPUS (float) to quota
 		c.CPUQuota = int64(float64(service.CPUS) * float64(cpuPeriod))
-		unsupportedFeatures = append(unsupportedFeatures, "CPU cores (cpus)")
-		// Add as PodmanArgs instead of ignoring - use the direct cpus flag
+		*unsupportedFeatures = append(*unsupportedFeatures, "CPU cores (cpus)")
 		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpus=%.2f", service.CPUS))
 	}
 
 	if service.CPUShares != 0 {
 		c.CPUShares = service.CPUShares
-		unsupportedFeatures = append(unsupportedFeatures, "CPU shares (cpu_shares)")
-		// Add as PodmanArgs instead of ignoring
+		*unsupportedFeatures = append(*unsupportedFeatures, "CPU shares (cpu_shares)")
 		c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpu-shares=%d", service.CPUShares))
 	}
 
 	// Handle deploy section CPU constraints
-	// Note: compose-go validation ensures we won't have both service-level AND deploy constraints
 	if service.Deploy != nil && service.Deploy.Resources.Limits != nil && service.Deploy.Resources.Limits.NanoCPUs != 0 {
-		// Convert NanoCPUs to quota if not already set
 		if c.CPUQuota == 0 {
 			c.CPUQuota = int64(float64(service.Deploy.Resources.Limits.NanoCPUs) * float64(cpuPeriod) / 1e9)
-			unsupportedFeatures = append(unsupportedFeatures, "CPU limits (deploy.resources.limits.cpus)")
-			// Add as PodmanArgs instead of ignoring - convert nanoCPUs to regular CPUs
+			*unsupportedFeatures = append(*unsupportedFeatures, "CPU limits (deploy.resources.limits.cpus)")
 			cpus := float64(service.Deploy.Resources.Limits.NanoCPUs) / 1e9
 			c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--cpus=%.2f", cpus))
 		}
 
-		// Convert NanoCPUs to shares if not already set
 		if c.CPUShares == 0 {
 			c.CPUShares = int64(float64(service.Deploy.Resources.Limits.NanoCPUs) / 1e9 * 1024)
-			// CPU shares handled above with --cpus flag
 		}
 	}
 
 	// Process limit
 	if service.PidsLimit != 0 {
 		c.PidsLimit = service.PidsLimit
-		// PidsLimit is natively supported by Quadlet, so no need to add to PodmanArgs
 	}
+}
 
-	// Handle Privileged mode (not directly supported by Quadlet)
+func (c *Container) processSecurityOptions(service types.ServiceConfig, unsupportedFeatures *[]string) {
+	// Handle Privileged mode
 	if service.Privileged {
-		unsupportedFeatures = append(unsupportedFeatures, "Privileged mode")
-		// Add as PodmanArgs instead of ignoring
+		*unsupportedFeatures = append(*unsupportedFeatures, "Privileged mode")
 		c.PodmanArgs = append(c.PodmanArgs, "--privileged")
 	}
 
-	// SecurityLabel handling (not directly supported by Quadlet)
+	// SecurityLabel handling
 	if len(service.SecurityOpt) > 0 {
 		for _, opt := range service.SecurityOpt {
 			if opt == "label:disable" {
-				unsupportedFeatures = append(unsupportedFeatures, "Security label disable")
+				*unsupportedFeatures = append(*unsupportedFeatures, "Security label disable")
 				c.PodmanArgs = append(c.PodmanArgs, "--security-opt=label=disable")
 			} else if strings.HasPrefix(opt, "label:") {
-				unsupportedFeatures = append(unsupportedFeatures, "Security label options")
+				*unsupportedFeatures = append(*unsupportedFeatures, "Security label options")
 				c.PodmanArgs = append(c.PodmanArgs, fmt.Sprintf("--security-opt=%s", opt))
 			}
 		}
 	}
+}
 
-	// Log warnings for unsupported features but indicate we're handling them via PodmanArgs
+func (c *Container) logUnsupportedFeatures(serviceName string, unsupportedFeatures []string) {
 	if len(unsupportedFeatures) > 0 {
 		for _, feature := range unsupportedFeatures {
-			log.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
+			log.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", serviceName, feature))
 		}
 	}
 }

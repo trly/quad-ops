@@ -349,146 +349,185 @@ func processServices(project *types.Project, dependencyGraph *ServiceDependencyG
 	for serviceName, service := range project.Services {
 		log.GetLogger().Debug("Processing service", "service", serviceName)
 
-		// Create prefixed container name using project name to enable proper DNS resolution
-		// Format: <project>-<service> (e.g., myproject-db, myproject-web)
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
 
-		// Check if service has a build section first
-		if service.Build != nil {
-			log.GetLogger().Debug("Processing build for service", "service", serviceName)
-
-			// Create a build unit with the same prefixed name
-			buildUnitName := fmt.Sprintf("%s-%s-build", project.Name, serviceName)
-			build := NewBuild(buildUnitName)
-			build = build.FromComposeBuild(*service.Build, service, project.Name)
-
-			// Create the quadlet unit for the build
-			// If build context is marked as "repo", replace it with the actual project working directory
-			if build.SetWorkingDirectory == "repo" {
-				// Use the project's working directory as the build context
-				build.SetWorkingDirectory = project.WorkingDir
-				log.GetLogger().Debug("Setting build context to project working directory",
-					"service", serviceName, "context", build.SetWorkingDirectory)
-			}
-
-			// Remove the Target field if it's pointing to 'production' to prevent errors
-			if build.Target == "production" {
-				// Check if target stage exists in Dockerfile
-				dockerfilePath := filepath.Join(project.WorkingDir, "Dockerfile")
-				if _, err := os.Stat(dockerfilePath); err == nil {
-					content, err := os.ReadFile(dockerfilePath) //nolint:gosec // Safe as path comes from project.WorkingDir, not user input
-					if err == nil {
-						if !strings.Contains(string(content), "FROM ") || !strings.Contains(string(content), " as production") {
-							build.Target = ""
-							log.GetLogger().Debug("Removing target='production' as it doesn't exist in Dockerfile",
-								"service", serviceName)
-						}
-					}
-				}
-			}
-
-			buildQuadletUnit := QuadletUnit{
-				Name:  buildUnitName,
-				Type:  "build",
-				Build: *build,
-				Systemd: SystemdConfig{
-					// Ensure the build completes before the container starts
-					RemainAfterExit: true,
-				},
-			}
-
-			// Process the build unit
-			if err := ProcessUnit(unitRepo, &buildQuadletUnit, force, processedUnits, changedUnits); err != nil {
-				log.GetLogger().Error("Failed to process build unit", "error", err)
-			}
-
-			// Update the service image to reference the build unit
-			service.Image = fmt.Sprintf("%s.build", buildUnitName)
-
-			// Set up the dependency relationship between the container and the build
-			// This ensures that the build completes before the container starts
-			// Add build unit as a dependency for this service
-			// Use the bare service name with -build suffix as the dependency name
-			// This needs to match how dependency resolution works in ApplyDependencyRelationships
-			buildName := fmt.Sprintf("%s-build", serviceName)
-			if err := dependencyGraph.AddService(buildName); err != nil {
-				log.GetLogger().Debug("Build service already exists in dependency graph", "service", buildName)
-			}
-			if err := dependencyGraph.AddDependency(serviceName, buildName); err != nil {
-				log.GetLogger().Error("Failed to add build dependency", "service", serviceName, "dependency", buildName, "error", err)
-			}
+		// Process build if present
+		if err := processBuildIfPresent(service, serviceName, project, dependencyGraph, unitRepo, force, processedUnits, changedUnits); err != nil {
+			return err
 		}
 
-		container := NewContainer(prefixedName)
-		container = container.FromComposeService(service, project.Name)
+		// Create and configure container
+		container := createContainerFromService(service, prefixedName, serviceName, project)
 
-		// Check for environment files in the project directory
-		if project.WorkingDir != "" {
-			// First check for general .env file
-			generalEnvFile := fmt.Sprintf("%s/.env", project.WorkingDir)
-			if _, err := os.Stat(generalEnvFile); err == nil {
-				log.GetLogger().Debug("Adding general .env file to container unit", "service", serviceName, "file", generalEnvFile)
-				container.EnvironmentFile = append(container.EnvironmentFile, generalEnvFile)
-			}
+		// Create quadlet unit
+		quadletUnit := createQuadletUnit(prefixedName, container)
 
-			// Look for service-specific .env files with various naming patterns
-			possibleEnvFiles := []string{
-				fmt.Sprintf("%s/.env.%s", project.WorkingDir, serviceName),
-				fmt.Sprintf("%s/%s.env", project.WorkingDir, serviceName),
-				fmt.Sprintf("%s/env/%s.env", project.WorkingDir, serviceName),
-				fmt.Sprintf("%s/envs/%s.env", project.WorkingDir, serviceName),
-			}
-
-			for _, envFilePath := range possibleEnvFiles {
-				// Check if file exists
-				if _, err := os.Stat(envFilePath); err == nil {
-					log.GetLogger().Debug("Found service-specific environment file", "service", serviceName, "file", envFilePath)
-					container.EnvironmentFile = append(container.EnvironmentFile, envFilePath)
-				}
-			}
+		// Apply dependencies and process
+		if err := finishProcessingService(&quadletUnit, serviceName, dependencyGraph, project.Name, unitRepo, force, processedUnits, changedUnits); err != nil {
+			return err
 		}
+	}
+	return nil
+}
 
-		// Check if we should use Podman's default naming with systemd- prefix
-		usePodmanNames := getUsePodmanNames(project.Name)
+func processBuildIfPresent(service types.ServiceConfig, serviceName string, project *types.Project, dependencyGraph *ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+	if service.Build == nil {
+		return nil
+	}
 
-		// If we don't want Podman's default names, set ContainerName to override the systemd- prefix
-		if !usePodmanNames {
-			container.ContainerName = prefixedName
+	log.GetLogger().Debug("Processing build for service", "service", serviceName)
+
+	buildUnitName := fmt.Sprintf("%s-%s-build", project.Name, serviceName)
+	build := NewBuild(buildUnitName)
+	build = build.FromComposeBuild(*service.Build, service, project.Name)
+
+	// Configure build context
+	if build.SetWorkingDirectory == "repo" {
+		build.SetWorkingDirectory = project.WorkingDir
+		log.GetLogger().Debug("Setting build context to project working directory",
+			"service", serviceName, "context", build.SetWorkingDirectory)
+	}
+
+	// Handle production target
+	if err := handleProductionTarget(build, serviceName, project.WorkingDir); err != nil {
+		log.GetLogger().Debug("Error checking Dockerfile for production target", "error", err)
+	}
+
+	buildQuadletUnit := QuadletUnit{
+		Name:  buildUnitName,
+		Type:  "build",
+		Build: *build,
+		Systemd: SystemdConfig{
+			RemainAfterExit: true,
+		},
+	}
+
+	// Process the build unit
+	if err := ProcessUnit(unitRepo, &buildQuadletUnit, force, processedUnits, changedUnits); err != nil {
+		log.GetLogger().Error("Failed to process build unit", "error", err)
+	}
+
+	// Update service image and dependencies
+	service.Image = fmt.Sprintf("%s.build", buildUnitName)
+	return addBuildDependency(dependencyGraph, serviceName)
+}
+
+func handleProductionTarget(build *Build, serviceName, workingDir string) error {
+	if build.Target != "production" {
+		return nil
+	}
+
+	dockerfilePath := filepath.Join(workingDir, "Dockerfile")
+	if _, err := os.Stat(dockerfilePath); err != nil {
+		return err
+	}
+
+	content, err := os.ReadFile(dockerfilePath) //nolint:gosec
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(string(content), "FROM ") || !strings.Contains(string(content), " as production") {
+		build.Target = ""
+		log.GetLogger().Debug("Removing target='production' as it doesn't exist in Dockerfile", "service", serviceName)
+	}
+	return nil
+}
+
+func addBuildDependency(dependencyGraph *ServiceDependencyGraph, serviceName string) error {
+	buildName := fmt.Sprintf("%s-build", serviceName)
+	if err := dependencyGraph.AddService(buildName); err != nil {
+		log.GetLogger().Debug("Build service already exists in dependency graph", "service", buildName)
+	}
+	if err := dependencyGraph.AddDependency(serviceName, buildName); err != nil {
+		log.GetLogger().Error("Failed to add build dependency", "service", serviceName, "dependency", buildName, "error", err)
+		return err
+	}
+	return nil
+}
+
+func createContainerFromService(service types.ServiceConfig, prefixedName, serviceName string, project *types.Project) *Container {
+	container := NewContainer(prefixedName)
+	container = container.FromComposeService(service, project.Name)
+
+	// Add environment files
+	addEnvironmentFiles(container, serviceName, project.WorkingDir)
+
+	// Configure container naming
+	configureContainerNaming(container, prefixedName, serviceName, project.Name)
+
+	return container
+}
+
+func addEnvironmentFiles(container *Container, serviceName, workingDir string) {
+	if workingDir == "" {
+		return
+	}
+
+	// General .env file
+	generalEnvFile := fmt.Sprintf("%s/.env", workingDir)
+	if _, err := os.Stat(generalEnvFile); err == nil {
+		log.GetLogger().Debug("Adding general .env file to container unit", "service", serviceName, "file", generalEnvFile)
+		container.EnvironmentFile = append(container.EnvironmentFile, generalEnvFile)
+	}
+
+	// Service-specific .env files
+	possibleEnvFiles := []string{
+		fmt.Sprintf("%s/.env.%s", workingDir, serviceName),
+		fmt.Sprintf("%s/%s.env", workingDir, serviceName),
+		fmt.Sprintf("%s/env/%s.env", workingDir, serviceName),
+		fmt.Sprintf("%s/envs/%s.env", workingDir, serviceName),
+	}
+
+	for _, envFilePath := range possibleEnvFiles {
+		if _, err := os.Stat(envFilePath); err == nil {
+			log.GetLogger().Debug("Found service-specific environment file", "service", serviceName, "file", envFilePath)
+			container.EnvironmentFile = append(container.EnvironmentFile, envFilePath)
 		}
+	}
+}
 
-		// Always add the service name as a NetworkAlias to allow using just the service name for connections
-		// This makes Docker Compose files more portable by allowing references like 'db' instead of 'quad-ops-multi-service-db'
-		container.NetworkAlias = append(container.NetworkAlias, serviceName)
+func configureContainerNaming(container *Container, prefixedName, serviceName, projectName string) {
+	usePodmanNames := getUsePodmanNames(projectName)
 
-		// Also add custom hostname as a NetworkAlias if specified in the service
-		if container.HostName != "" && container.HostName != serviceName {
-			container.NetworkAlias = append(container.NetworkAlias, container.HostName)
-		}
+	if !usePodmanNames {
+		container.ContainerName = prefixedName
+	}
 
-		// Create the quadlet unit with proper systemd configuration
-		systemdConfig := SystemdConfig{}
+	// Add service name as NetworkAlias for portability
+	container.NetworkAlias = append(container.NetworkAlias, serviceName)
 
-		// Apply restart policy if set in the container
-		if container.RestartPolicy != "" {
-			systemdConfig.RestartPolicy = container.RestartPolicy
-		}
+	// Add custom hostname as NetworkAlias if different from service name
+	if container.HostName != "" && container.HostName != serviceName {
+		container.NetworkAlias = append(container.NetworkAlias, container.HostName)
+	}
+}
 
-		quadletUnit := QuadletUnit{
-			Name:      prefixedName, // Use prefixed name for DNS resolution
-			Type:      "container",
-			Container: *container,
-			Systemd:   systemdConfig,
-		}
+func createQuadletUnit(prefixedName string, container *Container) QuadletUnit {
+	systemdConfig := SystemdConfig{}
 
-		// Apply dependency relationships (both regular and reverse)
-		if err := ApplyDependencyRelationships(&quadletUnit, serviceName, dependencyGraph, project.Name); err != nil {
-			log.GetLogger().Error("Failed to apply dependency relationships", "service", serviceName, "error", err)
-		}
+	if container.RestartPolicy != "" {
+		systemdConfig.RestartPolicy = container.RestartPolicy
+	}
 
-		// Process the quadlet unit
-		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
-			log.GetLogger().Error("Failed to process unit", "error", err)
-		}
+	return QuadletUnit{
+		Name:      prefixedName,
+		Type:      "container",
+		Container: *container,
+		Systemd:   systemdConfig,
+	}
+}
+
+func finishProcessingService(quadletUnit *QuadletUnit, serviceName string, dependencyGraph *ServiceDependencyGraph, projectName string, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]QuadletUnit) error {
+	// Apply dependency relationships
+	if err := ApplyDependencyRelationships(quadletUnit, serviceName, dependencyGraph, projectName); err != nil {
+		log.GetLogger().Error("Failed to apply dependency relationships", "service", serviceName, "error", err)
+	}
+
+	// Process the quadlet unit
+	if err := ProcessUnit(unitRepo, quadletUnit, force, processedUnits, changedUnits); err != nil {
+		log.GetLogger().Error("Failed to process unit", "error", err)
+		return err
 	}
 	return nil
 }
