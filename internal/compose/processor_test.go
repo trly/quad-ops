@@ -1,4 +1,4 @@
-package unit
+package compose
 
 import (
 	"os"
@@ -8,6 +8,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trly/quad-ops/internal/unit"
 )
 
 // TestProcessBuildIfPresent tests the processBuildIfPresent refactored method.
@@ -62,7 +63,7 @@ func TestAddEnvironmentFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create container and test the method
-	container := NewContainer("test-container")
+	container := unit.NewContainer("test-container")
 	addEnvironmentFiles(container, "webapp", tmpDir)
 
 	// Verify environment files were added
@@ -76,7 +77,7 @@ func TestConfigureContainerNaming(t *testing.T) {
 	// Skip this test as it depends on global config initialization
 	t.Skip("Skipping test that requires global config - integration test needed")
 
-	container := NewContainer("test-container")
+	container := unit.NewContainer("test-container")
 
 	// Test with custom hostname
 	container.HostName = "custom-host"
@@ -91,7 +92,7 @@ func TestConfigureContainerNaming(t *testing.T) {
 
 // TestCreateQuadletUnit tests the createQuadletUnit refactored method.
 func TestCreateQuadletUnit(t *testing.T) {
-	container := NewContainer("test-container")
+	container := unit.NewContainer("test-container")
 	container.RestartPolicy = "unless-stopped"
 
 	quadletUnit := createQuadletUnit("prefixed-name", container)
@@ -119,7 +120,7 @@ RUN echo "production"
 	err = os.WriteFile(dockerfilePath, []byte(dockerfileWithTarget), 0600)
 	require.NoError(t, err)
 
-	build := &Build{Target: "production"}
+	build := &unit.Build{Target: "production"}
 	err = handleProductionTarget(build, "test-service", tmpDir)
 	assert.NoError(t, err)
 	assert.Equal(t, "production", build.Target) // Should keep target

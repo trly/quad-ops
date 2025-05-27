@@ -1,3 +1,4 @@
+// Package unit provides quadlet unit types and generation functionality
 package unit
 
 import "github.com/trly/quad-ops/internal/systemd"

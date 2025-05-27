@@ -33,7 +33,6 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/git"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/unit"
 )
 
 // SyncCommand represents the sync command for quad-ops CLI.
@@ -135,7 +134,7 @@ func syncRepositories(cfg *config.Settings) {
 				isLastRepo = true
 			}
 
-			updatedMap, err := unit.ProcessComposeProjects(projects, force, processedUnits, isLastRepo)
+			updatedMap, err := compose.ProcessProjects(projects, force, processedUnits, isLastRepo)
 			if err != nil {
 				log.GetLogger().Error("Failed to process projects from repository", "name", repoConfig.Name, "error", err)
 				continue

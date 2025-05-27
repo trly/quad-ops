@@ -1,10 +1,10 @@
 package unit
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/trly/quad-ops/internal/compose"
 )
 
 // Volume represents the configuration for a volume in a Quadlet unit.
@@ -34,19 +34,29 @@ func NewVolume(name string) *Volume {
 
 // FromComposeVolume creates a Volume from a Docker Compose volume configuration.
 func (v *Volume) FromComposeVolume(name string, volume types.VolumeConfig) *Volume {
-	// Set the volume name using the common name resolver
-	v.VolumeName = compose.NameResolver(volume.Name, name)
+	// Set the volume name - use volume.Name if set, otherwise use the key name
+	if volume.Name != "" {
+		v.VolumeName = volume.Name
+	} else {
+		v.VolumeName = name
+	}
 
 	// Set driver if specified
 	if volume.Driver != "" {
 		v.Driver = volume.Driver
 	}
 
-	// Convert driver options to volume options using the common converter
-	v.Options = compose.OptionsConverter(volume.DriverOpts)
+	// Convert driver options to volume options
+	if len(volume.DriverOpts) > 0 {
+		for key, value := range volume.DriverOpts {
+			v.Options = append(v.Options, fmt.Sprintf("%s=%s", key, value))
+		}
+	}
 
-	// Add labels using the common converter
-	v.Label = compose.LabelConverter(volume.Labels)
+	// Add labels
+	if len(volume.Labels) > 0 {
+		v.Label = append(v.Label, volume.Labels.AsList()...)
+	}
 
 	// Sort all slices for deterministic output
 	sortVolume(v)
