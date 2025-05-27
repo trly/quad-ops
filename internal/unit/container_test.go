@@ -1,7 +1,6 @@
 package unit
 
 import (
-	"crypto/sha1" //nolint:gosec // Not used for security purposes, just content comparison
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,6 +11,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -69,16 +69,10 @@ func TestDeterministicUnitContent(t *testing.T) {
 	assert.Equal(t, content1, content2, "Unit content should be identical when generated from identical configs")
 
 	// Check if content hashing is deterministic
-	hash1 := GetContentHash(content1)
-	hash2 := GetContentHash(content2)
+	hash1 := fmt.Sprintf("%x", fs.GetContentHash(content1))
+	hash2 := fmt.Sprintf("%x", fs.GetContentHash(content2))
 
 	assert.Equal(t, hash1, hash2, "Content hashes should be identical for identical content")
-}
-
-func GetContentHash(content string) string {
-	hash := sha1.New() //nolint:gosec // Not used for security purposes
-	hash.Write([]byte(content))
-	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 func TestCustomHostnameNetworkAlias(t *testing.T) {

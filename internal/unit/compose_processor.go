@@ -2,7 +2,6 @@
 package unit
 
 import (
-	"crypto/sha1" //nolint:gosec // Not used for security purposes, just content comparison
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
 	"github.com/trly/quad-ops/internal/systemd"
@@ -122,7 +122,7 @@ type UpdateUnitDatabaseFunc func(unitRepo repository.Repository, unit *QuadletUn
 var (
 	ProcessUnit          ProcessUnitFunc          = processUnit
 	CleanupOrphanedUnits CleanupOrphanedUnitsFunc = cleanupOrphanedUnits
-	WriteUnitFile        WriteUnitFileFunc        = writeUnitFile
+	WriteUnitFile        WriteUnitFileFunc        = fs.WriteUnitFile
 	UpdateUnitDatabase   UpdateUnitDatabaseFunc   = updateUnitDatabase
 )
 
@@ -135,10 +135,10 @@ func processUnit(unitRepo repository.Repository, unit *QuadletUnit, force bool, 
 	content := GenerateQuadletUnit(*unit)
 
 	// Get unit file path
-	unitPath := getUnitFilePath(unit.Name, unit.Type)
+	unitPath := fs.GetUnitFilePath(unit.Name, unit.Type)
 
 	// Check if unit file content has changed
-	hasChanged := hasUnitChanged(unitPath, content)
+	hasChanged := fs.HasUnitChanged(unitPath, content)
 
 	// Check for potential naming conflicts due to usePodmanDefaultNames changes
 	// This occurs when a unit with a different naming scheme exists
@@ -170,7 +170,7 @@ func processUnit(unitRepo repository.Repository, unit *QuadletUnit, force bool, 
 		}
 
 		// Write the file
-		if err := WriteUnitFile(unitPath, content); err != nil {
+		if err := fs.WriteUnitFile(unitPath, content); err != nil {
 			return fmt.Errorf("writing unit file for %s: %w", unit.Name, err)
 		}
 
@@ -193,45 +193,9 @@ func processUnit(unitRepo repository.Repository, unit *QuadletUnit, force bool, 
 }
 
 // Helper functions extracted from the Processor struct.
-func getUnitFilePath(name, unitType string) string {
-	return filepath.Join(config.GetConfig().QuadletDir, fmt.Sprintf("%s.%s", name, unitType))
-}
-
-func hasUnitChanged(unitPath, content string) bool {
-	existingContent, err := os.ReadFile(unitPath) //nolint:gosec // Safe as path is internally constructed, not user-controlled
-	if err != nil {
-		// File doesn't exist or can't be read, so it has changed
-		return true
-	}
-
-	// If verbose logging is enabled, print hash comparison details
-	log.GetLogger().Debug("Content hash comparison",
-		"existing", fmt.Sprintf("%x", getContentHash(string(existingContent))),
-		"new", fmt.Sprintf("%x", getContentHash(content)))
-
-	// Compare the actual content directly instead of hashes
-	if string(existingContent) == content {
-		log.GetLogger().Debug("Unit unchanged, skipping", "path", unitPath)
-		return false
-	}
-
-	// Content is different
-	return true
-}
-
-func writeUnitFile(unitPath, content string) error {
-	log.GetLogger().Debug("Writing quadlet unit", "path", unitPath)
-
-	// Ensure the parent directory exists
-	if err := os.MkdirAll(filepath.Dir(unitPath), 0750); err != nil {
-		return fmt.Errorf("failed to create quadlet directory: %w", err)
-	}
-
-	return os.WriteFile(unitPath, []byte(content), 0600)
-}
 
 func updateUnitDatabase(unitRepo repository.Repository, unit *QuadletUnit, content string) error {
-	contentHash := getContentHash(content)
+	contentHash := fs.GetContentHash(content)
 
 	// Get repository cleanup policy from config
 	cleanupPolicy := "keep" // Default
@@ -308,7 +272,7 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 			// 3. Calling ResetFailed on units being removed causes warnings about "Unit not loaded"
 
 			// Remove the unit file
-			unitPath := getUnitFilePath(dbUnit.Name, dbUnit.Type)
+			unitPath := fs.GetUnitFilePath(dbUnit.Name, dbUnit.Type)
 			if err := os.Remove(unitPath); err != nil {
 				if !os.IsNotExist(err) {
 					log.GetLogger().Error("Failed to remove unit file", "path", unitPath, "error", err)
@@ -334,13 +298,6 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 	}
 
 	return nil
-}
-
-// getContentHash calculates a SHA1 hash for content storage and change tracking.
-func getContentHash(content string) []byte {
-	hash := sha1.New() //nolint:gosec // Not used for security purposes, just for content tracking
-	hash.Write([]byte(content))
-	return hash.Sum(nil)
 }
 
 // processServices processes all container services from a Docker Compose project.
