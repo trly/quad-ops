@@ -25,7 +25,7 @@ func TestNewRepository(t *testing.T) {
 		RepositoryDir: tmpDir,
 		Verbose:       true,
 	}
-	config.SetConfig(cfg)
+	config.DefaultProvider().SetConfig(cfg)
 
 	testRepo := config.Repository{
 		Name:      "test-repo",
@@ -65,7 +65,7 @@ func TestSyncRepository(t *testing.T) {
 		RepositoryDir: tmpDir,
 		Verbose:       true,
 	}
-	config.SetConfig(cfg)
+	config.DefaultProvider().SetConfig(cfg)
 
 	testRepo := config.Repository{
 		Name:      "test-repo",
@@ -96,7 +96,7 @@ func TestCheckoutTarget(t *testing.T) {
 		RepositoryDir: tmpDir,
 		Verbose:       true,
 	}
-	config.SetConfig(cfg)
+	config.DefaultProvider().SetConfig(cfg)
 
 	testRepo := config.Repository{
 		Name:      "test-repo",

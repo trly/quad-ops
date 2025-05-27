@@ -17,7 +17,7 @@ func TestGetUnitFilePath(t *testing.T) {
 	cfg := &config.Settings{
 		QuadletDir: "/test/quadlet",
 	}
-	config.SetConfig(cfg)
+	config.DefaultProvider().SetConfig(cfg)
 
 	tests := []struct {
 		name     string

@@ -64,7 +64,7 @@ repositories:
       action: Delete`,
 
 		Run: func(_ *cobra.Command, _ []string) {
-			if err := os.MkdirAll(config.GetConfig().QuadletDir, 0750); err != nil {
+			if err := os.MkdirAll(config.DefaultProvider().GetConfig().QuadletDir, 0750); err != nil {
 				log.GetLogger().Error("Failed to create quadlet directory", "error", err)
 				os.Exit(1)
 			}

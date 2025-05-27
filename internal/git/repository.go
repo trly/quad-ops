@@ -25,8 +25,8 @@ type Repository struct {
 func NewGitRepository(repository config.Repository) *Repository {
 	return &Repository{
 		Repository: repository,
-		Path:       filepath.Join(config.GetConfig().RepositoryDir, repository.Name),
-		verbose:    config.GetConfig().Verbose,
+		Path:       filepath.Join(config.DefaultProvider().GetConfig().RepositoryDir, repository.Name),
+		verbose:    config.DefaultProvider().GetConfig().Verbose,
 	}
 }
 

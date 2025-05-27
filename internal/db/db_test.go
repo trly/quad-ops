@@ -30,7 +30,7 @@ func TestConnect(t *testing.T) {
 		DBPath:  tmpDB.Name(),
 		Verbose: true,
 	}
-	config.SetConfig(testConfig)
+	config.DefaultProvider().SetConfig(testConfig)
 
 	// Initialize logger
 	log.Init(true)
@@ -51,7 +51,7 @@ func TestConnectError(t *testing.T) {
 	testConfig := &config.Settings{
 		DBPath: "/nonexistent/path/db.sqlite",
 	}
-	config.SetConfig(testConfig)
+	config.DefaultProvider().SetConfig(testConfig)
 
 	// Initialize logger
 	log.Init(false)

@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // Network represents the configuration for a network in a Quadlet unit.
@@ -25,7 +26,11 @@ type Network struct {
 // NewNetwork creates a new Network with the given name.
 func NewNetwork(name string) *Network {
 	return &Network{
-		BaseUnit: *NewBaseUnit(name, "network"),
+		BaseUnit: BaseUnit{
+			BaseUnit: systemd.NewBaseUnit(name, "network"),
+			Name:     name,
+			UnitType: "network",
+		},
 	}
 }
 

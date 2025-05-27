@@ -12,13 +12,12 @@ import (
 // Helper function to reset viper and config.
 func resetViper() {
 	viper.Reset()
-	cfg = nil
 }
 
 // TestInitConfig tests the InitConfig function.
 func TestInitConfig(t *testing.T) {
 	resetViper()
-	cfg := InitConfig()
+	cfg := DefaultProvider().InitConfig()
 	assert.Equal(t, DefaultRepositoryDir, cfg.RepositoryDir)
 	assert.Equal(t, DefaultSyncInterval, cfg.SyncInterval)
 	assert.Equal(t, DefaultQuadletDir, cfg.QuadletDir)
@@ -46,8 +45,8 @@ func TestSetAndGetConfig(t *testing.T) {
 		},
 	}
 
-	SetConfig(testConfig)
-	retrievedConfig := GetConfig()
+	DefaultProvider().SetConfig(testConfig)
+	retrievedConfig := DefaultProvider().GetConfig()
 	assert.Equal(t, testConfig, retrievedConfig)
 }
 
@@ -110,7 +109,7 @@ repositories:
 // TestConfigNotFound tests the case when the config file is not found.
 func TestConfigNotFound(t *testing.T) {
 	resetViper()
-	SetConfigFilePath("/nonexistent/config.yaml")
-	cfg := InitConfig()
+	DefaultProvider().SetConfigFilePath("/nonexistent/config.yaml")
+	cfg := DefaultProvider().InitConfig()
 	assert.Equal(t, DefaultRepositoryDir, cfg.RepositoryDir)
 }

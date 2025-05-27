@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // Volume represents the configuration for a volume in a Quadlet unit.
@@ -28,7 +29,11 @@ type Volume struct {
 // NewVolume creates a new Volume with the given name.
 func NewVolume(name string) *Volume {
 	return &Volume{
-		BaseUnit: *NewBaseUnit(name, "volume"),
+		BaseUnit: BaseUnit{
+			BaseUnit: systemd.NewBaseUnit(name, "volume"),
+			Name:     name,
+			UnitType: "volume",
+		},
 	}
 }
 

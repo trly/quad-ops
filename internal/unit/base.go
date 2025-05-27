@@ -9,12 +9,3 @@ type BaseUnit struct {
 	Name     string
 	UnitType string
 }
-
-// NewBaseUnit creates a new BaseUnit with the given name and type.
-func NewBaseUnit(name, unitType string) *BaseUnit {
-	return &BaseUnit{
-		BaseUnit: systemd.NewBaseUnit(name, unitType),
-		Name:     name,
-		UnitType: unitType,
-	}
-}

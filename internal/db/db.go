@@ -29,7 +29,7 @@ func GetConnectionString(cfg config.Settings) string {
 // Connect establishes a connection to the database.
 func Connect() (*sql.DB, error) {
 	// Remove sqlite3:// prefix if present for direct SQL connection
-	dbPath := strings.TrimPrefix(config.GetConfig().DBPath, "sqlite3://")
+	dbPath := strings.TrimPrefix(config.DefaultProvider().GetConfig().DBPath, "sqlite3://")
 
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {

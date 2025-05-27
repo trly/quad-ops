@@ -49,7 +49,7 @@ func TestVerifySystemRequirements_Success(t *testing.T) {
 		DBPath:  tmpDB.Name(),
 		Verbose: true,
 	}
-	config.SetConfig(testConfig)
+	config.DefaultProvider().SetConfig(testConfig)
 
 	// Initialize logger
 	log.Init(true)
@@ -89,7 +89,7 @@ func TestVerifySystemRequirements_MissingSystemd(t *testing.T) {
 	testConfig := &config.Settings{
 		Verbose: true,
 	}
-	config.SetConfig(testConfig)
+	config.DefaultProvider().SetConfig(testConfig)
 
 	// Initialize logger
 	log.Init(true)
@@ -122,7 +122,7 @@ func TestVerifySystemRequirements_InvalidSystemd(t *testing.T) {
 	testConfig := &config.Settings{
 		Verbose: true,
 	}
-	config.SetConfig(testConfig)
+	config.DefaultProvider().SetConfig(testConfig)
 
 	// Initialize logger
 	log.Init(true)
@@ -165,7 +165,7 @@ func TestVerifySystemRequirements_MissingPodman(t *testing.T) {
 	testConfig := &config.Settings{
 		Verbose: true,
 	}
-	config.SetConfig(testConfig)
+	config.DefaultProvider().SetConfig(testConfig)
 
 	// Initialize logger
 	log.Init(true)
@@ -202,7 +202,7 @@ func TestVerifySystemRequirements_MissingPodmanGenerator(t *testing.T) {
 	testConfig := &config.Settings{
 		Verbose: true,
 	}
-	config.SetConfig(testConfig)
+	config.DefaultProvider().SetConfig(testConfig)
 
 	// Initialize logger
 	log.Init(true)

@@ -80,8 +80,8 @@ func TestCustomHostnameNetworkAlias(t *testing.T) {
 	log.Init(false)
 
 	// Create mock configuration
-	cfg := config.InitConfig() // Initialize default config
-	config.SetConfig(cfg)
+	cfg := config.DefaultProvider().InitConfig() // Initialize default config
+	config.DefaultProvider().SetConfig(cfg)
 
 	// Create basic service with custom hostname
 	service := types.ServiceConfig{
@@ -129,8 +129,8 @@ func TestDeviceMappingFormat(t *testing.T) {
 	log.Init(false)
 
 	// Create mock configuration
-	cfg := config.InitConfig() // Initialize default config
-	config.SetConfig(cfg)
+	cfg := config.DefaultProvider().InitConfig() // Initialize default config
+	config.DefaultProvider().SetConfig(cfg)
 
 	// Create a service with device mappings like in the Scrutiny compose file
 	service := types.ServiceConfig{

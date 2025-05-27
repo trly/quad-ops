@@ -212,7 +212,7 @@ func updateUnitDatabase(unitRepo repository.Repository, unitItem *unit.QuadletUn
 	cleanupPolicy := "keep" // Default
 
 	// Check for repository-specific cleanup policy
-	for _, repo := range config.GetConfig().Repositories {
+	for _, repo := range config.DefaultProvider().GetConfig().Repositories {
 		if strings.Contains(unitItem.Name, repo.Name) && repo.Cleanup != "" {
 			cleanupPolicy = repo.Cleanup
 			break
@@ -239,7 +239,7 @@ func updateUnitDatabase(unitRepo repository.Repository, unitItem *unit.QuadletUn
 		Type:          unitItem.Type,
 		SHA1Hash:      contentHash,
 		CleanupPolicy: cleanupPolicy,
-		UserMode:      config.GetConfig().UserMode,
+		UserMode:      config.DefaultProvider().GetConfig().UserMode,
 		// CreatedAt removed - no need to update timestamp every time
 	})
 	return err
@@ -256,13 +256,13 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 
 		// Check if unit is orphaned or if there's a mode mismatch
 		isOrphaned := !processedUnits[unitKey] && (dbUnit.CleanupPolicy == "delete")
-		hasModeMismatch := dbUnit.UserMode != config.GetConfig().UserMode && processedUnits[unitKey]
+		hasModeMismatch := dbUnit.UserMode != config.DefaultProvider().GetConfig().UserMode && processedUnits[unitKey]
 
 		if isOrphaned || hasModeMismatch {
 			if isOrphaned {
 				log.GetLogger().Info("Cleaning up orphaned unit", "unit", unitKey, "policy", dbUnit.CleanupPolicy)
 			} else {
-				log.GetLogger().Info("Cleaning up unit due to user mode mismatch", "unit", unitKey, "dbMode", dbUnit.UserMode, "currentMode", config.GetConfig().UserMode)
+				log.GetLogger().Info("Cleaning up unit due to user mode mismatch", "unit", unitKey, "dbMode", dbUnit.UserMode, "currentMode", config.DefaultProvider().GetConfig().UserMode)
 			}
 
 			// First, stop the unit
@@ -565,10 +565,10 @@ func processNetworks(project *types.Project, unitRepo repository.Repository, for
 
 // getUsePodmanNames determines whether to use Podman's default naming scheme based on config and repository settings.
 func getUsePodmanNames(projectName string) bool {
-	usePodmanNames := config.GetConfig().UsePodmanDefaultNames
+	usePodmanNames := config.DefaultProvider().GetConfig().UsePodmanDefaultNames
 
 	// Repository-specific setting overrides global setting if present
-	for _, repo := range config.GetConfig().Repositories {
+	for _, repo := range config.DefaultProvider().GetConfig().Repositories {
 		if strings.Contains(projectName, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
 			usePodmanNames = repo.UsePodmanDefaultNames
 			break

@@ -332,7 +332,7 @@ func getUnitFailureDetails(unitName string) string {
 	// For logs, we still need journalctl as systemd dbus doesn't provide log retrieval
 	// This is the only remaining exec.Command, but it's necessary as dbus doesn't expose logs
 	cmd := exec.Command("journalctl", "--user-unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
-	if !config.GetConfig().UserMode {
+	if !config.DefaultProvider().GetConfig().UserMode {
 		cmd = exec.Command("journalctl", "--unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
 	}
 	output, err := cmd.CombinedOutput()
@@ -345,13 +345,13 @@ func getUnitFailureDetails(unitName string) string {
 }
 
 func getSystemdConnection() (*dbus.Conn, error) {
-	if config.GetConfig().UserMode {
+	if config.DefaultProvider().GetConfig().UserMode {
 		log.GetLogger().Debug("Establishing user connection to systemd")
 	} else {
 		log.GetLogger().Debug("Establishing system connection to systemd")
 	}
 
-	if config.GetConfig().UserMode {
+	if config.DefaultProvider().GetConfig().UserMode {
 		return dbus.NewUserConnectionContext(ctx)
 	}
 	return dbus.NewSystemConnectionContext(ctx)

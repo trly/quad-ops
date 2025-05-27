@@ -13,7 +13,7 @@ import (
 
 // GetUnitFilePath returns the full path for a quadlet unit file.
 func GetUnitFilePath(name, unitType string) string {
-	return filepath.Join(config.GetConfig().QuadletDir, fmt.Sprintf("%s.%s", name, unitType))
+	return filepath.Join(config.DefaultProvider().GetConfig().QuadletDir, fmt.Sprintf("%s.%s", name, unitType))
 }
 
 // HasUnitChanged checks if the content of a unit file has changed.

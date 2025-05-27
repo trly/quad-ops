@@ -31,7 +31,11 @@ func NewDefaultConfigProvider() Provider {
 }
 
 var defaultProvider = NewDefaultConfigProvider()
-var cfg *Settings
+
+// DefaultProvider returns the default configuration provider instance.
+func DefaultProvider() Provider {
+	return defaultProvider
+}
 
 // Default configuration values for the quad-ops system.
 // These constants define the default values for various configuration
@@ -96,28 +100,6 @@ func (p *defaultConfigProvider) InitConfig() *Settings {
 }
 
 // For backward compatibility - pass through to default provider
-
-// SetConfig sets the application configuration.
-func SetConfig(c *Settings) {
-	defaultProvider.SetConfig(c)
-	cfg = c
-}
-
-// GetConfig returns the current application configuration.
-func GetConfig() *Settings {
-	return defaultProvider.GetConfig()
-}
-
-// SetConfigFilePath sets the configuration file path.
-func SetConfigFilePath(p string) {
-	defaultProvider.SetConfigFilePath(p)
-}
-
-// InitConfig initializes the application configuration.
-func InitConfig() *Settings {
-	cfg = defaultProvider.InitConfig()
-	return cfg
-}
 
 // Internal function to initialize configuration.
 func initConfigInternal() *Settings {

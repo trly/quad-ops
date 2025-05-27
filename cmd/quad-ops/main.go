@@ -30,8 +30,8 @@ import (
 )
 
 func main() {
-	cfg := config.InitConfig()
-	config.SetConfig(cfg)
+	cfg := config.DefaultProvider().InitConfig()
+	config.DefaultProvider().SetConfig(cfg)
 
 	rootCmd := &cmd.RootCommand{}
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/systemd"
 	"github.com/trly/quad-ops/internal/util"
 )
 
@@ -73,7 +74,11 @@ type Container struct {
 // NewContainer creates a new Container with the given name.
 func NewContainer(name string) *Container {
 	return &Container{
-		BaseUnit: *NewBaseUnit(name, "container"),
+		BaseUnit: BaseUnit{
+			BaseUnit: systemd.NewBaseUnit(name, "container"),
+			Name:     name,
+			UnitType: "container",
+		},
 	}
 }
 

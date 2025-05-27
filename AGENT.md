@@ -1,11 +1,11 @@
 # quad-ops Development Guide
 
 ## Commands
-- **Build**: `task build` (includes fmt, lint, test)
-- **Test all**: `task test` or `gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...`
+- **Build**: `go build -o quad-ops cmd/quad-ops/main.go`
+- **Test all**: `gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...`
 - **Test single package**: `go test -v ./internal/validate`
-- **Lint**: `task lint` or `golangci-lint run`
-- **Format**: `task fmt` or `go fmt ./...`
+- **Lint**: `golangci-lint run`
+- **Format**: `go fmt ./...`
 - **Main entry**: `cmd/quad-ops/main.go`
 
 ## Code Style

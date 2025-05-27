@@ -179,7 +179,7 @@ CREATE UNIQUE INDEX unique_name_type ON units(name, type);`)
 	cfg := &config.Settings{
 		UserMode: false,
 	}
-	config.SetConfig(cfg)
+	config.DefaultProvider().SetConfig(cfg)
 
 	// Create a unit with userMode=false
 	unit := &Unit{

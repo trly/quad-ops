@@ -7,6 +7,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // Build represents the configuration for a build unit.
@@ -29,7 +30,11 @@ type Build struct {
 // NewBuild creates a new Build with the given name.
 func NewBuild(name string) *Build {
 	return &Build{
-		BaseUnit: *NewBaseUnit(name, "build"),
+		BaseUnit: BaseUnit{
+			BaseUnit: systemd.NewBaseUnit(name, "build"),
+			Name:     name,
+			UnitType: "build",
+		},
 	}
 }
 
