@@ -27,14 +27,3 @@ tasks:
     cmds:
       - go fmt ./...
 
-  ci-build:
-    desc: CI build (without linting - lint job handles that)
-    cmds:
-      - go test -v ./...
-      - go build -v ./...
-
-  ci-test:
-    desc: CI test only
-    cmds:
-      - gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...
-
