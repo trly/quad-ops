@@ -149,7 +149,7 @@ func (sv *SecretValidator) ValidateEnvValue(key, value string) error {
 	return nil
 }
 
-// validateSensitiveEnvValue applies stricter validation for sensitive environment variables
+// validateSensitiveEnvValue applies stricter validation for sensitive environment variables.
 func (sv *SecretValidator) validateSensitiveEnvValue(value string) error {
 	// Sensitive values should not contain obvious test/default values
 	testValues := []string{"password", "secret", "123456", "admin", "test", "default"}
@@ -174,7 +174,7 @@ func (sv *SecretValidator) validateSensitiveEnvValue(value string) error {
 	return nil
 }
 
-// isSensitiveKey checks if an environment variable key indicates sensitive data
+// isSensitiveKey checks if an environment variable key indicates sensitive data.
 func isSensitiveKey(key string) bool {
 	lowerKey := strings.ToLower(key)
 	for _, keyword := range sensitiveKeywords {
@@ -185,7 +185,7 @@ func isSensitiveKey(key string) bool {
 	return false
 }
 
-// isRepeatingPattern checks if a string consists mostly of repeating characters
+// isRepeatingPattern checks if a string consists mostly of repeating characters.
 func isRepeatingPattern(s string) bool {
 	if len(s) < 4 {
 		return false
@@ -197,7 +197,7 @@ func isRepeatingPattern(s string) bool {
 		charCount[r]++
 	}
 
-	// If any character appears more than 50% of the time, consider it repeating
+	// If any character appears more than 50% of the time, consider it repeating.
 	threshold := len(s) / 2
 	for _, count := range charCount {
 		if count > threshold {
@@ -208,7 +208,7 @@ func isRepeatingPattern(s string) bool {
 	return false
 }
 
-// SanitizeForLogging redacts sensitive information from strings for safe logging
+// SanitizeForLogging redacts sensitive information from strings for safe logging.
 func SanitizeForLogging(key, value string) string {
 	if isSensitiveKey(key) {
 		if len(value) <= 4 {
@@ -220,8 +220,8 @@ func SanitizeForLogging(key, value string) string {
 	return value
 }
 
-// ValidateEnvKey provides extended validation for environment variable keys
-func ValidateEnvKey(key string) error {
+// EnvKey provides extended validation for environment variable keys.
+func EnvKey(key string) error {
 	if key == "" {
 		return fmt.Errorf("environment variable key cannot be empty")
 	}

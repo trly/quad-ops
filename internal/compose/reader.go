@@ -171,7 +171,7 @@ func ParseComposeFile(path string) (*types.Project, error) {
 						validator := validate.NewSecretValidator()
 
 						// Validate environment variable key with extended validation
-						if err := validate.ValidateEnvKey(key); err != nil {
+						if err := validate.EnvKey(key); err != nil {
 							log.GetLogger().Warn("Invalid environment variable key", "key", key, "error", err)
 							continue
 						}

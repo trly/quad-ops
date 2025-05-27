@@ -125,7 +125,7 @@ func TestSecretValidator_ValidateEnvValue(t *testing.T) {
 	}
 }
 
-func TestValidateEnvKey(t *testing.T) {
+func TestEnvKey(t *testing.T) {
 	tests := []struct {
 		name        string
 		key         string
@@ -143,7 +143,7 @@ func TestValidateEnvKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateEnvKey(tt.key)
+			err := EnvKey(tt.key)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {

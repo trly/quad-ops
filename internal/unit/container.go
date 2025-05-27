@@ -346,19 +346,21 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 			// Safe conversion from int64 to uint32 with bounds check
 			mode := *secret.Mode
 			if mode < 0 || mode > 0xFFFFFFFF {
-			log.GetLogger().Warn("Secret mode out of valid range, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
-			defaultMode := types.FileMode(0600)
-			 unitSecret.Mode = defaultMode.String()
-			} else {
-			 modeVal := uint32(mode)
-			if modeVal&0004 != 0 { // Check if world-readable
-				log.GetLogger().Warn("Secret mode is world-readable, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
+				log.GetLogger().Warn("Secret mode out of valid range, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
 				defaultMode := types.FileMode(0600)
 				unitSecret.Mode = defaultMode.String()
 			} else {
-				unitSecret.Mode = secret.Mode.String()
+				// Safe conversion - bounds already checked above
+				// #nosec G115 -- bounds check ensures safe conversion
+				modeVal := uint32(mode)
+				if modeVal&0004 != 0 { // Check if world-readable
+					log.GetLogger().Warn("Secret mode is world-readable, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
+					defaultMode := types.FileMode(0600)
+					unitSecret.Mode = defaultMode.String()
+				} else {
+					unitSecret.Mode = secret.Mode.String()
+				}
 			}
-		}
 		}
 		c.Secrets = append(c.Secrets, unitSecret)
 	}
@@ -375,7 +377,7 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 					}
 
 					// Validate environment variable name
-					if err := validate.ValidateEnvKey(envVarStr); err != nil {
+					if err := validate.EnvKey(envVarStr); err != nil {
 						log.GetLogger().Warn("Invalid env variable name for secret, skipping", "secret", secretName, "envVar", envVarStr, "service", service.Name, "error", err)
 						continue
 					}
