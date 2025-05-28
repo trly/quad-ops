@@ -28,7 +28,6 @@ RUN echo "test"
 
 	// Create test service with build
 	service := types.ServiceConfig{
-		Name: "test-service",
 		Build: &types.BuildConfig{
 			Context:    ".",
 			Dockerfile: "Dockerfile",

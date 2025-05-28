@@ -11,8 +11,6 @@ func TestBaseUnit(t *testing.T) {
 	// Test container unit
 	containerUnit := &BaseUnit{
 		BaseUnit: systemd.NewBaseUnit("test-container", "container"),
-		Name:     "test-container",
-		UnitType: "container",
 	}
 
 	// Test GetServiceName for container
@@ -25,8 +23,6 @@ func TestBaseUnit(t *testing.T) {
 	// Test volume unit
 	volumeUnit := &BaseUnit{
 		BaseUnit: systemd.NewBaseUnit("test-volume", "volume"),
-		Name:     "test-volume",
-		UnitType: "volume",
 	}
 
 	// Test GetServiceName for non-container unit
@@ -39,8 +35,6 @@ func TestBaseUnit(t *testing.T) {
 	// Test network unit
 	networkUnit := &BaseUnit{
 		BaseUnit: systemd.NewBaseUnit("test-network", "network"),
-		Name:     "test-network",
-		UnitType: "network",
 	}
 
 	// Test GetServiceName for non-container unit
