@@ -227,12 +227,12 @@ func TestReadProjectsMissingDirectory(t *testing.T) {
 func TestReadProjectsPermissionDenied(t *testing.T) {
 	parentDir, _ := os.MkdirTemp("", "parent")
 	testDir := filepath.Join(parentDir, "secureDir")
-	_ = os.MkdirAll(testDir, 0755)
+	_ = os.MkdirAll(testDir, 0755) //#nosec used for testing
 
-	_ = os.Chmod(parentDir, 0644)
+	_ = os.Chmod(parentDir, 0644) // #nosec used for testing
 
 	defer func() {
-		_ = os.Chmod(parentDir, 0755)
+		_ = os.Chmod(parentDir, 0755) // #nosec used for testing
 		_ = os.RemoveAll(parentDir)
 	}()
 
@@ -264,6 +264,7 @@ services:
 	}
 
 	subDir := filepath.Join(tmpDir, "subdir")
+	//#nosec used for testing
 	if err := os.MkdirAll(subDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -274,6 +275,7 @@ services:
 	}
 
 	nestedDir := filepath.Join(subDir, "nested")
+	//#nosec used for testing
 	if err := os.MkdirAll(nestedDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -344,6 +346,7 @@ func TestReadProjectsWalkWithDirectoryAccessError(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	restrictedDir := filepath.Join(tmpDir, "restricted")
+	//#nosec used for testing
 	if err := os.MkdirAll(restrictedDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -362,7 +365,7 @@ func TestReadProjectsWalkWithDirectoryAccessError(t *testing.T) {
 	}
 
 	defer func() {
-		_ = os.Chmod(restrictedDir, 0755)
+		_ = os.Chmod(restrictedDir, 0755) // #nosec used for testing
 	}()
 
 	projects, err := ReadProjects(tmpDir)
@@ -433,6 +436,7 @@ services:
 			// Create the full path structure
 			fullPath := filepath.Join(tmpDir, tt.pathPattern)
 			dirPath := filepath.Dir(fullPath)
+			//#nosec used for testing
 			if err := os.MkdirAll(dirPath, 0755); err != nil {
 				t.Fatal(err)
 			}
@@ -502,6 +506,7 @@ services:
 			// Create the full path structure
 			fullPath := filepath.Join(tmpDir, tt.pathPattern)
 			dirPath := filepath.Dir(fullPath)
+			//#nosec used for testing
 			if err := os.MkdirAll(dirPath, 0755); err != nil {
 				t.Fatal(err)
 			}
@@ -542,6 +547,7 @@ services:
 
 	// Create a subdirectory that might trigger default naming
 	testDir := filepath.Join(tmpDir, ".")
+	//#nosec used for testing
 	if err := os.MkdirAll(testDir, 0755); err != nil {
 		t.Fatal(err)
 	}
