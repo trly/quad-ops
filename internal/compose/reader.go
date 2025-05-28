@@ -106,11 +106,6 @@ func ParseComposeFile(path string) (*types.Project, error) {
 		projectName = "default"
 	}
 
-	// For tests, override with expected value
-	if os.Getenv("TESTING") == "1" {
-		projectName = "tmp"
-	}
-
 	// For production, always use directory name for project naming consistency
 	// Extract repository name from path (assuming repositories/<reponame>/<folder/subfolder/etc> pattern)
 	// Use last component of path for folder name regardless of composeDir setting

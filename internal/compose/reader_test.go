@@ -214,3 +214,350 @@ func TestValidateEnvKey(t *testing.T) {
 		})
 	}
 }
+func TestReadProjectsEmptyPath(t *testing.T) {
+	_, err := ReadProjects("")
+	assert.Error(t, err)
+}
+
+func TestReadProjectsMissingDirectory(t *testing.T) {
+	_, err := ReadProjects("testdata/missing-directory")
+	assert.Error(t, err)
+}
+
+func TestReadProjectsPermissionDenied(t *testing.T) {
+	parentDir, _ := os.MkdirTemp("", "parent")
+	testDir := filepath.Join(parentDir, "secureDir")
+	_ = os.MkdirAll(testDir, 0755)
+
+	_ = os.Chmod(parentDir, 0644)
+
+	defer func() {
+		_ = os.Chmod(parentDir, 0755)
+		_ = os.RemoveAll(parentDir)
+	}()
+
+	_, err := ReadProjects(testDir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to access compose directory")
+}
+
+func TestReadProjectsWalkDirectoryStructure(t *testing.T) {
+	log.Init(true)
+
+	tmpDir, err := os.MkdirTemp("", "compose-walk-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	composeContent := `
+services:
+  test-service:
+    image: test/image:latest
+    ports:
+      - "8080:80"
+`
+
+	rootComposePath := filepath.Join(tmpDir, "docker-compose.yml")
+	if err := os.WriteFile(rootComposePath, []byte(composeContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	subDir := filepath.Join(tmpDir, "subdir")
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	subComposePath := filepath.Join(subDir, "compose.yaml")
+	if err := os.WriteFile(subComposePath, []byte(composeContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	nestedDir := filepath.Join(subDir, "nested")
+	if err := os.MkdirAll(nestedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	nestedComposePath := filepath.Join(nestedDir, "docker-compose.yaml")
+	if err := os.WriteFile(nestedComposePath, []byte(composeContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	ignoredYamlPath := filepath.Join(tmpDir, "config.yml")
+	if err := os.WriteFile(ignoredYamlPath, []byte("key: value"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	ignoredYamlPath2 := filepath.Join(subDir, "settings.yaml")
+	if err := os.WriteFile(ignoredYamlPath2, []byte("setting: value"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	txtFilePath := filepath.Join(tmpDir, "readme.txt")
+	if err := os.WriteFile(txtFilePath, []byte("This is a readme"), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	projects, err := ReadProjects(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Len(t, projects, 3, "Should find exactly 3 compose files")
+
+	projectNames := make([]string, len(projects))
+	for i, project := range projects {
+		projectNames[i] = project.Name
+		assert.Len(t, project.Services, 1, "Each project should have 1 service")
+		assert.Contains(t, project.Services, "test-service", "Each project should contain test-service")
+	}
+
+	expectedRootName := filepath.Base(tmpDir)
+	assert.Contains(t, projectNames, expectedRootName, "Should contain root directory project")
+	assert.Contains(t, projectNames, "subdir", "Should contain subdir project")
+	assert.Contains(t, projectNames, "nested", "Should contain nested project")
+}
+
+func TestReadProjectsWalkEmptyDirectory(t *testing.T) {
+	log.Init(true)
+
+	tmpDir, err := os.MkdirTemp("", "compose-empty-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	projects, err := ReadProjects(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Len(t, projects, 0, "Should return empty slice for directory with no compose files")
+}
+
+func TestReadProjectsWalkWithDirectoryAccessError(t *testing.T) {
+	log.Init(true)
+
+	tmpDir, err := os.MkdirTemp("", "compose-access-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	restrictedDir := filepath.Join(tmpDir, "restricted")
+	if err := os.MkdirAll(restrictedDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	composeContent := `services:
+  test-service:
+    image: test/image:latest`
+
+	mainComposePath := filepath.Join(tmpDir, "docker-compose.yml")
+	if err := os.WriteFile(mainComposePath, []byte(composeContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Chmod(restrictedDir, 0000); err != nil {
+		t.Fatal(err)
+	}
+
+	defer func() {
+		_ = os.Chmod(restrictedDir, 0755)
+	}()
+
+	projects, err := ReadProjects(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Len(t, projects, 1, "Should find 1 compose file despite subdirectory access error")
+	assert.Contains(t, projects[0].Services, "test-service", "Should parse the accessible compose file")
+}
+func TestReadProjectsNotADirectory(t *testing.T) {
+	testFile, _ := os.CreateTemp("", "testfile")
+	_, err := ReadProjects(testFile.Name())
+	assert.Error(t, err)
+}
+
+func TestParseComposeFileProjectNaming(t *testing.T) {
+	// Initialize logger for test
+	log.Init(true)
+
+	composeContent := `
+services:
+  test-service:
+    image: test/image:latest
+`
+
+	tests := []struct {
+		name         string
+		pathPattern  string
+		expectedName string
+	}{
+		{
+			name:         "repositories pattern with nested directory",
+			pathPattern:  "repositories/myrepo/webapp/docker-compose.yml",
+			expectedName: "myrepo-webapp",
+		},
+		{
+			name:         "repositories pattern with root compose file",
+			pathPattern:  "repositories/myapp/docker-compose.yml",
+			expectedName: "myapp-myapp",
+		},
+		{
+			name:         "repositories pattern with deeply nested path",
+			pathPattern:  "repositories/backend-service/services/api/docker-compose.yml",
+			expectedName: "backend-service-api",
+		},
+		{
+			name:         "non-repositories pattern",
+			pathPattern:  "projects/myapp/docker-compose.yml",
+			expectedName: "myapp",
+		},
+		{
+			name:         "simple directory",
+			pathPattern:  "myapp/docker-compose.yml",
+			expectedName: "myapp",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary directory structure
+			tmpDir, err := os.MkdirTemp("", "compose-naming-test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = os.RemoveAll(tmpDir) }()
+
+			// Create the full path structure
+			fullPath := filepath.Join(tmpDir, tt.pathPattern)
+			dirPath := filepath.Dir(fullPath)
+			if err := os.MkdirAll(dirPath, 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			// Create the compose file
+			if err := os.WriteFile(fullPath, []byte(composeContent), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			// Parse the compose file
+			project, err := ParseComposeFile(fullPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Verify the project name
+			assert.Equal(t, tt.expectedName, project.Name, "Project name should match expected pattern")
+		})
+	}
+}
+
+func TestParseComposeFileRepositoriesEdgeCases(t *testing.T) {
+	// Initialize logger for test
+	log.Init(true)
+
+	composeContent := `
+services:
+  test-service:
+    image: test/image:latest
+`
+
+	tests := []struct {
+		name         string
+		pathPattern  string
+		expectedName string
+		description  string
+	}{
+		{
+			name:         "repositories at end of path",
+			pathPattern:  "some/path/repositories/docker-compose.yml",
+			expectedName: "repositories",
+			description:  "When repositories is the directory containing compose file",
+		},
+		{
+			name:         "multiple repositories in path",
+			pathPattern:  "repositories/myrepo/repositories/submodule/docker-compose.yml",
+			expectedName: "myrepo-submodule",
+			description:  "Should use first repositories directory found",
+		},
+		{
+			name:         "repositories without sufficient components",
+			pathPattern:  "repositories/docker-compose.yml",
+			expectedName: "repositories",
+			description:  "When there's no repo name after repositories",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary directory structure
+			tmpDir, err := os.MkdirTemp("", "compose-edge-test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer func() { _ = os.RemoveAll(tmpDir) }()
+
+			// Create the full path structure
+			fullPath := filepath.Join(tmpDir, tt.pathPattern)
+			dirPath := filepath.Dir(fullPath)
+			if err := os.MkdirAll(dirPath, 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			// Create the compose file
+			if err := os.WriteFile(fullPath, []byte(composeContent), 0600); err != nil {
+				t.Fatal(err)
+			}
+
+			// Parse the compose file
+			project, err := ParseComposeFile(fullPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Verify the project name
+			assert.Equal(t, tt.expectedName, project.Name, tt.description)
+		})
+	}
+}
+
+func TestParseComposeFileDefaultNaming(t *testing.T) {
+	// Initialize logger for test
+	log.Init(true)
+
+	composeContent := `
+services:
+  test-service:
+    image: test/image:latest
+`
+
+	// Test edge case where directory name results in default
+	tmpDir, err := os.MkdirTemp("", "compose-default-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	// Create a subdirectory that might trigger default naming
+	testDir := filepath.Join(tmpDir, ".")
+	if err := os.MkdirAll(testDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	composePath := filepath.Join(testDir, "docker-compose.yml")
+	if err := os.WriteFile(composePath, []byte(composeContent), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Parse the compose file
+	project, err := ParseComposeFile(composePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should use parent directory name, not "default"
+	assert.NotEqual(t, "default", project.Name, "Should not use default name for normal directories")
+	assert.NotEmpty(t, project.Name, "Project name should not be empty")
+}
