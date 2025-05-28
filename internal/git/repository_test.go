@@ -14,7 +14,7 @@ import (
 	"github.com/trly/quad-ops/internal/log"
 )
 
-// setupTest initializes logger and creates a temporary directory with config
+// setupTest initializes logger and creates a temporary directory with config.
 func setupTest(t *testing.T) (string, func()) {
 	log.Init(true)
 
@@ -31,7 +31,7 @@ func setupTest(t *testing.T) (string, func()) {
 	return tmpDir, cleanup
 }
 
-// createTestRepo creates a local git repository with an initial commit
+// createTestRepo creates a local git repository with an initial commit.
 func createTestRepo(t *testing.T, repoDir string) (*git.Repository, string) {
 	repo, err := git.PlainInit(repoDir, false)
 	require.NoError(t, err)
@@ -40,7 +40,7 @@ func createTestRepo(t *testing.T, repoDir string) (*git.Repository, string) {
 	require.NoError(t, err)
 
 	testFile := filepath.Join(repoDir, "test.txt")
-	err = os.WriteFile(testFile, []byte("initial content"), 0644)
+	err = os.WriteFile(testFile, []byte("initial content"), 0600)
 	require.NoError(t, err)
 
 	_, err = worktree.Add("test.txt")
@@ -107,11 +107,11 @@ func TestSyncRepositoryAlreadyExists(t *testing.T) {
 
 	// Create the repository directory to simulate existing repo
 	repoDir := filepath.Join(tmpDir, testRepo.Name)
-	require.NoError(t, os.MkdirAll(repoDir, 0755))
+	require.NoError(t, os.MkdirAll(repoDir, 0700))
 
 	// Create a .git directory to simulate an existing git repository
 	gitDir := filepath.Join(repoDir, ".git")
-	require.NoError(t, os.MkdirAll(gitDir, 0755))
+	require.NoError(t, os.MkdirAll(gitDir, 0700))
 
 	// Test that SyncRepository handles existing repository case
 	// This should fail because we've created a fake .git directory without proper git structure
@@ -172,7 +172,7 @@ func TestPullLatest(t *testing.T) {
 	require.NoError(t, err)
 
 	testFile := filepath.Join(remoteRepoDir, "test.txt")
-	err = os.WriteFile(testFile, []byte("updated content"), 0644)
+	err = os.WriteFile(testFile, []byte("updated content"), 0600)
 	require.NoError(t, err)
 
 	_, err = remoteWorktree.Add("test.txt")
@@ -230,7 +230,7 @@ func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	testFile := filepath.Join(remoteRepoDir, "test.txt")
-	err = os.WriteFile(testFile, []byte("updated content"), 0644)
+	err = os.WriteFile(testFile, []byte("updated content"), 0600)
 	require.NoError(t, err)
 
 	_, err = remoteWorktree.Add("test.txt")
@@ -353,7 +353,7 @@ func TestCheckoutTargetForceBranchFallback(t *testing.T) {
 
 	// Make a commit on the feature branch
 	testFile := filepath.Join(remoteRepoDir, "feature.txt")
-	err = os.WriteFile(testFile, []byte("feature content"), 0644)
+	err = os.WriteFile(testFile, []byte("feature content"), 0600)
 	require.NoError(t, err)
 
 	_, err = remoteWorktree.Add("feature.txt")
