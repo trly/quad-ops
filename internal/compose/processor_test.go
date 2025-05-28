@@ -8,6 +8,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/unit"
 )
 
@@ -47,6 +48,9 @@ RUN echo "test"
 
 // TestAddEnvironmentFiles tests the addEnvironmentFiles refactored method.
 func TestAddEnvironmentFiles(t *testing.T) {
+	// Initialize logger for test
+	log.Init(true)
+
 	// Create a temporary directory for the test
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test")
 	require.NoError(t, err)
