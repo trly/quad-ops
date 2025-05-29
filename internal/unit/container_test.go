@@ -637,3 +637,40 @@ func TestContainerAdvancedConfig(t *testing.T) {
 	assert.Contains(t, unitFile, "Tmpfs=tmp")
 	assert.Contains(t, unitFile, "UserNS=keep-id")
 }
+
+func TestVolumeOptionsPreservation(t *testing.T) {
+	container := NewContainer("test-volume-options")
+
+	// Create a service with various volume options including SELinux labels
+	service := types.ServiceConfig{
+		Name:  "volume-service",
+		Image: "nginx:latest",
+		Volumes: []types.ServiceVolumeConfig{
+			{
+				Type:   "bind",
+				Source: "/host/path",
+				Target: "/container/path",
+				Bind: &types.ServiceVolumeBind{
+					SELinux: "Z",
+				},
+			},
+			{
+				Type:     "bind",
+				Source:   "/host/readonly",
+				Target:   "/container/readonly",
+				ReadOnly: true,
+				Bind: &types.ServiceVolumeBind{
+					SELinux: "z",
+				},
+			},
+		},
+	}
+
+	// Convert service to container
+	container.FromComposeService(service, "test-project")
+
+	// Verify that SELinux options are preserved
+	assert.Len(t, container.Volume, 2)
+	assert.Contains(t, container.Volume, "/host/path:/container/path:rw,Z")
+	assert.Contains(t, container.Volume, "/host/readonly:/container/readonly:ro,z")
+}

@@ -214,8 +214,8 @@ func (c *Container) processServiceVolumes(service types.ServiceConfig, projectNa
 				// This ensures proper systemd unit references for volumes defined in the compose file
 				c.Volume = append(c.Volume, fmt.Sprintf("%s-%s.volume:%s", projectName, vol.Source, vol.Target))
 			} else {
-				// Regular bind mount or external volume - use as-is
-				c.Volume = append(c.Volume, fmt.Sprintf("%s:%s", vol.Source, vol.Target))
+				// Regular bind mount or external volume - use compose String() method to preserve options
+				c.Volume = append(c.Volume, vol.String())
 			}
 		}
 	}
