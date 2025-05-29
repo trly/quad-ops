@@ -415,7 +415,7 @@ func addBuildDependency(dependencyGraph *dependency.ServiceDependencyGraph, serv
 
 func createContainerFromService(service types.ServiceConfig, prefixedName, serviceName string, project *types.Project) *unit.Container {
 	container := unit.NewContainer(prefixedName)
-	container = container.FromComposeService(service, project.Name)
+	container = container.FromComposeService(service, project)
 
 	// Add environment files
 	addEnvironmentFiles(container, serviceName, project.WorkingDir)
@@ -504,6 +504,12 @@ func processVolumes(project *types.Project, unitRepo repository.Repository, forc
 	for volumeName, volumeConfig := range project.Volumes {
 		log.GetLogger().Debug("Processing volume", "volume", volumeName)
 
+		// Skip external volumes - they are managed externally and should not be created by quad-ops
+		if bool(volumeConfig.External) {
+			log.GetLogger().Debug("Skipping external volume", "volume", volumeName)
+			continue
+		}
+
 		// Check if we should use Podman's default naming with systemd- prefix
 		usePodmanNames := getUsePodmanNames(project.Name)
 
@@ -536,6 +542,12 @@ func processVolumes(project *types.Project, unitRepo repository.Repository, forc
 func processNetworks(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit, repoConfig *config.Repository) error {
 	for networkName, networkConfig := range project.Networks {
 		log.GetLogger().Debug("Processing network", "network", networkName)
+
+		// Skip external networks - they are managed externally and should not be created by quad-ops
+		if bool(networkConfig.External) {
+			log.GetLogger().Debug("Skipping external network", "network", networkName)
+			continue
+		}
 
 		// Check if we should use Podman's default naming with systemd- prefix
 		usePodmanNames := getUsePodmanNames(project.Name)

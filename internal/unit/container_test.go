@@ -43,10 +43,17 @@ func TestDeterministicUnitContent(t *testing.T) {
 		},
 	}
 
+	// Create test project
+	project := &types.Project{
+		Name:     "test-project",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  map[string]types.VolumeConfig{},
+	}
+
 	// Convert to container objects
-	container1.FromComposeService(service, "test-project")
+	container1.FromComposeService(service, project)
 	// Do it again for the second container
-	container2.FromComposeService(service, "test-project")
+	container2.FromComposeService(service, project)
 
 	// Generate quadlet units
 	unit1 := &QuadletUnit{
@@ -92,9 +99,14 @@ func TestCustomHostnameNetworkAlias(t *testing.T) {
 
 	// Process the container
 	projectName := "test-project"
+	project := &types.Project{
+		Name:     projectName,
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  map[string]types.VolumeConfig{},
+	}
 	prefixedName := fmt.Sprintf("%s-%s", projectName, "db")
 	container := NewContainer(prefixedName)
-	container = container.FromComposeService(service, projectName)
+	container = container.FromComposeService(service, project)
 
 	// Set custom container name (usePodmanNames=false)
 	container.ContainerName = prefixedName
@@ -145,8 +157,13 @@ func TestDeviceMappingFormat(t *testing.T) {
 	}
 
 	// Process the container
+	project := &types.Project{
+		Name:     "test-project",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  map[string]types.VolumeConfig{},
+	}
 	container := NewContainer("test-scrutiny")
-	container = container.FromComposeService(service, "test-project")
+	container = container.FromComposeService(service, project)
 
 	// Generate unit to verify output
 	unit := &QuadletUnit{
@@ -220,7 +237,7 @@ func TestServiceSpecificEnvironmentFiles(t *testing.T) {
 	for serviceName, service := range project.Services {
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
 		container := NewContainer(prefixedName)
-		container = container.FromComposeService(service, project.Name)
+		container = container.FromComposeService(service, project)
 
 		// Check for service-specific .env files in the project directory
 		if project.WorkingDir != "" {
@@ -316,8 +333,13 @@ func TestDisabledHealthCheck(t *testing.T) {
 	}
 
 	// Convert to container unit
+	project := &types.Project{
+		Name:     "test",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  map[string]types.VolumeConfig{},
+	}
 	container := NewContainer("test-db")
-	container.FromComposeService(service, "test")
+	container.FromComposeService(service, project)
 
 	// Create a Quadlet unit with the container
 	quadletUnit := QuadletUnit{
@@ -389,7 +411,12 @@ func TestLoggingConfiguration(t *testing.T) {
 	}
 
 	// Convert service to container
-	container.FromComposeService(service, "test-project")
+	project := &types.Project{
+		Name:     "test-project",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  map[string]types.VolumeConfig{},
+	}
+	container.FromComposeService(service, project)
 
 	// Create a quadlet unit
 	quadletUnit := QuadletUnit{
@@ -428,7 +455,12 @@ func TestRestartPolicy(t *testing.T) {
 		}
 
 		// Convert service to container
-		container.FromComposeService(service, "test-project")
+		project := &types.Project{
+			Name:     "test-project",
+			Networks: map[string]types.NetworkConfig{},
+			Volumes:  map[string]types.VolumeConfig{},
+		}
+		container.FromComposeService(service, project)
 
 		// Create a systemd config with the restart policy
 		systemdConfig := SystemdConfig{}
@@ -467,7 +499,12 @@ func TestContainerResourceConstraints(t *testing.T) {
 	}
 
 	// Convert service to container
-	container.FromComposeService(service, "test-project")
+	project := &types.Project{
+		Name:     "test-project",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  map[string]types.VolumeConfig{},
+	}
+	container.FromComposeService(service, project)
 
 	// Create a quadlet unit
 	quadletUnit := QuadletUnit{
@@ -616,7 +653,12 @@ func TestContainerAdvancedConfig(t *testing.T) {
 	}
 
 	// Convert service to container
-	container.FromComposeService(service, "test-project")
+	project := &types.Project{
+		Name:     "test-project",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  map[string]types.VolumeConfig{},
+	}
+	container.FromComposeService(service, project)
 
 	// Create a quadlet unit
 	quadletUnit := QuadletUnit{
@@ -667,10 +709,97 @@ func TestVolumeOptionsPreservation(t *testing.T) {
 	}
 
 	// Convert service to container
-	container.FromComposeService(service, "test-project")
+	project := &types.Project{
+		Name:     "test-project",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  map[string]types.VolumeConfig{},
+	}
+	container.FromComposeService(service, project)
 
 	// Verify that SELinux options are preserved
 	assert.Len(t, container.Volume, 2)
 	assert.Contains(t, container.Volume, "/host/path:/container/path:rw,Z")
 	assert.Contains(t, container.Volume, "/host/readonly:/container/readonly:ro,z")
+}
+
+func TestExternalVolumeHandling(t *testing.T) {
+	// Create a service that uses an external volume
+	service := types.ServiceConfig{
+		Name:  "test-service",
+		Image: "nginx:latest",
+		Volumes: []types.ServiceVolumeConfig{
+			{
+				Type:   "volume",
+				Source: "shared-data",
+				Target: "/data",
+			},
+		},
+	}
+
+	// Define project volumes - one external, one regular
+	projectVolumes := map[string]types.VolumeConfig{
+		"shared-data": {
+			Name:     "shared-data",
+			External: types.External(true), // External volume
+		},
+		"local-data": {
+			Name: "local-data",
+			// External is false by default
+		},
+	}
+
+	// Create container
+	project := &types.Project{
+		Name:     "test-project",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  projectVolumes,
+	}
+	container := NewContainer("test-project-test-service")
+	container = container.FromComposeService(service, project)
+
+	// Check that external volume is referenced without project prefix
+	assert.Len(t, container.Volume, 1)
+	assert.Contains(t, container.Volume, "shared-data:/data", "External volume should use name directly without project prefix")
+	assert.NotContains(t, container.Volume, "test-project-shared-data.volume:/data", "External volume should not have project prefix")
+}
+
+func TestRegularVolumeHandling(t *testing.T) {
+	// Create a service that uses a regular (non-external) volume
+	service := types.ServiceConfig{
+		Name:  "test-service",
+		Image: "nginx:latest",
+		Volumes: []types.ServiceVolumeConfig{
+			{
+				Type:   "volume",
+				Source: "local-data",
+				Target: "/data",
+			},
+		},
+	}
+
+	// Define project volumes - one external, one regular
+	projectVolumes := map[string]types.VolumeConfig{
+		"shared-data": {
+			Name:     "shared-data",
+			External: types.External(true), // External volume
+		},
+		"local-data": {
+			Name: "local-data",
+			// External is false by default
+		},
+	}
+
+	// Create container
+	project := &types.Project{
+		Name:     "test-project",
+		Networks: map[string]types.NetworkConfig{},
+		Volumes:  projectVolumes,
+	}
+	container := NewContainer("test-project-test-service")
+	container = container.FromComposeService(service, project)
+
+	// Check that regular volume is referenced with project prefix
+	assert.Len(t, container.Volume, 1)
+	assert.Contains(t, container.Volume, "test-project-local-data.volume:/data", "Regular volume should have project prefix")
+	assert.NotContains(t, container.Volume, "local-data:/data", "Regular volume should not use name directly")
 }

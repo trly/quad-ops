@@ -122,7 +122,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Create container for db
 	prefixedName := "test-project-db"
 	dbContainer := NewContainer(prefixedName)
-	dbContainer = dbContainer.FromComposeService(project.Services["db"], project.Name)
+	dbContainer = dbContainer.FromComposeService(project.Services["db"], project)
 	dbUnit := QuadletUnit{
 		Name:      prefixedName,
 		Type:      "container",
@@ -151,7 +151,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Create container for webapp
 	prefixedName = "test-project-webapp"
 	webappContainer := NewContainer(prefixedName)
-	webappContainer = webappContainer.FromComposeService(project.Services["webapp"], project.Name)
+	webappContainer = webappContainer.FromComposeService(project.Services["webapp"], project)
 	webappUnit := QuadletUnit{
 		Name:      prefixedName,
 		Type:      "container",
@@ -180,7 +180,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Create container for proxy
 	prefixedName = "test-project-proxy"
 	proxyContainer := NewContainer(prefixedName)
-	proxyContainer = proxyContainer.FromComposeService(project.Services["proxy"], project.Name)
+	proxyContainer = proxyContainer.FromComposeService(project.Services["proxy"], project)
 	proxyUnit := QuadletUnit{
 		Name:      prefixedName,
 		Type:      "container",
