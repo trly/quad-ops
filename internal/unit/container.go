@@ -99,10 +99,10 @@ func (c *Container) FromComposeService(service types.ServiceConfig, project *typ
 	c.processServiceEnvironment(service)
 
 	// Process volumes
-	c.processServiceVolumes(service, project.Name, project.Volumes)
+	c.processServiceVolumes(service, project)
 
 	// Process networks
-	c.processServiceNetworks(service, project.Name, project.Networks)
+	c.processServiceNetworks(service, project)
 
 	// Process health check configuration
 	c.processServiceHealthCheck(service)
@@ -205,19 +205,19 @@ func (c *Container) processServiceEnvironment(service types.ServiceConfig) {
 }
 
 // processServiceVolumes handles volume mounts.
-func (c *Container) processServiceVolumes(service types.ServiceConfig, projectName string, projectVolumes map[string]types.VolumeConfig) {
+func (c *Container) processServiceVolumes(service types.ServiceConfig, project *types.Project) {
 	if len(service.Volumes) > 0 {
 		for _, vol := range service.Volumes {
 			// Handle different volume types
 			if vol.Type == "volume" {
 				// Check if this is an external volume
-				if volumeConfig, exists := projectVolumes[vol.Source]; exists && bool(volumeConfig.External) {
+				if volumeConfig, exists := project.Volumes[vol.Source]; exists && bool(volumeConfig.External) {
 					// External volume - use the volume name as-is (no project prefix)
 					c.Volume = append(c.Volume, fmt.Sprintf("%s:%s", vol.Source, vol.Target))
 				} else {
 					// Convert named volumes to Podman Quadlet format
 					// This ensures proper systemd unit references for volumes defined in the compose file
-					c.Volume = append(c.Volume, fmt.Sprintf("%s-%s.volume:%s", projectName, vol.Source, vol.Target))
+					c.Volume = append(c.Volume, fmt.Sprintf("%s-%s.volume:%s", project.Name, vol.Source, vol.Target))
 				}
 			} else {
 				// Regular bind mount or external volume - use compose String() method to preserve options
@@ -228,7 +228,7 @@ func (c *Container) processServiceVolumes(service types.ServiceConfig, projectNa
 }
 
 // processServiceNetworks handles network connections.
-func (c *Container) processServiceNetworks(service types.ServiceConfig, projectName string, projectNetworks map[string]types.NetworkConfig) {
+func (c *Container) processServiceNetworks(service types.ServiceConfig, project *types.Project) {
 	if len(service.Networks) > 0 {
 		for netName, net := range service.Networks {
 			networkRef := ""
@@ -236,12 +236,12 @@ func (c *Container) processServiceNetworks(service types.ServiceConfig, projectN
 			// Check if network is a named network (project-defined) or a special network
 			if netName != "host" && netName != "none" {
 				// Check if this is an external network
-				if networkConfig, exists := projectNetworks[netName]; exists && bool(networkConfig.External) {
+				if networkConfig, exists := project.Networks[netName]; exists && bool(networkConfig.External) {
 					// External network - use the network name as-is (no project prefix)
 					networkRef = netName
 				} else {
 					// This is a project-defined network - format for Podman Quadlet with .network suffix
-					networkRef = fmt.Sprintf("%s-%s.network", projectName, netName)
+					networkRef = fmt.Sprintf("%s-%s.network", project.Name, netName)
 				}
 			} else if net != nil && len(net.Aliases) > 0 {
 				// Network has aliases - use first alias
@@ -261,7 +261,7 @@ func (c *Container) processServiceNetworks(service types.ServiceConfig, projectN
 	} else {
 		// If no networks specified, create a default network using the project name
 		// This ensures proper Quadlet format for the auto-generated network
-		defaultNetworkRef := fmt.Sprintf("%s-default.network", projectName)
+		defaultNetworkRef := fmt.Sprintf("%s-default.network", project.Name)
 		c.Network = append(c.Network, defaultNetworkRef)
 	}
 }
