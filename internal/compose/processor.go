@@ -319,8 +319,42 @@ func processServices(project *types.Project, dependencyGraph *dependency.Service
 		// Create and configure container
 		container := createContainerFromService(service, prefixedName, serviceName, project)
 
-		// Create quadlet unit
+		// Process init containers first
+		initContainers, err := unit.ParseInitContainers(service)
+		if err != nil {
+			log.GetLogger().Error("Failed to parse init containers", "service", serviceName, "error", err)
+			return err
+		}
+
+		var initUnitNames []string
+		for i, initContainer := range initContainers {
+			initName := fmt.Sprintf("%s-%s-init-%d", project.Name, serviceName, i)
+			initContainerUnit := unit.CreateInitContainerUnit(initContainer, initName, container)
+
+			// Create init quadlet unit
+			initQuadletUnit := createInitQuadletUnit(initName, initContainerUnit)
+
+			// Apply dependency relationships to init container (same as main service)
+			if err := unit.ApplyDependencyRelationships(&initQuadletUnit, serviceName, dependencyGraph, project.Name); err != nil {
+				log.GetLogger().Error("Failed to apply dependency relationships to init container", "init", initName, "error", err)
+			}
+
+			// Process the init unit
+			if err := ProcessUnit(unitRepo, &initQuadletUnit, force, processedUnits, changedUnits, repoConfig); err != nil {
+				return err
+			}
+
+			initUnitNames = append(initUnitNames, initName+".service")
+		}
+
+		// Create main container quadlet unit
 		quadletUnit := createQuadletUnit(prefixedName, container)
+
+		// Add init container dependencies to main container
+		for _, initUnitName := range initUnitNames {
+			quadletUnit.Systemd.After = append(quadletUnit.Systemd.After, initUnitName)
+			quadletUnit.Systemd.Requires = append(quadletUnit.Systemd.Requires, initUnitName)
+		}
 
 		// Apply dependencies and process
 		if err := finishProcessingService(&quadletUnit, serviceName, dependencyGraph, project.Name, unitRepo, force, processedUnits, changedUnits, repoConfig); err != nil {
@@ -475,6 +509,20 @@ func createQuadletUnit(prefixedName string, container *unit.Container) unit.Quad
 
 	if container.RestartPolicy != "" {
 		systemdConfig.RestartPolicy = container.RestartPolicy
+	}
+
+	return unit.QuadletUnit{
+		Name:      prefixedName,
+		Type:      "container",
+		Container: *container,
+		Systemd:   systemdConfig,
+	}
+}
+
+func createInitQuadletUnit(prefixedName string, container *unit.Container) unit.QuadletUnit {
+	systemdConfig := unit.SystemdConfig{
+		Type:            "oneshot",
+		RemainAfterExit: true,
 	}
 
 	return unit.QuadletUnit{

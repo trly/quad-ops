@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  web:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    x-quad-ops-init:
+      - image: busybox:latest
+        command: ["sh", "-c", "echo 'Initializing web service...' && sleep 2"]
+      - image: alpine:latest
+        command: "mkdir -p /shared/data && echo 'Setup complete' > /shared/data/status"
+    volumes:
+      - shared-data:/shared
+
+  database:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    x-quad-ops-init:
+      - image: postgres:15-alpine
+        command: ["sh", "-c", "echo 'Running database migration...' && sleep 3"]
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  shared-data:
+  db-data:

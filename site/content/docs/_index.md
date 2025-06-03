@@ -27,3 +27,6 @@ Understanding Podman Quadlet integration, supported features, and systemd contai
 
 ### [Command Reference](command-reference)
 Complete reference for all Quad-Ops commands with detailed options and examples.
+
+### [Release Notes](releases)
+Latest features, improvements, and changes in each version.

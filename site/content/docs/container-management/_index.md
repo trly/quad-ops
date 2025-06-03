@@ -53,3 +53,6 @@ How environment files are discovered, processed, and used in container configura
 
 ### [Build Support](build-support)
 Docker Compose build configurations and Podman Quadlet build unit conversion.
+
+### [Init Containers](init-containers)
+Using init containers for service initialization, similar to Kubernetes init containers.

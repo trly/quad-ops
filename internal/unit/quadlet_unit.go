@@ -124,10 +124,12 @@ func (u *QuadletUnit) addVolumeNetworkConfig(builder *strings.Builder) {
 // addExecutionConfig adds execution configuration like entrypoint, user, working directory.
 func (u *QuadletUnit) addExecutionConfig(builder *strings.Builder) {
 	if len(u.Container.Exec) > 0 {
-		builder.WriteString(formatKeyValueSlice("Exec", u.Container.Exec))
+		// Don't sort Exec commands as order matters
+		builder.WriteString("Exec=" + strings.Join(u.Container.Exec, " ") + "\n")
 	}
 	if len(u.Container.Entrypoint) > 0 {
-		builder.WriteString(formatKeyValueSlice("Entrypoint", u.Container.Entrypoint))
+		// Don't sort Entrypoint commands as order matters
+		builder.WriteString("Entrypoint=" + strings.Join(u.Container.Entrypoint, " ") + "\n")
 	}
 	if u.Container.User != "" {
 		builder.WriteString(formatKeyValue("User", u.Container.User))

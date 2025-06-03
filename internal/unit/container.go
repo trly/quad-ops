@@ -72,6 +72,12 @@ type Container struct {
 	RestartPolicy    string
 }
 
+// InitContainer represents a container that should run before the main container starts.
+type InitContainer struct {
+	Image   string   `yaml:"image"`
+	Command []string `yaml:"command,omitempty"`
+}
+
 // NewContainer creates a new Container with the given name.
 func NewContainer(name string) *Container {
 	return &Container{
@@ -409,6 +415,97 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 			log.GetLogger().Warn("Invalid x-podman-env-secrets format, expected map", "service", service.Name)
 		}
 	}
+}
+
+// ParseInitContainers parses the x-quad-ops-init extension from a Docker Compose service.
+func ParseInitContainers(service types.ServiceConfig) ([]InitContainer, error) {
+	ext, ok := service.Extensions["x-quad-ops-init"]
+	if !ok {
+		return nil, nil
+	}
+
+	initContainerList, ok := ext.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("x-quad-ops-init must be a list")
+	}
+
+	initContainers := make([]InitContainer, 0, len(initContainerList))
+	for i, item := range initContainerList {
+		initContainerMap, ok := item.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("x-quad-ops-init[%d] must be a map", i)
+		}
+
+		var initContainer InitContainer
+
+		// Parse image (required)
+		if imageValue, exists := initContainerMap["image"]; exists {
+			if imageStr, ok := imageValue.(string); ok {
+				initContainer.Image = imageStr
+			} else {
+				return nil, fmt.Errorf("x-quad-ops-init[%d].image must be a string", i)
+			}
+		} else {
+			return nil, fmt.Errorf("x-quad-ops-init[%d] must have an image field", i)
+		}
+
+		// Parse command (optional)
+		if commandValue, exists := initContainerMap["command"]; exists {
+			switch cmd := commandValue.(type) {
+			case string:
+				initContainer.Command = []string{cmd}
+			case []interface{}:
+				for j, cmdPart := range cmd {
+					if cmdStr, ok := cmdPart.(string); ok {
+						initContainer.Command = append(initContainer.Command, cmdStr)
+					} else {
+						return nil, fmt.Errorf("x-quad-ops-init[%d].command[%d] must be a string", i, j)
+					}
+				}
+			default:
+				return nil, fmt.Errorf("x-quad-ops-init[%d].command must be a string or list of strings", i)
+			}
+		}
+
+		initContainers = append(initContainers, initContainer)
+	}
+
+	return initContainers, nil
+}
+
+// CreateInitContainerUnit creates a Container unit for an init container.
+// It inherits volumes, networks, environment, and secrets from the parent container.
+func CreateInitContainerUnit(initContainer InitContainer, initName string, parentContainer *Container) *Container {
+	container := NewContainer(initName)
+	container.Image = initContainer.Image
+	if len(initContainer.Command) > 0 {
+		container.Exec = initContainer.Command
+	}
+
+	// Initialize RunInit to avoid nil pointer dereference
+	runInit := false
+	container.RunInit = &runInit
+
+	// Inherit configuration from parent container
+	container.Volume = append([]string{}, parentContainer.Volume...)
+	container.Network = append([]string{}, parentContainer.Network...)
+	container.NetworkAlias = append([]string{}, parentContainer.NetworkAlias...)
+
+	// Copy environment variables
+	if parentContainer.Environment != nil {
+		container.Environment = make(map[string]string)
+		for k, v := range parentContainer.Environment {
+			container.Environment[k] = v
+		}
+	}
+
+	// Copy environment files
+	container.EnvironmentFile = append([]string{}, parentContainer.EnvironmentFile...)
+
+	// Copy secrets
+	container.Secrets = append([]Secret{}, parentContainer.Secrets...)
+
+	return container
 }
 
 // processServiceResources processes resource constraints from a Docker Compose service.
