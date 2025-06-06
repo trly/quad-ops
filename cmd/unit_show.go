@@ -20,7 +20,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
 
-package unit
+// Package cmd provides unit command functionality for quad-ops CLI
+package cmd
 
 import (
 	"os"

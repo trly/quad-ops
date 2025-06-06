@@ -1,4 +1,3 @@
-// Package unit provides unit command functionality for quad-ops CLI
 /*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
@@ -20,21 +19,23 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package unit
+
+// Package cmd provides unit command functionality for quad-ops CLI
+package cmd
 
 import (
 	"github.com/spf13/cobra"
 )
 
-// Command represents the unit command for quad-ops CLI.
-type Command struct{}
+// UnitCommand represents the unit command for quad-ops CLI.
+type UnitCommand struct{}
 
 var (
 	unitType string
 )
 
 // GetCobraCommand returns the cobra command for unit operations.
-func (c *Command) GetCobraCommand() *cobra.Command {
+func (c *UnitCommand) GetCobraCommand() *cobra.Command {
 	unitCmd := &cobra.Command{
 		Use:   "unit",
 		Short: "subcommands for managing and viewing quadlet units",

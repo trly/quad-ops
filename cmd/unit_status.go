@@ -1,4 +1,5 @@
-package unit
+// Package cmd provides unit command functionality for quad-ops CLI
+package cmd
 
 import (
 	"fmt"

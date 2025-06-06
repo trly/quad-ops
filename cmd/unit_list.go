@@ -1,4 +1,3 @@
-// Package unit provides unit command functionality for quad-ops CLI
 /*
 Copyright © 2025 Travis Lyons travis.lyons@gmail.com
 
@@ -20,7 +19,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package unit
+
+// Package cmd provides unit command functionality for quad-ops CLI
+package cmd
 
 import (
 	"encoding/hex"

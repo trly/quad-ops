@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/trly/quad-ops/cmd/unit"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
@@ -125,7 +124,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 	rootCmd.AddCommand(
 		(&ConfigCommand{}).GetCobraCommand(),
 		(&SyncCommand{}).GetCobraCommand(),
-		(&unit.Command{}).GetCobraCommand(),
+		(&UnitCommand{}).GetCobraCommand(),
 		(&UpCommand{}).GetCobraCommand(),
 		(&ImageCommand{}).GetCobraCommand(),
 		(&DownCommand{}).GetCobraCommand(),
