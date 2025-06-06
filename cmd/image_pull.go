@@ -74,8 +74,10 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 }
 
 func pullImage(image string) error {
+	var opts images.PullOptions
+	opts.WithQuiet(!cfg.Verbose)
 	conn := podman.GetConnection()
-	_, err := images.Pull(conn, image, nil)
+	_, err := images.Pull(conn, image, &opts)
 	if err != nil {
 		return err
 	}
