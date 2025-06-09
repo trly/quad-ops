@@ -10,7 +10,7 @@ require (
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/dominikbraun/graph v0.23.0
 	github.com/fatih/color v1.18.0
-	github.com/go-git/go-git/v5 v5.16.0
+	github.com/go-git/go-git/v5 v5.16.1
 	github.com/golang-migrate/migrate/v4 v4.18.3
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/rodaine/table v1.3.0
