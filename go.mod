@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/compose-spec/compose-go/v2 v2.6.4
-	github.com/containers/podman/v5 v5.5.0
+	github.com/containers/podman/v5 v5.5.1
 	github.com/coreos/go-systemd/v22 v22.5.1-0.20231103132048-7d375ecc2b09
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/dominikbraun/graph v0.23.0
@@ -51,8 +51,8 @@ require (
 	github.com/containerd/platforms v1.0.0-rc.1 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.16.3 // indirect
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
-	github.com/containers/buildah v1.40.0 // indirect
-	github.com/containers/common v0.63.0 // indirect
+	github.com/containers/buildah v1.40.1 // indirect
+	github.com/containers/common v0.63.1 // indirect
 	github.com/containers/image/v5 v5.35.0 // indirect
 	github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01 // indirect
 	github.com/containers/ocicrypt v1.2.1 // indirect
