@@ -23,14 +23,16 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
-	"github.com/containers/podman/v5/pkg/bindings/images"
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/git"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/podman"
 )
 
 // PullCommand represents the pull command.
@@ -74,12 +76,50 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 }
 
 func pullImage(image string) error {
-	var opts images.PullOptions
-	opts.WithQuiet(!cfg.Verbose)
-	conn := podman.GetConnection()
-	_, err := images.Pull(conn, image, &opts)
-	if err != nil {
-		return err
+	// Use podman pull directly - it handles rootless mode automatically
+	args := []string{"pull"}
+
+	// Always show progress for better user experience
+	// Only add quiet flag if explicitly not verbose
+	if !cfg.Verbose {
+		args = append(args, "--quiet")
 	}
+
+	args = append(args, image)
+
+	// Build command safely - podman is a known safe command
+	cmd := exec.Command("podman", args...) // #nosec G204
+
+	// Set up environment for rootless operation
+	if cfg.UserMode {
+		env := os.Environ()
+		// Ensure XDG_RUNTIME_DIR is set for rootless operation
+		if os.Getenv("XDG_RUNTIME_DIR") == "" {
+			env = append(env, fmt.Sprintf("XDG_RUNTIME_DIR=/run/user/%d", os.Getuid()))
+		}
+		cmd.Env = env
+	}
+
+	// Show progress by connecting stdout/stderr to the current process
+	if cfg.Verbose {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		log.GetLogger().Info("Pulling image", "image", image)
+	} else {
+		// For non-verbose mode, still capture output for error reporting
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("podman pull failed: %w\nOutput: %s", err, strings.TrimSpace(string(output)))
+		}
+		return nil
+	}
+
+	// Run the command and wait for completion
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("podman pull failed: %w", err)
+	}
+
+	log.GetLogger().Info("Successfully pulled image", "image", image)
 	return nil
 }
