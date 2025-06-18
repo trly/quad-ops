@@ -229,22 +229,22 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 		return fmt.Errorf("error fetching units from filesystem: %w", err)
 	}
 
-	for _, dbUnit := range existingUnits {
-		unitKey := fmt.Sprintf("%s.%s", dbUnit.Name, dbUnit.Type)
+	for _, unit := range existingUnits {
+		unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
 
 		// Check if unit is orphaned or if there's a mode mismatch
-		isOrphaned := !processedUnits[unitKey] && (dbUnit.CleanupPolicy == "delete")
-		hasModeMismatch := dbUnit.UserMode != config.DefaultProvider().GetConfig().UserMode && processedUnits[unitKey]
+		isOrphaned := !processedUnits[unitKey] && (unit.CleanupPolicy == "delete")
+		hasModeMismatch := unit.UserMode != config.DefaultProvider().GetConfig().UserMode && processedUnits[unitKey]
 
 		if isOrphaned || hasModeMismatch {
 			if isOrphaned {
-				log.GetLogger().Info("Cleaning up orphaned unit", "unit", unitKey, "policy", dbUnit.CleanupPolicy)
+				log.GetLogger().Info("Cleaning up orphaned unit", "unit", unitKey, "policy", unit.CleanupPolicy)
 			} else {
-				log.GetLogger().Info("Cleaning up unit due to user mode mismatch", "unit", unitKey, "dbMode", dbUnit.UserMode, "currentMode", config.DefaultProvider().GetConfig().UserMode)
+				log.GetLogger().Info("Cleaning up unit due to user mode mismatch", "unit", unitKey, "dbMode", unit.UserMode, "currentMode", config.DefaultProvider().GetConfig().UserMode)
 			}
 
 			// First, stop the unit
-			systemdUnit := systemd.NewBaseUnit(dbUnit.Name, dbUnit.Type)
+			systemdUnit := systemd.NewBaseUnit(unit.Name, unit.Type)
 
 			// Attempt to stop the unit, but continue with cleanup even if stop fails
 			if err := systemdUnit.Stop(); err != nil {
@@ -259,7 +259,7 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 			// 3. Calling ResetFailed on units being removed causes warnings about "Unit not loaded"
 
 			// Remove the unit file
-			unitPath := fs.GetUnitFilePath(dbUnit.Name, dbUnit.Type)
+			unitPath := fs.GetUnitFilePath(unit.Name, unit.Type)
 			if err := os.Remove(unitPath); err != nil {
 				if !os.IsNotExist(err) {
 					log.GetLogger().Error("Failed to remove unit file", "path", unitPath, "error", err)
@@ -270,7 +270,7 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 
 			// For mode mismatches, we remove from filesystem, but the unit will be recreated
 			// in the next processUnit call with the correct mode
-			if err := unitRepo.Delete(dbUnit.ID); err != nil {
+			if err := unitRepo.Delete(unit.ID); err != nil {
 				log.GetLogger().Error("Failed to remove unit tracking", "unit", unitKey, "error", err)
 				continue
 			}
