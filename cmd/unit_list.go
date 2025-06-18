@@ -31,7 +31,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
 	"github.com/trly/quad-ops/internal/systemd"
@@ -55,14 +54,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Cleanup Policy", "Created At")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
-			dbConn, err := db.Connect()
-			if err != nil {
-				log.GetLogger().Error("Error connecting to database", "error", err)
-				os.Exit(1)
-			}
-			defer func() { _ = dbConn.Close() }()
-
-			unitRepo := repository.NewRepository(dbConn)
+			unitRepo := repository.NewRepository()
 			findAndDisplayUnits(unitRepo, tbl, unitType)
 		},
 	}

@@ -17,7 +17,7 @@ quad-ops down
 
 The `down` command stops all container units that have been synchronized from configured repositories. It performs the following operations:
 
-1. **Database Query** - Retrieves all container units from the quad-ops database
+1. **Unit Discovery** - Finds all container units in the quadlet directory
 2. **Service Stop** - Stops each container unit using systemd
 3. **Status Report** - Provides feedback on successful and failed operations
 

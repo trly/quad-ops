@@ -27,7 +27,6 @@ import (
 	"os"
 
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/util"
 	"github.com/trly/quad-ops/internal/validate"
@@ -43,7 +42,6 @@ var (
 	cfg            *config.Settings
 	userMode       bool
 	configFilePath string
-	dbPath         string
 	quadletDir     string
 	repositoryDir  string
 	verbose        bool
@@ -69,9 +67,6 @@ It automatically generates systemd unit files from Docker Compose files and hand
 				cfg.UserMode = userMode
 				cfg.RepositoryDir = os.ExpandEnv(config.DefaultUserRepositoryDir)
 				cfg.QuadletDir = os.ExpandEnv(config.DefaultUserQuadletDir)
-				if dbPath == "" {
-					cfg.DBPath = os.ExpandEnv(config.DefaultUserDBPath)
-				}
 			}
 
 			if repositoryDir != "" {
@@ -92,24 +87,9 @@ It automatically generates systemd unit files from Docker Compose files and hand
 				cfg.QuadletDir = quadletDir
 			}
 
-			if dbPath != "" {
-				// Validate database path
-				if err := util.ValidatePath(dbPath); err != nil {
-					log.GetLogger().Error("Invalid database path", "path", dbPath, "error", err)
-					os.Exit(1)
-				}
-				cfg.DBPath = dbPath
-			}
-
 			err := validate.SystemRequirements()
 			if err != nil {
 				log.GetLogger().Error("System requirements not met", "err", err)
-			}
-
-			err = db.Up(*cfg)
-			if err != nil {
-				log.GetLogger().Error("Failed to initialize database", "error", err)
-				os.Exit(1)
 			}
 		},
 	}
@@ -117,7 +97,6 @@ It automatically generates systemd unit files from Docker Compose files and hand
 	rootCmd.PersistentFlags().BoolVarP(&userMode, "user", "u", false, "Run in user mode")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
 	rootCmd.PersistentFlags().StringVar(&configFilePath, "config", "", "Path to the configuration file")
-	rootCmd.PersistentFlags().StringVar(&dbPath, "db-path", "", "Path to the database file")
 	rootCmd.PersistentFlags().StringVar(&quadletDir, "quadlet-dir", "", "Path to the quadlet directory")
 	rootCmd.PersistentFlags().StringVar(&repositoryDir, "repository-dir", "", "Path to the repository directory")
 

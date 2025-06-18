@@ -27,7 +27,6 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
 	"github.com/trly/quad-ops/internal/systemd"
@@ -43,16 +42,8 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 		Short: "Stop all managed units",
 		Long:  "Stop all managed units synchronized from repositories.",
 		Run: func(_ *cobra.Command, _ []string) {
-			// Connect to the database
-			dbConn, err := db.Connect()
-			if err != nil {
-				log.GetLogger().Error("Failed to connect to database", "error", err)
-				os.Exit(1)
-			}
-			defer func() { _ = dbConn.Close() }()
-
 			// Get all units
-			unitRepo := repository.NewRepository(dbConn)
+			unitRepo := repository.NewRepository()
 			units, err := unitRepo.FindAll()
 			if err != nil {
 				log.GetLogger().Error("Failed to get units from database", "error", err)

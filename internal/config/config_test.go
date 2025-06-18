@@ -21,7 +21,6 @@ func TestInitConfig(t *testing.T) {
 	assert.Equal(t, DefaultRepositoryDir, cfg.RepositoryDir)
 	assert.Equal(t, DefaultSyncInterval, cfg.SyncInterval)
 	assert.Equal(t, DefaultQuadletDir, cfg.QuadletDir)
-	assert.Equal(t, DefaultDBPath, cfg.DBPath)
 	assert.Equal(t, DefaultUserMode, cfg.UserMode)
 	assert.Equal(t, DefaultVerbose, cfg.Verbose)
 	assert.Equal(t, DefaultUsePodmanDefaultNames, cfg.UsePodmanDefaultNames)
@@ -36,7 +35,6 @@ func TestSetAndGetConfig(t *testing.T) {
 		RepositoryDir:         "/custom/path",
 		SyncInterval:          10 * time.Minute,
 		QuadletDir:            "/custom/quadlet",
-		DBPath:                "/custom/db.sqlite",
 		UserMode:              true,
 		Verbose:               true,
 		UsePodmanDefaultNames: true,
@@ -69,7 +67,6 @@ func TestCustomConfigFile(t *testing.T) {
 	configContent := `repositoryDir: "/test/path"
 syncInterval: 15m
 quadletDir: "/test/quadlet"
-dbPath: "/test/db.sqlite"
 userMode: true
 verbose: true
 usePodmanDefaultNames: true
@@ -92,7 +89,6 @@ repositories:
 	viper.SetDefault("repositoryDir", DefaultRepositoryDir)
 	viper.SetDefault("syncInterval", DefaultSyncInterval)
 	viper.SetDefault("quadletDir", DefaultQuadletDir)
-	viper.SetDefault("dbPath", DefaultDBPath)
 	viper.SetDefault("userMode", DefaultUserMode)
 	viper.SetDefault("verbose", DefaultVerbose)
 	viper.SetDefault("usePodmanDefaultNames", DefaultUsePodmanDefaultNames)
@@ -111,7 +107,6 @@ repositories:
 	assert.Equal(t, "/test/path", cfg.RepositoryDir)
 	assert.Equal(t, 15*time.Minute, cfg.SyncInterval)
 	assert.Equal(t, "/test/quadlet", cfg.QuadletDir)
-	assert.Equal(t, "/test/db.sqlite", cfg.DBPath)
 	assert.True(t, cfg.UserMode)
 	assert.True(t, cfg.Verbose)
 	assert.True(t, cfg.UsePodmanDefaultNames)

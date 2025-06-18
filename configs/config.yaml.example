@@ -8,8 +8,6 @@ syncInterval: 5m
 # repositoryDir: "~/.local/share/quad-ops"  # User mode default
 # quadletDir: "/etc/containers/systemd"     # System mode default  
 # quadletDir: "~/.config/containers/systemd" # User mode default
-# dbPath: "/var/lib/quad-ops/quad-ops.db"   # System mode default
-# dbPath: "~/.local/share/quad-ops/quad-ops.db" # User mode default
 
 # Whether to use Podman's default container naming (with systemd- prefix)
 # Default is false: container hostnames will match exactly with their service names without systemd- prefix

@@ -16,6 +16,11 @@ func GetUnitFilePath(name, unitType string) string {
 	return filepath.Join(config.DefaultProvider().GetConfig().QuadletDir, fmt.Sprintf("%s.%s", name, unitType))
 }
 
+// GetUnitFilesDirectory returns the directory where quadlet unit files are stored.
+func GetUnitFilesDirectory() string {
+	return config.DefaultProvider().GetConfig().QuadletDir
+}
+
 // HasUnitChanged checks if the content of a unit file has changed.
 func HasUnitChanged(unitPath, content string) bool {
 	existingContent, err := os.ReadFile(unitPath) //nolint:gosec // Safe as path is internally constructed, not user-controlled

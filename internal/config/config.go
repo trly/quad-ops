@@ -45,10 +45,8 @@ const (
 	DefaultRepositoryDir         = "/var/lib/quad-ops"
 	DefaultSyncInterval          = 5 * time.Minute
 	DefaultQuadletDir            = "/etc/containers/systemd"
-	DefaultDBPath                = "/var/lib/quad-ops/quad-ops.db"
 	DefaultUserRepositoryDir     = "$HOME/.local/share/quad-ops"
 	DefaultUserQuadletDir        = "$HOME/.config/containers/systemd"
-	DefaultUserDBPath            = "$HOME/.local/share/quad-ops/quad-ops.db"
 	DefaultUserMode              = false
 	DefaultVerbose               = false
 	DefaultUsePodmanDefaultNames = false
@@ -76,7 +74,6 @@ type Settings struct {
 	SyncInterval          time.Duration `yaml:"syncInterval"`
 	QuadletDir            string        `yaml:"quadletDir"`
 	Repositories          []Repository  `yaml:"repositories"`
-	DBPath                string        `yaml:"dbPath"`
 	UserMode              bool          `yaml:"userMode"`
 	Verbose               bool          `yaml:"verbose"`
 	UsePodmanDefaultNames bool          `yaml:"usePodmanDefaultNames"`
@@ -111,7 +108,6 @@ func initConfigInternal() *Settings {
 		RepositoryDir:         DefaultRepositoryDir,
 		SyncInterval:          DefaultSyncInterval,
 		QuadletDir:            DefaultQuadletDir,
-		DBPath:                DefaultDBPath,
 		UserMode:              DefaultUserMode,
 		Verbose:               DefaultVerbose,
 		UsePodmanDefaultNames: DefaultUsePodmanDefaultNames,
@@ -122,7 +118,6 @@ func initConfigInternal() *Settings {
 	viper.SetDefault("repositoryDir", DefaultRepositoryDir)
 	viper.SetDefault("syncInterval", DefaultSyncInterval)
 	viper.SetDefault("quadletDir", DefaultQuadletDir)
-	viper.SetDefault("dbPath", DefaultDBPath)
 	viper.SetDefault("userMode", DefaultUserMode)
 	viper.SetDefault("verbose", DefaultVerbose)
 	viper.SetDefault("usePodmanDefaultNames", DefaultUsePodmanDefaultNames)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/db"
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
@@ -23,13 +22,7 @@ import (
 // It accepts an existing processedUnits map to track units across multiple repository calls
 // and a cleanup flag to control when orphaned unit cleanup should occur.
 func ProcessProjects(projects []*types.Project, force bool, existingProcessedUnits map[string]bool, doCleanup bool, repoConfig *config.Repository) (map[string]bool, error) {
-	dbConn, err := db.Connect()
-	if err != nil {
-		return nil, fmt.Errorf("connecting to database: %w", err)
-	}
-	defer func() { _ = dbConn.Close() }()
-
-	unitRepo := repository.NewRepository(dbConn)
+	unitRepo := repository.NewRepository()
 
 	// Use existing map if provided, otherwise create a new one
 	processedUnits := existingProcessedUnits
@@ -185,18 +178,18 @@ func processUnit(unitRepo repository.Repository, unitItem *unit.QuadletUnit, for
 			return fmt.Errorf("writing unit file for %s: %w", unitItem.Name, err)
 		}
 
-		// Update database
+		// Track unit (no database update needed in systemd-based approach)
 		if err := UpdateUnitDatabase(unitRepo, unitItem, content, repoConfig); err != nil {
-			return fmt.Errorf("updating unit database for %s: %w", unitItem.Name, err)
+			return fmt.Errorf("tracking unit for %s: %w", unitItem.Name, err)
 		}
 
 		// Add to changed units list for restart
 		*changedUnits = append(*changedUnits, *unitItem)
 	} else {
-		// Even when the file hasn't changed, we still need to update the database
+		// Even when the file hasn't changed, we still track the unit
 		// to ensure the unit's existence is recorded, but we don't add it to changedUnits
 		if err := UpdateUnitDatabase(unitRepo, unitItem, content, repoConfig); err != nil {
-			return fmt.Errorf("updating unit database for %s: %w", unitItem.Name, err)
+			return fmt.Errorf("tracking unit for %s: %w", unitItem.Name, err)
 		}
 	}
 
@@ -206,47 +199,37 @@ func processUnit(unitRepo repository.Repository, unitItem *unit.QuadletUnit, for
 // Helper functions extracted from the Processor struct.
 
 func updateUnitDatabase(unitRepo repository.Repository, unitItem *unit.QuadletUnit, content string, repoConfig *config.Repository) error {
-	contentHash := fs.GetContentHash(content)
+	// In the systemd-based approach, we don't need to store unit data
+	// The repository handles inferring unit information from filesystem and systemd
+	// This function is kept for compatibility but doesn't perform actual database operations
 
-	// Get repository cleanup policy from config
+	// Get repository cleanup policy for logging purposes
 	cleanupPolicy := "keep" // Default
 	if repoConfig != nil && repoConfig.Cleanup != "" {
 		cleanupPolicy = repoConfig.Cleanup
 	}
 
-	// Check if the unit exists and update its cleanup policy if needed
-	existingUnits, err := unitRepo.FindAll()
-	if err != nil {
-		return fmt.Errorf("error fetching existing units: %w", err)
-	}
+	log.GetLogger().Debug("Tracking unit", "name", unitItem.Name, "type", unitItem.Type, "cleanup", cleanupPolicy)
 
-	for _, existingUnit := range existingUnits {
-		if existingUnit.Name == unitItem.Name && existingUnit.Type == unitItem.Type {
-			if existingUnit.CleanupPolicy != cleanupPolicy {
-				log.GetLogger().Debug("Updating cleanup policy", "name", existingUnit.Name, "type", existingUnit.Type, "old", existingUnit.CleanupPolicy, "new", cleanupPolicy)
-			}
-			break
-		}
-	}
-
-	_, err = unitRepo.Create(&repository.Unit{
+	// Create a unit record for compatibility (repository will handle it appropriately)
+	contentHash := fs.GetContentHash(content)
+	_, err := unitRepo.Create(&repository.Unit{
 		Name:          unitItem.Name,
 		Type:          unitItem.Type,
 		SHA1Hash:      contentHash,
 		CleanupPolicy: cleanupPolicy,
 		UserMode:      config.DefaultProvider().GetConfig().UserMode,
-		// CreatedAt removed - no need to update timestamp every time
 	})
 	return err
 }
 
 func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[string]bool) error {
-	dbUnits, err := unitRepo.FindAll()
+	existingUnits, err := unitRepo.FindAll()
 	if err != nil {
-		return fmt.Errorf("error fetching units from database: %w", err)
+		return fmt.Errorf("error fetching units from filesystem: %w", err)
 	}
 
-	for _, dbUnit := range dbUnits {
+	for _, dbUnit := range existingUnits {
 		unitKey := fmt.Sprintf("%s.%s", dbUnit.Name, dbUnit.Type)
 
 		// Check if unit is orphaned or if there's a mode mismatch
@@ -285,10 +268,10 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 				log.GetLogger().Debug("Removed unit file", "path", unitPath)
 			}
 
-			// For mode mismatches, we delete from the database, but the unit will be recreated
+			// For mode mismatches, we remove from filesystem, but the unit will be recreated
 			// in the next processUnit call with the correct mode
 			if err := unitRepo.Delete(dbUnit.ID); err != nil {
-				log.GetLogger().Error("Failed to delete unit from database", "unit", unitKey, "error", err)
+				log.GetLogger().Error("Failed to remove unit tracking", "unit", unitKey, "error", err)
 				continue
 			}
 

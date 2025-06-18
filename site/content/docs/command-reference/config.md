@@ -42,7 +42,6 @@ quad-ops config --config /path/to/config.yaml
 repositorydir: /var/lib/quad-ops
 syncinterval: 5m0s
 quadletdir: /etc/containers/systemd
-dbpath: /var/lib/quad-ops/quad-ops.db
 usermode: false
 verbose: false
 repositories:

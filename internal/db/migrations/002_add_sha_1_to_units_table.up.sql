@@ -1,1 +1,0 @@
-ALTER TABLE units ADD COLUMN sha1_hash BLOB;

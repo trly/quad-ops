@@ -30,7 +30,6 @@ quad-ops --config /path/to/config.yaml sync
 | `repositoryDir` | string | `/var/lib/quad-ops` | Directory where Git repositories are cloned |
 | `syncInterval` | duration | `5m` | Interval between automatic repository synchronization |
 | `quadletDir` | string | `/etc/containers/systemd` | Directory for Podman Quadlet unit files |
-| `dbPath` | string | `/var/lib/quad-ops/quad-ops.db` | Path to the SQLite database file |
 | `userMode` | boolean | `false` | Enable user-mode (rootless) operation |
 | `verbose` | boolean | `false` | Enable verbose logging output |
 
@@ -56,7 +55,6 @@ For rootless operation, user mode changes several default paths:
 |---------|-------------|-----------|
 | `repositoryDir` | `/var/lib/quad-ops` | `~/.local/share/quad-ops` |
 | `quadletDir` | `/etc/containers/systemd` | `~/.config/containers/systemd` |
-| `dbPath` | `/var/lib/quad-ops/quad-ops.db` | `~/.local/share/quad-ops/quad-ops.db` |
 
 ## Example Configuration
 
@@ -75,7 +73,6 @@ repositories:
 repositoryDir: /var/lib/quad-ops
 syncInterval: 10m
 quadletDir: /etc/containers/systemd
-dbPath: /var/lib/quad-ops/quad-ops.db
 userMode: false
 verbose: true
 usePodmanDefaultNames: false

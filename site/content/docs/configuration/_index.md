@@ -15,7 +15,6 @@ This section covers all configuration options for Quad-Ops, from basic setup to 
 | `repositoryDir` | string | `/var/lib/quad-ops` | Directory where repositories are stored |
 | `syncInterval` | duration | `5m` | Interval between repository synchronization |
 | `quadletDir` | string | `/etc/containers/systemd` | Directory for quadlet files |
-| `dbPath` | string | `/var/lib/quad-ops/quad-ops.db` | Path to the database file |
 | `userMode` | boolean | `false` | Whether to run in user mode |
 | `verbose` | boolean | `false` | Enable verbose logging |
 | `usePodmanDefaultNames` | boolean | `false` | Whether to use Podman's default container naming with systemd- prefix |
@@ -43,7 +42,6 @@ This section covers all configuration options for Quad-Ops, from basic setup to 
 repositoryDir: /var/lib/quad-ops
 syncInterval: 10m
 quadletDir: /etc/containers/systemd
-dbPath: /var/lib/quad-ops/quad-ops.db
 userMode: false
 verbose: true
 usePodmanDefaultNames: false  # No systemd- prefix in container hostnames

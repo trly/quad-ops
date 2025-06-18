@@ -17,7 +17,7 @@ quad-ops up
 
 The `up` command starts all container units that have been synchronized from configured repositories. It performs the following operations:
 
-1. **Database Query** - Retrieves all container units from the quad-ops database
+1. **Unit Discovery** - Finds all container units in the quadlet directory
 2. **Unit Reset** - Resets any failed units before attempting to start them
 3. **Service Start** - Starts each container unit using systemd
 4. **Status Report** - Provides feedback on successful and failed operations

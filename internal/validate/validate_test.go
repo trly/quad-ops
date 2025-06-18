@@ -2,7 +2,6 @@ package validate
 
 import (
 	"errors"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,16 +36,8 @@ func (m *MockCommandRunner) Run(name string, args ...string) ([]byte, error) {
 }
 
 func TestVerifySystemRequirements_Success(t *testing.T) {
-	// Create temp db file
-	tmpDB, err := os.CreateTemp("", "test.*.db")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = os.Remove(tmpDB.Name()) }()
-
 	// Set up test config
 	testConfig := &config.Settings{
-		DBPath:  tmpDB.Name(),
 		Verbose: true,
 	}
 	config.DefaultProvider().SetConfig(testConfig)
@@ -80,7 +71,7 @@ func TestVerifySystemRequirements_Success(t *testing.T) {
 	defer ResetCommandRunner()
 
 	// Run test
-	err = SystemRequirements()
+	err := SystemRequirements()
 	assert.NoError(t, err)
 }
 
