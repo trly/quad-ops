@@ -19,15 +19,12 @@ builds:
       - -X github.com/trly/quad-ops/cmd.Commit={{.Commit}}
       - -X github.com/trly/quad-ops/cmd.Date={{.Date}}
     env:
-      - CGO_ENABLED=1
-      - CC=gcc
+      - CGO_ENABLED=0
       - GOAMD64=v1
-    overrides:
-      - goos: linux
-        goarch: arm64
-        env:
-          - CGO_ENABLED=1
-          - CC=aarch64-linux-gnu-gcc
+    tags:
+      - exclude_graphdriver_btrfs
+      - exclude_graphdriver_devicemapper
+      - containers_image_openpgp
 
 checksum:
   name_template: '{{ .ProjectName }}_{{ .Version }}_checksums.txt'

@@ -36,7 +36,9 @@ jobs:
         uses: golangci/golangci-lint-action@v8
         with:
           version: v2.1.6
-          args: --timeout=5m
+          args: --timeout=5m --build-tags=exclude_graphdriver_btrfs --build-tags=exclude_graphdriver_devicemapper
+        env:
+          CGO_ENABLED: 0
 
   build:
     runs-on: ubuntu-latest
