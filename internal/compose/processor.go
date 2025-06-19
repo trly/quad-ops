@@ -21,7 +21,7 @@ import (
 // ProcessProjects processes Docker Compose projects and converts them to Podman systemd units.
 // It accepts an existing processedUnits map to track units across multiple repository calls
 // and a cleanup flag to control when orphaned unit cleanup should occur.
-func ProcessProjects(projects []*types.Project, force bool, existingProcessedUnits map[string]bool, doCleanup bool, repoConfig *config.Repository) (map[string]bool, error) {
+func ProcessProjects(projects []*types.Project, force bool, existingProcessedUnits map[string]bool, doCleanup bool) (map[string]bool, error) {
 	unitRepo := repository.NewRepository()
 
 	// Use existing map if provided, otherwise create a new one
@@ -48,17 +48,17 @@ func ProcessProjects(projects []*types.Project, force bool, existingProcessedUni
 		}
 
 		// Process services (containers)
-		if err := processServices(project, dependencyGraph, unitRepo, force, processedUnits, &changedUnits, repoConfig); err != nil {
+		if err := processServices(project, dependencyGraph, unitRepo, force, processedUnits, &changedUnits); err != nil {
 			log.GetLogger().Error("Failed to process services", "error", err)
 		}
 
 		// Process volumes
-		if err := processVolumes(project, unitRepo, force, processedUnits, &changedUnits, repoConfig); err != nil {
+		if err := processVolumes(project, unitRepo, force, processedUnits, &changedUnits); err != nil {
 			log.GetLogger().Error("Failed to process volumes", "error", err)
 		}
 
 		// Process networks
-		if err := processNetworks(project, unitRepo, force, processedUnits, &changedUnits, repoConfig); err != nil {
+		if err := processNetworks(project, unitRepo, force, processedUnits, &changedUnits); err != nil {
 			log.GetLogger().Error("Failed to process networks", "error", err)
 		}
 
@@ -111,7 +111,7 @@ func ProcessProjects(projects []*types.Project, force bool, existingProcessedUni
 }
 
 // ProcessUnitFunc is the function signature for processing a single quadlet unit.
-type ProcessUnitFunc func(unitRepo repository.Repository, unitItem *unit.QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit, repoConfig *config.Repository) error
+type ProcessUnitFunc func(unitRepo repository.Repository, unitItem *unit.QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error
 
 // CleanupOrphanedUnitsFunc is the function signature for cleaning up orphaned units.
 type CleanupOrphanedUnitsFunc func(unitRepo repository.Repository, processedUnits map[string]bool) error
@@ -120,7 +120,7 @@ type CleanupOrphanedUnitsFunc func(unitRepo repository.Repository, processedUnit
 type WriteUnitFileFunc func(unitPath, content string) error
 
 // UpdateUnitDatabaseFunc is the function signature for updating the unit database.
-type UpdateUnitDatabaseFunc func(unitRepo repository.Repository, unitItem *unit.QuadletUnit, content string, repoConfig *config.Repository) error
+type UpdateUnitDatabaseFunc func(unitRepo repository.Repository, unitItem *unit.QuadletUnit, content string) error
 
 // Package variables for testing.
 var (
@@ -130,7 +130,7 @@ var (
 	UpdateUnitDatabase   UpdateUnitDatabaseFunc   = updateUnitDatabase
 )
 
-func processUnit(unitRepo repository.Repository, unitItem *unit.QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit, repoConfig *config.Repository) error {
+func processUnit(unitRepo repository.Repository, unitItem *unit.QuadletUnit, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error {
 	// Track this unit as processed
 	unitKey := fmt.Sprintf("%s.%s", unitItem.Name, unitItem.Type)
 	processedUnits[unitKey] = true
@@ -179,7 +179,7 @@ func processUnit(unitRepo repository.Repository, unitItem *unit.QuadletUnit, for
 		}
 
 		// Track unit (no database update needed in systemd-based approach)
-		if err := UpdateUnitDatabase(unitRepo, unitItem, content, repoConfig); err != nil {
+		if err := updateUnitDatabase(unitRepo, unitItem, content); err != nil {
 			return fmt.Errorf("tracking unit for %s: %w", unitItem.Name, err)
 		}
 
@@ -188,7 +188,7 @@ func processUnit(unitRepo repository.Repository, unitItem *unit.QuadletUnit, for
 	} else {
 		// Even when the file hasn't changed, we still track the unit
 		// to ensure the unit's existence is recorded, but we don't add it to changedUnits
-		if err := UpdateUnitDatabase(unitRepo, unitItem, content, repoConfig); err != nil {
+		if err := updateUnitDatabase(unitRepo, unitItem, content); err != nil {
 			return fmt.Errorf("tracking unit for %s: %w", unitItem.Name, err)
 		}
 	}
@@ -198,27 +198,19 @@ func processUnit(unitRepo repository.Repository, unitItem *unit.QuadletUnit, for
 
 // Helper functions extracted from the Processor struct.
 
-func updateUnitDatabase(unitRepo repository.Repository, unitItem *unit.QuadletUnit, content string, repoConfig *config.Repository) error {
+func updateUnitDatabase(unitRepo repository.Repository, unitItem *unit.QuadletUnit, content string) error {
 	// In the systemd-based approach, we don't need to store unit data
 	// The repository handles inferring unit information from filesystem and systemd
 	// This function is kept for compatibility but doesn't perform actual database operations
 
-	// Get repository cleanup policy for logging purposes
-	cleanupPolicy := "keep" // Default
-	if repoConfig != nil && repoConfig.Cleanup != "" {
-		cleanupPolicy = repoConfig.Cleanup
-	}
-
-	log.GetLogger().Debug("Tracking unit", "name", unitItem.Name, "type", unitItem.Type, "cleanup", cleanupPolicy)
+	log.GetLogger().Debug("Tracking unit", "name", unitItem.Name, "type", unitItem.Type)
 
 	// Create a unit record for compatibility (repository will handle it appropriately)
 	contentHash := fs.GetContentHash(content)
 	_, err := unitRepo.Create(&repository.Unit{
-		Name:          unitItem.Name,
-		Type:          unitItem.Type,
-		SHA1Hash:      contentHash,
-		CleanupPolicy: cleanupPolicy,
-		UserMode:      config.DefaultProvider().GetConfig().UserMode,
+		Name:     unitItem.Name,
+		Type:     unitItem.Type,
+		SHA1Hash: contentHash,
 	})
 	return err
 }
@@ -233,15 +225,10 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 		unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
 
 		// Check if unit is orphaned or if there's a mode mismatch
-		isOrphaned := !processedUnits[unitKey] && (unit.CleanupPolicy == "delete")
-		hasModeMismatch := unit.UserMode != config.DefaultProvider().GetConfig().UserMode && processedUnits[unitKey]
+		isOrphaned := !processedUnits[unitKey]
 
-		if isOrphaned || hasModeMismatch {
-			if isOrphaned {
-				log.GetLogger().Info("Cleaning up orphaned unit", "unit", unitKey, "policy", unit.CleanupPolicy)
-			} else {
-				log.GetLogger().Info("Cleaning up unit due to user mode mismatch", "unit", unitKey, "dbMode", unit.UserMode, "currentMode", config.DefaultProvider().GetConfig().UserMode)
-			}
+		if isOrphaned {
+			log.GetLogger().Info("Cleaning up orphaned unit", "unit", unitKey)
 
 			// First, stop the unit
 			systemdUnit := systemd.NewBaseUnit(unit.Name, unit.Type)
@@ -288,14 +275,14 @@ func cleanupOrphanedUnits(unitRepo repository.Repository, processedUnits map[str
 }
 
 // processServices processes all container services from a Docker Compose project.
-func processServices(project *types.Project, dependencyGraph *dependency.ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit, repoConfig *config.Repository) error {
+func processServices(project *types.Project, dependencyGraph *dependency.ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error {
 	for serviceName, service := range project.Services {
 		log.GetLogger().Debug("Processing service", "service", serviceName)
 
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, serviceName)
 
 		// Process build if present
-		if err := processBuildIfPresent(&service, serviceName, project, dependencyGraph, unitRepo, force, processedUnits, changedUnits, repoConfig); err != nil {
+		if err := processBuildIfPresent(&service, serviceName, project, dependencyGraph, unitRepo, force, processedUnits, changedUnits); err != nil {
 			return err
 		}
 
@@ -323,7 +310,7 @@ func processServices(project *types.Project, dependencyGraph *dependency.Service
 			}
 
 			// Process the init unit
-			if err := ProcessUnit(unitRepo, &initQuadletUnit, force, processedUnits, changedUnits, repoConfig); err != nil {
+			if err := processUnit(unitRepo, &initQuadletUnit, force, processedUnits, changedUnits); err != nil {
 				return err
 			}
 
@@ -340,14 +327,14 @@ func processServices(project *types.Project, dependencyGraph *dependency.Service
 		}
 
 		// Apply dependencies and process
-		if err := finishProcessingService(&quadletUnit, serviceName, dependencyGraph, project.Name, unitRepo, force, processedUnits, changedUnits, repoConfig); err != nil {
+		if err := finishProcessingService(&quadletUnit, serviceName, dependencyGraph, project.Name, unitRepo, force, processedUnits, changedUnits); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func processBuildIfPresent(service *types.ServiceConfig, serviceName string, project *types.Project, dependencyGraph *dependency.ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit, repoConfig *config.Repository) error {
+func processBuildIfPresent(service *types.ServiceConfig, serviceName string, project *types.Project, dependencyGraph *dependency.ServiceDependencyGraph, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error {
 	if service.Build == nil {
 		return nil
 	}
@@ -380,7 +367,7 @@ func processBuildIfPresent(service *types.ServiceConfig, serviceName string, pro
 	}
 
 	// Process the build unit
-	if err := ProcessUnit(unitRepo, &buildQuadletUnit, force, processedUnits, changedUnits, repoConfig); err != nil {
+	if err := ProcessUnit(unitRepo, &buildQuadletUnit, force, processedUnits, changedUnits); err != nil {
 		log.GetLogger().Error("Failed to process build unit", "error", err)
 	}
 
@@ -516,14 +503,14 @@ func createInitQuadletUnit(prefixedName string, container *unit.Container) unit.
 	}
 }
 
-func finishProcessingService(quadletUnit *unit.QuadletUnit, serviceName string, dependencyGraph *dependency.ServiceDependencyGraph, projectName string, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit, repoConfig *config.Repository) error {
+func finishProcessingService(quadletUnit *unit.QuadletUnit, serviceName string, dependencyGraph *dependency.ServiceDependencyGraph, projectName string, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error {
 	// Apply dependency relationships
 	if err := unit.ApplyDependencyRelationships(quadletUnit, serviceName, dependencyGraph, projectName); err != nil {
 		log.GetLogger().Error("Failed to apply dependency relationships", "service", serviceName, "error", err)
 	}
 
 	// Process the quadlet unit
-	if err := ProcessUnit(unitRepo, quadletUnit, force, processedUnits, changedUnits, repoConfig); err != nil {
+	if err := ProcessUnit(unitRepo, quadletUnit, force, processedUnits, changedUnits); err != nil {
 		log.GetLogger().Error("Failed to process unit", "error", err)
 		return err
 	}
@@ -531,7 +518,7 @@ func finishProcessingService(quadletUnit *unit.QuadletUnit, serviceName string, 
 }
 
 // processVolumes processes all volumes from a Docker Compose project.
-func processVolumes(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit, repoConfig *config.Repository) error {
+func processVolumes(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error {
 	for volumeName, volumeConfig := range project.Volumes {
 		log.GetLogger().Debug("Processing volume", "volume", volumeName)
 
@@ -562,7 +549,7 @@ func processVolumes(project *types.Project, unitRepo repository.Repository, forc
 		}
 
 		// Process the quadlet unit
-		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits, repoConfig); err != nil {
+		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
 			log.GetLogger().Error("Failed to process volume unit", "error", err)
 		}
 	}
@@ -570,7 +557,7 @@ func processVolumes(project *types.Project, unitRepo repository.Repository, forc
 }
 
 // processNetworks processes all networks from a Docker Compose project.
-func processNetworks(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit, repoConfig *config.Repository) error {
+func processNetworks(project *types.Project, unitRepo repository.Repository, force bool, processedUnits map[string]bool, changedUnits *[]unit.QuadletUnit) error {
 	for networkName, networkConfig := range project.Networks {
 		log.GetLogger().Debug("Processing network", "network", networkName)
 
@@ -601,7 +588,7 @@ func processNetworks(project *types.Project, unitRepo repository.Repository, for
 		}
 
 		// Process the quadlet unit
-		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits, repoConfig); err != nil {
+		if err := ProcessUnit(unitRepo, &quadletUnit, force, processedUnits, changedUnits); err != nil {
 			log.GetLogger().Error("Failed to process network unit", "error", err)
 		}
 	}

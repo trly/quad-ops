@@ -27,13 +27,7 @@ This section covers all configuration options for Quad-Ops, from basic setup to 
 | `url` | string | - | Git repository URL to clone/pull from |
 | `ref` | string | - | Git reference to checkout (branch, tag, or commit hash) |
 | `composeDir` | string | "" | Subdirectory within repo where Docker Compose files are located |
-| `cleanup` | string | "keep" | Cleanup policy: "keep" or "delete" |
 | `usePodmanDefaultNames` | boolean | `false` | Whether to use Podman's default naming for this repository (overrides global setting) |
-
-### Cleanup Policy Options
-
-- `keep` (default): Units from this repository remain deployed even when the compose file is removed
-- `delete`: Units that no longer exist in the repository Docker Compose files will be stopped and removed
 
 ## Example Configuration
 
@@ -52,11 +46,9 @@ repositories:
     url: https://github.com/example/app1
     ref: main
     composeDir: compose
-    cleanup: keep  # Units remain even if removed from Docker Compose files
 
   - name: app2
     url: https://github.com/example/app2
     ref: dev
-    cleanup: delete  # Units are stopped and removed when they're no longer in Docker Compose files
     usePodmanDefaultNames: true  # Use systemd- prefix in container hostnames for this repo only
 ```

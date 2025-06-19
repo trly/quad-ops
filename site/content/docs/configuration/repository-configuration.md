@@ -22,7 +22,6 @@ Repository configuration defines how Quad-Ops manages individual Git repositorie
 |--------|------|---------|-------------|
 | `ref` | string | `main` | Git reference to checkout (branch, tag, or commit hash) |
 | `composeDir` | string | `""` | Subdirectory containing Docker Compose files |
-| `cleanup` | string | `"keep"` | Cleanup policy: `"keep"` or `"delete"` |
 | `usePodmanDefaultNames` | boolean | `false` | Override global naming convention |
 
 ## Git Repository Sources
@@ -126,40 +125,6 @@ repositories:
     composeDir: environments/prod
 ```
 
-## Cleanup Policies
-
-### Keep Policy (Default)
-
-Units remain deployed even when removed from Docker Compose files:
-
-```yaml
-repositories:
-  - name: persistent-app
-    url: https://github.com/user/app.git
-    cleanup: keep
-```
-
-**Use cases:**
-- Production environments
-- When manual control over unit lifecycle is desired
-- Avoiding accidental service removal
-
-### Delete Policy
-
-Units are automatically removed when no longer in Docker Compose files:
-
-```yaml
-repositories:
-  - name: dynamic-app
-    url: https://github.com/user/app.git
-    cleanup: delete
-```
-
-**Use cases:**
-- Development environments
-- Automated testing pipelines
-- When repository changes should be fully reflected
-
 ## Naming Conventions
 
 ### Repository Names
@@ -232,21 +197,18 @@ repositories:
     url: https://github.com/company/app.git
     ref: develop
     composeDir: environments/dev
-    cleanup: delete
 
   # Staging
   - name: app-staging
     url: https://github.com/company/app.git
     ref: staging
     composeDir: environments/staging
-    cleanup: keep
 
   # Production
   - name: app-prod
     url: https://github.com/company/app.git
     ref: v2.1.0
     composeDir: environments/prod
-    cleanup: keep
 ```
 
 ### Microservices Repository
@@ -283,7 +245,6 @@ repositories:
   # Local development
   - name: local-dev
     url: file:///home/developer/workspace/project
-    cleanup: delete
 ```
 
 ### Validation Commands

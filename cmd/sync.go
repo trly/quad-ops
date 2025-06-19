@@ -134,7 +134,7 @@ func syncRepositories(cfg *config.Settings) {
 				isLastRepo = true
 			}
 
-			updatedMap, err := compose.ProcessProjects(projects, force, processedUnits, isLastRepo, &repoConfig)
+			updatedMap, err := compose.ProcessProjects(projects, force, processedUnits, isLastRepo)
 			if err != nil {
 				log.GetLogger().Error("Failed to process projects from repository", "name", repoConfig.Name, "error", err)
 				continue

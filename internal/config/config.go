@@ -56,13 +56,12 @@ const (
 
 // Repository represents a repository that is managed by the quad-ops system.
 // It contains information about the repository, including its name, URL, target
-// directory, and cleanup policy.
+// directory, and compose directory.
 type Repository struct {
 	Name                  string `yaml:"name"`
 	URL                   string `yaml:"url"`
 	Reference             string `yaml:"ref,omitempty"`
 	ComposeDir            string `yaml:"composeDir,omitempty"`
-	Cleanup               string `yaml:"cleanup,omitempty"`
 	UsePodmanDefaultNames bool   `yaml:"usePodmanDefaultNames,omitempty"`
 }
 

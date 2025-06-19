@@ -123,7 +123,7 @@ sudo quad-ops unit list -t all
 You should see output similar to:
 
 ```
-ID  Name                                Type       Unit State  SHA1                                      Cleanup Policy  Created At
+ID  Name                                Type       Unit State  SHA1                                      Cleanup Policy  Updated At
 1   quad-ops-multi-service-db           container  active      c79f25a54e5aca33d8bdf7e4b4776969959aa4b4  keep            2025-04-21 22:45:15 +0000 UTC
 2   quad-ops-multi-service-webapp       container  active      106a63b255e897348957b4b2cee17a6e9e4d0e00  keep            2025-04-21 22:45:15 +0000 UTC
 3   quad-ops-multi-service-db-data      volume     active      05763d60c00d6ef3f4f8a026083877eb6545c48b  keep            2025-04-21 22:45:15 +0000 UTC
@@ -221,7 +221,6 @@ repositories:
 
   - name: my-project
     url: "file:///home/yourusername/my-quad-ops-project"
-    cleanup: "delete"  # Remove units when they're deleted from Git
 ```
 
 ### 3. Sync Your Project

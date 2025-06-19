@@ -9,21 +9,17 @@ import (
 	"time"
 
 	"github.com/coreos/go-systemd/v22/dbus"
-	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
-	"gopkg.in/ini.v1"
 )
 
 // Unit represents a unit managed by quad-ops.
 type Unit struct {
-	ID            int64     `db:"id"`
-	Name          string    `db:"name"`
-	Type          string    `db:"type"`
-	CleanupPolicy string    `db:"cleanup_policy"`
-	SHA1Hash      []byte    `db:"sha1_hash"`
-	UserMode      bool      `db:"user_mode"`
-	CreatedAt     time.Time `db:"created_at"`
+	ID        int64
+	Name      string
+	Type      string
+	SHA1Hash  []byte
+	UpdatedAt time.Time
 }
 
 // Repository defines the interface for unit data access operations.
@@ -163,7 +159,6 @@ func (r *SystemdRepository) parseUnitFromFile(filePath, unitName, unitType strin
 		return Unit{}, fmt.Errorf("reading unit file %s: %w", filePath, err)
 	}
 
-	// Get file modification time as created at
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		return Unit{}, fmt.Errorf("getting file info for %s: %w", filePath, err)
@@ -172,31 +167,15 @@ func (r *SystemdRepository) parseUnitFromFile(filePath, unitName, unitType strin
 	// Calculate content hash
 	contentHash := fs.GetContentHash(string(content))
 
-	// Parse INI file to get cleanup policy if present
-	cleanupPolicy := "keep" // Default
-	_, err = ini.Load(content)
-	if err == nil {
-		// Look for cleanup policy in comments or custom sections
-		// For now, use default policy based on config
-		for _, repo := range config.DefaultProvider().GetConfig().Repositories {
-			if strings.Contains(unitName, repo.Name) && repo.Cleanup != "" {
-				cleanupPolicy = repo.Cleanup
-				break
-			}
-		}
-	}
-
 	// Generate a consistent ID based on name and type
 	id := int64(hash(unitName + unitType))
 
 	unit := Unit{
-		ID:            id,
-		Name:          unitName,
-		Type:          unitType,
-		CleanupPolicy: cleanupPolicy,
-		SHA1Hash:      contentHash,
-		UserMode:      config.DefaultProvider().GetConfig().UserMode,
-		CreatedAt:     fileInfo.ModTime(),
+		ID:        id,
+		Name:      unitName,
+		Type:      unitType,
+		SHA1Hash:  contentHash,
+		UpdatedAt: fileInfo.ModTime(),
 	}
 
 	return unit, nil

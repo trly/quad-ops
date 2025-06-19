@@ -27,7 +27,6 @@ repositories:
     url: "https://github.com/example/repo.git"  # Git repository URL (required)
     ref: "main"  # Git reference to checkout: branch, tag, or commit hash (optional)
     composeDir: "compose"  # Subdirectory where Docker Compose files are located (optional)
-    cleanup: "delete"  # Cleanup policy: "delete" or "keep" (default: "keep")
 ```
 
 ## Getting Started with Development

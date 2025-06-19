@@ -83,13 +83,11 @@ repositories:
     url: https://github.com/company/webapp.git
     ref: main
     composeDir: deploy
-    cleanup: keep
 
   - name: microservices
     url: https://github.com/company/microservices.git
     ref: production
     composeDir: compose
-    cleanup: delete
     usePodmanDefaultNames: true
 ```
 
@@ -104,7 +102,6 @@ repositories:
   - name: dev-app
     url: https://github.com/company/app.git
     ref: develop
-    cleanup: delete  # Clean up when switching branches
 ```
 
 ```yaml
@@ -116,7 +113,6 @@ repositories:
   - name: prod-app
     url: https://github.com/company/app.git
     ref: v2.1.0  # Pin to specific version
-    cleanup: keep  # Preserve deployments
 ```
 
 ## Configuration Validation
@@ -127,7 +123,6 @@ Quad-Ops validates the configuration file on startup and will report errors for:
 - Missing required fields
 - Invalid duration formats
 - Duplicate repository names
-- Invalid cleanup policy values
 
 ## Next Steps
 

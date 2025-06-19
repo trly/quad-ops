@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/SerhiiCho/timeago/v3"
 	"github.com/fatih/color"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
@@ -51,7 +52,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 		Run: func(_ *cobra.Command, _ []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()
-			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Cleanup Policy", "Created At")
+			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Updated")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
 			unitRepo := repository.NewRepository()
@@ -98,7 +99,12 @@ func findAndDisplayUnits(unitRepo repository.Repository, tbl table.Table, unitTy
 			log.GetLogger().Debug("Error getting unit status", "error", err)
 			unitStatus = "UNKNOWN"
 		}
-		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), u.CleanupPolicy, u.CreatedAt)
+		updateAtString, err := timeago.Parse(u.UpdatedAt)
+		if err != nil {
+			log.GetLogger().Debug("Error parsing update at time", "error", err)
+			updateAtString = "UNKNOWN"
+		}
+		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), updateAtString)
 	}
 	tbl.Print()
 }

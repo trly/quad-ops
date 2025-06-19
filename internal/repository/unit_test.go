@@ -59,8 +59,6 @@ VolumeName=test-volume
 	for _, unit := range units {
 		if unit.Name == "test-nginx" && unit.Type == "container" {
 			foundContainer = true
-			assert.Equal(t, "keep", unit.CleanupPolicy) // Default policy
-			assert.False(t, unit.UserMode)
 		}
 		if unit.Name == "test-volume" && unit.Type == "volume" {
 			foundVolume = true
@@ -122,11 +120,9 @@ func TestSystemdRepository_Create(t *testing.T) {
 
 	// Create a unit (should succeed but not store anything)
 	unit := &Unit{
-		Name:          "test-unit",
-		Type:          "container",
-		SHA1Hash:      []byte("abc123"),
-		CleanupPolicy: "delete",
-		UserMode:      false,
+		Name:     "test-unit",
+		Type:     "container",
+		SHA1Hash: []byte("abc123"),
 	}
 
 	id, err := repo.Create(unit)
@@ -211,10 +207,8 @@ ContainerName=test-nginx
 	assert.NoError(t, err)
 	assert.Equal(t, "test-nginx", unit.Name)
 	assert.Equal(t, "container", unit.Type)
-	assert.Equal(t, "keep", unit.CleanupPolicy) // Default
-	assert.True(t, unit.UserMode)               // From config
 	assert.NotEmpty(t, unit.SHA1Hash)
-	assert.NotZero(t, unit.CreatedAt)
+	assert.NotZero(t, unit.UpdatedAt)
 }
 
 func TestHashFunction(t *testing.T) {
@@ -251,7 +245,6 @@ Image=nginx:latest
 	units, err := repo.FindAll()
 	assert.NoError(t, err)
 	assert.Len(t, units, 1)
-	assert.False(t, units[0].UserMode)
 
 	// Switch to userMode=true
 	cfg.UserMode = true
@@ -259,7 +252,6 @@ Image=nginx:latest
 	units, err = repo.FindAll()
 	assert.NoError(t, err)
 	assert.Len(t, units, 1)
-	assert.True(t, units[0].UserMode) // Should reflect current config
 }
 
 func TestContentHashCalculation(t *testing.T) {

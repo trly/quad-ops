@@ -75,8 +75,7 @@ imagePullTimeout: 90s
 repositories:
 - name: "test-repo"
   url: "https://github.com/test/repo"
-  ref: "main"
-  cleanup: "delete"`
+  ref: "main"`
 
 	if err := os.WriteFile(tmpfile.Name(), []byte(configContent), 0600); err != nil {
 		t.Fatal(err)

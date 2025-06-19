@@ -21,7 +21,7 @@ The `sync` command is the core operation of Quad-Ops. It performs a complete syn
 2. **File Discovery** - Scan for Docker Compose files in configured locations
 3. **Conversion** - Generate Podman Quadlet units from compose configurations
 4. **Deployment** - Load units into systemd and start services
-5. **Cleanup** - Remove outdated units based on cleanup policies
+5. **Cleanup** - Remove outdated units that are no longer defined in any repository
 
 This command is safe to run repeatedly and will only make necessary changes.
 
