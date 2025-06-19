@@ -23,7 +23,6 @@ func TestInitConfig(t *testing.T) {
 	assert.Equal(t, DefaultQuadletDir, cfg.QuadletDir)
 	assert.Equal(t, DefaultUserMode, cfg.UserMode)
 	assert.Equal(t, DefaultVerbose, cfg.Verbose)
-	assert.Equal(t, DefaultUsePodmanDefaultNames, cfg.UsePodmanDefaultNames)
 	assert.Equal(t, DefaultUnitStartTimeout, cfg.UnitStartTimeout)
 	assert.Equal(t, DefaultImagePullTimeout, cfg.ImagePullTimeout)
 }
@@ -32,14 +31,13 @@ func TestInitConfig(t *testing.T) {
 func TestSetAndGetConfig(t *testing.T) {
 	resetViper()
 	testConfig := &Settings{
-		RepositoryDir:         "/custom/path",
-		SyncInterval:          10 * time.Minute,
-		QuadletDir:            "/custom/quadlet",
-		UserMode:              true,
-		Verbose:               true,
-		UsePodmanDefaultNames: true,
-		UnitStartTimeout:      15 * time.Second,
-		ImagePullTimeout:      60 * time.Second,
+		RepositoryDir:    "/custom/path",
+		SyncInterval:     10 * time.Minute,
+		QuadletDir:       "/custom/quadlet",
+		UserMode:         true,
+		Verbose:          true,
+		UnitStartTimeout: 15 * time.Second,
+		ImagePullTimeout: 60 * time.Second,
 		Repositories: []Repository{
 			{
 				Name:      "test-repo",
@@ -69,7 +67,6 @@ syncInterval: 15m
 quadletDir: "/test/quadlet"
 userMode: true
 verbose: true
-usePodmanDefaultNames: true
 unitStartTimeout: 20s
 imagePullTimeout: 90s
 repositories:
@@ -90,7 +87,6 @@ repositories:
 	viper.SetDefault("quadletDir", DefaultQuadletDir)
 	viper.SetDefault("userMode", DefaultUserMode)
 	viper.SetDefault("verbose", DefaultVerbose)
-	viper.SetDefault("usePodmanDefaultNames", DefaultUsePodmanDefaultNames)
 	viper.SetDefault("unitStartTimeout", DefaultUnitStartTimeout)
 	viper.SetDefault("imagePullTimeout", DefaultImagePullTimeout)
 
@@ -108,7 +104,6 @@ repositories:
 	assert.Equal(t, "/test/quadlet", cfg.QuadletDir)
 	assert.True(t, cfg.UserMode)
 	assert.True(t, cfg.Verbose)
-	assert.True(t, cfg.UsePodmanDefaultNames)
 	assert.Equal(t, 20*time.Second, cfg.UnitStartTimeout)
 	assert.Equal(t, 90*time.Second, cfg.ImagePullTimeout)
 	assert.Len(t, cfg.Repositories, 1)

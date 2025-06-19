@@ -22,7 +22,6 @@ Repository configuration defines how Quad-Ops manages individual Git repositorie
 |--------|------|---------|-------------|
 | `ref` | string | `main` | Git reference to checkout (branch, tag, or commit hash) |
 | `composeDir` | string | `""` | Subdirectory containing Docker Compose files |
-| `usePodmanDefaultNames` | boolean | `false` | Override global naming convention |
 
 ## Git Repository Sources
 
@@ -145,17 +144,9 @@ repositories:
 
 ### Container Naming Examples
 
-With `usePodmanDefaultNames: false` (default):
 ```yaml
 # Repository: myapp, Service: web
 # Container hostname: myapp-web
-# Systemd unit: myapp-web.service
-```
-
-With `usePodmanDefaultNames: true`:
-```yaml
-# Repository: myapp, Service: web
-# Container hostname: systemd-myapp-web
 # Systemd unit: myapp-web.service
 ```
 

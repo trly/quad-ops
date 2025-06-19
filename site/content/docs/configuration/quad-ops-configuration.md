@@ -33,19 +33,7 @@ quad-ops --config /path/to/config.yaml sync
 | `userMode` | boolean | `false` | Enable user-mode (rootless) operation |
 | `verbose` | boolean | `false` | Enable verbose logging output |
 
-### Container Naming
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `usePodmanDefaultNames` | boolean | `false` | Use Podman's default naming with systemd- prefix |
-
-When `usePodmanDefaultNames` is `false` (default):
-- Container hostnames: `project-service` (e.g., `myapp-db`)
-- Direct service-to-service communication works seamlessly
-
-When `usePodmanDefaultNames` is `true`:
-- Container hostnames: `systemd-project-service` (e.g., `systemd-myapp-db`)
-- Follows Podman's default systemd naming convention
 
 ## User Mode Configuration
 
@@ -75,7 +63,6 @@ syncInterval: 10m
 quadletDir: /etc/containers/systemd
 userMode: false
 verbose: true
-usePodmanDefaultNames: false
 
 # Repository definitions
 repositories:
@@ -88,7 +75,6 @@ repositories:
     url: https://github.com/company/microservices.git
     ref: production
     composeDir: compose
-    usePodmanDefaultNames: true
 ```
 
 ### Environment-Specific Configuration

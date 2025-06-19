@@ -9,10 +9,7 @@ syncInterval: 5m
 # quadletDir: "/etc/containers/systemd"     # System mode default
 # quadletDir: "~/.config/containers/systemd" # User mode default
 
-# Whether to use Podman's default container naming (with systemd- prefix)
-# Default is false: container hostnames will match exactly with their service names without systemd- prefix
-# Set to true to allow Podman to use its default naming with systemd- prefix
-usePodmanDefaultNames: false
+
 
 # Repositories to synchronize
 repositories:
@@ -23,4 +20,3 @@ repositories:
 
     # When "delete" is specified, units that were previously deployed from this
     # repository but no longer exist in the Docker Compose files will be stopped and removed
-    usePodmanDefaultNames: false  # Whether to use Podman's default naming for this repository (overrides global setting)

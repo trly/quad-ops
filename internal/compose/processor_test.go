@@ -85,7 +85,7 @@ func TestConfigureContainerNaming(t *testing.T) {
 	// Test with custom hostname
 	container.HostName = "custom-host"
 
-	configureContainerNaming(container, "prefixed-name", "service-name", "project-name")
+	configureContainerNaming(container, "prefixed-name", "service-name")
 
 	// Verify network aliases were set
 	assert.Contains(t, container.NetworkAlias, "service-name")

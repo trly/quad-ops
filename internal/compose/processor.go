@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
@@ -144,14 +143,13 @@ func processUnit(unitRepo repository.Repository, unitItem *unit.QuadletUnit, for
 	// Check if unit file content has changed
 	hasChanged := fs.HasUnitChanged(unitPath, content)
 
-	// Check for potential naming conflicts due to usePodmanDefaultNames changes
+	// Check for potential naming conflicts with existing units
 	// This occurs when a unit with a different naming scheme exists
 	hasNamingConflict := false
 	existingUnits, err := unitRepo.FindAll()
 	if err == nil {
 		for _, existingUnit := range existingUnits {
-			// If an existing unit with the same type exists that almost matches but differs in naming scheme,
-			// this could indicate a usePodmanDefaultNames change
+			// If an existing unit with the same type exists that almost matches but differs in naming scheme
 			if existingUnit.Type == unitItem.Type &&
 				existingUnit.Name != unitItem.Name &&
 				(strings.HasSuffix(existingUnit.Name, unitItem.Name) || strings.HasSuffix(unitItem.Name, existingUnit.Name)) {
@@ -425,7 +423,7 @@ func createContainerFromService(service types.ServiceConfig, prefixedName, servi
 	addEnvironmentFiles(container, serviceName, project.WorkingDir)
 
 	// Configure container naming
-	configureContainerNaming(container, prefixedName, serviceName, project.Name)
+	configureContainerNaming(container, prefixedName, serviceName)
 
 	return container
 }
@@ -458,12 +456,9 @@ func addEnvironmentFiles(container *unit.Container, serviceName, workingDir stri
 	}
 }
 
-func configureContainerNaming(container *unit.Container, prefixedName, serviceName, projectName string) {
-	usePodmanNames := getUsePodmanNames(projectName)
-
-	if !usePodmanNames {
-		container.ContainerName = prefixedName
-	}
+func configureContainerNaming(container *unit.Container, prefixedName string, serviceName string) {
+	// Use quad-ops preferred naming (no systemd- prefix)
+	container.ContainerName = prefixedName
 
 	// Add service name as NetworkAlias for portability
 	container.NetworkAlias = append(container.NetworkAlias, serviceName)
@@ -528,18 +523,13 @@ func processVolumes(project *types.Project, unitRepo repository.Repository, forc
 			continue
 		}
 
-		// Check if we should use Podman's default naming with systemd- prefix
-		usePodmanNames := getUsePodmanNames(project.Name)
-
 		// Create prefixed volume name using project name for consistency
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, volumeName)
 		volume := unit.NewVolume(prefixedName)
 		volume = volume.FromComposeVolume(volumeName, volumeConfig)
 
-		// Check if we should use Podman's default naming with systemd- prefix
-		if !usePodmanNames {
-			volume.VolumeName = prefixedName
-		}
+		// Use quad-ops preferred naming (no systemd- prefix)
+		volume.VolumeName = prefixedName
 
 		// Create the quadlet unit
 		quadletUnit := unit.QuadletUnit{
@@ -567,18 +557,13 @@ func processNetworks(project *types.Project, unitRepo repository.Repository, for
 			continue
 		}
 
-		// Check if we should use Podman's default naming with systemd- prefix
-		usePodmanNames := getUsePodmanNames(project.Name)
-
 		// Create prefixed network name using project name for consistency
 		prefixedName := fmt.Sprintf("%s-%s", project.Name, networkName)
 		network := unit.NewNetwork(prefixedName)
 		network = network.FromComposeNetwork(networkName, networkConfig)
 
-		// Check if we should use Podman's default naming with systemd- prefix
-		if !usePodmanNames {
-			network.NetworkName = prefixedName
-		}
+		// Use quad-ops preferred naming (no systemd- prefix)
+		network.NetworkName = prefixedName
 
 		// Create the quadlet unit
 		quadletUnit := unit.QuadletUnit{
@@ -593,19 +578,4 @@ func processNetworks(project *types.Project, unitRepo repository.Repository, for
 		}
 	}
 	return nil
-}
-
-// getUsePodmanNames determines whether to use Podman's default naming scheme based on config and repository settings.
-func getUsePodmanNames(projectName string) bool {
-	usePodmanNames := config.DefaultProvider().GetConfig().UsePodmanDefaultNames
-
-	// Repository-specific setting overrides global setting if present
-	for _, repo := range config.DefaultProvider().GetConfig().Repositories {
-		if strings.Contains(projectName, repo.Name) && repo.UsePodmanDefaultNames != usePodmanNames {
-			usePodmanNames = repo.UsePodmanDefaultNames
-			break
-		}
-	}
-
-	return usePodmanNames
 }

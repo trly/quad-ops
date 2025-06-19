@@ -42,42 +42,39 @@ func DefaultProvider() Provider {
 // settings, such as the repository directory, sync interval, quadlet
 // directory, database path, user mode, and verbosity.
 const (
-	DefaultRepositoryDir         = "/var/lib/quad-ops"
-	DefaultSyncInterval          = 5 * time.Minute
-	DefaultQuadletDir            = "/etc/containers/systemd"
-	DefaultUserRepositoryDir     = "$HOME/.local/share/quad-ops"
-	DefaultUserQuadletDir        = "$HOME/.config/containers/systemd"
-	DefaultUserMode              = false
-	DefaultVerbose               = false
-	DefaultUsePodmanDefaultNames = false
-	DefaultUnitStartTimeout      = 10 * time.Second
-	DefaultImagePullTimeout      = 30 * time.Second
+	DefaultRepositoryDir     = "/var/lib/quad-ops"
+	DefaultSyncInterval      = 5 * time.Minute
+	DefaultQuadletDir        = "/etc/containers/systemd"
+	DefaultUserRepositoryDir = "$HOME/.local/share/quad-ops"
+	DefaultUserQuadletDir    = "$HOME/.config/containers/systemd"
+	DefaultUserMode          = false
+	DefaultVerbose           = false
+	DefaultUnitStartTimeout  = 10 * time.Second
+	DefaultImagePullTimeout  = 30 * time.Second
 )
 
 // Repository represents a repository that is managed by the quad-ops system.
 // It contains information about the repository, including its name, URL, target
 // directory, and compose directory.
 type Repository struct {
-	Name                  string `yaml:"name"`
-	URL                   string `yaml:"url"`
-	Reference             string `yaml:"ref,omitempty"`
-	ComposeDir            string `yaml:"composeDir,omitempty"`
-	UsePodmanDefaultNames bool   `yaml:"usePodmanDefaultNames,omitempty"`
+	Name       string `yaml:"name"`
+	URL        string `yaml:"url"`
+	Reference  string `yaml:"ref,omitempty"`
+	ComposeDir string `yaml:"composeDir,omitempty"`
 }
 
 // Settings represents the configuration for the quad-ops system. It contains
 // various settings such as the repository directory, sync interval, quadlet
 // directory, database path, user mode, and verbosity.
 type Settings struct {
-	RepositoryDir         string        `yaml:"repositoryDir"`
-	SyncInterval          time.Duration `yaml:"syncInterval"`
-	QuadletDir            string        `yaml:"quadletDir"`
-	Repositories          []Repository  `yaml:"repositories"`
-	UserMode              bool          `yaml:"userMode"`
-	Verbose               bool          `yaml:"verbose"`
-	UsePodmanDefaultNames bool          `yaml:"usePodmanDefaultNames"`
-	UnitStartTimeout      time.Duration `yaml:"unitStartTimeout"`
-	ImagePullTimeout      time.Duration `yaml:"imagePullTimeout"`
+	RepositoryDir    string        `yaml:"repositoryDir"`
+	SyncInterval     time.Duration `yaml:"syncInterval"`
+	QuadletDir       string        `yaml:"quadletDir"`
+	Repositories     []Repository  `yaml:"repositories"`
+	UserMode         bool          `yaml:"userMode"`
+	Verbose          bool          `yaml:"verbose"`
+	UnitStartTimeout time.Duration `yaml:"unitStartTimeout"`
+	ImagePullTimeout time.Duration `yaml:"imagePullTimeout"`
 }
 
 // Implementation of ConfigProvider methods for defaultConfigProvider
@@ -104,14 +101,13 @@ func (p *defaultConfigProvider) InitConfig() *Settings {
 // Internal function to initialize configuration.
 func initConfigInternal() *Settings {
 	cfg := &Settings{
-		RepositoryDir:         DefaultRepositoryDir,
-		SyncInterval:          DefaultSyncInterval,
-		QuadletDir:            DefaultQuadletDir,
-		UserMode:              DefaultUserMode,
-		Verbose:               DefaultVerbose,
-		UsePodmanDefaultNames: DefaultUsePodmanDefaultNames,
-		UnitStartTimeout:      DefaultUnitStartTimeout,
-		ImagePullTimeout:      DefaultImagePullTimeout,
+		RepositoryDir:    DefaultRepositoryDir,
+		SyncInterval:     DefaultSyncInterval,
+		QuadletDir:       DefaultQuadletDir,
+		UserMode:         DefaultUserMode,
+		Verbose:          DefaultVerbose,
+		UnitStartTimeout: DefaultUnitStartTimeout,
+		ImagePullTimeout: DefaultImagePullTimeout,
 	}
 
 	viper.SetDefault("repositoryDir", DefaultRepositoryDir)
@@ -119,7 +115,6 @@ func initConfigInternal() *Settings {
 	viper.SetDefault("quadletDir", DefaultQuadletDir)
 	viper.SetDefault("userMode", DefaultUserMode)
 	viper.SetDefault("verbose", DefaultVerbose)
-	viper.SetDefault("usePodmanDefaultNames", DefaultUsePodmanDefaultNames)
 	viper.SetDefault("unitStartTimeout", DefaultUnitStartTimeout)
 	viper.SetDefault("imagePullTimeout", DefaultImagePullTimeout)
 
