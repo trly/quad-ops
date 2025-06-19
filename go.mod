@@ -3,6 +3,7 @@ module github.com/trly/quad-ops
 go 1.24.0
 
 require (
+	github.com/SerhiiCho/timeago/v3 v3.3.0
 	github.com/compose-spec/compose-go/v2 v2.6.4
 	github.com/coreos/go-systemd/v22 v22.5.1-0.20231103132048-7d375ecc2b09
 	github.com/creativeprojects/go-selfupdate v1.5.0
@@ -31,7 +32,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
-	github.com/SerhiiCho/timeago/v3 v3.3.0 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
