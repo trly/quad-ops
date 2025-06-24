@@ -3,7 +3,7 @@ module github.com/trly/quad-ops
 go 1.24.0
 
 require (
-	github.com/SerhiiCho/timeago/v3 v3.3.0
+	github.com/SerhiiCho/timeago/v3 v3.3.1
 	github.com/compose-spec/compose-go/v2 v2.6.5
 	github.com/coreos/go-systemd/v22 v22.5.1-0.20231103132048-7d375ecc2b09
 	github.com/creativeprojects/go-selfupdate v1.5.0
