@@ -15,20 +15,10 @@
 - **build/**: Build artifacts and systemd service files
 
 ## Key Commands
-
-### Development
-- `task build` - Build application (includes fmt, lint, test, go build)
-- `task test` - Run tests with coverage (`gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...`)
-- `task lint` - Run linter (`golangci-lint run`)
-- `task fmt` - Format code (`go fmt ./...`)
-- `go build -o quad-ops cmd/quad-ops/main.go` - Build binary directly
-
-### Testing & Quality
+- `task build` - Build application (includes fmt, lint, test)
+- `task test` - Run tests with coverage
+- `task lint` - Run linter
 - `go test -v ./...` - Run all tests
-- `go test -v ./internal/package` - Run tests for specific package
-- `go test -run TestName` - Run single test by name
-- `mise exec -- golangci-lint run` - Run linter via mise
-- Coverage reports generated in `coverage.out`
 
 ## Configuration
 - Main config: `/etc/quad-ops/config.yaml` (system) or `~/.config/quad-ops/config.yaml` (user)
@@ -42,7 +32,6 @@
 - **task**: Task runner (Taskfile.yml)
 - **golangci-lint**: Go linter with comprehensive rule set
 - **gotestsum**: Enhanced test runner with formatting
-- **hugo-extended**: Documentation site generator
 
 ## Code Style Guidelines
 - Follow standard Go conventions
@@ -58,7 +47,5 @@
 - Installation script available (`install.sh`)
 
 ## Documentation
-- Main docs: https://trly.github.io/quad-ops/
-- Built with Hugo Extended
-- Source in `site/` directory
-- GitHub Actions automated deployment
+- Documentation site details and Hugo-specific guidelines: see `site/AGENT.md`
+
