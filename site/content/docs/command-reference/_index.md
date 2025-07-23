@@ -20,10 +20,12 @@ quad-ops [global-options] <command> [command-options] [arguments]
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--config` | `-c` | Path to configuration file |
+| `--config` | | Path to configuration file |
 | `--verbose` | `-v` | Enable verbose output |
+| `--user` | `-u` | Run in rootless user mode |
+| `--quadlet-dir` | | Override unit output directory |
+| `--repository-dir` | | Override git checkout directory |
 | `--help` | `-h` | Show help information |
-| `--version` | | Show version information |
 
 ## Available Commands
 
@@ -32,11 +34,14 @@ quad-ops [global-options] <command> [command-options] [arguments]
 - **[up](up)** - Start all or specific services
 - **[down](down)** - Stop and remove services
 - **[update](update)** - Update quad-ops to the latest version
+- **[version](version)** - Show version information and check for updates
+
+### Image Management
+- **[image pull](image)** - Pull container images from repositories
 
 ### Unit Management
-- **[unit list](unit-list)** - List deployed units and their status
-- **[unit show](unit-show)** - Display detailed unit information
-- **[unit remove](unit-remove)** - Remove specific units
+- **[unit list](unit/list)** - List deployed units and their status
+- **[unit show](unit/show)** - Display detailed unit information
 
 ### Configuration
 - **[config](config)** - Configuration management commands

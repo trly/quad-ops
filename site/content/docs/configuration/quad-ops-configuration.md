@@ -32,6 +32,8 @@ quad-ops --config /path/to/config.yaml sync
 | `quadletDir` | string | `/etc/containers/systemd` | Directory for Podman Quadlet unit files |
 | `userMode` | boolean | `false` | Enable user-mode (rootless) operation |
 | `verbose` | boolean | `false` | Enable verbose logging output |
+| `unitStartTimeout` | duration | `10s` | Timeout for systemd unit start operations |
+| `imagePullTimeout` | duration | `30s` | Timeout for systemd units during image pull phases (sync operations) |
 
 
 
@@ -63,6 +65,8 @@ syncInterval: 10m
 quadletDir: /etc/containers/systemd
 userMode: false
 verbose: true
+unitStartTimeout: 15s
+imagePullTimeout: 60s
 
 # Repository definitions
 repositories:

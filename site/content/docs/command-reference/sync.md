@@ -39,8 +39,11 @@ This command is safe to run repeatedly and will only make necessary changes.
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--config` | `-c` | Path to configuration file |
+| `--config` | | Path to configuration file |
 | `--verbose` | `-v` | Enable verbose output |
+| `--user` | `-u` | Run in rootless user mode |
+| `--quadlet-dir` | | Override unit output directory |
+| `--repository-dir` | | Override git checkout directory |
 
 ## Related Commands
 

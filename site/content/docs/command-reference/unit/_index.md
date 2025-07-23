@@ -26,8 +26,11 @@ The `unit` command provides management and inspection capabilities for Podman Qu
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--config` | `-c` | Path to configuration file |
+| `--config` | | Path to configuration file |
 | `--verbose` | `-v` | Enable verbose output |
+| `--user` | `-u` | Run in rootless user mode |
+| `--quadlet-dir` | | Override unit output directory |
+| `--repository-dir` | | Override git checkout directory |
 
 ## Unit Types
 
@@ -35,7 +38,7 @@ The following unit types are supported:
 
 | Type | Description |
 |------|-------------|
-| `container` | Podman container units |
+| `container` | Podman container units (includes init containers) |
 | `volume` | Podman volume units |
 | `network` | Podman network units |
 | `image` | Podman image units |
