@@ -1,20 +1,62 @@
-# quad-ops Development Guide
+# Agent Guidelines for quad-ops
 
-## Commands
-- **Build**: `go build -o quad-ops cmd/quad-ops/main.go`
-- **Test all**: `gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...`
-- **Test single package**: `go test -v ./internal/validate`
-- **Lint**: `golangci-lint run`
-- **Format**: `go fmt ./...`
-- **Main entry**: `cmd/quad-ops/main.go`
+## Project Overview
+- **Quad-Ops**: GitOps framework for Podman containers managed by Quadlet
+- Converts Docker Compose files to systemd unit files for container management
+- Supports both system-wide and rootless container operation modes
+- Written in Go with CLI interface using Cobra framework
 
-## Code Style
-- **Imports**: Use `goimports` formatting, group std → external → internal
-- **Naming**: Use Go conventions - PascalCase for exported, camelCase for unexported
-- **Error handling**: Always check errors, use descriptive error messages like `fmt.Errorf("command not mocked: %s", key)`
-- **Types**: Use Go's built-in types, explicit interfaces (Repository, Provider patterns)
-- **Comments**: Package comments start with package name, function comments for exported items
-- **Testing**: Use testify/assert, create temp files with `os.CreateTemp()`, defer cleanup
-- **Structure**: Organize by domain packages in `internal/` - config, db, git, unit, validate, etc.
-- **CLI**: Use cobra/viper pattern for commands and configuration
-- **License**: Include MIT license header in new files
+## Architecture & Structure
+- **cmd/**: CLI commands and main entry points
+- **internal/**: Core application logic (compose, config, git, systemd, etc.)
+- **configs/**: Configuration file examples
+- **examples/**: Example configurations and compose files
+- **site/**: Documentation site (Hugo-based)
+- **build/**: Build artifacts and systemd service files
+
+## Key Commands
+
+### Development
+- `task build` - Build application (includes fmt, lint, test, go build)
+- `task test` - Run tests with coverage (`gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...`)
+- `task lint` - Run linter (`golangci-lint run`)
+- `task fmt` - Format code (`go fmt ./...`)
+- `go build -o quad-ops cmd/quad-ops/main.go` - Build binary directly
+
+### Testing & Quality
+- `go test -v ./...` - Run all tests
+- `mise exec -- golangci-lint run` - Run linter via mise
+- Coverage reports generated in `coverage.out`
+
+## Configuration
+- Main config: `/etc/quad-ops/config.yaml` (system) or `~/.config/quad-ops/config.yaml` (user)
+- Example config: `configs/config.yaml.example`
+- Supports multiple Git repositories with Docker Compose files
+- Profile-specific configurations for different environments
+
+## Dependencies & Tools
+- **Go** (managed via mise)
+- **mise**: Development environment manager
+- **task**: Task runner (Taskfile.yml)
+- **golangci-lint**: Go linter with comprehensive rule set
+- **gotestsum**: Enhanced test runner with formatting
+- **hugo-extended**: Documentation site generator
+
+## Code Style Guidelines
+- Follow standard Go conventions
+- Use golangci-lint rules (errcheck, govet, staticcheck, revive, gosec, etc.)
+- Format code with gofmt and goimports
+- Comprehensive test coverage expected
+- Security-focused development (gosec linter enabled)
+
+## Release & Distribution
+- Automated releases via GoReleaser (`.goreleaser.yml`)
+- Self-update capability built into application
+- Systemd service file provided for daemon operation
+- Installation script available (`install.sh`)
+
+## Documentation
+- Main docs: https://trly.github.io/quad-ops/
+- Built with Hugo Extended
+- Source in `site/` directory
+- GitHub Actions automated deployment
