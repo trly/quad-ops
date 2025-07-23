@@ -25,6 +25,8 @@
 
 ### Testing & Quality
 - `go test -v ./...` - Run all tests
+- `go test -v ./internal/package` - Run tests for specific package
+- `go test -run TestName` - Run single test by name
 - `mise exec -- golangci-lint run` - Run linter via mise
 - Coverage reports generated in `coverage.out`
 
