@@ -30,8 +30,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/compose"
-	"github.com/trly/quad-ops/internal/git"
+	"github.com/trly/quad-ops/internal/app"
+	"github.com/trly/quad-ops/internal/infra/git"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -55,7 +55,7 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 					composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
 				}
 
-				projects, err := compose.ReadProjects(composeDir)
+				projects, err := app.ReadProjects(composeDir)
 				if err != nil {
 					log.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "error", err)
 					log.GetLogger().Info("Check that the composeDir path exists in the repository", "repository", repoConfig.Name, "expectedPath", repoConfig.ComposeDir)

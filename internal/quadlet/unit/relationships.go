@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/graph"
 )
 
 // ApplyDependencyRelationships applies dependencies to a quadlet unit based on the dependency graph.
-func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, dependencyGraph *dependency.ServiceDependencyGraph, projectName string) error {
+func ApplyDependencyRelationships(unit *QuadletUnit, serviceName string, dependencyGraph *graph.ServiceDependencyGraph, projectName string) error {
 	// Get dependencies for this service
 	dependencies, err := dependencyGraph.GetDependencies(serviceName)
 	if err != nil {

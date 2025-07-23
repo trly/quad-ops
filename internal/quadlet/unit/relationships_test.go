@@ -6,7 +6,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/graph"
 )
 
 func TestDependencyGraphApplyRelationships(t *testing.T) {
@@ -29,7 +29,7 @@ func TestDependencyGraphApplyRelationships(t *testing.T) {
 	}
 
 	// Build the dependency graph
-	graph, err := dependency.BuildServiceDependencyGraph(project)
+	graph, err := graph.BuildServiceDependencyGraph(project)
 	require.NoError(t, err)
 
 	// Create container for webapp
@@ -131,7 +131,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	}
 
 	// Build graph from project for testing
-	graph, err := dependency.BuildServiceDependencyGraph(project)
+	graph, err := graph.BuildServiceDependencyGraph(project)
 	require.NoError(t, err)
 
 	// Apply dependencies

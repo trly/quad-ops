@@ -1,5 +1,5 @@
-// Package compose provides Docker Compose file parsing and handling
-package compose
+// Package app provides Docker Compose file parsing and handling
+package app
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/cli"
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/validate"
+	"github.com/trly/quad-ops/internal/validation"
 )
 
 // ReadProjects reads all Docker Compose projects from a directory path.
@@ -170,10 +170,10 @@ func ParseComposeFile(path string) (*types.Project, error) {
 						value := strings.TrimSpace(parts[1])
 
 						// Create security validator
-						validator := validate.NewSecretValidator()
+						validator := validation.NewSecretValidator()
 
 						// Validate environment variable key with extended validation
-						if err := validate.EnvKey(key); err != nil {
+						if err := validation.EnvKey(key); err != nil {
 							log.GetLogger().Warn("Invalid environment variable key", "key", key, "error", err)
 							continue
 						}
@@ -189,7 +189,7 @@ func ParseComposeFile(path string) (*types.Project, error) {
 							log.GetLogger().Warn("Failed to set environment variable", "key", key, "error", err)
 						} else {
 							// Use sanitized logging for potentially sensitive values
-							safeValue := validate.SanitizeForLogging(key, value)
+							safeValue := validation.SanitizeForLogging(key, value)
 							log.GetLogger().Debug("Set environment variable from .env file", "key", key, "value", safeValue)
 						}
 					}

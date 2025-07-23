@@ -1,5 +1,5 @@
-// Package dependency provides service dependency graph management for Docker Compose projects.
-package dependency
+// Package graph provides service dependency graph management for Docker Compose projects.
+package graph
 
 import (
 	"errors"

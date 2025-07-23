@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/graph"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -24,7 +24,7 @@ type UnitChange struct {
 }
 
 // StartUnitDependencyAware starts or restarts a unit while being dependency-aware.
-func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph *dependency.ServiceDependencyGraph) error {
+func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph *graph.ServiceDependencyGraph) error {
 	log.GetLogger().Debug("Starting/restarting unit with dependency awareness", "unit", unitName, "type", unitType)
 
 	// Handle different unit types appropriately
@@ -84,7 +84,7 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph 
 }
 
 // RestartChangedUnits restarts all changed units in dependency-aware order.
-func RestartChangedUnits(changedUnits []UnitChange, projectDependencyGraphs map[string]*dependency.ServiceDependencyGraph) error {
+func RestartChangedUnits(changedUnits []UnitChange, projectDependencyGraphs map[string]*graph.ServiceDependencyGraph) error {
 	log.GetLogger().Info("Restarting changed units with dependency awareness", "count", len(changedUnits))
 	err := ReloadSystemd()
 	if err != nil {
@@ -242,7 +242,7 @@ func splitUnitName(unitName string) []string {
 
 // isServiceAlreadyRestarted checks if the service itself is already restarted
 // or if any services that would cause this service to restart are already restarted.
-func isServiceAlreadyRestarted(serviceName string, dependencyGraph *dependency.ServiceDependencyGraph, projectName string, restarted map[string]bool) bool {
+func isServiceAlreadyRestarted(serviceName string, dependencyGraph *graph.ServiceDependencyGraph, projectName string, restarted map[string]bool) bool {
 	// Check if this service is already restarted
 	unitKey := fmt.Sprintf("%s-%s.container", projectName, serviceName)
 	if restarted[unitKey] {

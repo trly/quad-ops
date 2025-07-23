@@ -5,7 +5,7 @@ import (
 	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/trly/quad-ops/internal/systemd"
+	"github.com/trly/quad-ops/internal/quadlet/systemd"
 )
 
 // Volume represents the configuration for a volume in a Quadlet unit.

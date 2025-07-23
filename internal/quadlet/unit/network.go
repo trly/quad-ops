@@ -5,7 +5,7 @@ import (
 	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/trly/quad-ops/internal/systemd"
+	"github.com/trly/quad-ops/internal/quadlet/systemd"
 )
 
 // Network represents the configuration for a network in a Quadlet unit.

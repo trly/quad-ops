@@ -7,8 +7,8 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/systemd"
-	"github.com/trly/quad-ops/internal/validate"
+	"github.com/trly/quad-ops/internal/quadlet/systemd"
+	"github.com/trly/quad-ops/internal/validation"
 )
 
 // Build represents the configuration for a build unit.
@@ -179,7 +179,7 @@ func (b *Build) processVolumes(buildConfig types.BuildConfig, projectName string
 func (b *Build) processAdvancedConfig(buildConfig types.BuildConfig) {
 	// Process secrets with validation
 	if len(buildConfig.Secrets) > 0 {
-		validator := validate.NewSecretValidator()
+		validator := validation.NewSecretValidator()
 		for _, secret := range buildConfig.Secrets {
 			// Validate secret name
 			if err := validator.ValidateSecretName(secret.Source); err != nil {

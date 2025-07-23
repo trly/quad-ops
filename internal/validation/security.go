@@ -1,5 +1,5 @@
-// Package validate provides security validation functions for sensitive data
-package validate
+// Package validation provides security validation functions for sensitive data
+package validation
 
 import (
 	"fmt"

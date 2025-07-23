@@ -29,9 +29,9 @@ import (
 
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/compose"
+	"github.com/trly/quad-ops/internal/app"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/git"
+	"github.com/trly/quad-ops/internal/infra/git"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -115,7 +115,7 @@ func syncRepositories(cfg *config.Settings) {
 
 			log.GetLogger().Debug("Looking for compose files", "dir", composeDir)
 
-			projects, err := compose.ReadProjects(composeDir)
+			projects, err := app.ReadProjects(composeDir)
 			if err != nil {
 				if repoConfig.ComposeDir != "" {
 					log.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "error", err)
@@ -134,7 +134,7 @@ func syncRepositories(cfg *config.Settings) {
 				isLastRepo = true
 			}
 
-			updatedMap, err := compose.ProcessProjects(projects, force, processedUnits, isLastRepo)
+			updatedMap, err := app.ProcessProjects(projects, force, processedUnits, isLastRepo)
 			if err != nil {
 				log.GetLogger().Error("Failed to process projects from repository", "name", repoConfig.Name, "error", err)
 				continue

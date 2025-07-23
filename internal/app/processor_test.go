@@ -1,4 +1,4 @@
-package compose
+package app
 
 import (
 	"os"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/unit"
+	"github.com/trly/quad-ops/internal/quadlet/unit"
 )
 
 // TestProcessBuildIfPresent tests the processBuildIfPresent refactored method.

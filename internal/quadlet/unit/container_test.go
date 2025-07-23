@@ -11,7 +11,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/fs"
+	"github.com/trly/quad-ops/internal/infra/fs"
 	"github.com/trly/quad-ops/internal/log"
 )
 

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/graph"
 )
 
 func TestSplitUnitName(t *testing.T) {
@@ -27,7 +27,7 @@ func TestSplitUnitName(t *testing.T) {
 func TestIsServiceAlreadyRestarted(t *testing.T) {
 	// Create a dependency graph:
 	// A <- B <- C
-	dependencyGraph := dependency.NewServiceDependencyGraph()
+	dependencyGraph := graph.NewServiceDependencyGraph()
 	_ = dependencyGraph.AddService("A")
 	_ = dependencyGraph.AddService("B")
 	_ = dependencyGraph.AddService("C")

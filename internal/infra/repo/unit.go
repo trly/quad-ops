@@ -1,5 +1,5 @@
-// Package repository provides data access layer for quad-ops units.
-package repository
+// Package repo provides data access layer for quad-ops units.
+package repo
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/coreos/go-systemd/v22/dbus"
-	"github.com/trly/quad-ops/internal/fs"
+	"github.com/trly/quad-ops/internal/infra/fs"
 	"github.com/trly/quad-ops/internal/log"
 )
 

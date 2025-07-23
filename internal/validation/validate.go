@@ -1,5 +1,5 @@
-// Package validate provides functions to validate various aspects of the application.
-package validate
+// Package validation provides functions to validate various aspects of the application.
+package validation
 
 import (
 	"fmt"

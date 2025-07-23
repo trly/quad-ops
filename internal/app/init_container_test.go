@@ -1,10 +1,10 @@
-package compose
+package app
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/trly/quad-ops/internal/unit"
+	"github.com/trly/quad-ops/internal/quadlet/unit"
 )
 
 func TestCreateInitQuadletUnit(t *testing.T) {
