@@ -249,3 +249,25 @@ func EnvKey(key string) error {
 
 	return nil
 }
+
+// ValidateUnitName validates that a unit name is safe for use in shell commands.
+// Unit names must follow systemd naming conventions to prevent command injection.
+func ValidateUnitName(unitName string) error {
+	if unitName == "" {
+		return fmt.Errorf("unit name cannot be empty")
+	}
+
+	// Systemd unit names must match this pattern: alphanumeric, dots, dashes, underscores, @, and colons
+	// This prevents injection of shell metacharacters like ;, |, &, $, etc.
+	validUnitName := regexp.MustCompile(`^[a-zA-Z0-9._@:-]+$`)
+	if !validUnitName.MatchString(unitName) {
+		return fmt.Errorf("invalid unit name: contains unsafe characters")
+	}
+
+	// Additional length check to prevent extremely long names
+	if len(unitName) > 256 {
+		return fmt.Errorf("unit name too long")
+	}
+
+	return nil
+}

@@ -28,7 +28,6 @@ import (
 
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/util"
 	"github.com/trly/quad-ops/internal/validate"
 
 	"github.com/spf13/cobra"
@@ -71,7 +70,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 
 			if repositoryDir != "" {
 				// Validate repository directory path
-				if err := util.ValidatePath(repositoryDir); err != nil {
+				if err := validate.ValidatePath(repositoryDir); err != nil {
 					log.GetLogger().Error("Invalid repository directory", "path", repositoryDir, "error", err)
 					os.Exit(1)
 				}
@@ -80,7 +79,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 
 			if quadletDir != "" {
 				// Validate quadlet directory path
-				if err := util.ValidatePath(quadletDir); err != nil {
+				if err := validate.ValidatePath(quadletDir); err != nil {
 					log.GetLogger().Error("Invalid quadlet directory", "path", quadletDir, "error", err)
 					os.Exit(1)
 				}

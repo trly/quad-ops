@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/systemd"
-	"github.com/trly/quad-ops/internal/util"
+	"github.com/trly/quad-ops/internal/validate"
 )
 
 // StatusCommand represents the unit status command.
@@ -22,7 +22,7 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 			name := args[0]
 
 			// Validate unit name to prevent command injection
-			if err := util.ValidateUnitName(name); err != nil {
+			if err := validate.ValidateUnitName(name); err != nil {
 				fmt.Printf("Invalid unit name: %v\n", err)
 				return
 			}

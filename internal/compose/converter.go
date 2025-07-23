@@ -2,9 +2,9 @@ package compose
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/trly/quad-ops/internal/util"
 )
 
 // LabelConverter converts compose-style labels to unit labels.
@@ -27,7 +27,7 @@ func OptionsConverter(opts map[string]string) []string {
 	}
 
 	// Sort for deterministic order
-	util.SortStringSlice(options)
+	sort.Strings(options)
 	return options
 }
 

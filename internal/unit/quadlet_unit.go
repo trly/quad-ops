@@ -2,13 +2,45 @@ package unit
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/systemd"
-	"github.com/trly/quad-ops/internal/util"
 )
+
+// sortAndIterateSlice sorts a slice and applies a function to each item.
+// This replaces the util.SortAndIterateSlice function using stdlib slices package.
+func sortAndIterateSlice(slice []string, fn func(string)) {
+	if len(slice) == 0 {
+		return
+	}
+	
+	// Create a copy and sort it
+	sorted := slices.Clone(slice)
+	slices.Sort(sorted)
+	
+	// Process each item in sorted order
+	for _, item := range sorted {
+		fn(item)
+	}
+}
+
+// getSortedMapKeys returns a sorted slice of keys from a map for deterministic iteration.
+// This replaces the util.GetSortedMapKeys function using stdlib slices package.
+func getSortedMapKeys(m map[string]string) []string {
+	if len(m) == 0 {
+		return nil
+	}
+	
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
+}
 
 // QuadletUnit represents the configuration for a Quadlet unit, which can include
 // systemd, container, volume, network, pod, Kubernetes, image, and build settings.
@@ -78,12 +110,12 @@ func (u *QuadletUnit) addBasicConfig(builder *strings.Builder) {
 	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
 	// Use centralized sorting function for consistent output
-	util.SortAndIterateSlice(u.Container.Label, func(label string) {
+	sortAndIterateSlice(u.Container.Label, func(label string) {
 		builder.WriteString(formatKeyValue("Label", label))
 	})
 
 	// Use centralized sorting function for ports
-	util.SortAndIterateSlice(u.Container.PublishPort, func(port string) {
+	sortAndIterateSlice(u.Container.PublishPort, func(port string) {
 		builder.WriteString(formatKeyValue("PublishPort", port))
 	})
 }
@@ -91,14 +123,14 @@ func (u *QuadletUnit) addBasicConfig(builder *strings.Builder) {
 // addEnvironmentConfig adds environment variables and environment files.
 func (u *QuadletUnit) addEnvironmentConfig(builder *strings.Builder) {
 	// Sort environment variables for consistent output
-	envKeys := util.GetSortedMapKeys(u.Container.Environment)
+	envKeys := getSortedMapKeys(u.Container.Environment)
 
 	// Add environment variables in sorted order
 	for _, k := range envKeys {
 		fmt.Fprintf(builder, "Environment=%s=%s\n", k, u.Container.Environment[k])
 	}
 	// Use centralized sorting function for environment files
-	util.SortAndIterateSlice(u.Container.EnvironmentFile, func(envFile string) {
+	sortAndIterateSlice(u.Container.EnvironmentFile, func(envFile string) {
 		builder.WriteString(formatKeyValue("EnvironmentFile", envFile))
 	})
 }
@@ -106,17 +138,17 @@ func (u *QuadletUnit) addEnvironmentConfig(builder *strings.Builder) {
 // addVolumeNetworkConfig adds volume and network configuration.
 func (u *QuadletUnit) addVolumeNetworkConfig(builder *strings.Builder) {
 	// Use centralized sorting function for volumes
-	util.SortAndIterateSlice(u.Container.Volume, func(vol string) {
+	sortAndIterateSlice(u.Container.Volume, func(vol string) {
 		builder.WriteString(formatKeyValue("Volume", vol))
 	})
 
 	// Use centralized sorting function for networks
-	util.SortAndIterateSlice(u.Container.Network, func(net string) {
+	sortAndIterateSlice(u.Container.Network, func(net string) {
 		builder.WriteString(formatKeyValue("Network", net))
 	})
 
 	// Use centralized sorting function for network aliases
-	util.SortAndIterateSlice(u.Container.NetworkAlias, func(alias string) {
+	sortAndIterateSlice(u.Container.NetworkAlias, func(alias string) {
 		builder.WriteString(formatKeyValue("NetworkAlias", alias))
 	})
 }
@@ -218,11 +250,11 @@ func (u *QuadletUnit) addResourceConstraints(builder *strings.Builder) {
 
 // addAdvancedConfig adds advanced configuration like ulimit, tmpfs, sysctl.
 func (u *QuadletUnit) addAdvancedConfig(builder *strings.Builder) {
-	util.SortAndIterateSlice(u.Container.Ulimit, func(ulimit string) {
+	sortAndIterateSlice(u.Container.Ulimit, func(ulimit string) {
 		builder.WriteString(formatKeyValue("Ulimit", ulimit))
 	})
 
-	util.SortAndIterateSlice(u.Container.Tmpfs, func(tmpfs string) {
+	sortAndIterateSlice(u.Container.Tmpfs, func(tmpfs string) {
 		builder.WriteString(formatKeyValue("Tmpfs", tmpfs))
 	})
 
@@ -232,7 +264,7 @@ func (u *QuadletUnit) addAdvancedConfig(builder *strings.Builder) {
 		sysctlKeys = u.Container.sortedSysctlKeys
 	} else {
 		// Sort sysctl variables for consistent output
-		sysctlKeys = util.GetSortedMapKeys(u.Container.Sysctl)
+		sysctlKeys = getSortedMapKeys(u.Container.Sysctl)
 	}
 
 	// Add sysctl variables in sorted order
@@ -245,7 +277,7 @@ func (u *QuadletUnit) addAdvancedConfig(builder *strings.Builder) {
 	}
 
 	// Add PodmanArgs for features not directly supported by Quadlet
-	util.SortAndIterateSlice(u.Container.PodmanArgs, func(arg string) {
+	sortAndIterateSlice(u.Container.PodmanArgs, func(arg string) {
 		builder.WriteString(formatKeyValue("PodmanArgs", arg))
 	})
 }
@@ -262,7 +294,7 @@ func (u *QuadletUnit) addLoggingConfig(builder *strings.Builder) {
 		logOptKeys = u.Container.sortedLogOptKeys
 	} else {
 		// Sort log options for consistent output
-		logOptKeys = util.GetSortedMapKeys(u.Container.LogOpt)
+		logOptKeys = getSortedMapKeys(u.Container.LogOpt)
 	}
 
 	// Add log options in sorted order
@@ -302,7 +334,7 @@ func (u *QuadletUnit) generateVolumeSection() string {
 	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
 	// Use centralized sorting function for volume labels
-	util.SortAndIterateSlice(u.Volume.Label, func(label string) {
+	sortAndIterateSlice(u.Volume.Label, func(label string) {
 		builder.WriteString(formatKeyValue("Label", label))
 	})
 
@@ -316,7 +348,7 @@ func (u *QuadletUnit) generateVolumeSection() string {
 	}
 
 	// Use centralized sorting function for volume options
-	util.SortAndIterateSlice(u.Volume.Options, func(opt string) {
+	sortAndIterateSlice(u.Volume.Options, func(opt string) {
 		builder.WriteString(formatKeyValue("Options", opt))
 	})
 	if u.Volume.Copy {
@@ -337,7 +369,7 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
 	// Use centralized sorting function for network labels
-	util.SortAndIterateSlice(u.Network.Label, func(label string) {
+	sortAndIterateSlice(u.Network.Label, func(label string) {
 		builder.WriteString(formatKeyValue("Label", label))
 	})
 
@@ -367,7 +399,7 @@ func (u *QuadletUnit) generateNetworkSection() string {
 	// DNSEnabled is not supported by podman-systemd
 
 	// Use centralized sorting function for network options
-	util.SortAndIterateSlice(u.Network.Options, func(opt string) {
+	sortAndIterateSlice(u.Network.Options, func(opt string) {
 		builder.WriteString(formatKeyValue("Options", opt))
 	})
 	return builder.String()
@@ -405,11 +437,11 @@ func (u *QuadletUnit) addBuildBasicConfig(builder *strings.Builder) {
 }
 
 func (u *QuadletUnit) addBuildMetadata(builder *strings.Builder) {
-	util.SortAndIterateSlice(u.Build.Label, func(label string) {
+	sortAndIterateSlice(u.Build.Label, func(label string) {
 		builder.WriteString(formatKeyValue("Label", label))
 	})
 
-	util.SortAndIterateSlice(u.Build.Annotation, func(annotation string) {
+	sortAndIterateSlice(u.Build.Annotation, func(annotation string) {
 		builder.WriteString(formatKeyValue("Annotation", annotation))
 	})
 }
@@ -428,15 +460,15 @@ func (u *QuadletUnit) addBuildEnvironment(builder *strings.Builder) {
 }
 
 func (u *QuadletUnit) addBuildResources(builder *strings.Builder) {
-	util.SortAndIterateSlice(u.Build.Network, func(network string) {
+	sortAndIterateSlice(u.Build.Network, func(network string) {
 		builder.WriteString(formatKeyValue("Network", network))
 	})
 
-	util.SortAndIterateSlice(u.Build.Volume, func(volume string) {
+	sortAndIterateSlice(u.Build.Volume, func(volume string) {
 		builder.WriteString(formatKeyValue("Volume", volume))
 	})
 
-	util.SortAndIterateSlice(u.Build.Secret, func(secret string) {
+	sortAndIterateSlice(u.Build.Secret, func(secret string) {
 		builder.WriteString(formatKeyValue("Secret", secret))
 	})
 }
@@ -450,7 +482,7 @@ func (u *QuadletUnit) addBuildOptions(builder *strings.Builder) {
 		builder.WriteString(formatKeyValue("Pull", u.Build.Pull))
 	}
 
-	util.SortAndIterateSlice(u.Build.PodmanArgs, func(arg string) {
+	sortAndIterateSlice(u.Build.PodmanArgs, func(arg string) {
 		builder.WriteString(formatKeyValue("PodmanArgs", arg))
 	})
 }
@@ -541,7 +573,7 @@ func formatKeyValueSlice(key string, values []string) string {
 	sortedValues := make([]string, 0, len(values))
 
 	// Use our helper to collect values in sorted order
-	util.SortAndIterateSlice(values, func(item string) {
+	sortAndIterateSlice(values, func(item string) {
 		sortedValues = append(sortedValues, item)
 	})
 
@@ -574,7 +606,7 @@ func formatSecret(secret Secret) string {
 	}
 
 	// Get sorted keys for deterministic ordering
-	keys := util.GetSortedMapKeys(options)
+	keys := getSortedMapKeys(options)
 
 	// Add options in sorted order
 	for _, k := range keys {

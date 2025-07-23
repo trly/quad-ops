@@ -10,7 +10,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/systemd"
-	"github.com/trly/quad-ops/internal/util"
+
 	"github.com/trly/quad-ops/internal/validate"
 )
 
@@ -941,12 +941,12 @@ func sortContainer(container *Container) {
 
 	// Sort sysctls keys for deterministic output
 	if len(container.Sysctl) > 0 {
-		container.sortedSysctlKeys = util.GetSortedMapKeys(container.Sysctl)
+		container.sortedSysctlKeys = getSortedMapKeys(container.Sysctl)
 	}
 
 	// Sort LogOpt keys for deterministic output
 	if len(container.LogOpt) > 0 {
-		container.sortedLogOptKeys = util.GetSortedMapKeys(container.LogOpt)
+		container.sortedLogOptKeys = getSortedMapKeys(container.LogOpt)
 	}
 
 	// Sort secrets by source

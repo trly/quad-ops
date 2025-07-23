@@ -1,11 +1,11 @@
 package compose
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/trly/quad-ops/internal/util"
 )
 
 func TestLabelConverter(t *testing.T) {
@@ -37,8 +37,8 @@ func TestLabelConverter(t *testing.T) {
 			result := LabelConverter(tt.labels)
 
 			// Sort both slices for comparison since map iteration order is non-deterministic
-			util.SortStringSlice(result)
-			util.SortStringSlice(tt.expected)
+			sort.Strings(result)
+			sort.Strings(tt.expected)
 
 			assert.Equal(t, tt.expected, result)
 		})
