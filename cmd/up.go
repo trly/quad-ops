@@ -28,8 +28,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/systemd"
+	"github.com/trly/quad-ops/internal/infra/repo"
+	"github.com/trly/quad-ops/internal/quadlet/systemd"
 )
 
 // UpCommand represents the up command for quad-ops CLI.
@@ -43,7 +43,7 @@ func (c *UpCommand) GetCobraCommand() *cobra.Command {
 		Long:  "Start all managed units synchronized from repositories.",
 		Run: func(_ *cobra.Command, _ []string) {
 			// Get all units
-			unitRepo := repository.NewRepository()
+			unitRepo := repo.NewRepository()
 			units, err := unitRepo.FindAll()
 			if err != nil {
 				log.GetLogger().Error("Failed to get units from database", "error", err)

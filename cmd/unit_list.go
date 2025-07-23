@@ -33,8 +33,8 @@ import (
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/systemd"
+	"github.com/trly/quad-ops/internal/infra/repo"
+	"github.com/trly/quad-ops/internal/quadlet/systemd"
 )
 
 // ListCommand represents the unit list command.
@@ -55,7 +55,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Updated")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
-			unitRepo := repository.NewRepository()
+			unitRepo := repo.NewRepository()
 			findAndDisplayUnits(unitRepo, tbl, unitType)
 		},
 	}
@@ -75,8 +75,8 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 	return unitListCmd
 }
 
-func findAndDisplayUnits(unitRepo repository.Repository, tbl table.Table, unitType string) {
-	var units []repository.Unit
+func findAndDisplayUnits(unitRepo repo.Repository, tbl table.Table, unitType string) {
+	var units []repo.Unit
 	var err error
 
 	switch unitType {
