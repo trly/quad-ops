@@ -49,4 +49,7 @@
 
 ## Documentation
 - Documentation site details and Hugo-specific guidelines: see `site/AGENT.md`
+- The Compose Specification: https://github.com/compose-spec/compose-spec/blob/main/spec.md
+- podman-systemd documentation: https://docs.podman.io/en/latest/_sources/markdown/podman-systemd.unit.5.md.txt
+- systemd unit documentation: https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html
 
