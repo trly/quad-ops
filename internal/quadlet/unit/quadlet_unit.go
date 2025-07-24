@@ -16,11 +16,11 @@ func sortAndIterateSlice(slice []string, fn func(string)) {
 	if len(slice) == 0 {
 		return
 	}
-	
+
 	// Create a copy and sort it
 	sorted := slices.Clone(slice)
 	slices.Sort(sorted)
-	
+
 	// Process each item in sorted order
 	for _, item := range sorted {
 		fn(item)
@@ -33,7 +33,7 @@ func getSortedMapKeys(m map[string]string) []string {
 	if len(m) == 0 {
 		return nil
 	}
-	
+
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
