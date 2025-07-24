@@ -1,6 +1,6 @@
 # Agent Guidelines for systemd Package
 
-**Parent docs**: [internal/AGENT.md](../AGENT.md) • [/AGENT.md](../../AGENT.md)
+**Parent docs**: [internal/AGENT.md](../../AGENT.md) • [/AGENT.md](../../../AGENT.md)
 
 ## Overview
 The `systemd` package provides systemd unit management operations and orchestration for quad-ops. It handles unit lifecycle operations, dependency-aware restarts, and systemd integration through D-Bus connections.
@@ -36,7 +36,7 @@ The `systemd` package provides systemd unit management operations and orchestrat
 ### Key Dependencies
 - **`github.com/coreos/go-systemd/v22/dbus`** - systemd D-Bus integration
 - **`internal/config`** - Configuration access
-- **`internal/dependency`** - Service dependency management
+- **`internal/graph`** - Service dependency management
 - **`internal/log`** - Centralized logging
 
 ## Usage Patterns

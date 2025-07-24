@@ -1,9 +1,9 @@
-# Agent Guidelines for validate Package
+# Agent Guidelines for validation Package
 
 **Parent docs**: [internal/AGENT.md](../AGENT.md) • [/AGENT.md](../../AGENT.md)
 
 ## Overview
-The `validate` package provides security validation functions for sensitive data and system requirements checking. It includes input validation, secret security, environment variable validation, and system tool verification.
+The `validation` package provides security validation functions for sensitive data and system requirements checking. It includes input validation, secret security, environment variable validation, and system tool verification.
 
 ## Key Structures and Interfaces
 
@@ -34,7 +34,7 @@ The `validate` package provides security validation functions for sensitive data
 ### System Requirements Validation
 ```go
 // Check if required system tools are available
-if err := validate.SystemRequirements(); err != nil {
+if err := validation.SystemRequirements(); err != nil {
     return fmt.Errorf("system requirements not met: %w", err)
 }
 ```
@@ -42,7 +42,7 @@ if err := validate.SystemRequirements(); err != nil {
 ### Secret Validation
 ```go
 // Create validator and validate secrets
-validator := validate.NewSecretValidator()
+validator := validation.NewSecretValidator()
 
 // Validate secret name
 if err := validator.ValidateSecretName(secretName); err != nil {
@@ -63,12 +63,12 @@ if err := validator.ValidateSecretTarget(targetPath); err != nil {
 ### Environment Variable Validation
 ```go
 // Validate environment variable key
-if err := validate.EnvKey(key); err != nil {
+if err := validation.EnvKey(key); err != nil {
     return fmt.Errorf("invalid env key: %w", err)
 }
 
 // Validate environment variable value
-validator := validate.NewSecretValidator()
+validator := validation.NewSecretValidator()
 if err := validator.ValidateEnvValue(key, value); err != nil {
     return fmt.Errorf("invalid env value: %w", err)
 }
@@ -77,7 +77,7 @@ if err := validator.ValidateEnvValue(key, value); err != nil {
 ### Safe Logging
 ```go
 // Sanitize potentially sensitive values for logging
-safeValue := validate.SanitizeForLogging(key, value)
+safeValue := validation.SanitizeForLogging(key, value)
 log.GetLogger().Debug("Environment variable set", "key", key, "value", safeValue)
 ```
 
@@ -106,7 +106,7 @@ log.GetLogger().Debug("Environment variable set", "key", key, "value", safeValue
 ### Comprehensive Secret Validation
 ```go
 func validateSecret(secret types.ServiceConfigObjSecret) error {
-    validator := validate.NewSecretValidator()
+    validator := validation.NewSecretValidator()
     
     // Validate secret name
     if err := validator.ValidateSecretName(secret.Source); err != nil {
@@ -127,11 +127,11 @@ func validateSecret(secret types.ServiceConfigObjSecret) error {
 ### Safe Environment Processing
 ```go
 func processEnvironmentVariables(envVars map[string]*string) error {
-    validator := validate.NewSecretValidator()
+    validator := validation.NewSecretValidator()
     
     for key, value := range envVars {
         // Validate key format
-        if err := validate.EnvKey(key); err != nil {
+        if err := validation.EnvKey(key); err != nil {
             log.GetLogger().Warn("Invalid environment variable key", "key", key, "error", err)
             continue
         }
@@ -145,7 +145,7 @@ func processEnvironmentVariables(envVars map[string]*string) error {
         }
         
         // Set with safe logging
-        safeValue := validate.SanitizeForLogging(key, *value)
+        safeValue := validation.SanitizeForLogging(key, *value)
         log.GetLogger().Debug("Processing environment variable", "key", key, "value", safeValue)
     }
     
@@ -227,10 +227,10 @@ func TestSystemRequirements(t *testing.T) {
         },
     }
     
-    validate.SetCommandRunner(mockRunner)
-    defer validate.ResetCommandRunner()
+    validation.SetCommandRunner(mockRunner)
+    defer validation.ResetCommandRunner()
     
-    err := validate.SystemRequirements()
+    err := validation.SystemRequirements()
     assert.NoError(t, err)
 }
 ```
@@ -239,7 +239,7 @@ func TestSystemRequirements(t *testing.T) {
 ```go
 // Test secret validation with various inputs
 func TestSecretValidation(t *testing.T) {
-    validator := validate.NewSecretValidator()
+    validator := validation.NewSecretValidator()
     
     // Test valid secret name
     err := validator.ValidateSecretName("my-secret")

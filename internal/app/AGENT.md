@@ -1,9 +1,9 @@
-# Agent Guidelines for compose Package
+# Agent Guidelines for app Package
 
 **Parent docs**: [internal/AGENT.md](../AGENT.md) • [/AGENT.md](../../AGENT.md)
 
 ## Overview
-The `compose` package orchestrates Docker Compose file parsing and conversion to Quadlet units. It handles recursive file discovery, environment variable processing, and project name generation from directory structures.
+The `app` package orchestrates Docker Compose file parsing and conversion to Quadlet units. It handles recursive file discovery, environment variable processing, and project name generation from directory structures.
 
 ## Key Functions
 - **`ReadProjects(path string)`** - Recursively discovers and reads all Docker Compose projects
@@ -16,7 +16,7 @@ The `compose` package orchestrates Docker Compose file parsing and conversion to
 
 ### Basic Project Reading
 ```go
-projects, err := compose.ReadProjects("/path/to/compose/files")
+projects, err := app.ReadProjects("/path/to/compose/files")
 if err != nil {
     return fmt.Errorf("failed to read projects: %w", err)
 }
@@ -25,7 +25,7 @@ if err != nil {
 ### Environment Variable Processing
 - Automatically discovers and loads `.env` files from compose directories
 - Validates environment variable keys using POSIX conventions
-- Sanitizes sensitive values for logging using `validate.SanitizeForLogging`
+- Sanitizes sensitive values for logging using `validation.SanitizeForLogging`
 - Prevents overriding critical system variables (PATH, HOME, etc.)
 
 ## Key Behaviors

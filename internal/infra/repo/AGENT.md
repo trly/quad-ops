@@ -1,6 +1,6 @@
 # Agent Guidelines for repository Package
 
-**Parent docs**: [internal/AGENT.md](../AGENT.md) • [/AGENT.md](../../AGENT.md)
+**Parent docs**: [internal/AGENT.md](../../AGENT.md) • [/AGENT.md](../../../AGENT.md)
 
 ## Overview
 The `repository` package provides data access layer for quad-ops units. It implements a repository pattern for managing unit information with systemd integration, offering filesystem-based scanning and unit metadata management.
@@ -28,7 +28,7 @@ The `repository` package provides data access layer for quad-ops units. It imple
 
 ### Key Dependencies
 - **`github.com/coreos/go-systemd/v22/dbus`** - systemd integration
-- **`internal/fs`** - File system operations
+- **`internal/infra/fs`** - File system operations
 - **`internal/log`** - Centralized logging
 
 ## Usage Patterns
