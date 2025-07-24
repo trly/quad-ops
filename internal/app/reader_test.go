@@ -21,7 +21,7 @@ func TestParseComposeFile(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpdir) }()
 
 	// Create the compose file in the temporary directory
-	tmpfile, err := os.Create(filepath.Join(tmpdir, "docker-compose.yaml"))
+	tmpfile, err := os.Create(filepath.Join(tmpdir, "docker-compose.yaml")) // #nosec G304 -- safe path from os.MkdirTemp
 	if err != nil {
 		t.Fatal(err)
 	}
