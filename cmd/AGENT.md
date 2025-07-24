@@ -51,7 +51,7 @@ Defined in `root.go`
 3. Add command to parent in root.go or appropriate parent command
 4. Include proper usage, examples, and flag definitions
 5. Follow error handling patterns from existing commands
-6. Update the hugo site. See: [AGENT.MD](../site/AGENT.md)
+6. Update the hugo site. See: @../site/AGENT.md
 
 ### Command Implementation Patterns
 - Use `cobra.Command` struct for command definition

@@ -34,7 +34,7 @@ The documentation site for quad-ops is built using Hugo Extended and hosted at h
 - GitHub Actions automated deployment to GitHub Pages
 - Production site: https://trly.github.io/quad-ops/
 - Automatic builds on push to main branch
-- Managed with [docs.yaml](../.github/workflows/docs.yaml)
+- Managed with @../.github/workflows/docs.yaml
 
 ## Content Guidelines
 - Follow Hugo documentation best practices
