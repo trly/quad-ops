@@ -61,13 +61,13 @@ The `internal/` directory contains the core application logic for quad-ops. It f
 
 ## Package-Specific Guidelines
 Each package has detailed guidelines in its own AGENT.md file:
-- `app/AGENT.md` - Docker Compose processing patterns
-- `config/AGENT.md` - Configuration management guidelines
-- `graph/AGENT.md` - Dependency graph operations
-- `infra/fs/AGENT.md` - File system operation patterns
-- `infra/git/AGENT.md` - Git repository management
-- `infra/repo/AGENT.md` - Data access patterns
-- `log/AGENT.md` - Logging best practices
-- `quadlet/systemd/AGENT.md` - Systemd integration guidelines
-- `quadlet/unit/AGENT.md` - Unit definition and generation
-- `validation/AGENT.md` - Validation and security practices
+- @app/AGENT.md - Docker Compose processing patterns
+- @config/AGENT.md - Configuration management guidelines
+- @graph/AGENT.md - Dependency graph operations
+- @infra/fs/AGENT.md - File system operation patterns
+- @infra/git/AGENT.md - Git repository management
+- @infra/repo/AGENT.md - Data access patterns
+- @log/AGENT.md - Logging best practices
+- @quadlet/systemd/AGENT.md - Systemd integration guidelines
+- @quadlet/unit/AGENT.md - Unit definition and generation
+- @validation/AGENT.md - Validation and security practices

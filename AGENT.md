@@ -23,14 +23,14 @@
 
 ## Configuration
 - Main config: `/etc/quad-ops/config.yaml` (system) or `~/.config/quad-ops/config.yaml` (user)
-- Example config: `configs/config.yaml.example`
+- Example config: @configs/config.yaml.example
 - Supports multiple Git repositories with Docker Compose files
 - Profile-specific configurations for different environments
 
 ## Dependencies & Tools
 - **Go** (managed via mise)
 - **mise**: Development environment manager
-- **task**: Task runner (Taskfile.yml)
+- **task**: Task runner (@Taskfile.yml)
 - **golangci-lint**: Go linter with comprehensive rule set
 - **gotestsum**: Enhanced test runner with formatting
 
@@ -42,13 +42,13 @@
 - Security-focused development (gosec linter enabled)
 
 ## Release & Distribution
-- Automated releases via GoReleaser (`.goreleaser.yml`)
+- Automated releases via GoReleaser (@.goreleaser.yml)
 - Self-update capability built into application
 - Systemd service file provided for daemon operation
-- Installation script available (`install.sh`)
+- Installation script available (@install.sh)
 
 ## Documentation
-- Documentation site details and Hugo-specific guidelines: see `site/AGENT.md`
+- Documentation site details and Hugo-specific guidelines: see @site/AGENT.md
 - The Compose Specification: https://github.com/compose-spec/compose-spec/blob/main/spec.md
 - podman-systemd documentation: https://docs.podman.io/en/latest/_sources/markdown/podman-systemd.unit.5.md.txt
 - systemd unit documentation: https://www.freedesktop.org/software/systemd/man/latest/systemd.unit.html
