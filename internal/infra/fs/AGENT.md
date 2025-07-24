@@ -1,6 +1,6 @@
 # Agent Guidelines for fs Package
 
-**Parent docs**: [internal/AGENT.md](../AGENT.md) • [/AGENT.md](../../AGENT.md)
+**Parent docs**: [internal/AGENT.md](../../AGENT.md) • [/AGENT.md](../../../AGENT.md)
 
 ## Overview
 The `fs` package provides file system operations for quadlet unit file management. It handles unit file paths, content change detection, and safe file writing operations with proper directory creation and permissions.

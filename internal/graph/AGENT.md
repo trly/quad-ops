@@ -30,13 +30,13 @@ The `dependency` package provides service dependency graph management for Docker
 ### Building a Dependency Graph
 ```go
 // From a Docker Compose project
-graph, err := dependency.BuildServiceDependencyGraph(project)
+graph, err := graph.BuildServiceDependencyGraph(project)
 if err != nil {
     return fmt.Errorf("failed to build dependency graph: %w", err)
 }
 
 // Manual construction
-graph := dependency.NewServiceDependencyGraph()
+graph := graph.NewServiceDependencyGraph()
 graph.AddService("web")
 graph.AddService("db")
 graph.AddDependency("web", "db") // web depends on db

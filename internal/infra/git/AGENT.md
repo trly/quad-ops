@@ -1,6 +1,6 @@
 # Agent Guidelines for git Package
 
-**Parent docs**: [internal/AGENT.md](../AGENT.md) • [/AGENT.md](../../AGENT.md)
+**Parent docs**: [internal/AGENT.md](../../AGENT.md) • [/AGENT.md](../../../AGENT.md)
 
 ## Overview
 The `git` package provides Git repository management functionality for quad-ops. It handles repository cloning, syncing, reference checkout, and local repository operations to support configuration management workflows.

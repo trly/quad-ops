@@ -16,9 +16,10 @@
 
 ## Key Commands
 - `task build` - Build application (includes fmt, lint, test)
-- `task test` - Run tests with coverage
+- `task test` - Run tests with coverage using gotestsum
 - `task lint` - Run linter
 - `go test -v ./...` - Run all tests
+- `go test -v -run TestName ./path/to/package` - Run single test
 
 ## Configuration
 - Main config: `/etc/quad-ops/config.yaml` (system) or `~/.config/quad-ops/config.yaml` (user)

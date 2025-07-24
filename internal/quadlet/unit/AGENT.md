@@ -1,6 +1,6 @@
 # Agent Guidelines for unit Package
 
-**Parent docs**: [internal/AGENT.md](../AGENT.md) • [/AGENT.md](../../AGENT.md)
+**Parent docs**: [internal/AGENT.md](../../AGENT.md) • [/AGENT.md](../../../AGENT.md)
 
 ## Overview
 The `unit` package provides Quadlet unit definitions and generation functionality for quad-ops. It handles the conversion of Docker Compose configurations to systemd Quadlet unit files, supporting containers, volumes, networks, and build units.
@@ -29,9 +29,9 @@ The `unit` package provides Quadlet unit definitions and generation functionalit
 
 ### Key Dependencies
 - **`github.com/compose-spec/compose-go/v2/types`** - Docker Compose specification
-- **`internal/systemd`** - systemd unit interface implementation
+- **`internal/quadlet/systemd`** - systemd unit interface implementation
 - **`internal/util`** - Sorting and utility functions
-- **`internal/validate`** - Security validation
+- **`internal/validation`** - Security validation
 - **`internal/log`** - Centralized logging
 
 ## Usage Patterns

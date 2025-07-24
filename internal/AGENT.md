@@ -6,37 +6,36 @@ The `internal/` directory contains the core application logic for quad-ops. It f
 ## Architecture & Structure
 
 ### Core Domain
-- **compose/**: Docker Compose file processing and conversion to Quadlet units
-- **unit/**: Quadlet unit definitions and systemd unit file generation
-- **dependency/**: Service dependency management using directed graphs
+- **app/**: Application entry points & orchestration
+- **quadlet/**: Core domain functionality
+  - **unit/**: Unit representation & generation  
+  - **systemd/**: systemd integration & orchestration
+- **graph/**: Pure dependency graph utilities
 
 ### Infrastructure Services
-- **config/**: Application configuration management using Viper
-- **fs/**: File system operations for unit file management
-- **git/**: Git repository cloning, updating, and reference management
+- **infra/**: Infrastructure services
+  - **fs/**: File I/O operations
+  - **git/**: Git repository management
+  - **repo/**: Data access layer (renamed from repository)
+- **config/**: Configuration management using Viper
 - **log/**: Centralized logging infrastructure
-- **repository/**: Unit data access layer with systemd integration
-- **systemd/**: Direct systemd unit management and orchestration
-
-### Utilities
-- **util/**: Common operations like sorting and iteration
-- **validate/**: Input validation and security checks
+- **validation/**: All validation functions
 
 ## Package Dependencies
 
 ### Data Flow
-1. **compose** → Main orchestrator using most other packages
+1. **app** → Main orchestrator using most other packages
 2. **unit** → Core domain models used throughout
 3. **systemd** → Execution layer for unit operations
-4. **fs/git/repository** → Persistence and data access
-5. **config/log/validate** → Infrastructure support
+4. **fs/git/repo** → Persistence and data access
+5. **config/log/validation** → Infrastructure support
 
 ### Key Relationships
-- `compose` processes Docker Compose files using `unit` models
+- `app` processes Docker Compose files using `unit` models
 - `systemd` orchestrates unit operations with dependency awareness
 - `fs` manages unit file persistence and change detection
 - `git` handles repository synchronization
-- `validate` ensures security and input validation across packages
+- `validation` ensures security and input validation across packages
 
 ## Development Guidelines
 
@@ -62,14 +61,13 @@ The `internal/` directory contains the core application logic for quad-ops. It f
 
 ## Package-Specific Guidelines
 Each package has detailed guidelines in its own AGENT.md file:
-- `compose/AGENT.md` - Docker Compose processing patterns
+- `app/AGENT.md` - Docker Compose processing patterns
 - `config/AGENT.md` - Configuration management guidelines
-- `dependency/AGENT.md` - Dependency graph operations
-- `fs/AGENT.md` - File system operation patterns
-- `git/AGENT.md` - Git repository management
+- `graph/AGENT.md` - Dependency graph operations
+- `infra/fs/AGENT.md` - File system operation patterns
+- `infra/git/AGENT.md` - Git repository management
+- `infra/repo/AGENT.md` - Data access patterns
 - `log/AGENT.md` - Logging best practices
-- `repository/AGENT.md` - Data access patterns
-- `systemd/AGENT.md` - Systemd integration guidelines
-- `unit/AGENT.md` - Unit definition and generation
-- `util/AGENT.md` - Utility function patterns
-- `validate/AGENT.md` - Validation and security practices
+- `quadlet/systemd/AGENT.md` - Systemd integration guidelines
+- `quadlet/unit/AGENT.md` - Unit definition and generation
+- `validation/AGENT.md` - Validation and security practices
