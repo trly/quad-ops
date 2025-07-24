@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/compose-spec/compose-go/v2/types"
@@ -12,12 +13,18 @@ import (
 )
 
 func TestParseComposeFile(t *testing.T) {
-	tmpfile, err := os.CreateTemp("", "docker-compose.yaml")
-
+	// Create a temporary directory with a valid project name
+	tmpdir, err := os.MkdirTemp("", "valid-project-name")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = os.Remove(tmpfile.Name()) }()
+	defer func() { _ = os.RemoveAll(tmpdir) }()
+
+	// Create the compose file in the temporary directory
+	tmpfile, err := os.Create(filepath.Join(tmpdir, "docker-compose.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	composeContent := `
 services:
@@ -73,7 +80,8 @@ networks:
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, "tmp", project.Name)
+	// Project name will have random suffix from MkdirTemp, so check it starts with our prefix
+	assert.True(t, strings.HasPrefix(project.Name, "valid-project-name"))
 	assert.Len(t, project.Services, 2)
 	assert.Equal(t, "frontend", project.Services["frontend"].Name)
 	assert.Len(t, project.Services["frontend"].Volumes, 0)
