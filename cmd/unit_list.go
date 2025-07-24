@@ -32,8 +32,8 @@ import (
 	"github.com/fatih/color"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/infra/repo"
+	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/quadlet/systemd"
 )
 
