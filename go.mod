@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/SerhiiCho/timeago/v3 v3.3.1
-	github.com/compose-spec/compose-go/v2 v2.7.1
+	github.com/compose-spec/compose-go/v2 v2.8.1
 	github.com/coreos/go-systemd/v22 v22.5.1-0.20231103132048-7d375ecc2b09
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/dominikbraun/graph v0.23.0
@@ -76,6 +76,7 @@ require (
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.29.0 // indirect
