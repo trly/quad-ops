@@ -30,7 +30,7 @@ The `unit` package provides Quadlet unit definitions and generation functionalit
 ### Key Dependencies
 - **`github.com/compose-spec/compose-go/v2/types`** - Docker Compose specification
 - **`internal/systemd`** - systemd unit interface implementation
-- **`internal/util`** - Sorting and utility functions
+- **`internal/sorting`** - Sorting and utility functions
 - **`internal/validate`** - Security validation
 - **`internal/log`** - Centralized logging
 

@@ -28,8 +28,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/sorting"
 	"github.com/trly/quad-ops/internal/systemd"
-	"github.com/trly/quad-ops/internal/util"
 )
 
 // ShowCommand represents the unit show command.
@@ -45,7 +45,7 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 			name := args[0]
 
 			// Validate unit name to prevent command injection
-			if err := util.ValidateUnitName(name); err != nil {
+			if err := sorting.ValidateUnitName(name); err != nil {
 				log.GetLogger().Error("Invalid unit name", "error", err, "name", name)
 				os.Exit(1)
 			}

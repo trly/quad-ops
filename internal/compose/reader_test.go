@@ -73,7 +73,9 @@ networks:
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, "tmp", project.Name)
+	// The project name is based on the directory containing the temp file
+	// For temp files created in /var/folders/.../T/, the directory is "T" which gets sanitized to "t"
+	assert.Equal(t, "t", project.Name)
 	assert.Len(t, project.Services, 2)
 	assert.Equal(t, "frontend", project.Services["frontend"].Name)
 	assert.Len(t, project.Services["frontend"].Volumes, 0)

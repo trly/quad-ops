@@ -1,5 +1,5 @@
-// Package util provides utility functions for operations like sorting and iterating over slices and maps
-package util
+// Package sorting provides utility functions for operations like sorting and iterating over slices and maps
+package sorting
 
 import (
 	"sort"

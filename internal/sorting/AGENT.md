@@ -19,18 +19,18 @@ The `util` package provides utility functions for operations like sorting and it
 ### Deterministic Slice Processing
 ```go
 // Sort and process each item in a slice
-util.SortAndIterateSlice(labels, func(label string) {
+sorting.SortAndIterateSlice(labels, func(label string) {
     builder.WriteString(formatKeyValue("Label", label))
 })
 
 // Sort slice in-place
-util.SortStringSlice(slice)
+sorting.SortStringSlice(slice)
 ```
 
 ### Map Key Sorting
 ```go
 // Get sorted keys for deterministic map iteration
-keys := util.GetSortedMapKeys(environmentVars)
+keys := sorting.GetSortedMapKeys(environmentVars)
 for _, key := range keys {
     fmt.Printf("%s=%s\n", key, environmentVars[key])
 }
@@ -39,7 +39,7 @@ for _, key := range keys {
 ### Unit Name Validation
 ```go
 // Validate unit name before using in systemd operations
-if err := util.ValidateUnitName(unitName); err != nil {
+if err := sorting.ValidateUnitName(unitName); err != nil {
     return fmt.Errorf("invalid unit name: %w", err)
 }
 ```
@@ -73,12 +73,12 @@ The package is designed to ensure consistent, reproducible output across all ope
 ### Deterministic Configuration Generation
 ```go
 // Ensure consistent output order for configuration sections
-util.SortAndIterateSlice(container.Labels, func(label string) {
+sorting.SortAndIterateSlice(container.Labels, func(label string) {
     builder.WriteString(formatKeyValue("Label", label))
 })
 
 // Process environment variables in sorted order
-envKeys := util.GetSortedMapKeys(container.Environment)
+envKeys := sorting.GetSortedMapKeys(container.Environment)
 for _, key := range envKeys {
     fmt.Fprintf(builder, "Environment=%s=%s\n", key, container.Environment[key])
 }
@@ -87,13 +87,13 @@ for _, key := range envKeys {
 ### Safe Slice Modification
 ```go
 // When you need to sort without modifying original
-util.SortAndIterateSlice(originalSlice, func(item string) {
+sorting.SortAndIterateSlice(originalSlice, func(item string) {
     // Process each item in sorted order
     processItem(item)
 })
 
 // When in-place sorting is desired
-util.SortStringSlice(slice) // Modifies original slice
+sorting.SortStringSlice(slice) // Modifies original slice
 ```
 
 ### Batch Processing with Consistent Order
@@ -101,7 +101,7 @@ util.SortStringSlice(slice) // Modifies original slice
 // Process multiple collections with deterministic ordering
 collections := [][]string{labels, ports, volumes}
 for _, collection := range collections {
-    util.SortAndIterateSlice(collection, func(item string) {
+    sorting.SortAndIterateSlice(collection, func(item string) {
         processConfigItem(item)
     })
 }
@@ -130,7 +130,7 @@ for _, collection := range collections {
 ```go
 // Use in unit file generation for consistent output
 func (u *QuadletUnit) addEnvironmentConfig(builder *strings.Builder) {
-    envKeys := util.GetSortedMapKeys(u.Container.Environment)
+    envKeys := sorting.GetSortedMapKeys(u.Container.Environment)
     for _, k := range envKeys {
         fmt.Fprintf(builder, "Environment=%s=%s\n", k, u.Container.Environment[k])
     }
@@ -142,13 +142,13 @@ func (u *QuadletUnit) addEnvironmentConfig(builder *strings.Builder) {
 // Validate before processing to ensure security
 func processUnits(unitNames []string) error {
     for _, name := range unitNames {
-        if err := util.ValidateUnitName(name); err != nil {
+        if err := sorting.ValidateUnitName(name); err != nil {
             return fmt.Errorf("invalid unit name %s: %w", name, err)
         }
     }
     
     // Process with sorted order
-    util.SortAndIterateSlice(unitNames, processUnit)
+    sorting.SortAndIterateSlice(unitNames, processUnit)
     return nil
 }
 ```

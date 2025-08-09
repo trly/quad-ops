@@ -12,9 +12,9 @@ import (
 	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/sorting"
 	"github.com/trly/quad-ops/internal/systemd"
 	"github.com/trly/quad-ops/internal/unit"
-	"github.com/trly/quad-ops/internal/util"
 )
 
 // ProcessProjects processes Docker Compose projects and converts them to Podman systemd units.
@@ -380,7 +380,7 @@ func handleProductionTarget(build *unit.Build, serviceName, workingDir string) e
 	}
 
 	// Use the more robust path validation that handles filepath.Clean internally
-	validDockerfilePath, err := util.ValidatePathWithinBase("Dockerfile", workingDir)
+	validDockerfilePath, err := sorting.ValidatePathWithinBase("Dockerfile", workingDir)
 	if err != nil {
 		return fmt.Errorf("invalid dockerfile path for service %s: %w", serviceName, err)
 	}

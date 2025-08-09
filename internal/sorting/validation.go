@@ -1,5 +1,5 @@
-// Package util provides common utility functions for the application.
-package util
+// Package sorting provides common utility functions for the application.
+package sorting
 
 import (
 	"fmt"

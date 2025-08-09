@@ -2,77 +2,140 @@
 package dependency
 
 import (
+	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/dominikbraun/graph"
 )
 
-// ServiceDependencyGraph represents the dependency relationships between services using a directed graph.
+// ServiceDependencyGraph models dependencies between services using adjacency maps.
+// Edge direction: dependency -> dependent (i.e., B -> A means A depends on B).
 type ServiceDependencyGraph struct {
-	graph graph.Graph[string, string]
+	succ map[string]map[string]struct{} // node -> set of successors (dependents)
+	pred map[string]map[string]struct{} // node -> set of predecessors (dependencies)
 }
 
-// NewServiceDependencyGraph creates a new service dependency graph.
+// NewServiceDependencyGraph creates a new, empty dependency graph.
 func NewServiceDependencyGraph() *ServiceDependencyGraph {
-	// Create a directed acyclic graph with string vertices
-	g := graph.New(graph.StringHash, graph.Directed(), graph.Acyclic())
 	return &ServiceDependencyGraph{
-		graph: g,
+		succ: make(map[string]map[string]struct{}),
+		pred: make(map[string]map[string]struct{}),
 	}
 }
 
-// AddService adds a service to the dependency graph.
+// AddService ensures a service exists in the graph.
 func (sdg *ServiceDependencyGraph) AddService(serviceName string) error {
-	return sdg.graph.AddVertex(serviceName)
+	if serviceName == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+	if _, ok := sdg.succ[serviceName]; !ok {
+		sdg.succ[serviceName] = make(map[string]struct{})
+	}
+	if _, ok := sdg.pred[serviceName]; !ok {
+		sdg.pred[serviceName] = make(map[string]struct{})
+	}
+	return nil
 }
 
-// AddDependency adds a dependency relationship where dependent depends on dependency.
+// AddDependency adds a dependency relationship where `dependent` depends on `dependency`.
+// This creates an edge: dependency -> dependent.
 func (sdg *ServiceDependencyGraph) AddDependency(dependent, dependency string) error {
-	return sdg.graph.AddEdge(dependency, dependent)
+	if dependent == "" || dependency == "" {
+		return fmt.Errorf("dependent and dependency must be non-empty")
+	}
+	if dependent == dependency {
+		return fmt.Errorf("self-dependency is not allowed: %s", dependent)
+	}
+	// Ensure vertices exist
+	_ = sdg.AddService(dependent)
+	_ = sdg.AddService(dependency)
+
+	// Add edge if not present
+	if _, ok := sdg.succ[dependency][dependent]; ok {
+		return nil
+	}
+	sdg.succ[dependency][dependent] = struct{}{}
+	sdg.pred[dependent][dependency] = struct{}{}
+	return nil
 }
 
 // GetDependencies returns the services that the given service depends on.
 func (sdg *ServiceDependencyGraph) GetDependencies(serviceName string) ([]string, error) {
-	predecessors, err := sdg.graph.PredecessorMap()
-	if err != nil {
-		return nil, err
+	if _, ok := sdg.pred[serviceName]; !ok {
+		return nil, fmt.Errorf("unknown service: %s", serviceName)
 	}
-
-	deps := make([]string, 0, len(predecessors[serviceName]))
-	for dep := range predecessors[serviceName] {
+	deps := make([]string, 0, len(sdg.pred[serviceName]))
+	for dep := range sdg.pred[serviceName] {
 		deps = append(deps, dep)
 	}
-
+	sort.Strings(deps)
 	return deps, nil
 }
 
 // GetDependents returns the services that depend on the given service.
 func (sdg *ServiceDependencyGraph) GetDependents(serviceName string) ([]string, error) {
-	successors, err := sdg.graph.AdjacencyMap()
-	if err != nil {
-		return nil, err
+	if _, ok := sdg.succ[serviceName]; !ok {
+		return nil, fmt.Errorf("unknown service: %s", serviceName)
 	}
-
-	deps := make([]string, 0, len(successors[serviceName]))
-	for dep := range successors[serviceName] {
+	deps := make([]string, 0, len(sdg.succ[serviceName]))
+	for dep := range sdg.succ[serviceName] {
 		deps = append(deps, dep)
 	}
-
+	sort.Strings(deps)
 	return deps, nil
 }
 
 // GetTopologicalOrder returns services in topological order (dependencies first).
+// Kahn's algorithm with deterministic tie-breaking (lexical).
 func (sdg *ServiceDependencyGraph) GetTopologicalOrder() ([]string, error) {
-	return graph.TopologicalSort(sdg.graph)
+	// Build indegree map
+	indeg := make(map[string]int, len(sdg.pred))
+	for v := range sdg.pred {
+		indeg[v] = len(sdg.pred[v])
+	}
+
+	// Initialize zero-indegree set
+	zero := make([]string, 0)
+	for v, d := range indeg {
+		if d == 0 {
+			zero = append(zero, v)
+		}
+	}
+	sort.Strings(zero)
+
+	order := make([]string, 0, len(indeg))
+
+	for len(zero) > 0 {
+		// Pop first (deterministic)
+		v := zero[0]
+		zero = zero[1:]
+		order = append(order, v)
+
+		// For each successor, decrement indegree
+		for w := range sdg.succ[v] {
+			indeg[w]--
+			if indeg[w] == 0 {
+				// Insert maintaining sorted order (N is small; simple append+sort)
+				zero = append(zero, w)
+			}
+		}
+		sort.Strings(zero)
+	}
+
+	if len(order) != len(indeg) {
+		return nil, errors.New("dependency graph contains a cycle")
+	}
+	return order, nil
 }
 
 // HasCycles checks if the dependency graph contains cycles.
 func (sdg *ServiceDependencyGraph) HasCycles() bool {
-	// Since we use graph.Acyclic(), cycle creation is prevented at edge addition time
-	// But we can still check for cycles if needed
-	_, err := graph.TopologicalSort(sdg.graph)
-	return err != nil
+	order, err := sdg.GetTopologicalOrder()
+	if err != nil {
+		return true
+	}
+	return len(order) != len(sdg.pred)
 }
 
 // BuildServiceDependencyGraph builds a dependency graph for all services in a project.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/cli"
@@ -106,6 +107,11 @@ func ParseComposeFile(path string) (*types.Project, error) {
 		projectName = "default"
 	}
 
+	// Sanitize project name to meet Docker Compose requirements:
+	// must consist only of lowercase alphanumeric characters, hyphens, and underscores
+	// and start with a letter or number
+	projectName = sanitizeProjectName(projectName)
+
 	// For production, always use directory name for project naming consistency
 	// Extract repository name from path (assuming repositories/<reponame>/<folder/subfolder/etc> pattern)
 	// Use last component of path for folder name regardless of composeDir setting
@@ -118,6 +124,7 @@ func ParseComposeFile(path string) (*types.Project, error) {
 				// Always use the actual directory containing the compose file
 				folderName := filepath.Base(dirPath)
 				projectName = fmt.Sprintf("%s-%s", repoName, folderName)
+				projectName = sanitizeProjectName(projectName)
 				break
 			}
 		}
@@ -239,4 +246,39 @@ func validateEnvKey(key string) error {
 	}
 
 	return nil
+}
+
+// sanitizeProjectName ensures the project name meets Docker Compose requirements:
+// must consist only of lowercase alphanumeric characters, hyphens, and underscores
+// and start with a letter or number.
+func sanitizeProjectName(name string) string {
+	if name == "" {
+		return "default"
+	}
+
+	// Convert to lowercase
+	name = strings.ToLower(name)
+
+	// Replace invalid characters with hyphens
+	validChars := regexp.MustCompile(`[^a-z0-9_-]`)
+	name = validChars.ReplaceAllString(name, "-")
+
+	// Remove leading/trailing hyphens and underscores
+	name = strings.Trim(name, "-_")
+
+	// Ensure it starts with alphanumeric
+	startsWithAlphanumeric := regexp.MustCompile(`^[a-z0-9]`)
+	if !startsWithAlphanumeric.MatchString(name) {
+		name = "p" + name // prefix with 'p' for 'project'
+	}
+
+	// Handle empty result or very short names
+	if len(name) == 0 {
+		return "default"
+	}
+	if len(name) == 1 && (name == "-" || name == "_") {
+		return "default"
+	}
+
+	return name
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/util"
+	"github.com/trly/quad-ops/internal/sorting"
 	"gopkg.in/ini.v1"
 
 	"github.com/coreos/go-systemd/v22/dbus"
@@ -334,7 +334,7 @@ func getUnitFailureDetails(unitName string) string {
 	// This is the only remaining exec.Command, but it's necessary as dbus doesn't expose logs
 
 	// Validate unitName to prevent command injection
-	if err := util.ValidateUnitName(unitName); err != nil {
+	if err := sorting.ValidateUnitName(unitName); err != nil {
 		return fmt.Sprintf("\nUnit Status (via dbus):\n%s\nRecent logs: (unavailable - invalid unit name)", statusInfo)
 	}
 
