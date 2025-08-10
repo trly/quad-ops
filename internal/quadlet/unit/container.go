@@ -9,9 +9,9 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/quadlet/systemd"
 	"github.com/trly/quad-ops/internal/sorting"
-	"github.com/trly/quad-ops/internal/systemd"
-	"github.com/trly/quad-ops/internal/validate"
+	"github.com/trly/quad-ops/internal/validation"
 )
 
 // Container represents the configuration for a container unit.
@@ -325,7 +325,7 @@ func (c *Container) processServiceHealthCheck(service types.ServiceConfig) {
 
 // processServiceSecrets converts Docker Compose secrets to Podman Quadlet secrets.
 func (c *Container) processServiceSecrets(service types.ServiceConfig) {
-	validator := validate.NewSecretValidator()
+	validator := validation.NewSecretValidator()
 
 	// Process standard file-based Docker Compose secrets
 	for _, secret := range service.Secrets {
@@ -395,7 +395,7 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 					}
 
 					// Validate environment variable name
-					if err := validate.EnvKey(envVarStr); err != nil {
+					if err := validation.EnvKey(envVarStr); err != nil {
 						log.GetLogger().Warn("Invalid env variable name for secret, skipping", "secret", secretName, "envVar", envVarStr, "service", service.Name, "error", err)
 						continue
 					}

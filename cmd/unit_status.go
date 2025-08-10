@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/trly/quad-ops/internal/quadlet/systemd"
 	"github.com/trly/quad-ops/internal/sorting"
-	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // StatusCommand represents the unit status command.

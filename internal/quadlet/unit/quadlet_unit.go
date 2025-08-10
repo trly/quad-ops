@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/quadlet/systemd"
 	"github.com/trly/quad-ops/internal/sorting"
-	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // QuadletUnit represents the configuration for a Quadlet unit, which can include

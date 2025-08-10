@@ -29,7 +29,7 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/sorting"
-	"github.com/trly/quad-ops/internal/validate"
+	"github.com/trly/quad-ops/internal/validation"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -87,7 +87,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 				cfg.QuadletDir = quadletDir
 			}
 
-			err := validate.SystemRequirements()
+			err := validation.SystemRequirements()
 			if err != nil {
 				log.GetLogger().Error("System requirements not met", "err", err)
 			}
