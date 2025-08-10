@@ -19,6 +19,7 @@
 - `task test` - Run tests with coverage
 - `task lint` - Run linter
 - `go test -v ./...` - Run all tests
+- `go test -v -race ./...` - Run all tests with race detection (matches CI)
 
 ## Configuration
 - Main config: `/etc/quad-ops/config.yaml` (system) or `~/.config/quad-ops/config.yaml` (user)
