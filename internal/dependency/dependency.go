@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/compose-spec/compose-go/v2/types"
 )
@@ -12,6 +13,7 @@ import (
 // ServiceDependencyGraph models dependencies between services using adjacency maps.
 // Edge direction: dependency -> dependent (i.e., B -> A means A depends on B).
 type ServiceDependencyGraph struct {
+	mu   sync.RWMutex                   // protects concurrent access to maps
 	succ map[string]map[string]struct{} // node -> set of successors (dependents)
 	pred map[string]map[string]struct{} // node -> set of predecessors (dependencies)
 }
@@ -29,6 +31,9 @@ func (sdg *ServiceDependencyGraph) AddService(serviceName string) error {
 	if serviceName == "" {
 		return fmt.Errorf("service name cannot be empty")
 	}
+	sdg.mu.Lock()
+	defer sdg.mu.Unlock()
+
 	if _, ok := sdg.succ[serviceName]; !ok {
 		sdg.succ[serviceName] = make(map[string]struct{})
 	}
@@ -47,9 +52,23 @@ func (sdg *ServiceDependencyGraph) AddDependency(dependent, dependency string) e
 	if dependent == dependency {
 		return fmt.Errorf("self-dependency is not allowed: %s", dependent)
 	}
+
+	sdg.mu.Lock()
+	defer sdg.mu.Unlock()
+
 	// Ensure vertices exist
-	_ = sdg.AddService(dependent)
-	_ = sdg.AddService(dependency)
+	if _, ok := sdg.succ[dependent]; !ok {
+		sdg.succ[dependent] = make(map[string]struct{})
+	}
+	if _, ok := sdg.pred[dependent]; !ok {
+		sdg.pred[dependent] = make(map[string]struct{})
+	}
+	if _, ok := sdg.succ[dependency]; !ok {
+		sdg.succ[dependency] = make(map[string]struct{})
+	}
+	if _, ok := sdg.pred[dependency]; !ok {
+		sdg.pred[dependency] = make(map[string]struct{})
+	}
 
 	// Add edge if not present
 	if _, ok := sdg.succ[dependency][dependent]; ok {
@@ -62,11 +81,15 @@ func (sdg *ServiceDependencyGraph) AddDependency(dependent, dependency string) e
 
 // GetDependencies returns the services that the given service depends on.
 func (sdg *ServiceDependencyGraph) GetDependencies(serviceName string) ([]string, error) {
-	if _, ok := sdg.pred[serviceName]; !ok {
+	sdg.mu.RLock()
+	defer sdg.mu.RUnlock()
+
+	preds, ok := sdg.pred[serviceName]
+	if !ok {
 		return nil, fmt.Errorf("unknown service: %s", serviceName)
 	}
-	deps := make([]string, 0, len(sdg.pred[serviceName]))
-	for dep := range sdg.pred[serviceName] {
+	deps := make([]string, 0, len(preds))
+	for dep := range preds {
 		deps = append(deps, dep)
 	}
 	sort.Strings(deps)
@@ -75,11 +98,15 @@ func (sdg *ServiceDependencyGraph) GetDependencies(serviceName string) ([]string
 
 // GetDependents returns the services that depend on the given service.
 func (sdg *ServiceDependencyGraph) GetDependents(serviceName string) ([]string, error) {
-	if _, ok := sdg.succ[serviceName]; !ok {
+	sdg.mu.RLock()
+	defer sdg.mu.RUnlock()
+
+	succs, ok := sdg.succ[serviceName]
+	if !ok {
 		return nil, fmt.Errorf("unknown service: %s", serviceName)
 	}
-	deps := make([]string, 0, len(sdg.succ[serviceName]))
-	for dep := range sdg.succ[serviceName] {
+	deps := make([]string, 0, len(succs))
+	for dep := range succs {
 		deps = append(deps, dep)
 	}
 	sort.Strings(deps)
@@ -89,11 +116,24 @@ func (sdg *ServiceDependencyGraph) GetDependents(serviceName string) ([]string, 
 // GetTopologicalOrder returns services in topological order (dependencies first).
 // Kahn's algorithm with deterministic tie-breaking (lexical).
 func (sdg *ServiceDependencyGraph) GetTopologicalOrder() ([]string, error) {
-	// Build indegree map
+	sdg.mu.RLock()
+
+	// Build indegree map - copy the data we need while holding the lock
 	indeg := make(map[string]int, len(sdg.pred))
 	for v := range sdg.pred {
 		indeg[v] = len(sdg.pred[v])
 	}
+
+	// Copy successor relationships we'll need
+	succCopy := make(map[string]map[string]struct{}, len(sdg.succ))
+	for v, succs := range sdg.succ {
+		succCopy[v] = make(map[string]struct{}, len(succs))
+		for w := range succs {
+			succCopy[v][w] = struct{}{}
+		}
+	}
+
+	sdg.mu.RUnlock()
 
 	// Initialize zero-indegree set
 	zero := make([]string, 0)
@@ -113,7 +153,7 @@ func (sdg *ServiceDependencyGraph) GetTopologicalOrder() ([]string, error) {
 		order = append(order, v)
 
 		// For each successor, decrement indegree
-		for w := range sdg.succ[v] {
+		for w := range succCopy[v] {
 			indeg[w]--
 			if indeg[w] == 0 {
 				// Insert maintaining sorted order (N is small; simple append+sort)
@@ -135,7 +175,12 @@ func (sdg *ServiceDependencyGraph) HasCycles() bool {
 	if err != nil {
 		return true
 	}
-	return len(order) != len(sdg.pred)
+
+	sdg.mu.RLock()
+	predLen := len(sdg.pred)
+	sdg.mu.RUnlock()
+
+	return len(order) != predLen
 }
 
 // BuildServiceDependencyGraph builds a dependency graph for all services in a project.
