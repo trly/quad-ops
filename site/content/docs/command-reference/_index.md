@@ -33,6 +33,7 @@ quad-ops [global-options] <command> [command-options] [arguments]
 - **[sync](sync)** - Synchronize repositories and deploy containers
 - **[up](up)** - Start all or specific services
 - **[down](down)** - Stop and remove services
+- **[validate](validate)** - Validate Docker Compose files and quad-ops extensions
 - **[update](update)** - Update quad-ops to the latest version
 - **[version](version)** - Show version information and check for updates
 
@@ -51,6 +52,9 @@ quad-ops [global-options] <command> [command-options] [arguments]
 ### Repository Operations
 Commands that interact with Git repositories and perform synchronization.
 
+### Validation & Development
+Commands for validating Docker Compose files and supporting development workflows.
+
 ### Service Management
 Commands for controlling container lifecycle and examining running services.
 
@@ -61,6 +65,15 @@ Commands for managing Quadlet units and their systemd integration.
 Commands for validating and managing Quad-Ops configuration.
 
 ## Common Usage Patterns
+
+### Development Workflow
+```bash
+# Validate compose files before committing
+quad-ops validate docker-compose.yml
+
+# Validate entire project directory
+quad-ops validate ./compose-files/
+```
 
 ### Initial Deployment
 ```bash

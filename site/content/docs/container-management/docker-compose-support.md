@@ -131,16 +131,31 @@ WantedBy=default.target
 
 ## Quad-Ops Validation
 
+Validate Docker Compose files before deployment:
+
 ```bash
+# Validate compose files with quad-ops extensions
+quad-ops validate docker-compose.yml
+
+# Validate all compose files in directory
+quad-ops validate ./compose-files/
+
+# Validate remote repository
+quad-ops validate --repo https://github.com/user/repo.git
+
 # Test compose conversion without applying
 quad-ops sync --dry-run
 
 # Check generated Quadlet units
 ls /etc/containers/systemd/
-
-# Validate original compose syntax (optional)
-docker-compose -f docker-compose.yml config
 ```
+
+The `validate` command checks for:
+- Docker Compose syntax and structure
+- Quad-ops extension compatibility  
+- Security requirements (secrets, env vars)
+- DNS naming conventions
+- File path security
 
 ## Next Steps
 

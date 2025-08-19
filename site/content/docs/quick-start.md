@@ -92,7 +92,21 @@ cp $HOME/.config/quad-ops/config.yaml.example $HOME/.config/quad-ops/config.yaml
 nano $HOME/.config/quad-ops/config.yaml
 ```
 
-### 3. Your First Sync
+### 3. Validate Your Configuration
+
+Before deploying, validate your Docker Compose files to catch any configuration issues:
+
+```bash
+# Validate repository configurations
+quad-ops validate --repo https://github.com/trly/quad-ops.git --compose-dir examples/multi-service
+
+# Or validate local compose files
+quad-ops validate /path/to/your/compose/files
+```
+
+This step ensures your compose files are valid and compatible with quad-ops extensions.
+
+### 4. Your First Sync
 
 ### Test with Example Repository
 

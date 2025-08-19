@@ -25,6 +25,7 @@ Changes to containers are driven by Git commits, not manual commands. This ensur
 - **Rollback capability** through Git history
 - **Audit trail** of who changed what and when
 - **Automated deployment** of approved changes
+- **Pre-deployment validation** using `quad-ops validate` in CI/CD pipelines
 
 ### Podman Quadlet Integration
 Quad-Ops leverages Podman's Quadlet feature to create systemd-native container management:
