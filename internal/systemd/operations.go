@@ -89,7 +89,7 @@ func (u *BaseUnit) Start() error {
 			result, details)
 	}
 
-	log.GetLogger().Info("Successfully started unit", "name", serviceName)
+	log.GetLogger().Debug("Successfully started unit", "name", serviceName)
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (u *BaseUnit) Stop() error {
 			result, details)
 	}
 
-	log.GetLogger().Info("Successfully stopped unit", "name", serviceName)
+	log.GetLogger().Debug("Successfully stopped unit", "name", serviceName)
 	return nil
 }
 
@@ -190,7 +190,7 @@ func (u *BaseUnit) Restart() error {
 			result, details)
 	}
 
-	log.GetLogger().Info("Successfully restarted unit", "name", serviceName)
+	log.GetLogger().Debug("Successfully restarted unit", "name", serviceName)
 	return nil
 }
 

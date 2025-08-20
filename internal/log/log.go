@@ -9,9 +9,10 @@ import (
 var log *slog.Logger
 
 // Init initializes the application log.
+// Default level is Warn to follow Rule of Silence - only log surprising events.
 func Init(verbose bool) {
 	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
+		Level: slog.LevelWarn,
 	}
 
 	if verbose {

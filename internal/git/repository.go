@@ -34,12 +34,14 @@ func NewGitRepository(repository config.Repository) *Repository {
 // or opens the existing repository and pulls the latest changes if it does.
 // It returns an error if any Git operations fail.
 func (r *Repository) SyncRepository() error {
-	log.GetLogger().Info("Syncing repository", "path", filepath.Base(r.Path))
+	log.GetLogger().Debug("Syncing repository", "path", filepath.Base(r.Path))
 
-	repo, err := git.PlainClone(r.Path, false, &git.CloneOptions{
-		URL:      r.URL,
-		Progress: os.Stdout,
-	})
+	cloneOptions := &git.CloneOptions{URL: r.URL}
+	if r.verbose {
+		cloneOptions.Progress = os.Stdout
+	}
+
+	repo, err := git.PlainClone(r.Path, false, cloneOptions)
 
 	if err != nil {
 		if err == git.ErrRepositoryAlreadyExists {

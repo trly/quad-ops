@@ -99,7 +99,7 @@ func syncRepositories(cfg *config.Settings) {
 		}
 
 		if !dryRun {
-			log.GetLogger().Info("Processing repository", "name", repoConfig.Name)
+			log.GetLogger().Debug("Processing repository", "name", repoConfig.Name)
 
 			gitRepo := git.NewGitRepository(repoConfig)
 			if err := gitRepo.SyncRepository(); err != nil {
@@ -168,7 +168,7 @@ func syncDaemon(cfg *config.Settings) {
 	for {
 		select {
 		case <-ticker.C:
-			log.GetLogger().Info("Starting scheduled sync")
+			log.GetLogger().Debug("Starting scheduled sync")
 			syncRepositories(cfg)
 		case <-watchdogTicker.C:
 			// Send watchdog notification to systemd

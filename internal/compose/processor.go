@@ -38,7 +38,7 @@ func ProcessProjects(projects []*types.Project, force bool, existingProcessedUni
 
 	// Process each project
 	for _, project := range projects {
-		log.GetLogger().Info("Processing compose project", "project", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
+		log.GetLogger().Debug("Processing compose project", "project", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
 
 		// Build the dependency graph for the project
 		dependencyGraph, err := dependency.BuildServiceDependencyGraph(project)
