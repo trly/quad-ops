@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/compose-spec/compose-go/v2/types"
@@ -74,8 +75,10 @@ networks:
 	}
 
 	// The project name is based on the directory containing the temp file
-	// For temp files created in /var/folders/.../T/, the directory is "T" which gets sanitized to "t"
-	assert.Equal(t, "t", project.Name)
+	// We need to determine what the actual expected name should be based on the temp directory
+	expectedName := filepath.Base(filepath.Dir(tmpfile.Name()))
+	expectedName = strings.ToLower(expectedName) // sanitizeProjectName converts to lowercase
+	assert.Equal(t, expectedName, project.Name)
 	assert.Len(t, project.Services, 2)
 	assert.Equal(t, "frontend", project.Services["frontend"].Name)
 	assert.Len(t, project.Services["frontend"].Volumes, 0)
