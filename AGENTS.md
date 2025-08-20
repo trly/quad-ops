@@ -1,52 +1,28 @@
-# Agent Guidelines for quad-ops
+# AGENTS.md - Development Guidelines for Quad-Ops
 
-## Project Overview
-- **Quad-Ops**: GitOps framework for Podman containers managed by Quadlet
-- Converts Docker Compose files to systemd unit files for container management
-- Supports both system-wide and rootless container operation modes
-- Written in Go with CLI interface using Cobra framework
+## Build/Test/Lint Commands
+- **Build**: `task build` or `go build -o quad-ops cmd/quad-ops/main.go`
+- **Test all**: `task test` or `gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...`
+- **Test single package**: `go test -v ./internal/compose`
+- **Test single function**: `go test -v ./internal/compose -run TestProcessorBasic`
+- **Lint**: `task lint` or `golangci-lint run`
+- **Format**: `task fmt` or `go fmt ./...`
 
 ## Architecture & Structure
-- **cmd/**: CLI commands and main entry points
-- **internal/**: Core application logic (compose, config, git, systemd, etc.)
-- **configs/**: Configuration file examples
-- **examples/**: Example configurations and compose files
-- **site/**: Documentation site (Hugo-based)
-- **build/**: Build artifacts and systemd service files
+- **CLI framework**: Cobra-based CLI with commands in `cmd/`
+- **Core logic**: `internal/` packages: compose (Docker Compose processing), systemd (unit management), git (repo operations), config (configuration)
+- **Main binary**: `cmd/quad-ops/main.go` - GitOps tool for converting Docker Compose to Podman Quadlet systemd units
+- **Key packages**: `internal/compose` (compose processing), `internal/systemd` (systemd integration), `internal/repository` (git operations)
 
-## Key Commands
-- `task build` - Build application (includes fmt, lint, test)
-- `task test` - Run tests with coverage
-- `task lint` - Run linter
-- `go test -v ./...` - Run all tests
-- `go test -v -race ./...` - Run all tests with race detection (matches CI)
-
-## Configuration
-- Main config: `/etc/quad-ops/config.yaml` (system) or `~/.config/quad-ops/config.yaml` (user)
-- Example config: `configs/config.yaml.example`
-- Supports multiple Git repositories with Docker Compose files
-- Profile-specific configurations for different environments
-
-## Dependencies & Tools
-- **Go** (managed via mise)
-- **mise**: Development environment manager
-- **task**: Task runner (Taskfile.yml)
-- **golangci-lint**: Go linter with comprehensive rule set
-- **gotestsum**: Enhanced test runner with formatting
-
-## Code Style Guidelines
-- Follow standard Go conventions
-- Use golangci-lint rules (errcheck, govet, staticcheck, revive, gosec, etc.)
-- Format code with gofmt and goimports
-- Comprehensive test coverage expected
-- Security-focused development (gosec linter enabled)
-
-## Release & Distribution
-- Automated releases via GoReleaser (`.goreleaser.yml`)
-- Self-update capability built into application
-- Systemd service file provided for daemon operation
-- Installation script available (`install.sh`)
+## Code Style & Conventions
+- **Naming**: PascalCase exports, camelCase unexported, lowercase packages, descriptive variable names
+- **Error handling**: Early returns, wrapped errors with `fmt.Errorf(..., %w, err)`, structured logging
+- **Imports**: Standard lib first, third-party, then internal packages (`github.com/trly/quad-ops/internal/...`)
+- **Patterns**: Interface-based design, dependency injection, factory functions (`NewX`), YAML-tagged structs for config
+- **Testing**: Uses testify/assert, table-driven tests preferred
 
 ## Documentation
-- Documentation site details and Hugo-specific guidelines: see `site/AGENT.md`
+- <https://trly.github.io/quad-ops/> sources: @site/ 
+- compose spec: <https://raw.githubusercontent.com/compose-spec/compose-spec/refs/heads/main/spec.md/>
+- podman-systemd: <https://docs.podman.io/en/latest/_sources/markdown/podman-systemd.unit.5.md.txt/>
 
