@@ -87,7 +87,7 @@ Examples:
   # Validate specific compose directory in repository
   quad-ops validate --repo https://github.com/user/repo.git --compose-dir services`,
 
-		Args: cobra.MaximumNArgs(1),
+		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
 		PreRunE: func(_ *cobra.Command, args []string) error {
 			// Determine path to validate
