@@ -5,9 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 func TestSecretValidator_ValidateSecretName(t *testing.T) {
+	// Initialize logger for tests
+	log.Init(false)
 	validator := NewSecretValidator()
 
 	tests := []struct {
@@ -18,10 +21,10 @@ func TestSecretValidator_ValidateSecretName(t *testing.T) {
 		{"valid simple name", "my-secret", false},
 		{"valid with subdomain", "app.my-secret", false},
 		{"empty name", "", true},
-		{"too long name", strings.Repeat("a", 254), true},
-		{"invalid chars", "my_secret!", true},
-		{"starts with number", "1secret", false}, // DNS allows starting with number
-		{"uppercase chars", "MySecret", true},
+		{"too long name", strings.Repeat("a", 254), false}, // Now just warns, doesn't error
+		{"invalid chars", "my_secret!", false},             // Now just warns, doesn't error
+		{"starts with number", "1secret", false},           // DNS allows starting with number
+		{"uppercase chars", "MySecret", false},             // Now just warns, doesn't error
 	}
 
 	for _, tt := range tests {
@@ -37,6 +40,8 @@ func TestSecretValidator_ValidateSecretName(t *testing.T) {
 }
 
 func TestSecretValidator_ValidateSecretValue(t *testing.T) {
+	// Initialize logger for tests
+	log.Init(false)
 	validator := NewSecretValidator()
 
 	tests := []struct {
@@ -50,7 +55,7 @@ func TestSecretValidator_ValidateSecretValue(t *testing.T) {
 		{"too large value", strings.Repeat("a", MaxSecretFileSize+1), true},
 		{"null byte", "secret\x00value", true},
 		{"control character", "secret\x01value", true},
-		{"dangerous pattern", "BEGIN PRIVATE KEY", true},
+		{"dangerous pattern", "BEGIN PRIVATE KEY", false}, // Now just warns, doesn't error
 	}
 
 	for _, tt := range tests {
@@ -66,6 +71,8 @@ func TestSecretValidator_ValidateSecretValue(t *testing.T) {
 }
 
 func TestSecretValidator_ValidateSecretTarget(t *testing.T) {
+	// Initialize logger for tests
+	log.Init(false)
 	validator := NewSecretValidator()
 
 	tests := []struct {
@@ -78,9 +85,9 @@ func TestSecretValidator_ValidateSecretTarget(t *testing.T) {
 		{"empty target", "", true},
 		{"relative path", "secrets/mysecret", true},
 		{"path traversal", "/run/secrets/../../../etc/passwd", true},
-		{"system path", "/etc/passwd", true},
-		{"proc path", "/proc/version", true},
-		{"too long path", "/run/secrets/" + strings.Repeat("a", MaxSecretTargetLen), true},
+		{"system path", "/etc/passwd", false},                                               // Now just warns, doesn't error
+		{"proc path", "/proc/version", false},                                               // Now just warns, doesn't error
+		{"too long path", "/run/secrets/" + strings.Repeat("a", MaxSecretTargetLen), false}, // Now just warns, doesn't error
 	}
 
 	for _, tt := range tests {
@@ -96,6 +103,8 @@ func TestSecretValidator_ValidateSecretTarget(t *testing.T) {
 }
 
 func TestSecretValidator_ValidateEnvValue(t *testing.T) {
+	// Initialize logger for tests
+	log.Init(false)
 	validator := NewSecretValidator()
 
 	tests := []struct {
@@ -106,10 +115,10 @@ func TestSecretValidator_ValidateEnvValue(t *testing.T) {
 	}{
 		{"regular env var", "DEBUG", "true", false},
 		{"large non-sensitive value", "LARGE_CONFIG", strings.Repeat("a", 1000), false},
-		{"sensitive short value", "PASSWORD", "123", true},
-		{"sensitive test value", "SECRET", "password", true},
+		{"sensitive short value", "PASSWORD", "123", false},   // Now just warns, doesn't error
+		{"sensitive test value", "SECRET", "password", false}, // Now just warns, doesn't error
 		{"sensitive valid value", "API_KEY", "sk_live_abcdef123456789", false},
-		{"too large value", "CONFIG", strings.Repeat("a", MaxEnvValueSize+1), true},
+		{"too large value", "CONFIG", strings.Repeat("a", MaxEnvValueSize+1), false}, // Now just warns, doesn't error
 		{"null byte", "VALUE", "test\x00value", true},
 	}
 
@@ -137,7 +146,7 @@ func TestEnvKey(t *testing.T) {
 		{"empty key", "", true},
 		{"starts with digit", "1VAR", true},
 		{"invalid character", "MY-VAR", true},
-		{"too long key", strings.Repeat("A", MaxEnvKeyLen+1), true},
+		{"too long key", strings.Repeat("A", MaxEnvKeyLen+1), false}, // Now just warns, doesn't error
 		{"starts with underscore", "_PRIVATE", false},
 	}
 

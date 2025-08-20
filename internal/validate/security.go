@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+
+	"github.com/trly/quad-ops/internal/log"
 )
 
 // Security constants for size limits and validation.
@@ -56,13 +58,13 @@ func (sv *SecretValidator) ValidateSecretName(name string) error {
 	}
 
 	if len(name) > MaxSecretNameLen {
-		return fmt.Errorf("secret name too long: %d characters (max %d)", len(name), MaxSecretNameLen)
+		log.GetLogger().Warn("Secret name is very long, consider shortening", "name", name, "length", len(name), "max_recommended", MaxSecretNameLen)
 	}
 
-	// Secret names should follow DNS naming conventions
+	// Docker Compose allows flexible secret names, only warn about non-DNS conventions
 	dnsPattern := regexp.MustCompile(`^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)*$`)
 	if !dnsPattern.MatchString(name) {
-		return fmt.Errorf("secret name must follow DNS naming conventions: %s", name)
+		log.GetLogger().Warn("Secret name doesn't follow DNS naming conventions", "name", name)
 	}
 
 	return nil
@@ -88,11 +90,11 @@ func (sv *SecretValidator) ValidateSecretValue(value string) error {
 		}
 	}
 
-	// Check for potentially dangerous patterns
+	// Warn about potentially dangerous patterns (compose spec allows any content)
 	lowerValue := strings.ToLower(value)
 	for _, pattern := range securityPatterns {
 		if strings.Contains(lowerValue, strings.ToLower(pattern)) {
-			return fmt.Errorf("secret value contains potentially dangerous pattern: %s", pattern)
+			log.GetLogger().Warn("Secret value contains potentially sensitive pattern", "pattern", pattern)
 		}
 	}
 
@@ -106,7 +108,7 @@ func (sv *SecretValidator) ValidateSecretTarget(target string) error {
 	}
 
 	if len(target) > MaxSecretTargetLen {
-		return fmt.Errorf("secret target path too long: %d characters (max %d)", len(target), MaxSecretTargetLen)
+		log.GetLogger().Warn("Secret target path is very long", "target", target, "length", len(target), "max_recommended", MaxSecretTargetLen)
 	}
 
 	// Ensure target is an absolute path for security
@@ -119,11 +121,11 @@ func (sv *SecretValidator) ValidateSecretTarget(target string) error {
 		return fmt.Errorf("secret target contains path traversal sequence: %s", target)
 	}
 
-	// Prevent access to sensitive system directories
-	forbiddenPaths := []string{"/etc/passwd", "/etc/shadow", "/etc/hosts", "/proc", "/sys"}
-	for _, forbidden := range forbiddenPaths {
-		if strings.HasPrefix(target, forbidden) {
-			return fmt.Errorf("secret target accesses forbidden system path: %s", target)
+	// Warn about potentially risky system directories (compose spec allows any path)
+	sensitivePaths := []string{"/etc/passwd", "/etc/shadow", "/etc/hosts", "/proc", "/sys"}
+	for _, sensitive := range sensitivePaths {
+		if strings.HasPrefix(target, sensitive) {
+			log.GetLogger().Warn("Secret target path may access sensitive system directory", "target", target, "sensitive_path", sensitive)
 		}
 	}
 
@@ -133,45 +135,44 @@ func (sv *SecretValidator) ValidateSecretTarget(target string) error {
 // ValidateEnvValue validates environment variable values for size and content.
 func (sv *SecretValidator) ValidateEnvValue(key, value string) error {
 	if len(value) > MaxEnvValueSize {
-		return fmt.Errorf("environment variable value too large: %d bytes (max %d)", len(value), MaxEnvValueSize)
+		log.GetLogger().Warn("Environment variable value is very large", "key", key, "size", len(value), "max_recommended", MaxEnvValueSize)
 	}
 
-	// Check for null bytes
+	// Check for null bytes - this is a real compose limitation
 	if strings.ContainsRune(value, 0) {
 		return fmt.Errorf("environment variable value contains null byte")
 	}
 
-	// If this appears to be a sensitive variable, apply stricter validation
+	// If this appears to be a sensitive variable, apply stricter validation as warnings
 	if isSensitiveKey(key) {
-		return sv.validateSensitiveEnvValue(value)
+		sv.warnSensitiveEnvValue(key, value)
 	}
 
 	return nil
 }
 
-// validateSensitiveEnvValue applies stricter validation for sensitive environment variables.
-func (sv *SecretValidator) validateSensitiveEnvValue(value string) error {
-	// Sensitive values should not contain obvious test/default values
+// warnSensitiveEnvValue warns about potentially weak sensitive environment variables.
+func (sv *SecretValidator) warnSensitiveEnvValue(key, value string) {
+	// Warn about obvious test/default values
 	testValues := []string{"password", "secret", "123456", "admin", "test", "default"}
 	lowerValue := strings.ToLower(strings.TrimSpace(value))
 
 	for _, testValue := range testValues {
 		if lowerValue == testValue {
-			return fmt.Errorf("sensitive environment variable appears to contain a test/default value")
+			log.GetLogger().Warn("Sensitive environment variable appears to contain a test/default value", "key", key)
+			return
 		}
 	}
 
-	// Sensitive values should have minimum entropy (basic check)
+	// Warn about short sensitive values
 	if len(value) < 8 {
-		return fmt.Errorf("sensitive environment variable value is too short (minimum 8 characters)")
+		log.GetLogger().Warn("Sensitive environment variable value is short, consider using stronger value", "key", key, "length", len(value))
 	}
 
-	// Check for repeating characters (e.g., "aaaaaaaa")
+	// Warn about repeating patterns
 	if isRepeatingPattern(value) {
-		return fmt.Errorf("sensitive environment variable value has low entropy")
+		log.GetLogger().Warn("Sensitive environment variable value has low entropy", "key", key)
 	}
-
-	return nil
 }
 
 // isSensitiveKey checks if an environment variable key indicates sensitive data.
@@ -227,7 +228,7 @@ func EnvKey(key string) error {
 	}
 
 	if len(key) > MaxEnvKeyLen {
-		return fmt.Errorf("environment variable key too long: %d characters (max %d)", len(key), MaxEnvKeyLen)
+		log.GetLogger().Warn("Environment variable key is very long", "key", key, "length", len(key), "max_recommended", MaxEnvKeyLen)
 	}
 
 	// Environment variable names should follow POSIX conventions
