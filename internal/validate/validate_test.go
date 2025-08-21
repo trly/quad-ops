@@ -1,66 +1,25 @@
 package validate
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/testutil/fakerunner"
 )
-
-// MockCommandRunner implements CommandRunner for testing.
-type MockCommandRunner struct {
-	// Map of command to output and error
-	CommandOutputs map[string]struct {
-		Output []byte
-		Err    error
-	}
-}
-
-// Run returns mock output based on command.
-func (m *MockCommandRunner) Run(name string, args ...string) ([]byte, error) {
-	// Create a key by joining command and args
-	key := name
-	for _, arg := range args {
-		key += " " + arg
-	}
-
-	// Look up the response
-	if response, ok := m.CommandOutputs[key]; ok {
-		return response.Output, response.Err
-	}
-
-	// Default error for unknown commands
-	return nil, errors.New("command not mocked: " + key)
-}
 
 func TestVerifySystemRequirements_Success(t *testing.T) {
 	// Create logger for testing
 	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates all commands succeeding
-	mock := &MockCommandRunner{
-		CommandOutputs: map[string]struct {
-			Output []byte
-			Err    error
-		}{
-			"systemctl --version": {
-				Output: []byte("systemd 247 (247.3-7+deb11u4)"),
-				Err:    nil,
-			},
-			"podman --version": {
-				Output: []byte("podman version 3.4.4"),
-				Err:    nil,
-			},
-			"test -f /usr/lib/systemd/system-generators/podman-system-generator": {
-				Output: []byte(""),
-				Err:    nil,
-			},
-		},
-	}
+	runner := fakerunner.New()
+	runner.SetOutput("systemctl", []string{"--version"}, []byte("systemd 247 (247.3-7+deb11u4)"))
+	runner.SetOutput("podman", []string{"--version"}, []byte("podman version 3.4.4"))
+	runner.SetOutput("test", []string{"-f", "/usr/lib/systemd/system-generators/podman-system-generator"}, []byte(""))
 
 	// Create validator with mock runner
-	validator := NewValidator(logger, mock)
+	validator := NewValidator(logger, runner)
 
 	// Run test
 	err := validator.SystemRequirements()
@@ -72,20 +31,11 @@ func TestVerifySystemRequirements_MissingSystemd(t *testing.T) {
 	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates systemd missing
-	mock := &MockCommandRunner{
-		CommandOutputs: map[string]struct {
-			Output []byte
-			Err    error
-		}{
-			"systemctl --version": {
-				Output: nil,
-				Err:    errors.New("exec: \"systemctl\": executable file not found in $PATH"),
-			},
-		},
-	}
+	runner := fakerunner.New()
+	runner.SetError("systemctl", []string{"--version"}, assert.AnError)
 
 	// Create validator with mock runner
-	validator := NewValidator(logger, mock)
+	validator := NewValidator(logger, runner)
 
 	// Run test and check for expected error
 	err := validator.SystemRequirements()
@@ -98,30 +48,13 @@ func TestVerifySystemRequirements_InvalidSystemd(t *testing.T) {
 	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates invalid systemd output
-	mock := &MockCommandRunner{
-		CommandOutputs: map[string]struct {
-			Output []byte
-			Err    error
-		}{
-			"systemctl --version": {
-				// Ensure the output doesn't contain "systemd" anywhere
-				Output: []byte("Something completely different without the expected string"),
-				Err:    nil,
-			},
-			// Include these to prevent "command not mocked" errors if execution continues
-			"podman --version": {
-				Output: []byte("podman version 3.4.4"),
-				Err:    nil,
-			},
-			"test -f /usr/lib/systemd/system-generators/podman-system-generator": {
-				Output: []byte(""),
-				Err:    nil,
-			},
-		},
-	}
+	runner := fakerunner.New()
+	runner.SetOutput("systemctl", []string{"--version"}, []byte("Something completely different without the expected string"))
+	runner.SetOutput("podman", []string{"--version"}, []byte("podman version 3.4.4"))
+	runner.SetOutput("test", []string{"-f", "/usr/lib/systemd/system-generators/podman-system-generator"}, []byte(""))
 
 	// Create validator with mock runner
-	validator := NewValidator(logger, mock)
+	validator := NewValidator(logger, runner)
 
 	// Run test and check for expected error
 	err := validator.SystemRequirements()
@@ -134,24 +67,12 @@ func TestVerifySystemRequirements_MissingPodman(t *testing.T) {
 	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates podman missing
-	mock := &MockCommandRunner{
-		CommandOutputs: map[string]struct {
-			Output []byte
-			Err    error
-		}{
-			"systemctl --version": {
-				Output: []byte("systemd 247 (247.3-7+deb11u4)"),
-				Err:    nil,
-			},
-			"podman --version": {
-				Output: nil,
-				Err:    errors.New("exec: \"podman\": executable file not found in $PATH"),
-			},
-		},
-	}
+	runner := fakerunner.New()
+	runner.SetOutput("systemctl", []string{"--version"}, []byte("systemd 247 (247.3-7+deb11u4)"))
+	runner.SetError("podman", []string{"--version"}, assert.AnError)
 
 	// Create validator with mock runner
-	validator := NewValidator(logger, mock)
+	validator := NewValidator(logger, runner)
 
 	// Run test and check for expected error
 	err := validator.SystemRequirements()
@@ -164,28 +85,13 @@ func TestVerifySystemRequirements_MissingPodmanGenerator(t *testing.T) {
 	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates podman-system-generator missing
-	mock := &MockCommandRunner{
-		CommandOutputs: map[string]struct {
-			Output []byte
-			Err    error
-		}{
-			"systemctl --version": {
-				Output: []byte("systemd 247 (247.3-7+deb11u4)"),
-				Err:    nil,
-			},
-			"podman --version": {
-				Output: []byte("podman version 3.4.4"),
-				Err:    nil,
-			},
-			"test -f /usr/lib/systemd/system-generators/podman-system-generator": {
-				Output: nil,
-				Err:    errors.New("test failed"),
-			},
-		},
-	}
+	runner := fakerunner.New()
+	runner.SetOutput("systemctl", []string{"--version"}, []byte("systemd 247 (247.3-7+deb11u4)"))
+	runner.SetOutput("podman", []string{"--version"}, []byte("podman version 3.4.4"))
+	runner.SetError("test", []string{"-f", "/usr/lib/systemd/system-generators/podman-system-generator"}, assert.AnError)
 
 	// Create validator with mock runner
-	validator := NewValidator(logger, mock)
+	validator := NewValidator(logger, runner)
 
 	// Run test and check for expected error
 	err := validator.SystemRequirements()

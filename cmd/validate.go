@@ -117,7 +117,7 @@ Examples:
 
 			// Check system requirements if requested
 			if checkSysRequirements {
-				if err := validate.SystemRequirements(); err != nil {
+				if err := app.Validator.SystemRequirements(); err != nil {
 					return fmt.Errorf("system requirements not met: %w", err)
 				}
 			}

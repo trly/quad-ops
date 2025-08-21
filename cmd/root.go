@@ -31,7 +31,6 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/sorting"
-	"github.com/trly/quad-ops/internal/validate"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -65,7 +64,6 @@ It automatically generates systemd unit files from Docker Compose files and hand
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
 			configProv := config.NewConfigProvider()
 			cfg = configProv.GetConfig()
-			log.Init(verbose)
 			logger := log.NewLogger(verbose)
 
 			if verbose {
@@ -97,18 +95,20 @@ It automatically generates systemd unit files from Docker Compose files and hand
 				cfg.QuadletDir = quadletDir
 			}
 
+			// Initialize app first so we can access its validator
+			app := NewApp(logger, configProv)
+
 			// Only check system requirements for commands that actually need systemd/podman
 			// validate command has its own optional --check-system flag
 			cmdName := cmd.Name()
 			if cmdName == "sync" || cmdName == "up" || cmdName == "down" || strings.HasPrefix(cmdName, "unit") || strings.HasPrefix(cmdName, "image") {
-				err := validate.SystemRequirements()
+				err := app.Validator.SystemRequirements()
 				if err != nil {
 					logger.Error("System requirements not met", "err", err)
 				}
 			}
 
-			// Initialize app and store in context for commands that need it
-			app := NewApp(logger, configProv)
+			// Store app in context for commands that need it
 			cmd.SetContext(context.WithValue(cmd.Context(), appContextKey, app))
 		},
 	}

@@ -36,14 +36,18 @@ repositories:
 git clone https://github.com/trly/quad-ops.git
 cd quad-ops
 
-# Build the binary
-go build -o quad-ops cmd/quad-ops/main.go
+# Install task runner (if not already installed)
+# macOS: brew install go-task/tap/go-task
+# Linux: sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
 
-# Run tests
-go test -v ./...
+# Build, lint, test, and format (all-in-one)
+task build
 
-# Run linting
-mise exec -- golangci-lint run
+# Individual commands
+task test          # Run all tests
+task lint          # Run golangci-lint
+task fmt           # Format code
+go build -o quad-ops cmd/quad-ops/main.go  # Build binary only
 ```
 
 ## Installation

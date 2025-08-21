@@ -11,6 +11,7 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/testutil/fakerunner"
 )
 
 func TestDefaultUnitManager(t *testing.T) {
@@ -235,6 +236,7 @@ func createTestUnitManager(mockConn Connection) UnitManager {
 	textCaser := NewDefaultTextCaser()
 	configProvider := config.NewConfigProvider()
 	logger := log.NewLogger(false)
+	runner := fakerunner.New()
 
-	return NewDefaultUnitManager(mockFactory, contextProvider, textCaser, configProvider, logger)
+	return NewDefaultUnitManager(mockFactory, contextProvider, textCaser, configProvider, logger, runner)
 }

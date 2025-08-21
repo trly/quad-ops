@@ -2,6 +2,7 @@ package systemd
 
 import (
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/execx"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -21,7 +22,8 @@ func NewDefaultFactory(configProvider config.Provider, logger log.Logger) *Defau
 	connectionFactory := NewConnectionFactory(logger)
 	contextProvider := NewDefaultContextProvider()
 	textCaser := NewDefaultTextCaser()
-	unitManager := NewDefaultUnitManager(connectionFactory, contextProvider, textCaser, configProvider, logger)
+	runner := execx.NewRealRunner()
+	unitManager := NewDefaultUnitManager(connectionFactory, contextProvider, textCaser, configProvider, logger, runner)
 	orchestrator := NewDefaultOrchestrator(unitManager, connectionFactory, configProvider, logger)
 
 	return &DefaultFactory{

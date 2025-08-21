@@ -19,6 +19,9 @@ GitOps framework converting Docker Compose to systemd Quadlet units:
 - `internal/git/` - Git repository synchronization
 - `internal/config/` - Configuration management via Viper
 - `internal/fs/` - File system operations with hash-based change detection
+- `internal/execx/` - Command execution abstraction for testability
+- `internal/testutil/` - Test utilities and helpers for reducing boilerplate
+- `internal/validate/` - System validation with dependency injection
 
 ## Code Style
 
@@ -27,5 +30,8 @@ GitOps framework converting Docker Compose to systemd Quadlet units:
 - Interface-based design with default providers pattern
 - Error handling with early returns, wrap with context
 - Use structured logging via `slog`
-- Test helpers: `initTestLogger()`, temp dirs with cleanup
+- Test helpers: `testutil.NewTestLogger()`, `testutil.NewMockConfig()`,
+temp dirs with cleanup
 - Import grouping: stdlib, external, internal
+- Constructor injection: Accept dependencies as parameters, no global state
+- Command execution: Use `execx.Runner` interface for testable system commands

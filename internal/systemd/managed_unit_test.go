@@ -10,21 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/testutil"
 )
 
 func TestManagedUnit(t *testing.T) {
-	// Initialize config and logger for tests
-	configProvider := config.NewDefaultConfigProvider()
-	configProvider.InitConfig()
-
 	t.Run("NewManagedUnit creates unit with dependencies", func(t *testing.T) {
 		mockFactory := &MockConnectionFactory{}
 		contextProvider := NewDefaultContextProvider()
 		textCaser := NewDefaultTextCaser()
-		configProvider := config.NewConfigProvider()
-		logger := log.NewLogger(false)
+		configProvider := testutil.NewMockConfig(t)
+		logger := testutil.NewTestLogger(t)
 
 		unit := NewManagedUnit("test-unit", "container", mockFactory, contextProvider, textCaser, configProvider, logger)
 
@@ -222,9 +217,11 @@ func TestManagedUnit(t *testing.T) {
 
 // Helper function to create a test managed unit.
 func createTestManagedUnit(factory ConnectionFactory) *ManagedUnit {
+	// Use a fake testing.T for this helper since we can't easily thread it through
+	t := &testing.T{}
 	contextProvider := NewDefaultContextProvider()
 	textCaser := NewDefaultTextCaser()
-	configProvider := config.NewConfigProvider()
-	logger := log.NewLogger(false)
+	configProvider := testutil.NewMockConfig(t)
+	logger := testutil.NewTestLogger(t)
 	return NewManagedUnit("test-unit", "container", factory, contextProvider, textCaser, configProvider, logger)
 }

@@ -37,15 +37,6 @@ func NewConfigProvider() Provider {
 	return provider
 }
 
-// defaultProvider is the global default configuration provider for backward compatibility.
-var defaultProvider = &defaultConfigProvider{}
-
-// DefaultProvider returns the default configuration provider instance.
-// This is a global singleton primarily for backward compatibility.
-func DefaultProvider() Provider {
-	return defaultProvider
-}
-
 // Default configuration values for the quad-ops system.
 // These constants define the default values for various configuration
 // settings, such as the repository directory, sync interval, quadlet
@@ -101,12 +92,16 @@ func (p *defaultConfigProvider) SetConfigFilePath(path string) {
 }
 
 func (p *defaultConfigProvider) InitConfig() *Settings {
-	p.cfg = initConfigInternal()
+	cfg, err := initConfigInternal()
+	if err != nil {
+		panic(err)
+	}
+	p.cfg = cfg
 	return p.cfg
 }
 
 // Internal function to initialize configuration.
-func initConfigInternal() *Settings {
+func initConfigInternal() (*Settings, error) {
 	cfg := &Settings{
 		RepositoryDir:    DefaultRepositoryDir,
 		SyncInterval:     DefaultSyncInterval,
@@ -133,15 +128,15 @@ func initConfigInternal() *Settings {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			panic(err)
+			return nil, err
 		}
 	}
 
 	if err := viper.Unmarshal(cfg); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return cfg
+	return cfg, nil
 }
 
 // MockProvider is a test implementation of Provider for testing purposes.

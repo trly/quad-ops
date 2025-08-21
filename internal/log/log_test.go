@@ -4,12 +4,18 @@ import (
 	"testing"
 )
 
-func TestGetLogger(t *testing.T) {
-	logger := GetLogger()
+func TestNop(t *testing.T) {
+	logger := Nop()
 
 	if logger == nil {
-		t.Error("GetLogger() returned nil")
+		t.Error("Nop() returned nil")
 	}
+
+	// Should be able to call all interface methods without panicking
+	logger.Debug("test debug")
+	logger.Info("test info")
+	logger.Warn("test warn")
+	logger.Error("test error")
 }
 
 func TestNewLogger(t *testing.T) {

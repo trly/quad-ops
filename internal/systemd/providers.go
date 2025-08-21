@@ -3,8 +3,6 @@ package systemd
 import (
 	"context"
 	"fmt"
-
-	"os/exec"
 	"time"
 
 	"golang.org/x/text/cases"
@@ -12,6 +10,7 @@ import (
 
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/execx"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/sorting"
 )
@@ -57,16 +56,18 @@ type DefaultUnitManager struct {
 	textCaser         TextCaser
 	configProvider    config.Provider
 	logger            log.Logger
+	runner            execx.Runner
 }
 
 // NewDefaultUnitManager creates a new default unit manager.
-func NewDefaultUnitManager(connectionFactory ConnectionFactory, contextProvider ContextProvider, textCaser TextCaser, configProvider config.Provider, logger log.Logger) *DefaultUnitManager {
+func NewDefaultUnitManager(connectionFactory ConnectionFactory, contextProvider ContextProvider, textCaser TextCaser, configProvider config.Provider, logger log.Logger, runner execx.Runner) *DefaultUnitManager {
 	return &DefaultUnitManager{
 		connectionFactory: connectionFactory,
 		contextProvider:   contextProvider,
 		textCaser:         textCaser,
 		configProvider:    configProvider,
 		logger:            logger,
+		runner:            runner,
 	}
 }
 
@@ -173,11 +174,14 @@ func (m *DefaultUnitManager) getUnitFailureDetails(unitName string) string {
 		return fmt.Sprintf("\nUnit Status (via dbus):\n%s\nRecent logs: (unavailable - invalid unit name)", statusInfo)
 	}
 
-	cmd := exec.Command("journalctl", "--user-unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
-	if !m.configProvider.GetConfig().UserMode {
-		cmd = exec.Command("journalctl", "--unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
+	ctx := context.Background()
+	var output []byte
+	if m.configProvider.GetConfig().UserMode {
+		output, err = m.runner.CombinedOutput(ctx, "journalctl", "--user-unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
+	} else {
+		output, err = m.runner.CombinedOutput(ctx, "journalctl", "--unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
 	}
-	output, err := cmd.CombinedOutput()
+
 	logInfo := "Recent logs: (unavailable)"
 	if err == nil && len(output) > 0 {
 		logInfo = fmt.Sprintf("Recent logs:\n%s", string(output))

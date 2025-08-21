@@ -2,6 +2,7 @@
 package log
 
 import (
+	"io"
 	"log/slog"
 	"os"
 )
@@ -55,21 +56,11 @@ func NewLogger(verbose bool) Logger {
 	return &SlogAdapter{logger: slogLogger}
 }
 
-var defaultLogger Logger
-
-// GetLogger returns a default logger instance for convenience.
-// This is primarily for backward compatibility with existing code.
-func GetLogger() Logger {
-	if defaultLogger == nil {
-		defaultLogger = NewLogger(false)
-	}
-	return defaultLogger
-}
-
-// Init initializes the default logger with the specified verbosity.
-// This function should be called once at application startup.
-func Init(verbose bool) {
-	defaultLogger = NewLogger(verbose)
+// Nop returns a logger that discards all output.
+func Nop() Logger {
+	handler := slog.NewTextHandler(io.Discard, nil)
+	slogLogger := slog.New(handler)
+	return &SlogAdapter{logger: slogLogger}
 }
 
 // NewSlogAdapter creates a Logger from an slog.Logger.

@@ -2,53 +2,22 @@
 package validate
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 
+	"github.com/trly/quad-ops/internal/execx"
 	"github.com/trly/quad-ops/internal/log"
 )
-
-// CommandRunner defines an interface for executing commands.
-type CommandRunner interface {
-	Run(name string, args ...string) ([]byte, error)
-}
-
-// RealCommandRunner implements CommandRunner using os/exec.
-type RealCommandRunner struct {
-	logger log.Logger
-}
-
-// NewRealCommandRunner creates a new RealCommandRunner with the provided logger.
-func NewRealCommandRunner(logger log.Logger) *RealCommandRunner {
-	return &RealCommandRunner{
-		logger: logger,
-	}
-}
-
-// Run executes a command and returns its output.
-// WARNING: This method executes arbitrary commands and should only be used with trusted input.
-// Callers must validate command names and arguments to prevent command injection.
-func (r *RealCommandRunner) Run(name string, args ...string) ([]byte, error) {
-	// Basic validation - reject empty command names
-	if name == "" {
-		return nil, fmt.Errorf("command name cannot be empty")
-	}
-
-	// Log command execution for security auditing
-	r.logger.Debug("Executing command", "name", name, "args", args)
-
-	return exec.Command(name, args...).Output()
-}
 
 // Validator provides system requirements validation with dependency injection.
 type Validator struct {
 	logger log.Logger
-	runner CommandRunner
+	runner execx.Runner
 }
 
 // NewValidator creates a new Validator with the provided logger and command runner.
-func NewValidator(logger log.Logger, runner CommandRunner) *Validator {
+func NewValidator(logger log.Logger, runner execx.Runner) *Validator {
 	return &Validator{
 		logger: logger,
 		runner: runner,
@@ -59,7 +28,7 @@ func NewValidator(logger log.Logger, runner CommandRunner) *Validator {
 func NewValidatorWithDefaults(logger log.Logger) *Validator {
 	return &Validator{
 		logger: logger,
-		runner: NewRealCommandRunner(logger),
+		runner: execx.NewRealRunner(),
 	}
 }
 
@@ -67,7 +36,8 @@ func NewValidatorWithDefaults(logger log.Logger) *Validator {
 func (v *Validator) SystemRequirements() error {
 	v.logger.Debug("Validating systemd availability")
 
-	systemdVersion, err := v.runner.Run("systemctl", "--version")
+	ctx := context.Background()
+	systemdVersion, err := v.runner.CombinedOutput(ctx, "systemctl", "--version")
 	if err != nil {
 		return fmt.Errorf("systemd not found: %w", err)
 	}
@@ -78,7 +48,7 @@ func (v *Validator) SystemRequirements() error {
 
 	v.logger.Debug("Validating podman availability")
 
-	_, err = v.runner.Run("podman", "--version")
+	_, err = v.runner.CombinedOutput(ctx, "podman", "--version")
 	if err != nil {
 		return fmt.Errorf("podman not found: %w", err)
 	}
@@ -86,7 +56,7 @@ func (v *Validator) SystemRequirements() error {
 	v.logger.Debug("Validating podman-system-generator availability")
 
 	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
-	_, err = v.runner.Run("test", "-f", generatorPath)
+	_, err = v.runner.CombinedOutput(ctx, "test", "-f", generatorPath)
 	if err != nil {
 		return fmt.Errorf("podman systemd generator not found (ensure podman is properly installed)")
 	}

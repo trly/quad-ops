@@ -11,21 +11,13 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/testutil"
 )
 
 // setupTest creates a temporary directory and returns config provider for testing.
 func setupTest(t *testing.T) (string, config.Provider, func()) {
-	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
-	require.NoError(t, err)
-
-	cfg := &config.Settings{
-		RepositoryDir: tmpDir,
-		Verbose:       true,
-	}
-	configProvider := config.NewDefaultConfigProvider()
-	configProvider.SetConfig(cfg)
-
-	cleanup := func() { _ = os.RemoveAll(tmpDir) }
+	tmpDir, cleanup := testutil.SetupTempDir(t)
+	configProvider := testutil.NewMockConfig(t, testutil.WithRepositoryDir(tmpDir))
 	return tmpDir, configProvider, cleanup
 }
 
@@ -391,13 +383,9 @@ func TestCheckoutTargetForceBranchFallback(t *testing.T) {
 }
 
 func TestNewGitRepository(t *testing.T) {
-	// Create a test config provider
-	testConfig := &config.Settings{
-		RepositoryDir: "/test/custom/repo/dir",
-		Verbose:       true,
-	}
-	configProvider := config.NewDefaultConfigProvider()
-	configProvider.SetConfig(testConfig)
+	configProvider := testutil.NewMockConfig(t,
+		testutil.WithRepositoryDir("/test/custom/repo/dir"),
+		testutil.WithVerbose(true))
 
 	repo := config.Repository{
 		Name: "test-repo",

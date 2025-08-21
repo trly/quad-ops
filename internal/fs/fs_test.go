@@ -59,8 +59,8 @@ func TestGetUnitFilePath(t *testing.T) {
 }
 
 func TestHasUnitChanged(t *testing.T) {
-	// Initialize logger for testing
-	log.Init(false)
+	// Use no-op logger for testing
+	logger := log.Nop()
 
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "fs_test_*")
@@ -109,7 +109,7 @@ func TestHasUnitChanged(t *testing.T) {
 			// Create service with temp directory config
 			cfg := &config.Settings{QuadletDir: tempDir}
 			provider := &config.MockProvider{Config: cfg}
-			service := NewServiceWithLogger(provider, log.NewLogger(false))
+			service := NewServiceWithLogger(provider, logger)
 			result := service.HasUnitChanged(unitPath, tt.newContent)
 			assert.Equal(t, tt.expected, result)
 
@@ -122,8 +122,8 @@ func TestHasUnitChanged(t *testing.T) {
 }
 
 func TestWriteUnitFile(t *testing.T) {
-	// Initialize logger for testing
-	log.Init(false)
+	// Use no-op logger for testing
+	logger := log.Nop()
 
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "fs_test_*")
@@ -155,7 +155,7 @@ func TestWriteUnitFile(t *testing.T) {
 			// Create service with temp directory config
 			cfg := &config.Settings{QuadletDir: tempDir}
 			provider := &config.MockProvider{Config: cfg}
-			service := NewServiceWithLogger(provider, log.NewLogger(false))
+			service := NewServiceWithLogger(provider, logger)
 			err := service.WriteUnitFile(tt.unitPath, tt.content)
 
 			if tt.expectError {

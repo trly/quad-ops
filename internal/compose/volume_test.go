@@ -6,6 +6,7 @@ import (
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/testutil"
 )
 
 func TestVolumeProcessingIntegration(t *testing.T) {
@@ -15,7 +16,7 @@ func TestVolumeProcessingIntegration(t *testing.T) {
 		mockSystemd := new(MockSystemdManager)
 		mockFS := new(MockFileSystem)
 
-		logger := initTestLogger()
+		logger := testutil.NewTestLogger(t)
 		processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
 		project := &types.Project{
@@ -80,7 +81,7 @@ func TestVolumeExternalBehavior(t *testing.T) {
 		mockSystemd := new(MockSystemdManager)
 		mockFS := new(MockFileSystem)
 
-		logger := initTestLogger()
+		logger := testutil.NewTestLogger(t)
 		processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
 		project := &types.Project{
@@ -124,7 +125,7 @@ func TestVolumeDriverTypes(t *testing.T) {
 			mockSystemd := new(MockSystemdManager)
 			mockFS := new(MockFileSystem)
 
-			logger := initTestLogger()
+			logger := testutil.NewTestLogger(t)
 			processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
 			project := &types.Project{
