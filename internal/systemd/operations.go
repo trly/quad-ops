@@ -283,12 +283,6 @@ func ReloadSystemd() error {
 
 // Utility functions
 
-// GetConnectionLegacy returns a legacy connection to systemd D-Bus.
-// Deprecated: Use GetConnection from dbus_connection.go instead.
-func GetConnectionLegacy() (*dbus.Conn, error) {
-	return getConnection()
-}
-
 // GetContext returns the systemd operation context.
 func GetContext() context.Context {
 	return ctx

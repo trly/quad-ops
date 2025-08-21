@@ -134,11 +134,18 @@ func syncRepositories(cfg *config.Settings) {
 				isLastRepo = true
 			}
 
-			updatedMap, err := compose.ProcessProjects(projects, force, processedUnits, isLastRepo)
+			processor := compose.NewDefaultProcessor(force)
+			if processedUnits != nil {
+				processor.WithExistingProcessedUnits(processedUnits)
+			}
+
+			err = processor.ProcessProjects(projects, isLastRepo)
 			if err != nil {
 				log.GetLogger().Error("Failed to process projects from repository", "name", repoConfig.Name, "error", err)
 				continue
 			}
+
+			updatedMap := processor.GetProcessedUnits()
 
 			// Update the shared map with units from this repository
 			processedUnits = updatedMap
