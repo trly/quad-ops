@@ -1,6 +1,6 @@
 module github.com/trly/quad-ops
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/SerhiiCho/timeago/v3 v3.3.1
@@ -9,6 +9,7 @@ require (
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-git/v5 v5.16.2
+	github.com/godbus/dbus/v5 v5.1.1-0.20241109141217-c266b19b28e9
 	github.com/rodaine/table v1.3.0
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.20.1
@@ -41,7 +42,6 @@ require (
 	github.com/go-git/gcfg v1.5.1-0.20230307220236-3a3c6141e376 // indirect
 	github.com/go-git/go-billy/v5 v5.6.2 // indirect
 	github.com/go-viper/mapstructure/v2 v2.3.0 // indirect
-	github.com/godbus/dbus/v5 v5.1.1-0.20241109141217-c266b19b28e9 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/google/go-github/v30 v30.1.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
