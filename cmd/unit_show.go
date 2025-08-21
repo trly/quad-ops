@@ -33,7 +33,16 @@ import (
 )
 
 // ShowCommand represents the unit show command.
-type ShowCommand struct{}
+type ShowCommand struct {
+	unitManager systemd.UnitManager
+}
+
+// NewShowCommand creates a new ShowCommand with injected dependencies.
+func NewShowCommand() *ShowCommand {
+	return &ShowCommand{
+		unitManager: systemd.GetDefaultUnitManager(),
+	}
+}
 
 // GetCobraCommand returns the cobra command for showing unit details.
 func (c *ShowCommand) GetCobraCommand() *cobra.Command {
@@ -50,9 +59,7 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 				os.Exit(1)
 			}
 
-			systemdUnit := systemd.NewBaseUnit(name, unitType)
-
-			err := systemdUnit.Show()
+			err := c.unitManager.Show(name, unitType)
 			if err != nil {
 				log.GetLogger().Error("Failed to show unit", "error", err)
 				os.Exit(1)

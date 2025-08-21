@@ -42,9 +42,9 @@ func (c *UnitCommand) GetCobraCommand() *cobra.Command {
 	}
 
 	unitCmd.AddCommand(
-		(&ShowCommand{}).GetCobraCommand(),
-		(&ListCommand{}).GetCobraCommand(),
-		(&StatusCommand{}).GetCobraCommand(),
+		NewShowCommand().GetCobraCommand(),
+		NewListCommand().GetCobraCommand(),
+		NewStatusCommand().GetCobraCommand(),
 	)
 
 	return unitCmd

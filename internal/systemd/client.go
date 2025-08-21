@@ -8,7 +8,10 @@ import (
 	"golang.org/x/text/language"
 )
 
+// Deprecated: Use ContextProvider interface instead.
 var ctx = context.Background()
+
+// Deprecated: Use TextCaser interface instead.
 var caser = cases.Title(language.English)
 
 // Unit defines the interface for managing systemd units.

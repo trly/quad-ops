@@ -17,7 +17,7 @@ import (
 
 // GetStatus returns the current status of the unit.
 func (u *BaseUnit) GetStatus() (string, error) {
-	conn, err := getSystemdConnection()
+	conn, err := getConnection()
 	if err != nil {
 		return "", fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -33,7 +33,7 @@ func (u *BaseUnit) GetStatus() (string, error) {
 
 // Start starts the unit.
 func (u *BaseUnit) Start() error {
-	conn, err := getSystemdConnection()
+	conn, err := getConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -95,7 +95,7 @@ func (u *BaseUnit) Start() error {
 
 // Stop stops the unit.
 func (u *BaseUnit) Stop() error {
-	conn, err := getSystemdConnection()
+	conn, err := getConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -124,7 +124,7 @@ func (u *BaseUnit) Stop() error {
 
 // Restart restarts the unit.
 func (u *BaseUnit) Restart() error {
-	conn, err := getSystemdConnection()
+	conn, err := getConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -196,7 +196,7 @@ func (u *BaseUnit) Restart() error {
 
 // Show displays the unit configuration and status.
 func (u *BaseUnit) Show() error {
-	conn, err := getSystemdConnection()
+	conn, err := getConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -248,7 +248,7 @@ func (u *BaseUnit) Show() error {
 
 // ResetFailed resets the failed state of the unit.
 func (u *BaseUnit) ResetFailed() error {
-	conn, err := getSystemdConnection()
+	conn, err := getConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -266,7 +266,7 @@ func (u *BaseUnit) ResetFailed() error {
 
 // ReloadSystemd reloads the systemd configuration.
 func ReloadSystemd() error {
-	conn, err := getSystemdConnection()
+	conn, err := getConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -283,9 +283,10 @@ func ReloadSystemd() error {
 
 // Utility functions
 
-// GetSystemdConnection returns a connection to systemd D-Bus.
-func GetSystemdConnection() (*dbus.Conn, error) {
-	return getSystemdConnection()
+// GetConnectionLegacy returns a legacy connection to systemd D-Bus.
+// Deprecated: Use GetConnection from dbus_connection.go instead.
+func GetConnectionLegacy() (*dbus.Conn, error) {
+	return getConnection()
 }
 
 // GetContext returns the systemd operation context.
@@ -300,7 +301,7 @@ func GetUnitFailureDetails(unitName string) string {
 
 // getUnitFailureDetails retrieves additional details about a unit failure using dbus.
 func getUnitFailureDetails(unitName string) string {
-	conn, err := getSystemdConnection()
+	conn, err := getConnection()
 	if err != nil {
 		return fmt.Sprintf("Could not connect to systemd: %v", err)
 	}
@@ -351,7 +352,7 @@ func getUnitFailureDetails(unitName string) string {
 	return fmt.Sprintf("\nUnit Status (via dbus):\n%s\n%s", statusInfo, logInfo)
 }
 
-func getSystemdConnection() (*dbus.Conn, error) {
+func getConnection() (*dbus.Conn, error) {
 	if config.DefaultProvider().GetConfig().UserMode {
 		log.GetLogger().Debug("Establishing user connection to systemd")
 	} else {

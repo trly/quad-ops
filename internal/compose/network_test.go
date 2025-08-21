@@ -14,7 +14,7 @@ func TestNetworkProcessingIntegration(t *testing.T) {
 		mockRepo := new(MockRepository)
 		mockSystemd := new(MockSystemdManager)
 		mockFS := new(MockFileSystem)
-		
+
 		logger := initTestLogger()
 		processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
@@ -33,13 +33,13 @@ func TestNetworkProcessingIntegration(t *testing.T) {
 		}
 
 		// Mock the file system operations that will be called
-		mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-app-frontend.network", 
+		mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-app-frontend.network",
 			"[Unit]\n\n[Network]\nLabel=managed-by=quad-ops\nNetworkName=test-app-frontend\nDriver=bridge\n\n[Service]\n").Return(true).Maybe()
-		mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-app-frontend.network", 
+		mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-app-frontend.network",
 			"[Unit]\n\n[Network]\nLabel=managed-by=quad-ops\nNetworkName=test-app-frontend\nDriver=bridge\n\n[Service]\n").Return(nil).Maybe()
 		mockFS.On("GetUnitFilePath", "test-app-frontend", "network").Return("/Users/trly/.local/share/containers/systemd/test-app-frontend.network").Maybe()
 		mockFS.On("GetContentHash", "[Unit]\n\n[Network]\nLabel=managed-by=quad-ops\nNetworkName=test-app-frontend\nDriver=bridge\n\n[Service]\n").Return("hash123").Maybe()
-		
+
 		// Mock repository calls
 		mockRepo.On("FindAll").Return([]repository.Unit{}, nil).Maybe()
 		mockRepo.On("Create", &repository.Unit{Name: "test-app-frontend", Type: "network", SHA1Hash: []byte("hash123")}).Return(
@@ -63,7 +63,7 @@ func TestNetworkExternalBehavior(t *testing.T) {
 		mockRepo := new(MockRepository)
 		mockSystemd := new(MockSystemdManager)
 		mockFS := new(MockFileSystem)
-		
+
 		logger := initTestLogger()
 		processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
@@ -84,7 +84,7 @@ func TestNetworkExternalBehavior(t *testing.T) {
 		// No units should be processed
 		processedUnits := processor.GetProcessedUnits()
 		assert.Empty(t, processedUnits)
-		
+
 		// Verify no expectations were missed (no calls should have been made)
 		mockRepo.AssertExpectations(t)
 		mockSystemd.AssertExpectations(t)
@@ -107,7 +107,7 @@ func TestNetworkDriverTypes(t *testing.T) {
 			mockRepo := new(MockRepository)
 			mockSystemd := new(MockSystemdManager)
 			mockFS := new(MockFileSystem)
-			
+
 			logger := initTestLogger()
 			processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
@@ -123,13 +123,13 @@ func TestNetworkDriverTypes(t *testing.T) {
 
 			// Mock the basic operations - include driver in expected content
 			expectedContent := "[Unit]\n\n[Network]\nLabel=managed-by=quad-ops\nNetworkName=test-test-net\nDriver=" + tt.driver + "\n\n[Service]\n"
-			mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-test-net.network", 
+			mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-test-net.network",
 				expectedContent).Return(true).Maybe()
-			mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-test-net.network", 
+			mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-test-net.network",
 				expectedContent).Return(nil).Maybe()
 			mockFS.On("GetUnitFilePath", "test-test-net", "network").Return("/Users/trly/.local/share/containers/systemd/test-test-net.network").Maybe()
 			mockFS.On("GetContentHash", expectedContent).Return("hash123").Maybe()
-			
+
 			mockRepo.On("FindAll").Return([]repository.Unit{}, nil).Maybe()
 			mockRepo.On("Create", &repository.Unit{Name: "test-test-net", Type: "network", SHA1Hash: []byte("hash123")}).Return(
 				&repository.Unit{ID: 1, Name: "test-test-net", Type: "network"}, nil).Maybe()

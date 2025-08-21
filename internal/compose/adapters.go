@@ -40,27 +40,32 @@ func (r *RepositoryAdapter) Delete(_ string) error {
 }
 
 // SystemdAdapter adapts systemd operations to our interface.
-type SystemdAdapter struct{}
+type SystemdAdapter struct {
+	unitManager  systemd.UnitManager
+	orchestrator systemd.Orchestrator
+}
 
 // NewSystemdAdapter creates a new systemd adapter.
 func NewSystemdAdapter() SystemdManager {
-	return &SystemdAdapter{}
+	return &SystemdAdapter{
+		unitManager:  systemd.GetDefaultUnitManager(),
+		orchestrator: systemd.GetDefaultOrchestrator(),
+	}
 }
 
 // RestartChangedUnits restarts units that have changed.
 func (s *SystemdAdapter) RestartChangedUnits(units []systemd.UnitChange, projectDependencyGraphs map[string]*dependency.ServiceDependencyGraph) error {
-	return systemd.RestartChangedUnits(units, projectDependencyGraphs)
+	return s.orchestrator.RestartChangedUnits(units, projectDependencyGraphs)
 }
 
 // ReloadSystemd reloads the systemd configuration.
 func (s *SystemdAdapter) ReloadSystemd() error {
-	return systemd.ReloadSystemd()
+	return s.unitManager.ReloadSystemd()
 }
 
 // StopUnit stops a systemd unit.
 func (s *SystemdAdapter) StopUnit(name, unitType string) error {
-	systemdUnit := systemd.NewBaseUnit(name, unitType)
-	return systemdUnit.Stop()
+	return s.unitManager.Stop(name, unitType)
 }
 
 // FileSystemAdapter adapts fs operations to our interface.

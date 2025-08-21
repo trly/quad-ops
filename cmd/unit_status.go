@@ -10,7 +10,16 @@ import (
 )
 
 // StatusCommand represents the unit status command.
-type StatusCommand struct{}
+type StatusCommand struct {
+	unitManager systemd.UnitManager
+}
+
+// NewStatusCommand creates a new StatusCommand with injected dependencies.
+func NewStatusCommand() *StatusCommand {
+	return &StatusCommand{
+		unitManager: systemd.GetDefaultUnitManager(),
+	}
+}
 
 // GetCobraCommand returns the cobra command for checking unit status.
 func (c *StatusCommand) GetCobraCommand() *cobra.Command {
@@ -27,10 +36,7 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 				return
 			}
 
-			// Create a base systemd unit with the provided name and type
-			systemdUnit := systemd.NewBaseUnit(name, unitType)
-
-			err := systemdUnit.Show()
+			err := c.unitManager.Show(name, unitType)
 			if err != nil {
 				fmt.Printf("Error showing unit status: %v\n", err)
 			}

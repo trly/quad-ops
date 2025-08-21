@@ -33,7 +33,16 @@ import (
 )
 
 // DownCommand represents the down command for quad-ops CLI.
-type DownCommand struct{}
+type DownCommand struct {
+	unitManager systemd.UnitManager
+}
+
+// NewDownCommand creates a new DownCommand with injected dependencies.
+func NewDownCommand() *DownCommand {
+	return &DownCommand{
+		unitManager: systemd.GetDefaultUnitManager(),
+	}
+}
 
 // GetCobraCommand returns the cobra command for stopping all managed units.
 func (c *DownCommand) GetCobraCommand() *cobra.Command {
@@ -62,8 +71,7 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 
 			// Stop each unit
 			for _, u := range units {
-				systemdUnit := systemd.NewBaseUnit(u.Name, u.Type)
-				err := systemdUnit.Stop()
+				err := c.unitManager.Stop(u.Name, u.Type)
 				if err != nil {
 					log.GetLogger().Error("Failed to stop unit", "name", u.Name, "error", err)
 					failCount++

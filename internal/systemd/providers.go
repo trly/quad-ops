@@ -3,28 +3,197 @@ package systemd
 import (
 	"context"
 	"fmt"
+
+	"os/exec"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/sorting"
 )
 
-// OrchestrationResult represents the result of an orchestration operation.
-type OrchestrationResult struct {
-	Success bool
-	Errors  map[string]error
+// DefaultContextProvider implements ContextProvider interface.
+type DefaultContextProvider struct {
+	ctx context.Context
 }
 
-// UnitChange represents a unit that has changed and needs to be restarted.
-type UnitChange struct {
-	Name string
-	Type string
-	Unit Unit
+// NewDefaultContextProvider creates a new default context provider.
+func NewDefaultContextProvider() *DefaultContextProvider {
+	return &DefaultContextProvider{
+		ctx: context.Background(),
+	}
 }
 
-// StartUnitDependencyAware starts or restarts a unit while being dependency-aware.
-func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph *dependency.ServiceDependencyGraph) error {
+// GetContext returns a context for systemd operations.
+func (p *DefaultContextProvider) GetContext() context.Context {
+	return p.ctx
+}
+
+// DefaultTextCaser implements TextCaser interface.
+type DefaultTextCaser struct {
+	caser cases.Caser
+}
+
+// NewDefaultTextCaser creates a new default text caser.
+func NewDefaultTextCaser() *DefaultTextCaser {
+	return &DefaultTextCaser{
+		caser: cases.Title(language.English),
+	}
+}
+
+// Title converts text to title case.
+func (c *DefaultTextCaser) Title(text string) string {
+	return c.caser.String(text)
+}
+
+// DefaultUnitManager implements UnitManager interface.
+type DefaultUnitManager struct {
+	connectionFactory ConnectionFactory
+	contextProvider   ContextProvider
+	textCaser         TextCaser
+}
+
+// NewDefaultUnitManager creates a new default unit manager.
+func NewDefaultUnitManager(connectionFactory ConnectionFactory, contextProvider ContextProvider, textCaser TextCaser) *DefaultUnitManager {
+	return &DefaultUnitManager{
+		connectionFactory: connectionFactory,
+		contextProvider:   contextProvider,
+		textCaser:         textCaser,
+	}
+}
+
+// GetUnit creates a Unit interface for the given name and type.
+func (m *DefaultUnitManager) GetUnit(name, unitType string) Unit {
+	return &ManagedUnit{
+		BaseUnit:          NewBaseUnit(name, unitType),
+		connectionFactory: m.connectionFactory,
+		contextProvider:   m.contextProvider,
+		textCaser:         m.textCaser,
+	}
+}
+
+// GetStatus returns the current status of a unit.
+func (m *DefaultUnitManager) GetStatus(unitName, unitType string) (string, error) {
+	unit := m.GetUnit(unitName, unitType)
+	return unit.GetStatus()
+}
+
+// Start starts a unit.
+func (m *DefaultUnitManager) Start(unitName, unitType string) error {
+	unit := m.GetUnit(unitName, unitType)
+	return unit.Start()
+}
+
+// Stop stops a unit.
+func (m *DefaultUnitManager) Stop(unitName, unitType string) error {
+	unit := m.GetUnit(unitName, unitType)
+	return unit.Stop()
+}
+
+// Restart restarts a unit.
+func (m *DefaultUnitManager) Restart(unitName, unitType string) error {
+	unit := m.GetUnit(unitName, unitType)
+	return unit.Restart()
+}
+
+// Show displays unit configuration and status.
+func (m *DefaultUnitManager) Show(unitName, unitType string) error {
+	unit := m.GetUnit(unitName, unitType)
+	return unit.Show()
+}
+
+// ResetFailed resets the failed state of a unit.
+func (m *DefaultUnitManager) ResetFailed(unitName, unitType string) error {
+	unit := m.GetUnit(unitName, unitType)
+	return unit.ResetFailed()
+}
+
+// ReloadSystemd reloads systemd configuration.
+func (m *DefaultUnitManager) ReloadSystemd() error {
+	conn, err := m.connectionFactory.NewConnection(m.contextProvider.GetContext(), config.DefaultProvider().GetConfig().UserMode)
+	if err != nil {
+		return fmt.Errorf("error connecting to systemd: %w", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	log.GetLogger().Debug("Reloading systemd")
+	return conn.Reload(m.contextProvider.GetContext())
+}
+
+// GetUnitFailureDetails gets detailed failure information for a unit.
+func (m *DefaultUnitManager) GetUnitFailureDetails(unitName string) string {
+	return m.getUnitFailureDetails(unitName)
+}
+
+// getUnitFailureDetails retrieves additional details about a unit failure.
+func (m *DefaultUnitManager) getUnitFailureDetails(unitName string) string {
+	conn, err := m.connectionFactory.NewConnection(m.contextProvider.GetContext(), config.DefaultProvider().GetConfig().UserMode)
+	if err != nil {
+		return fmt.Sprintf("Could not connect to systemd: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	// Get unit properties
+	prop, err := conn.GetUnitProperties(m.contextProvider.GetContext(), unitName)
+	if err != nil {
+		return fmt.Sprintf("Could not retrieve unit properties: %v", err)
+	}
+
+	// Build status information from properties
+	statusInfo := fmt.Sprintf("Unit: %s\n", unitName)
+	statusInfo += fmt.Sprintf("  Load State: %v\n", prop["LoadState"])
+	statusInfo += fmt.Sprintf("  Active State: %v\n", prop["ActiveState"])
+	statusInfo += fmt.Sprintf("  Sub State: %v\n", prop["SubState"])
+
+	if result, ok := prop["Result"]; ok {
+		statusInfo += fmt.Sprintf("  Result: %v\n", result)
+	}
+
+	if mainPID, ok := prop["MainPID"]; ok && mainPID != uint32(0) {
+		statusInfo += fmt.Sprintf("  Main PID: %v\n", mainPID)
+	}
+
+	if execMainStatus, ok := prop["ExecMainStatus"]; ok {
+		statusInfo += fmt.Sprintf("  Exit Status: %v\n", execMainStatus)
+	}
+
+	// For logs, we still need journalctl as systemd dbus doesn't provide log retrieval
+	// Validate unitName to prevent command injection
+	if err := sorting.ValidateUnitName(unitName); err != nil {
+		return fmt.Sprintf("\nUnit Status (via dbus):\n%s\nRecent logs: (unavailable - invalid unit name)", statusInfo)
+	}
+
+	cmd := exec.Command("journalctl", "--user-unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
+	if !config.DefaultProvider().GetConfig().UserMode {
+		cmd = exec.Command("journalctl", "--unit", unitName, "-n", "3", "--no-pager", "--output=short-precise")
+	}
+	output, err := cmd.CombinedOutput()
+	logInfo := "Recent logs: (unavailable)"
+	if err == nil && len(output) > 0 {
+		logInfo = fmt.Sprintf("Recent logs:\n%s", string(output))
+	}
+
+	return fmt.Sprintf("\nUnit Status (via dbus):\n%s\n%s", statusInfo, logInfo)
+}
+
+// DefaultOrchestrator implements Orchestrator interface.
+type DefaultOrchestrator struct {
+	unitManager UnitManager
+}
+
+// NewDefaultOrchestrator creates a new default orchestrator.
+func NewDefaultOrchestrator(unitManager UnitManager) *DefaultOrchestrator {
+	return &DefaultOrchestrator{
+		unitManager: unitManager,
+	}
+}
+
+// StartUnitDependencyAware starts or restarts a unit with dependency awareness.
+func (o *DefaultOrchestrator) StartUnitDependencyAware(unitName, unitType string, dependencyGraph *dependency.ServiceDependencyGraph) error {
 	log.GetLogger().Debug("Starting/restarting unit with dependency awareness", "unit", unitName, "type", unitType)
 
 	// Handle different unit types appropriately
@@ -32,29 +201,25 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph 
 	case "build", "image", "network", "volume":
 		// For one-shot services, use Start() instead of Restart()
 		log.GetLogger().Debug("Starting one-shot service", "unit", unitName, "type", unitType)
-		unit := NewBaseUnit(unitName, unitType)
-		return unit.Start()
+		return o.unitManager.Start(unitName, unitType)
 	}
 
 	// Only handle containers for dependency logic
 	if unitType != "container" {
 		// For other non-container units, just use the normal restart method
 		log.GetLogger().Debug("Direct restart for non-container unit", "unit", unitName, "type", unitType)
-		unit := NewBaseUnit(unitName, unitType)
-		return unit.Restart()
+		return o.unitManager.Restart(unitName, unitType)
 	}
 
 	// For containers, use the dependency-aware restart
 	// Parse the unitName to get the service name
-	// Example: project-service -> service
 	parts := splitUnitName(unitName)
 	if len(parts) != 2 {
 		// Invalid unit name format, fall back to regular restart
 		log.GetLogger().Warn("Invalid unit name format, using direct restart",
 			"unit", unitName,
 			"expected", "project-service")
-		unit := NewBaseUnit(unitName, unitType)
-		return unit.Restart()
+		return o.unitManager.Restart(unitName, unitType)
 	}
 
 	projectName := parts[0]
@@ -68,25 +233,23 @@ func StartUnitDependencyAware(unitName string, unitType string, dependencyGraph 
 			"service", serviceName,
 			"project", projectName,
 			"error", err)
-		unit := NewBaseUnit(unitName, unitType)
-		return unit.Restart()
+		return o.unitManager.Restart(unitName, unitType)
 	}
 
 	// Always restart the changed service directly - systemd will handle dependency propagation
-	// The systemd After/Requires directives ensure proper restart order automatically
 	log.GetLogger().Debug("Restarting changed service directly - systemd will handle dependency propagation",
 		"service", serviceName,
 		"project", projectName,
 		"dependencies", dependencies)
 
-	unit := NewBaseUnit(unitName, unitType)
-	return unit.Restart()
+	return o.unitManager.Restart(unitName, unitType)
 }
 
 // RestartChangedUnits restarts all changed units in dependency-aware order.
-func RestartChangedUnits(changedUnits []UnitChange, projectDependencyGraphs map[string]*dependency.ServiceDependencyGraph) error {
+func (o *DefaultOrchestrator) RestartChangedUnits(changedUnits []UnitChange, projectDependencyGraphs map[string]*dependency.ServiceDependencyGraph) error {
 	log.GetLogger().Info("Restarting changed units with dependency awareness", "count", len(changedUnits))
-	err := ReloadSystemd()
+
+	err := o.unitManager.ReloadSystemd()
 	if err != nil {
 		log.GetLogger().Error("Failed to reload systemd units", "error", err)
 		return fmt.Errorf("failed to reload systemd configuration: %w", err)
@@ -172,7 +335,7 @@ func RestartChangedUnits(changedUnits []UnitChange, projectDependencyGraphs map[
 
 		// Initiate the restart asynchronously using systemd's async restart
 		log.GetLogger().Debug("Initiating async restart", "name", unit.Name)
-		err := initiateAsyncRestart(unit.Unit)
+		err := o.initiateAsyncRestart(unit.Unit)
 		if err != nil {
 			log.GetLogger().Error("Failed to initiate restart",
 				"name", unit.Name, "error", err)
@@ -195,7 +358,7 @@ func RestartChangedUnits(changedUnits []UnitChange, projectDependencyGraphs map[
 			}
 
 			// Check final status with activating state handling
-			err := checkUnitFinalStatus(unit.Unit)
+			err := o.checkUnitFinalStatus(unit.Unit)
 			if err != nil {
 				log.GetLogger().Error("Unit failed to reach active state",
 					"name", unit.Name, "error", err)
@@ -229,54 +392,21 @@ func RestartChangedUnits(changedUnits []UnitChange, projectDependencyGraphs map[
 	return nil
 }
 
-// splitUnitName splits a unit name like "project-service" into ["project", "service"].
-func splitUnitName(unitName string) []string {
-	// Find the last dash in the name
-	for i := len(unitName) - 1; i >= 0; i-- {
-		if unitName[i] == '-' {
-			return []string{unitName[:i], unitName[i+1:]}
-		}
-	}
-	return []string{unitName}
-}
-
-// isServiceAlreadyRestarted checks if the service itself is already restarted
-// or if any services that would cause this service to restart are already restarted.
-func isServiceAlreadyRestarted(serviceName string, dependencyGraph *dependency.ServiceDependencyGraph, projectName string, restarted map[string]bool) bool {
-	// Check if this service is already restarted
-	unitKey := fmt.Sprintf("%s-%s.container", projectName, serviceName)
-	if restarted[unitKey] {
-		return true
-	}
-
-	// For each service this one depends on, check if it's been restarted
-	// We only check dependencies because a change in a dependency causes us to restart
-	// (due to After/Requires). Changes in dependent services don't affect us.
-	dependencies, err := dependencyGraph.GetDependencies(serviceName)
-	if err == nil {
-		for _, dep := range dependencies {
-			if restarted[fmt.Sprintf("%s-%s.container", projectName, dep)] {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 // initiateAsyncRestart starts a unit restart without waiting for completion.
-func initiateAsyncRestart(unit Unit) error {
-	conn, err := getConnection()
+func (o *DefaultOrchestrator) initiateAsyncRestart(unit Unit) error {
+	conn, err := GetConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	serviceName := unit.GetServiceName()
 	log.GetLogger().Debug("Initiating async restart", "name", serviceName)
 
+	ctx := context.Background()
+
 	// Check if unit is loaded before attempting restart
-	loadState, err := conn.GetUnitPropertyContext(ctx, serviceName, "LoadState")
+	loadState, err := conn.GetUnitProperty(ctx, serviceName, "LoadState")
 	if err != nil {
 		return fmt.Errorf("error checking unit load state %s: %w", serviceName, err)
 	}
@@ -286,8 +416,7 @@ func initiateAsyncRestart(unit Unit) error {
 	}
 
 	// Initiate restart without waiting for completion
-	ch := make(chan string)
-	_, err = conn.RestartUnitContext(context.Background(), serviceName, "replace", ch)
+	ch, err := conn.RestartUnit(ctx, serviceName, "replace")
 	if err != nil {
 		return fmt.Errorf("error initiating restart for unit %s: %w", serviceName, err)
 	}
@@ -302,17 +431,18 @@ func initiateAsyncRestart(unit Unit) error {
 }
 
 // checkUnitFinalStatus checks if a unit has reached active state, with handling for activating states.
-func checkUnitFinalStatus(unit Unit) error {
-	conn, err := getConnection()
+func (o *DefaultOrchestrator) checkUnitFinalStatus(unit Unit) error {
+	conn, err := GetConnection()
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	serviceName := unit.GetServiceName()
+	ctx := context.Background()
 
 	// Check current state
-	activeState, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
+	activeState, err := conn.GetUnitProperty(ctx, serviceName, "ActiveState")
 	if err != nil {
 		return fmt.Errorf("error getting unit state %s: %w", serviceName, err)
 	}
@@ -324,7 +454,7 @@ func checkUnitFinalStatus(unit Unit) error {
 
 	// If it's activating, wait and check again
 	if currentState == "activating" {
-		subState, err := conn.GetUnitPropertyContext(ctx, serviceName, "SubState")
+		subState, err := conn.GetUnitProperty(ctx, serviceName, "SubState")
 		subStateStr := "unknown"
 		if err == nil {
 			subStateStr = subState.Value.Value().(string)
@@ -342,7 +472,7 @@ func checkUnitFinalStatus(unit Unit) error {
 		time.Sleep(waitTime)
 
 		// Check final state
-		finalActiveState, err := conn.GetUnitPropertyContext(ctx, serviceName, "ActiveState")
+		finalActiveState, err := conn.GetUnitProperty(ctx, serviceName, "ActiveState")
 		if err == nil {
 			finalState := finalActiveState.Value.Value().(string)
 			if finalState == "active" {
@@ -354,6 +484,6 @@ func checkUnitFinalStatus(unit Unit) error {
 	}
 
 	// If we get here, the unit is not active
-	details := GetUnitFailureDetails(serviceName)
+	details := o.unitManager.GetUnitFailureDetails(serviceName)
 	return fmt.Errorf("unit failed to reach active state: %s%s", currentState, details)
 }

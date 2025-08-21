@@ -33,7 +33,16 @@ import (
 )
 
 // UpCommand represents the up command for quad-ops CLI.
-type UpCommand struct{}
+type UpCommand struct {
+	unitManager systemd.UnitManager
+}
+
+// NewUpCommand creates a new UpCommand with injected dependencies.
+func NewUpCommand() *UpCommand {
+	return &UpCommand{
+		unitManager: systemd.GetDefaultUnitManager(),
+	}
+}
 
 // GetCobraCommand returns the cobra command for starting all managed units.
 func (c *UpCommand) GetCobraCommand() *cobra.Command {
@@ -62,12 +71,10 @@ func (c *UpCommand) GetCobraCommand() *cobra.Command {
 
 			// Start each unit
 			for _, u := range units {
-				systemdUnit := systemd.NewBaseUnit(u.Name, u.Type)
-
 				// Reset any failed units before attempting to start
-				_ = systemdUnit.ResetFailed()
+				_ = c.unitManager.ResetFailed(u.Name, u.Type)
 
-				err := systemdUnit.Start()
+				err := c.unitManager.Start(u.Name, u.Type)
 				if err != nil {
 					log.GetLogger().Error("Failed to start unit", "name", u.Name, "error", err)
 					failCount++

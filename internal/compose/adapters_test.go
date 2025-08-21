@@ -10,7 +10,7 @@ import (
 	"github.com/trly/quad-ops/internal/repository"
 )
 
-// Mock implementations for testing adapters
+// Mock implementations for testing adapters.
 type MockRepositoryImpl struct {
 	mock.Mock
 }
@@ -42,10 +42,10 @@ func (m *MockRepositoryImpl) Delete(id int64) error {
 
 func TestRepositoryAdapter_FindAll(t *testing.T) {
 	tests := []struct {
-		name           string
-		setupMock      func(*MockRepositoryImpl)
-		expectedUnits  []repository.Unit
-		expectedError  error
+		name          string
+		setupMock     func(*MockRepositoryImpl)
+		expectedUnits []repository.Unit
+		expectedError error
 	}{
 		{
 			name: "successful findall",
@@ -102,7 +102,7 @@ func TestRepositoryAdapter_Create(t *testing.T) {
 
 		adapter := NewRepositoryAdapter(mockRepo)
 		inputUnit := &repository.Unit{Name: "web", Type: "container"}
-		
+
 		result, err := adapter.Create(inputUnit)
 
 		require.NoError(t, err)
@@ -158,11 +158,11 @@ func TestFileSystemAdapter_InterfaceCompliance(t *testing.T) {
 
 	t.Run("GetContentHash works correctly", func(t *testing.T) {
 		adapter := NewFileSystemAdapter()
-		
+
 		hash1 := adapter.GetContentHash("test content")
 		hash2 := adapter.GetContentHash("test content")
 		hash3 := adapter.GetContentHash("different content")
-		
+
 		// Same content should produce same hash
 		assert.Equal(t, hash1, hash2)
 		// Different content should produce different hash

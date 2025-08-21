@@ -38,7 +38,16 @@ import (
 )
 
 // ListCommand represents the unit list command.
-type ListCommand struct{}
+type ListCommand struct {
+	unitManager systemd.UnitManager
+}
+
+// NewListCommand creates a new ListCommand with injected dependencies.
+func NewListCommand() *ListCommand {
+	return &ListCommand{
+		unitManager: systemd.GetDefaultUnitManager(),
+	}
+}
 
 var (
 	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
@@ -56,7 +65,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
 			unitRepo := repository.NewRepository()
-			findAndDisplayUnits(unitRepo, tbl, unitType)
+			c.findAndDisplayUnits(unitRepo, tbl, unitType)
 		},
 	}
 
@@ -75,7 +84,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 	return unitListCmd
 }
 
-func findAndDisplayUnits(unitRepo repository.Repository, tbl table.Table, unitType string) {
+func (c *ListCommand) findAndDisplayUnits(unitRepo repository.Repository, tbl table.Table, unitType string) {
 	var units []repository.Unit
 	var err error
 
@@ -92,9 +101,7 @@ func findAndDisplayUnits(unitRepo repository.Repository, tbl table.Table, unitTy
 	}
 
 	for _, u := range units {
-		systemdUnit := systemd.NewBaseUnit(u.Name, u.Type)
-
-		unitStatus, err := systemdUnit.GetStatus()
+		unitStatus, err := c.unitManager.GetStatus(u.Name, u.Type)
 		if err != nil {
 			log.GetLogger().Debug("Error getting unit status", "error", err)
 			unitStatus = "UNKNOWN"

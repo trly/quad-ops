@@ -14,7 +14,7 @@ func TestVolumeProcessingIntegration(t *testing.T) {
 		mockRepo := new(MockRepository)
 		mockSystemd := new(MockSystemdManager)
 		mockFS := new(MockFileSystem)
-		
+
 		logger := initTestLogger()
 		processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
@@ -40,20 +40,20 @@ func TestVolumeProcessingIntegration(t *testing.T) {
 		}
 
 		// Mock the file system operations that will be called
-		mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-app-data.volume", 
+		mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-app-data.volume",
 			"[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nVolumeName=test-app-data\n\n[Service]\n").Return(true).Maybe()
-		mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-app-data.volume", 
+		mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-app-data.volume",
 			"[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nVolumeName=test-app-data\n\n[Service]\n").Return(nil).Maybe()
 		mockFS.On("GetUnitFilePath", "test-app-data", "volume").Return("/Users/trly/.local/share/containers/systemd/test-app-data.volume").Maybe()
 		mockFS.On("GetContentHash", "[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nVolumeName=test-app-data\n\n[Service]\n").Return("hash123").Maybe()
-		
-		mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-app-logs.volume", 
+
+		mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-app-logs.volume",
 			"[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nLabel=backup=daily\nVolumeName=test-app-logs\n\n[Service]\n").Return(true).Maybe()
-		mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-app-logs.volume", 
+		mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-app-logs.volume",
 			"[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nLabel=backup=daily\nVolumeName=test-app-logs\n\n[Service]\n").Return(nil).Maybe()
 		mockFS.On("GetUnitFilePath", "test-app-logs", "volume").Return("/Users/trly/.local/share/containers/systemd/test-app-logs.volume").Maybe()
 		mockFS.On("GetContentHash", "[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nLabel=backup=daily\nVolumeName=test-app-logs\n\n[Service]\n").Return("hash456").Maybe()
-		
+
 		// Mock repository calls
 		mockRepo.On("FindAll").Return([]repository.Unit{}, nil).Maybe()
 		mockRepo.On("Create", &repository.Unit{Name: "test-app-data", Type: "volume", SHA1Hash: []byte("hash123")}).Return(
@@ -79,7 +79,7 @@ func TestVolumeExternalBehavior(t *testing.T) {
 		mockRepo := new(MockRepository)
 		mockSystemd := new(MockSystemdManager)
 		mockFS := new(MockFileSystem)
-		
+
 		logger := initTestLogger()
 		processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
@@ -100,7 +100,7 @@ func TestVolumeExternalBehavior(t *testing.T) {
 		// No units should be processed
 		processedUnits := processor.GetProcessedUnits()
 		assert.Empty(t, processedUnits)
-		
+
 		// Verify no expectations were missed (no calls should have been made)
 		mockRepo.AssertExpectations(t)
 		mockSystemd.AssertExpectations(t)
@@ -123,7 +123,7 @@ func TestVolumeDriverTypes(t *testing.T) {
 			mockRepo := new(MockRepository)
 			mockSystemd := new(MockSystemdManager)
 			mockFS := new(MockFileSystem)
-			
+
 			logger := initTestLogger()
 			processor := NewProcessor(mockRepo, mockSystemd, mockFS, logger, false)
 
@@ -138,13 +138,13 @@ func TestVolumeDriverTypes(t *testing.T) {
 			}
 
 			// Mock the basic operations
-			mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-test-vol.volume", 
+			mockFS.On("HasUnitChanged", "/Users/trly/.local/share/containers/systemd/test-test-vol.volume",
 				"[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nVolumeName=test-test-vol\n\n[Service]\n").Return(true).Maybe()
-			mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-test-vol.volume", 
+			mockFS.On("WriteUnitFile", "/Users/trly/.local/share/containers/systemd/test-test-vol.volume",
 				"[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nVolumeName=test-test-vol\n\n[Service]\n").Return(nil).Maybe()
 			mockFS.On("GetUnitFilePath", "test-test-vol", "volume").Return("/Users/trly/.local/share/containers/systemd/test-test-vol.volume").Maybe()
 			mockFS.On("GetContentHash", "[Unit]\n\n[Volume]\nLabel=managed-by=quad-ops\nVolumeName=test-test-vol\n\n[Service]\n").Return("hash123").Maybe()
-			
+
 			mockRepo.On("FindAll").Return([]repository.Unit{}, nil).Maybe()
 			mockRepo.On("Create", &repository.Unit{Name: "test-test-vol", Type: "volume", SHA1Hash: []byte("hash123")}).Return(
 				&repository.Unit{ID: 1, Name: "test-test-vol", Type: "volume"}, nil).Maybe()
