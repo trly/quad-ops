@@ -41,8 +41,7 @@ func NewProcessor(repo Repository, systemd SystemdManager, fs FileSystem, logger
 // NewDefaultProcessor creates a new Processor with default real dependencies.
 func NewDefaultProcessor(force bool) *Processor {
 	logger := log.NewLogger(false)
-	configProvider := config.NewDefaultConfigProvider()
-	configProvider.InitConfig()
+	configProvider := config.NewConfigProvider()
 	fsService := fs.NewServiceWithLogger(configProvider, logger)
 	repositoryImpl := repository.NewRepository(logger, fsService)
 	repo := NewRepositoryAdapter(repositoryImpl)

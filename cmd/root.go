@@ -63,7 +63,7 @@ func (c *RootCommand) GetCobraCommand() *cobra.Command {
 		Long: `Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.
 It automatically generates systemd unit files from Docker Compose files and handles unit reloading and restarting.`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			configProv := config.NewDefaultConfigProvider()
+			configProv := config.NewConfigProvider()
 			cfg = configProv.GetConfig()
 			log.Init(verbose)
 			logger := log.NewLogger(verbose)
