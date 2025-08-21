@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/coreos/go-systemd/v22/dbus"
-	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -92,11 +91,15 @@ func (d *DBusConnection) Close() error {
 }
 
 // DefaultConnectionFactory implements ConnectionFactory interface.
-type DefaultConnectionFactory struct{}
+type DefaultConnectionFactory struct {
+	logger log.Logger
+}
 
-// NewDefaultConnectionFactory creates a new default connection factory.
-func NewDefaultConnectionFactory() *DefaultConnectionFactory {
-	return &DefaultConnectionFactory{}
+// NewConnectionFactory creates a new connection factory with injected logger.
+func NewConnectionFactory(logger log.Logger) *DefaultConnectionFactory {
+	return &DefaultConnectionFactory{
+		logger: logger,
+	}
 }
 
 // NewConnection creates a new systemd connection based on configuration.
@@ -105,10 +108,10 @@ func (f *DefaultConnectionFactory) NewConnection(ctx context.Context, userMode b
 	var err error
 
 	if userMode {
-		log.GetLogger().Debug("Establishing user connection to systemd")
+		f.logger.Debug("Establishing user connection to systemd")
 		conn, err = dbus.NewUserConnectionContext(ctx)
 	} else {
-		log.GetLogger().Debug("Establishing system connection to systemd")
+		f.logger.Debug("Establishing system connection to systemd")
 		conn, err = dbus.NewSystemConnectionContext(ctx)
 	}
 
@@ -117,11 +120,4 @@ func (f *DefaultConnectionFactory) NewConnection(ctx context.Context, userMode b
 	}
 
 	return NewDBusConnection(conn), nil
-}
-
-// GetConnection creates a systemd connection using the default factory and current config.
-// This function maintains backward compatibility with existing code.
-func GetConnection() (Connection, error) {
-	factory := NewDefaultConnectionFactory()
-	return factory.NewConnection(context.Background(), config.DefaultProvider().GetConfig().UserMode)
 }

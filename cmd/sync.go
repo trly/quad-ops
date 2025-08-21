@@ -30,13 +30,21 @@ import (
 	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
-	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/git"
-	"github.com/trly/quad-ops/internal/log"
 )
 
 // SyncCommand represents the sync command for quad-ops CLI.
 type SyncCommand struct{}
+
+// NewSyncCommand creates a new SyncCommand.
+func NewSyncCommand() *SyncCommand {
+	return &SyncCommand{}
+}
+
+// getApp retrieves the App from the command context.
+func (c *SyncCommand) getApp(cmd *cobra.Command) *App {
+	return cmd.Context().Value(appContextKey).(*App)
+}
 
 var (
 	dryRun       bool
@@ -63,20 +71,21 @@ repositories:
     cleanup:
       action: Delete`,
 
-		Run: func(_ *cobra.Command, _ []string) {
-			if err := os.MkdirAll(config.DefaultProvider().GetConfig().QuadletDir, 0750); err != nil {
-				log.GetLogger().Error("Failed to create quadlet directory", "error", err)
+		Run: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
+			if err := os.MkdirAll(app.Config.QuadletDir, 0750); err != nil {
+				app.Logger.Error("Failed to create quadlet directory", "error", err)
 				os.Exit(1)
 			}
 
 			if syncInterval > 0 {
-				cfg.SyncInterval = syncInterval
+				app.Config.SyncInterval = syncInterval
 			}
 
-			syncRepositories(cfg)
+			c.syncRepositories(app)
 
 			if daemonMode {
-				syncDaemon(cfg)
+				c.syncDaemon(app)
 			}
 		},
 	}
@@ -89,21 +98,21 @@ repositories:
 
 	return syncCmd
 }
-func syncRepositories(cfg *config.Settings) {
+func (c *SyncCommand) syncRepositories(app *App) {
 	// Create a shared map to track processed units across all repositories
 	processedUnits := make(map[string]bool)
-	for _, repoConfig := range cfg.Repositories {
+	for _, repoConfig := range app.Config.Repositories {
 		if repoName != "" && repoConfig.Name != repoName {
-			log.GetLogger().Debug("Skipping repository as it does not match the specified name", "repo", repoConfig.Name)
+			app.Logger.Debug("Skipping repository as it does not match the specified name", "repo", repoConfig.Name)
 			continue
 		}
 
 		if !dryRun {
-			log.GetLogger().Debug("Processing repository", "name", repoConfig.Name)
+			app.Logger.Debug("Processing repository", "name", repoConfig.Name)
 
-			gitRepo := git.NewGitRepository(repoConfig)
+			gitRepo := git.NewGitRepository(repoConfig, app.ConfigProvider)
 			if err := gitRepo.SyncRepository(); err != nil {
-				log.GetLogger().Error("Failed to sync repository", "name", repoConfig.Name, "error", err)
+				app.Logger.Error("Failed to sync repository", "name", repoConfig.Name, "error", err)
 				continue
 			}
 
@@ -113,21 +122,21 @@ func syncRepositories(cfg *config.Settings) {
 				composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
 			}
 
-			log.GetLogger().Debug("Looking for compose files", "dir", composeDir)
+			app.Logger.Debug("Looking for compose files", "dir", composeDir)
 
 			projects, err := compose.ReadProjects(composeDir)
 			if err != nil {
 				if repoConfig.ComposeDir != "" {
-					log.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "error", err)
-					log.GetLogger().Info("Check that the composeDir path exists in the repository", "repository", repoConfig.Name, "expectedPath", repoConfig.ComposeDir)
+					app.Logger.Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "error", err)
+					app.Logger.Info("Check that the composeDir path exists in the repository", "repository", repoConfig.Name, "expectedPath", repoConfig.ComposeDir)
 				} else {
-					log.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "error", err)
+					app.Logger.Error("Failed to read projects from repository", "name", repoConfig.Name, "error", err)
 				}
 				continue
 			}
 
 			// Process projects with the shared map, only perform cleanup after the last repository
-			isLastRepo := repoConfig.Name == cfg.Repositories[len(cfg.Repositories)-1].Name
+			isLastRepo := repoConfig.Name == app.Config.Repositories[len(app.Config.Repositories)-1].Name
 
 			// If specific repo is specified, always do cleanup
 			if repoName != "" {
@@ -141,7 +150,7 @@ func syncRepositories(cfg *config.Settings) {
 
 			err = processor.ProcessProjects(projects, isLastRepo)
 			if err != nil {
-				log.GetLogger().Error("Failed to process projects from repository", "name", repoConfig.Name, "error", err)
+				app.Logger.Error("Failed to process projects from repository", "name", repoConfig.Name, "error", err)
 				continue
 			}
 
@@ -150,22 +159,22 @@ func syncRepositories(cfg *config.Settings) {
 			// Update the shared map with units from this repository
 			processedUnits = updatedMap
 		} else {
-			log.GetLogger().Info("Dry-run: would process repository", "name", repoConfig.Name)
+			app.Logger.Info("Dry-run: would process repository", "name", repoConfig.Name)
 		}
 	}
 }
 
-func syncDaemon(cfg *config.Settings) {
-	log.GetLogger().Info("Starting sync daemon", "interval", cfg.SyncInterval)
+func (c *SyncCommand) syncDaemon(app *App) {
+	app.Logger.Info("Starting sync daemon", "interval", app.Config.SyncInterval)
 
 	// Notify systemd that the daemon is ready
 	if sent, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
-		log.GetLogger().Warn("Failed to notify systemd of readiness", "error", err)
+		app.Logger.Warn("Failed to notify systemd of readiness", "error", err)
 	} else if sent {
-		log.GetLogger().Info("Notified systemd that daemon is ready")
+		app.Logger.Info("Notified systemd that daemon is ready")
 	}
 
-	ticker := time.NewTicker(cfg.SyncInterval)
+	ticker := time.NewTicker(app.Config.SyncInterval)
 	defer ticker.Stop()
 
 	// Send periodic watchdog notifications if configured
@@ -175,14 +184,14 @@ func syncDaemon(cfg *config.Settings) {
 	for {
 		select {
 		case <-ticker.C:
-			log.GetLogger().Debug("Starting scheduled sync")
-			syncRepositories(cfg)
+			app.Logger.Debug("Starting scheduled sync")
+			c.syncRepositories(app)
 		case <-watchdogTicker.C:
 			// Send watchdog notification to systemd
 			if sent, err := daemon.SdNotify(false, daemon.SdNotifyWatchdog); err != nil {
-				log.GetLogger().Debug("Failed to send watchdog notification", "error", err)
+				app.Logger.Debug("Failed to send watchdog notification", "error", err)
 			} else if sent {
-				log.GetLogger().Debug("Sent watchdog notification to systemd")
+				app.Logger.Debug("Sent watchdog notification to systemd")
 			}
 		}
 	}

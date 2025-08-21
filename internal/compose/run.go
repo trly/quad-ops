@@ -82,7 +82,6 @@ func (p *Processor) restartChangedUnits() error {
 		systemdUnits[i] = systemd.UnitChange{
 			Name: unit.Name,
 			Type: unit.Type,
-			Unit: unit.GetSystemdUnit(),
 		}
 	}
 

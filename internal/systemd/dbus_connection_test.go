@@ -8,6 +8,7 @@ import (
 	godbus "github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 func TestDBusConnection(t *testing.T) {
@@ -31,9 +32,10 @@ func TestDBusConnection(t *testing.T) {
 	})
 }
 
-func TestDefaultConnectionFactory(t *testing.T) {
-	t.Run("NewDefaultConnectionFactory creates factory", func(t *testing.T) {
-		factory := NewDefaultConnectionFactory()
+func TestConnectionFactory(t *testing.T) {
+	t.Run("NewConnectionFactory creates factory", func(t *testing.T) {
+		logger := log.NewLogger(false)
+		factory := NewConnectionFactory(logger)
 		assert.NotNil(t, factory)
 	})
 

@@ -6,19 +6,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/sorting"
-	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // StatusCommand represents the unit status command.
-type StatusCommand struct {
-	unitManager systemd.UnitManager
-}
+type StatusCommand struct{}
 
-// NewStatusCommand creates a new StatusCommand with injected dependencies.
+// NewStatusCommand creates a new StatusCommand.
 func NewStatusCommand() *StatusCommand {
-	return &StatusCommand{
-		unitManager: systemd.GetDefaultUnitManager(),
-	}
+	return &StatusCommand{}
 }
 
 // GetCobraCommand returns the cobra command for checking unit status.
@@ -27,7 +22,7 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 		Use:   "status",
 		Short: "Show the status of a quadlet unit",
 		Args:  cobra.ExactArgs(1),
-		Run: func(_ *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
 
 			// Validate unit name to prevent command injection
@@ -36,7 +31,10 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 				return
 			}
 
-			err := c.unitManager.Show(name, unitType)
+			// Get unit manager from app context
+			app := cmd.Context().Value(appContextKey).(*App)
+
+			err := app.UnitManager.Show(name, unitType)
 			if err != nil {
 				fmt.Printf("Error showing unit status: %v\n", err)
 			}

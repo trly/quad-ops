@@ -17,6 +17,12 @@ import (
 
 // ReadProjects reads all Docker Compose projects from a directory path.
 func ReadProjects(path string) ([]*types.Project, error) {
+	logger := log.NewLogger(false)
+	return ReadProjectsWithLogger(path, logger)
+}
+
+// ReadProjectsWithLogger reads all Docker Compose projects from a directory path with a provided logger.
+func ReadProjectsWithLogger(path string, logger log.Logger) ([]*types.Project, error) {
 	var projects []*types.Project
 
 	// Validate path before proceeding
@@ -38,21 +44,21 @@ func ReadProjects(path string) ([]*types.Project, error) {
 		return nil, fmt.Errorf("path is not a directory: %s", path)
 	}
 
-	log.GetLogger().Debug("Reading docker-compose files", "path", path)
+	logger.Debug("Reading docker-compose files", "path", path)
 
 	composeFilesFound := false
 
-	log.GetLogger().Debug("Walking directory to find compose files", "path", path)
+	logger.Debug("Walking directory to find compose files", "path", path)
 
 	err = filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			// Log the error but continue walking if possible
-			log.GetLogger().Debug("Error accessing path", "path", filePath, "error", err)
+			logger.Debug("Error accessing path", "path", filePath, "error", err)
 			return nil
 		}
 
 		// Add verbose logging for all files
-		log.GetLogger().Debug("Examining path", "path", filePath, "isDir", info.IsDir(), "ext", filepath.Ext(filePath))
+		logger.Debug("Examining path", "path", filePath, "isDir", info.IsDir(), "ext", filepath.Ext(filePath))
 
 		if !info.IsDir() && (filepath.Ext(filePath) == ".yaml" || filepath.Ext(filePath) == ".yml") {
 			// Check if the file name starts with docker-compose or compose
@@ -63,15 +69,15 @@ func ReadProjects(path string) ([]*types.Project, error) {
 			if baseName == "docker-compose.yml" || baseName == "docker-compose.yaml" ||
 				baseName == "compose.yml" || baseName == "compose.yaml" {
 				isComposeFile = true
-				log.GetLogger().Debug("Found compose file", "path", filePath)
+				logger.Debug("Found compose file", "path", filePath)
 			}
 
 			if isComposeFile {
 				composeFilesFound = true
-				project, err := ParseComposeFile(filePath)
+				project, err := ParseComposeFileWithLogger(filePath, logger)
 				if err != nil {
 					// Log parsing errors at error level so they're visible without verbose mode
-					log.GetLogger().Error("Error parsing compose file", "path", filePath, "error", err)
+					logger.Error("Error parsing compose file", "path", filePath, "error", err)
 					// Continue processing other files
 					return nil
 				}
@@ -87,7 +93,7 @@ func ReadProjects(path string) ([]*types.Project, error) {
 
 	// No compose files found in the directory
 	if !composeFilesFound {
-		log.GetLogger().Debug("No docker-compose files found", "path", path)
+		logger.Debug("No docker-compose files found", "path", path)
 		// Return empty list instead of error, as this is not necessarily an error condition
 	}
 
@@ -96,6 +102,12 @@ func ReadProjects(path string) ([]*types.Project, error) {
 
 // ParseComposeFile parses a Docker Compose file at the specified path.
 func ParseComposeFile(path string) (*types.Project, error) {
+	logger := log.NewLogger(false)
+	return ParseComposeFileWithLogger(path, logger)
+}
+
+// ParseComposeFileWithLogger parses a Docker Compose file at the specified path with a provided logger.
+func ParseComposeFileWithLogger(path string, logger log.Logger) (*types.Project, error) {
 	ctx := context.Background()
 	// Create a normalized project name based on the directory
 	dirPath := filepath.Dir(path)
@@ -140,19 +152,19 @@ func ParseComposeFile(path string) (*types.Project, error) {
 
 	// Add explicit .env file if it exists in compose directory
 	if _, err := os.Stat(envPath); err == nil {
-		log.GetLogger().Debug("Found .env file in compose directory", "path", envPath)
+		logger.Debug("Found .env file in compose directory", "path", envPath)
 
 		// Validate file path before reading
 		absPath, err := filepath.Abs(envPath)
 		if err != nil {
-			log.GetLogger().Warn("Failed to get absolute path for .env file", "path", envPath, "error", err)
+			logger.Warn("Failed to get absolute path for .env file", "path", envPath, "error", err)
 		} else {
 			// Load environment variables directly from the file
 			// This file path was constructed using filepath.Join and validated, so it's safe
 			// #nosec G304 -- safe because we're reading a file from a path we constructed with filepath.Join
 			environmentData, err := os.ReadFile(absPath)
 			if err != nil {
-				log.GetLogger().Warn("Failed to read .env file", "path", absPath, "error", err)
+				logger.Warn("Failed to read .env file", "path", absPath, "error", err)
 			} else {
 				// Parse .env file content and set environment variables
 				envContent := string(environmentData)
@@ -170,27 +182,27 @@ func ParseComposeFile(path string) (*types.Project, error) {
 						value := strings.TrimSpace(parts[1])
 
 						// Create security validator
-						validator := validate.NewSecretValidator()
+						validator := validate.NewSecretValidator(logger)
 
 						// Validate environment variable key with extended validation
 						if err := validate.EnvKey(key); err != nil {
-							log.GetLogger().Warn("Invalid environment variable key", "key", key, "error", err)
+							logger.Warn("Invalid environment variable key", "key", key, "error", err)
 							continue
 						}
 
 						// Validate environment variable value for size and content
 						if err := validator.ValidateEnvValue(key, value); err != nil {
-							log.GetLogger().Warn("Invalid environment variable value", "key", key, "error", err)
+							logger.Warn("Invalid environment variable value", "key", key, "error", err)
 							continue
 						}
 
 						// Set environment variable
 						if err := os.Setenv(key, value); err != nil {
-							log.GetLogger().Warn("Failed to set environment variable", "key", key, "error", err)
+							logger.Warn("Failed to set environment variable", "key", key, "error", err)
 						} else {
 							// Use sanitized logging for potentially sensitive values
 							safeValue := validate.SanitizeForLogging(key, value)
-							log.GetLogger().Debug("Set environment variable from .env file", "key", key, "value", safeValue)
+							logger.Debug("Set environment variable from .env file", "key", key, "value", safeValue)
 						}
 					}
 				}

@@ -30,9 +30,18 @@ func NewDefaultConfigProvider() Provider {
 	return &defaultConfigProvider{}
 }
 
-var defaultProvider = NewDefaultConfigProvider()
+// NewConfigProvider creates and initializes a new config provider.
+func NewConfigProvider() Provider {
+	provider := &defaultConfigProvider{}
+	provider.cfg = provider.InitConfig()
+	return provider
+}
+
+// defaultProvider is the global default configuration provider for backward compatibility.
+var defaultProvider = &defaultConfigProvider{}
 
 // DefaultProvider returns the default configuration provider instance.
+// This is a global singleton primarily for backward compatibility.
 func DefaultProvider() Provider {
 	return defaultProvider
 }
@@ -96,8 +105,6 @@ func (p *defaultConfigProvider) InitConfig() *Settings {
 	return p.cfg
 }
 
-// For backward compatibility - pass through to default provider
-
 // Internal function to initialize configuration.
 func initConfigInternal() *Settings {
 	cfg := &Settings{
@@ -135,4 +142,33 @@ func initConfigInternal() *Settings {
 	}
 
 	return cfg
+}
+
+// MockProvider is a test implementation of Provider for testing purposes.
+type MockProvider struct {
+	Config         *Settings
+	ConfigFilePath string
+}
+
+// GetConfig returns the mock configuration.
+func (m *MockProvider) GetConfig() *Settings {
+	return m.Config
+}
+
+// SetConfig sets the mock configuration (for testing convenience).
+func (m *MockProvider) SetConfig(config *Settings) {
+	m.Config = config
+}
+
+// InitConfig initializes the mock configuration (returns existing config).
+func (m *MockProvider) InitConfig() *Settings {
+	if m.Config == nil {
+		m.Config = &Settings{}
+	}
+	return m.Config
+}
+
+// SetConfigFilePath sets the mock configuration file path.
+func (m *MockProvider) SetConfigFilePath(path string) {
+	m.ConfigFilePath = path
 }

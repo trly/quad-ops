@@ -1,6 +1,7 @@
 package compose
 
 import (
+	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/repository"
@@ -45,11 +46,11 @@ type SystemdAdapter struct {
 	orchestrator systemd.Orchestrator
 }
 
-// NewSystemdAdapter creates a new systemd adapter.
-func NewSystemdAdapter() SystemdManager {
+// NewSystemdAdapter creates a new systemd adapter with dependency injection.
+func NewSystemdAdapter(unitManager systemd.UnitManager, orchestrator systemd.Orchestrator) SystemdManager {
 	return &SystemdAdapter{
-		unitManager:  systemd.GetDefaultUnitManager(),
-		orchestrator: systemd.GetDefaultOrchestrator(),
+		unitManager:  unitManager,
+		orchestrator: orchestrator,
 	}
 }
 
@@ -69,29 +70,39 @@ func (s *SystemdAdapter) StopUnit(name, unitType string) error {
 }
 
 // FileSystemAdapter adapts fs operations to our interface.
-type FileSystemAdapter struct{}
+type FileSystemAdapter struct {
+	fsService *fs.Service
+}
 
-// NewFileSystemAdapter creates a new filesystem adapter.
-func NewFileSystemAdapter() FileSystem {
-	return &FileSystemAdapter{}
+// NewFileSystemAdapter creates a new filesystem adapter with config provider.
+func NewFileSystemAdapter(configProvider config.Provider) FileSystem {
+	return &FileSystemAdapter{
+		fsService: fs.NewService(configProvider),
+	}
+}
+
+// NewFileSystemAdapterWithConfig creates a new filesystem adapter with config provider.
+// This is an alias for NewFileSystemAdapter to maintain backward compatibility.
+func NewFileSystemAdapterWithConfig(configProvider config.Provider) FileSystem {
+	return NewFileSystemAdapter(configProvider)
 }
 
 // GetUnitFilePath returns the file path for a unit.
 func (f *FileSystemAdapter) GetUnitFilePath(name, unitType string) string {
-	return fs.GetUnitFilePath(name, unitType)
+	return f.fsService.GetUnitFilePath(name, unitType)
 }
 
 // HasUnitChanged checks if a unit file has changed.
 func (f *FileSystemAdapter) HasUnitChanged(unitPath, content string) bool {
-	return fs.HasUnitChanged(unitPath, content)
+	return f.fsService.HasUnitChanged(unitPath, content)
 }
 
 // WriteUnitFile writes a unit file to disk.
 func (f *FileSystemAdapter) WriteUnitFile(unitPath, content string) error {
-	return fs.WriteUnitFile(unitPath, content)
+	return f.fsService.WriteUnitFile(unitPath, content)
 }
 
 // GetContentHash returns a hash of the content.
 func (f *FileSystemAdapter) GetContentHash(content string) string {
-	return string(fs.GetContentHash(content))
+	return f.fsService.GetContentHash(content)
 }

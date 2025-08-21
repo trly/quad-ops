@@ -12,25 +12,21 @@ import (
 )
 
 func TestSystemdRepository_FindAll(t *testing.T) {
-	// Initialize logger to avoid nil pointer
-	log.Init(false)
-
-	cfg := &config.Settings{
-		Verbose: false,
-	}
-	config.DefaultProvider().SetConfig(cfg)
-
 	// Setup temporary directory for test unit files
 	tempDir, err := os.MkdirTemp("", "quad-ops-test-*")
 	assert.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Setup config to use temp directory
-	cfg = &config.Settings{
+	// Setup config and dependencies
+	cfg := &config.Settings{
 		QuadletDir: tempDir,
 		UserMode:   false,
 	}
-	config.DefaultProvider().SetConfig(cfg)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(cfg)
+
+	logger := log.NewLogger(false)
+	fsService := fs.NewServiceWithLogger(configProvider, logger)
 
 	// Create test unit files
 	containerContent := `[Container]
@@ -47,7 +43,7 @@ VolumeName=test-volume
 	assert.NoError(t, err)
 
 	// Test repository
-	repo := NewRepository()
+	repo := NewRepository(logger, fsService)
 	units, err := repo.FindAll()
 
 	assert.NoError(t, err)
@@ -74,12 +70,16 @@ func TestSystemdRepository_FindByUnitType(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Setup config to use temp directory
+	// Setup config and dependencies
 	cfg := &config.Settings{
 		QuadletDir: tempDir,
 		UserMode:   false,
 	}
-	config.DefaultProvider().SetConfig(cfg)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(cfg)
+
+	logger := log.NewLogger(false)
+	fsService := fs.NewServiceWithLogger(configProvider, logger)
 
 	// Create test unit files of different types
 	containerContent := `[Container]
@@ -97,7 +97,7 @@ VolumeName=test-volume
 	assert.NoError(t, err)
 
 	// Test repository
-	repo := NewRepository()
+	repo := NewRepository(logger, fsService)
 
 	// Find only container units
 	containerUnits, err := repo.FindByUnitType("container")
@@ -116,7 +116,10 @@ VolumeName=test-volume
 }
 
 func TestSystemdRepository_Create(t *testing.T) {
-	repo := NewRepository()
+	logger := log.NewLogger(false)
+	configProvider := config.NewDefaultConfigProvider()
+	fsService := fs.NewServiceWithLogger(configProvider, logger)
+	repo := NewRepository(logger, fsService)
 
 	// Create a unit (should succeed but not store anything)
 	unit := &Unit{
@@ -131,7 +134,10 @@ func TestSystemdRepository_Create(t *testing.T) {
 }
 
 func TestSystemdRepository_Delete(t *testing.T) {
-	repo := NewRepository()
+	logger := log.NewLogger(false)
+	configProvider := config.NewDefaultConfigProvider()
+	fsService := fs.NewServiceWithLogger(configProvider, logger)
+	repo := NewRepository(logger, fsService)
 
 	// Delete a unit (should succeed but not actually delete anything)
 	err := repo.Delete(123)
@@ -144,12 +150,16 @@ func TestSystemdRepository_FindByID(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Setup config to use temp directory
+	// Setup config and dependencies
 	cfg := &config.Settings{
 		QuadletDir: tempDir,
 		UserMode:   false,
 	}
-	config.DefaultProvider().SetConfig(cfg)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(cfg)
+
+	logger := log.NewLogger(false)
+	fsService := fs.NewServiceWithLogger(configProvider, logger)
 
 	// Create a test unit file
 	containerContent := `[Container]
@@ -158,7 +168,7 @@ Image=nginx:latest
 	err = os.WriteFile(filepath.Join(tempDir, "test-nginx.container"), []byte(containerContent), 0600)
 	assert.NoError(t, err)
 
-	repo := NewRepository()
+	repo := NewRepository(logger, fsService)
 
 	// Get all units to find a valid ID
 	units, err := repo.FindAll()
@@ -185,12 +195,16 @@ func TestParseUnitFromFile(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Setup config to use temp directory
+	// Setup config and dependencies
 	cfg := &config.Settings{
 		QuadletDir: tempDir,
 		UserMode:   true,
 	}
-	config.DefaultProvider().SetConfig(cfg)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(cfg)
+
+	logger := log.NewLogger(false)
+	fsService := fs.NewServiceWithLogger(configProvider, logger)
 
 	// Create a test unit file
 	containerContent := `[Container]
@@ -201,7 +215,10 @@ ContainerName=test-nginx
 	err = os.WriteFile(filePath, []byte(containerContent), 0600)
 	assert.NoError(t, err)
 
-	repo := &SystemdRepository{}
+	repo := &SystemdRepository{
+		logger:    logger,
+		fsService: fsService,
+	}
 	unit, err := repo.parseUnitFromFile(filePath, "test-nginx", "container")
 
 	assert.NoError(t, err)
@@ -227,12 +244,16 @@ func TestUserModeHandling(t *testing.T) {
 	assert.NoError(t, err)
 	defer func() { _ = os.RemoveAll(tempDir) }()
 
-	// Test with userMode=false
+	// Setup config and dependencies
 	cfg := &config.Settings{
 		QuadletDir: tempDir,
 		UserMode:   false,
 	}
-	config.DefaultProvider().SetConfig(cfg)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(cfg)
+
+	logger := log.NewLogger(false)
+	fsService := fs.NewServiceWithLogger(configProvider, logger)
 
 	// Create a test unit file
 	containerContent := `[Container]
@@ -241,13 +262,14 @@ Image=nginx:latest
 	err = os.WriteFile(filepath.Join(tempDir, "test-nginx.container"), []byte(containerContent), 0600)
 	assert.NoError(t, err)
 
-	repo := NewRepository()
+	repo := NewRepository(logger, fsService)
 	units, err := repo.FindAll()
 	assert.NoError(t, err)
 	assert.Len(t, units, 1)
 
 	// Switch to userMode=true
 	cfg.UserMode = true
+	configProvider.SetConfig(cfg)
 
 	units, err = repo.FindAll()
 	assert.NoError(t, err)

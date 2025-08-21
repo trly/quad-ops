@@ -33,6 +33,11 @@ import (
 // UpdateCommand represents the update command.
 type UpdateCommand struct{}
 
+// NewUpdateCommand creates a new UpdateCommand.
+func NewUpdateCommand() *UpdateCommand {
+	return &UpdateCommand{}
+}
+
 // GetCobraCommand returns the cobra command for updating the binary.
 func (c *UpdateCommand) GetCobraCommand() *cobra.Command {
 	updateCmd := &cobra.Command{

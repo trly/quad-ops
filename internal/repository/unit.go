@@ -33,12 +33,17 @@ type Repository interface {
 
 // SystemdRepository implements Repository interface by querying systemd directly.
 type SystemdRepository struct {
-	conn *dbus.Conn
+	conn      *dbus.Conn
+	logger    log.Logger
+	fsService *fs.Service
 }
 
 // NewRepository creates a new systemd-based unit repository.
-func NewRepository() Repository {
-	return &SystemdRepository{}
+func NewRepository(logger log.Logger, fsService *fs.Service) Repository {
+	return &SystemdRepository{
+		logger:    logger,
+		fsService: fsService,
+	}
 }
 
 // close closes the systemd connection if it exists.
@@ -61,7 +66,7 @@ func (r *SystemdRepository) FindAll() ([]Unit, error) {
 	for _, unitType := range unitTypes {
 		typeUnits, err := r.FindByUnitType(unitType)
 		if err != nil {
-			log.GetLogger().Debug("Error finding units by type", "type", unitType, "error", err)
+			r.logger.Debug("Error finding units by type", "type", unitType, "error", err)
 			continue
 		}
 		units = append(units, typeUnits...)
@@ -77,7 +82,7 @@ func (r *SystemdRepository) FindByUnitType(unitType string) ([]Unit, error) {
 	var units []Unit
 
 	// Get the unit files directory
-	unitFilesDir := fs.GetUnitFilesDirectory()
+	unitFilesDir := r.fsService.GetUnitFilesDirectory()
 
 	// Scan for unit files of the specified type
 	err := filepath.Walk(unitFilesDir, func(path string, info os.FileInfo, err error) error {
@@ -102,7 +107,7 @@ func (r *SystemdRepository) FindByUnitType(unitType string) ([]Unit, error) {
 		// Read and parse the unit file to get more details
 		unit, err := r.parseUnitFromFile(path, unitName, unitType)
 		if err != nil {
-			log.GetLogger().Debug("Error parsing unit file", "path", path, "error", err)
+			r.logger.Debug("Error parsing unit file", "path", path, "error", err)
 			return nil // Continue on errors
 		}
 

@@ -81,7 +81,7 @@ func (p *Processor) processBuildIfPresent(service *types.ServiceConfig, serviceN
 
 	buildUnitName := fmt.Sprintf("%s-%s-build", project.Name, serviceName)
 	build := unit.NewBuild(buildUnitName)
-	build = build.FromComposeBuild(*service.Build, *service, project.Name)
+	build = build.FromComposeBuild(*service.Build, *service, project.Name, p.logger)
 
 	// Configure build context
 	if build.SetWorkingDirectory == "repo" {
@@ -160,7 +160,7 @@ func (p *Processor) addBuildDependency(dependencyGraph *dependency.ServiceDepend
 // createContainerFromService creates a container unit from a compose service.
 func (p *Processor) createContainerFromService(service types.ServiceConfig, prefixedName, serviceName string, project *types.Project) *unit.Container {
 	container := unit.NewContainer(prefixedName)
-	container = container.FromComposeService(service, project)
+	container = container.FromComposeService(service, project, p.logger)
 
 	// Add environment files
 	p.addEnvironmentFiles(container, serviceName, project.WorkingDir)

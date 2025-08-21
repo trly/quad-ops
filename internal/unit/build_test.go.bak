@@ -10,18 +10,10 @@ import (
 	"github.com/trly/quad-ops/internal/log"
 )
 
-// initTestLogger initializes a logger for testing that discards output.
-func initBuildTestLogger() log.Logger {
-	// Create a handler that discards output
-	handler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
-	slogLogger := slog.New(handler)
-	return log.NewSlogAdapter(slogLogger)
-}
-
 func TestFromComposeBuild(t *testing.T) {
 	// Initialize logger
-	logger := initBuildTestLogger()
-
+	logger := log.NewLogger(false)
+	
 	// Basic test case with simple build configuration
 	buildConfig := types.BuildConfig{
 		Context:    "./app",
@@ -34,7 +26,7 @@ func TestFromComposeBuild(t *testing.T) {
 	}
 
 	build := NewBuild("test-webapp-build")
-	build = build.FromComposeBuild(buildConfig, service, "test", logger)
+	build = build.FromComposeBuild(buildConfig, service, "test")
 
 	// Verify basic fields are set correctly
 	assert.Equal(t, "test-webapp-build", build.Name)
@@ -45,9 +37,6 @@ func TestFromComposeBuild(t *testing.T) {
 }
 
 func TestFromComposeBuildWithGitURL(t *testing.T) {
-	// Initialize logger
-	logger := initBuildTestLogger()
-
 	// Test with Git URL as context
 	buildConfig := types.BuildConfig{
 		Context:    "https://github.com/example/repo.git",
@@ -60,7 +49,7 @@ func TestFromComposeBuildWithGitURL(t *testing.T) {
 	}
 
 	build := NewBuild("test-api-build")
-	build = build.FromComposeBuild(buildConfig, service, "test", logger)
+	build = build.FromComposeBuild(buildConfig, service, "test")
 
 	// Verify Git URL is handled correctly
 	assert.Equal(t, "Dockerfile.prod", build.File)
@@ -69,9 +58,6 @@ func TestFromComposeBuildWithGitURL(t *testing.T) {
 }
 
 func TestFromComposeBuildWithComplexConfig(t *testing.T) {
-	// Initialize logger
-	logger := initBuildTestLogger()
-
 	// Test with more complex build configuration including args and labels
 	arg1 := "value1"
 	arg2 := "value2"
@@ -96,7 +82,7 @@ func TestFromComposeBuildWithComplexConfig(t *testing.T) {
 	}
 
 	build := NewBuild("test-frontend-build")
-	build = build.FromComposeBuild(buildConfig, service, "test", logger)
+	build = build.FromComposeBuild(buildConfig, service, "test")
 
 	// Verify complex configuration is set correctly
 	assert.Equal(t, "Dockerfile.dev", build.File)
@@ -113,7 +99,7 @@ func TestFromComposeBuildWithComplexConfig(t *testing.T) {
 
 func TestBuildUnitGeneration(t *testing.T) {
 	// Initialize test logger
-	logger := initBuildTestLogger()
+	initTestLogger()
 
 	// Test generating the actual unit file content
 	arg1 := "value1"
@@ -131,7 +117,7 @@ func TestBuildUnitGeneration(t *testing.T) {
 	}
 
 	build := NewBuild("test-app-build")
-	build = build.FromComposeBuild(buildConfig, service, "test", logger)
+	build = build.FromComposeBuild(buildConfig, service, "test")
 
 	// Create the quadlet unit
 	quadletUnit := QuadletUnit{

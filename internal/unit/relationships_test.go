@@ -1,13 +1,24 @@
 package unit
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/log"
 )
+
+// initRelationshipsTestLogger initializes a logger for testing that discards output.
+func initRelationshipsTestLogger() log.Logger {
+	// Create a handler that discards output
+	handler := slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelDebug})
+	slogLogger := slog.New(handler)
+	return log.NewSlogAdapter(slogLogger)
+}
 
 func TestDependencyGraphApplyRelationships(t *testing.T) {
 	// Create a mock project with dependencies
@@ -53,6 +64,7 @@ func TestDependencyGraphApplyRelationships(t *testing.T) {
 }
 
 func TestDependencyPartOfRelationships(t *testing.T) {
+	logger := initRelationshipsTestLogger()
 	// Create a mock project with a simple dependency tree plus networks and volumes
 	// db <- webapp <- proxy
 	project := &types.Project{
@@ -122,7 +134,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Create container for db
 	prefixedName := "test-project-db"
 	dbContainer := NewContainer(prefixedName)
-	dbContainer = dbContainer.FromComposeService(project.Services["db"], project)
+	dbContainer = dbContainer.FromComposeService(project.Services["db"], project, logger)
 	dbUnit := QuadletUnit{
 		Name:      prefixedName,
 		Type:      "container",
@@ -151,7 +163,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Create container for webapp
 	prefixedName = "test-project-webapp"
 	webappContainer := NewContainer(prefixedName)
-	webappContainer = webappContainer.FromComposeService(project.Services["webapp"], project)
+	webappContainer = webappContainer.FromComposeService(project.Services["webapp"], project, logger)
 	webappUnit := QuadletUnit{
 		Name:      prefixedName,
 		Type:      "container",
@@ -180,7 +192,7 @@ func TestDependencyPartOfRelationships(t *testing.T) {
 	// Create container for proxy
 	prefixedName = "test-project-proxy"
 	proxyContainer := NewContainer(prefixedName)
-	proxyContainer = proxyContainer.FromComposeService(project.Services["proxy"], project)
+	proxyContainer = proxyContainer.FromComposeService(project.Services["proxy"], project, logger)
 	proxyUnit := QuadletUnit{
 		Name:      prefixedName,
 		Type:      "container",

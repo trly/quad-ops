@@ -32,21 +32,20 @@ import (
 	"github.com/fatih/color"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // ListCommand represents the unit list command.
-type ListCommand struct {
-	unitManager systemd.UnitManager
+type ListCommand struct{}
+
+// NewListCommand creates a new ListCommand.
+func NewListCommand() *ListCommand {
+	return &ListCommand{}
 }
 
-// NewListCommand creates a new ListCommand with injected dependencies.
-func NewListCommand() *ListCommand {
-	return &ListCommand{
-		unitManager: systemd.GetDefaultUnitManager(),
-	}
+// getApp retrieves the App from the command context.
+func (c *ListCommand) getApp(cmd *cobra.Command) *App {
+	return cmd.Context().Value(appContextKey).(*App)
 }
 
 var (
@@ -58,14 +57,14 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 	unitListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
-		Run: func(_ *cobra.Command, _ []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()
 			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Updated")
 			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
-			unitRepo := repository.NewRepository()
-			c.findAndDisplayUnits(unitRepo, tbl, unitType)
+			app := c.getApp(cmd)
+			c.findAndDisplayUnits(app, tbl, unitType)
 		},
 	}
 
@@ -74,7 +73,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 		return allowedUnitTypes, cobra.ShellCompDirectiveNoFileComp
 	})
 	if err != nil {
-		log.GetLogger().Error("Error registering flag completion", "error", err)
+		fmt.Printf("Error registering flag completion: %v\n", err)
 		os.Exit(1)
 	}
 	unitListCmd.PreRunE = func(_ *cobra.Command, _ []string) error {
@@ -84,31 +83,31 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 	return unitListCmd
 }
 
-func (c *ListCommand) findAndDisplayUnits(unitRepo repository.Repository, tbl table.Table, unitType string) {
+func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType string) {
 	var units []repository.Unit
 	var err error
 
 	switch unitType {
 	case "", "all":
-		units, err = unitRepo.FindAll()
+		units, err = app.UnitRepo.FindAll()
 	default:
-		units, err = unitRepo.FindByUnitType(unitType)
+		units, err = app.UnitRepo.FindByUnitType(unitType)
 	}
 
 	if err != nil {
-		log.GetLogger().Error("Error finding units", "error", err)
+		app.Logger.Error("Error finding units", "error", err)
 		os.Exit(1)
 	}
 
 	for _, u := range units {
-		unitStatus, err := c.unitManager.GetStatus(u.Name, u.Type)
+		unitStatus, err := app.UnitManager.GetStatus(u.Name, u.Type)
 		if err != nil {
-			log.GetLogger().Debug("Error getting unit status", "error", err)
+			app.Logger.Debug("Error getting unit status", "error", err)
 			unitStatus = "UNKNOWN"
 		}
 		updateAtString, err := timeago.Parse(u.UpdatedAt)
 		if err != nil {
-			log.GetLogger().Debug("Error parsing update at time", "error", err)
+			app.Logger.Debug("Error parsing update at time", "error", err)
 			updateAtString = "UNKNOWN"
 		}
 		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), updateAtString)

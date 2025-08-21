@@ -90,7 +90,7 @@ func NewContainer(name string) *Container {
 }
 
 // FromComposeService converts a Docker Compose service to a Podman Quadlet container configuration.
-func (c *Container) FromComposeService(service types.ServiceConfig, project *types.Project) *Container {
+func (c *Container) FromComposeService(service types.ServiceConfig, project *types.Project, logger log.Logger) *Container {
 	// Initialize RunInit to avoid nil pointer dereference
 	c.RunInit = new(bool)
 	*c.RunInit = true
@@ -114,13 +114,13 @@ func (c *Container) FromComposeService(service types.ServiceConfig, project *typ
 	c.processServiceHealthCheck(service)
 
 	// Process resource constraints
-	c.processServiceResources(service)
+	c.processServiceResources(service, logger)
 
 	// Process advanced container configuration
-	c.processAdvancedConfig(service)
+	c.processAdvancedConfig(service, logger)
 
 	// Process secrets
-	c.processServiceSecrets(service)
+	c.processServiceSecrets(service, logger)
 
 	// Sort all container fields for deterministic output
 	sortContainer(c)
@@ -324,14 +324,14 @@ func (c *Container) processServiceHealthCheck(service types.ServiceConfig) {
 }
 
 // processServiceSecrets converts Docker Compose secrets to Podman Quadlet secrets.
-func (c *Container) processServiceSecrets(service types.ServiceConfig) {
-	validator := validate.NewSecretValidator()
+func (c *Container) processServiceSecrets(service types.ServiceConfig, logger log.Logger) {
+	validator := validate.NewSecretValidator(logger)
 
 	// Process standard file-based Docker Compose secrets
 	for _, secret := range service.Secrets {
 		// Validate secret name
 		if err := validator.ValidateSecretName(secret.Source); err != nil {
-			log.GetLogger().Warn("Invalid secret name, skipping", "secret", secret.Source, "service", service.Name, "error", err)
+			logger.Warn("Invalid secret name, skipping", "secret", secret.Source, "service", service.Name, "error", err)
 			continue
 		}
 
@@ -344,7 +344,7 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 
 		// Validate target path
 		if err := validator.ValidateSecretTarget(targetPath); err != nil {
-			log.GetLogger().Warn("Invalid secret target path, skipping", "secret", secret.Source, "target", targetPath, "service", service.Name, "error", err)
+			logger.Warn("Invalid secret target path, skipping", "secret", secret.Source, "target", targetPath, "service", service.Name, "error", err)
 			continue
 		}
 
@@ -364,7 +364,7 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 			// Safe conversion from int64 to uint32 with bounds check
 			mode := *secret.Mode
 			if mode < 0 || mode > 0xFFFFFFFF {
-				log.GetLogger().Warn("Secret mode out of valid range, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
+				logger.Warn("Secret mode out of valid range, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
 				defaultMode := types.FileMode(0600)
 				unitSecret.Mode = defaultMode.String()
 			} else {
@@ -372,7 +372,7 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 				// #nosec G115 -- bounds check ensures safe conversion
 				modeVal := uint32(mode)
 				if modeVal&0004 != 0 { // Check if world-readable
-					log.GetLogger().Warn("Secret mode is world-readable, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
+					logger.Warn("Secret mode is world-readable, using secure default", "secret", secret.Source, "mode", secret.Mode.String())
 					defaultMode := types.FileMode(0600)
 					unitSecret.Mode = defaultMode.String()
 				} else {
@@ -390,13 +390,13 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 				if envVarStr, isString := envVar.(string); isString {
 					// Validate secret name
 					if err := validator.ValidateSecretName(secretName); err != nil {
-						log.GetLogger().Warn("Invalid env secret name, skipping", "secret", secretName, "service", service.Name, "error", err)
+						logger.Warn("Invalid env secret name, skipping", "secret", secretName, "service", service.Name, "error", err)
 						continue
 					}
 
 					// Validate environment variable name
 					if err := validate.EnvKey(envVarStr); err != nil {
-						log.GetLogger().Warn("Invalid env variable name for secret, skipping", "secret", secretName, "envVar", envVarStr, "service", service.Name, "error", err)
+						logger.Warn("Invalid env variable name for secret, skipping", "secret", secretName, "envVar", envVarStr, "service", service.Name, "error", err)
 						continue
 					}
 
@@ -408,11 +408,11 @@ func (c *Container) processServiceSecrets(service types.ServiceConfig) {
 					}
 					c.Secrets = append(c.Secrets, envSecret)
 				} else {
-					log.GetLogger().Warn("Invalid env secret value type, expected string", "secret", secretName, "service", service.Name)
+					logger.Warn("Invalid env secret value type, expected string", "secret", secretName, "service", service.Name)
 				}
 			}
 		} else {
-			log.GetLogger().Warn("Invalid x-podman-env-secrets format, expected map", "service", service.Name)
+			logger.Warn("Invalid x-podman-env-secrets format, expected map", "service", service.Name)
 		}
 	}
 }
@@ -509,14 +509,14 @@ func CreateInitContainerUnit(initContainer InitContainer, initName string, paren
 }
 
 // processServiceResources processes resource constraints from a Docker Compose service.
-func (c *Container) processServiceResources(service types.ServiceConfig) {
+func (c *Container) processServiceResources(service types.ServiceConfig, logger log.Logger) {
 	unsupportedFeatures := make([]string, 0, 10)
 
 	c.processMemoryConstraints(service, &unsupportedFeatures)
 	c.processCPUConstraints(service, &unsupportedFeatures)
 	c.processSecurityOptions(service, &unsupportedFeatures)
 
-	c.logUnsupportedFeatures(service.Name, unsupportedFeatures)
+	c.logUnsupportedFeatures(service.Name, unsupportedFeatures, logger)
 }
 
 func (c *Container) processMemoryConstraints(service types.ServiceConfig, unsupportedFeatures *[]string) {
@@ -624,16 +624,16 @@ func (c *Container) processSecurityOptions(service types.ServiceConfig, unsuppor
 	}
 }
 
-func (c *Container) logUnsupportedFeatures(serviceName string, unsupportedFeatures []string) {
+func (c *Container) logUnsupportedFeatures(serviceName string, unsupportedFeatures []string, logger log.Logger) {
 	if len(unsupportedFeatures) > 0 {
 		for _, feature := range unsupportedFeatures {
-			log.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", serviceName, feature))
+			logger.Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", serviceName, feature))
 		}
 	}
 }
 
 // processAdvancedConfig processes advanced container configuration from a Docker Compose service.
-func (c *Container) processAdvancedConfig(service types.ServiceConfig) {
+func (c *Container) processAdvancedConfig(service types.ServiceConfig, logger log.Logger) {
 	// Track unsupported features to warn about
 	unsupportedFeatures := make([]string, 0, 15)
 
@@ -652,7 +652,7 @@ func (c *Container) processAdvancedConfig(service types.ServiceConfig) {
 	// Log warnings for unsupported features but indicate we're handling them via PodmanArgs
 	if len(unsupportedFeatures) > 0 {
 		for _, feature := range unsupportedFeatures {
-			log.GetLogger().Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
+			logger.Warn(fmt.Sprintf("Service '%s' uses %s which is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.", service.Name, feature))
 		}
 	}
 

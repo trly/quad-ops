@@ -8,7 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 func TestDefaultUnitManager(t *testing.T) {
@@ -114,7 +116,10 @@ func TestDefaultOrchestrator(t *testing.T) {
 			},
 		}
 
-		orchestrator := NewDefaultOrchestrator(mockUnitManager)
+		configProvider := config.NewConfigProvider()
+		logger := log.NewLogger(false)
+		connectionFactory := NewConnectionFactory(logger)
+		orchestrator := NewDefaultOrchestrator(mockUnitManager, connectionFactory, configProvider, logger)
 		dependencyGraph := dependency.NewServiceDependencyGraph()
 
 		// Test one-shot service (network)
@@ -133,7 +138,10 @@ func TestDefaultOrchestrator(t *testing.T) {
 			},
 		}
 
-		orchestrator := NewDefaultOrchestrator(mockUnitManager)
+		configProvider := config.NewConfigProvider()
+		logger := log.NewLogger(false)
+		connectionFactory := NewConnectionFactory(logger)
+		orchestrator := NewDefaultOrchestrator(mockUnitManager, connectionFactory, configProvider, logger)
 
 		// Create dependency graph with service
 		dependencyGraph := dependency.NewServiceDependencyGraph()
@@ -153,14 +161,16 @@ func TestDefaultOrchestrator(t *testing.T) {
 			},
 		}
 
-		orchestrator := NewDefaultOrchestrator(mockUnitManager)
+		configProvider := config.NewConfigProvider()
+		logger := log.NewLogger(false)
+		connectionFactory := NewConnectionFactory(logger)
+		orchestrator := NewDefaultOrchestrator(mockUnitManager, connectionFactory, configProvider, logger)
 
 		// Create some unit changes
 		changes := []UnitChange{
 			{
 				Name: "test-network",
 				Type: "network",
-				Unit: &MockUnit{},
 			},
 		}
 
@@ -204,23 +214,15 @@ func TestDefaultTextCaser(t *testing.T) {
 
 func TestDefaultFactory(t *testing.T) {
 	t.Run("NewDefaultFactory creates all components", func(t *testing.T) {
-		factory := NewDefaultFactory()
+		configProvider := config.NewConfigProvider()
+		logger := log.NewLogger(false)
+		factory := NewDefaultFactory(configProvider, logger)
 
 		assert.NotNil(t, factory.GetConnectionFactory())
 		assert.NotNil(t, factory.GetContextProvider())
 		assert.NotNil(t, factory.GetTextCaser())
 		assert.NotNil(t, factory.GetUnitManager())
 		assert.NotNil(t, factory.GetOrchestrator())
-	})
-
-	t.Run("GetDefaultUnitManager returns unit manager", func(t *testing.T) {
-		unitManager := GetDefaultUnitManager()
-		assert.NotNil(t, unitManager)
-	})
-
-	t.Run("GetDefaultOrchestrator returns orchestrator", func(t *testing.T) {
-		orchestrator := GetDefaultOrchestrator()
-		assert.NotNil(t, orchestrator)
 	})
 }
 
@@ -231,6 +233,8 @@ func createTestUnitManager(mockConn Connection) UnitManager {
 	}
 	contextProvider := NewDefaultContextProvider()
 	textCaser := NewDefaultTextCaser()
+	configProvider := config.NewConfigProvider()
+	logger := log.NewLogger(false)
 
-	return NewDefaultUnitManager(mockFactory, contextProvider, textCaser)
+	return NewDefaultUnitManager(mockFactory, contextProvider, textCaser, configProvider, logger)
 }

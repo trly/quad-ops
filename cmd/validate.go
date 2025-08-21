@@ -40,6 +40,11 @@ import (
 // ValidateCommand represents the validate command for quad-ops CLI.
 type ValidateCommand struct{}
 
+// NewValidateCommand creates a new ValidateCommand.
+func NewValidateCommand() *ValidateCommand {
+	return &ValidateCommand{}
+}
+
 var (
 	repoURL              string
 	repoRef              string
@@ -104,11 +109,15 @@ Examples:
 
 			return nil
 		},
-		RunE: func(_ *cobra.Command, _ []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			// Get dependencies from context
+			app := cmd.Context().Value(appContextKey).(*App)
+			logger := app.Logger
+			configProvider := app.ConfigProvider
+
 			// Check system requirements if requested
 			if checkSysRequirements {
 				if err := validate.SystemRequirements(); err != nil {
-					log.GetLogger().Error("System requirements not met", "error", err)
 					return fmt.Errorf("system requirements not met: %w", err)
 				}
 			}
@@ -118,7 +127,7 @@ Examples:
 
 			// Handle repository cloning
 			if repoURL != "" {
-				path, cleanupFn, err := cloneRepository()
+				path, cleanupFn, err := cloneRepositoryWithDeps(logger, configProvider)
 				if err != nil {
 					return err
 				}
@@ -127,7 +136,7 @@ Examples:
 				defer func() {
 					if cleanup != nil {
 						if err := cleanup(); err != nil {
-							log.GetLogger().Warn("Failed to cleanup temporary directory", "error", err)
+							logger.Warn("Failed to cleanup temporary directory", "error", err)
 						}
 					}
 				}()
@@ -141,7 +150,7 @@ Examples:
 			}
 
 			// Validate the path
-			return validateCompose(targetPath)
+			return validateComposeWithDeps(targetPath, logger)
 		},
 	}
 
@@ -155,9 +164,9 @@ Examples:
 	return validateCmd
 }
 
-// cloneRepository handles git repository cloning and returns the path and cleanup function.
-func cloneRepository() (string, func() error, error) {
-	log.GetLogger().Info("Cloning repository for validation", "url", repoURL, "ref", repoRef)
+// cloneRepositoryWithDeps handles git repository cloning and returns the path and cleanup function.
+func cloneRepositoryWithDeps(logger log.Logger, configProvider config.Provider) (string, func() error, error) {
+	logger.Info("Cloning repository for validation", "url", repoURL, "ref", repoRef)
 
 	// Create temporary repository config for cloning
 	repoConfig := config.Repository{
@@ -167,7 +176,7 @@ func cloneRepository() (string, func() error, error) {
 	}
 
 	// Create git repository instance
-	gitRepo := git.NewGitRepository(repoConfig)
+	gitRepo := git.NewGitRepository(repoConfig, configProvider)
 
 	// Override the default path to use a temporary directory with safe naming
 	var tempPath string
@@ -186,7 +195,7 @@ func cloneRepository() (string, func() error, error) {
 
 	// Check if we should skip clone
 	if skipClone && isValidGitRepo(gitRepo.Path) {
-		log.GetLogger().Info("Skipping clone, using existing repository", "path", gitRepo.Path)
+		logger.Info("Skipping clone, using existing repository", "path", gitRepo.Path)
 		return gitRepo.Path, func() error { return nil }, nil
 	}
 
@@ -253,9 +262,9 @@ func isComposeFile(path string) bool {
 		strings.Contains(content, "volumes:")
 }
 
-// validateCompose validates Docker Compose files in the given path (file or directory).
-func validateCompose(path string) error {
-	log.GetLogger().Info("Validating Docker Compose files", "path", path)
+// validateComposeWithDeps validates Docker Compose files in the given path (file or directory).
+func validateComposeWithDeps(path string, logger log.Logger) error {
+	logger.Info("Validating Docker Compose files", "path", path)
 
 	// Check if path exists
 	stat, err := os.Stat(path)
@@ -289,30 +298,30 @@ func validateCompose(path string) error {
 	}
 
 	if len(projects) == 0 {
-		log.GetLogger().Warn("No Docker Compose files found in path", "path", path)
+		logger.Warn("No Docker Compose files found in path", "path", path)
 		return nil
 	}
 
-	log.GetLogger().Info("Found compose projects for validation", "count", len(projects))
+	logger.Info("Found compose projects for validation", "count", len(projects))
 
 	// Validate each project
 	var validationErrors []string
 	validProjectCount := 0
 
 	for _, project := range projects {
-		log.GetLogger().Info("Validating project", "name", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
+		logger.Info("Validating project", "name", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
 
-		if err := validateProject(project); err != nil {
+		if err := validateProjectWithDeps(project, logger); err != nil {
 			validationErrors = append(validationErrors, fmt.Sprintf("Project %s: %v", project.Name, err))
-			log.GetLogger().Error("Project validation failed", "project", project.Name, "error", err)
+			logger.Error("Project validation failed", "project", project.Name, "error", err)
 		} else {
 			validProjectCount++
-			log.GetLogger().Info("Project validation passed", "project", project.Name)
+			logger.Info("Project validation passed", "project", project.Name)
 		}
 	}
 
 	// Print summary
-	log.GetLogger().Info("Validation completed",
+	logger.Info("Validation completed",
 		"totalProjects", len(projects),
 		"validProjects", validProjectCount,
 		"errors", len(validationErrors))
@@ -332,9 +341,9 @@ func validateCompose(path string) error {
 	return nil
 }
 
-// validateProject validates a single Docker Compose project for quad-ops compatibility.
-func validateProject(project *types.Project) error {
-	validator := validate.NewSecretValidator()
+// validateProjectWithDeps validates a single Docker Compose project for quad-ops compatibility.
+func validateProjectWithDeps(project *types.Project, logger log.Logger) error {
+	validator := validate.NewSecretValidator(logger)
 
 	// Validate services
 	for serviceName, service := range project.Services {
@@ -359,7 +368,7 @@ func validateProject(project *types.Project) error {
 
 	// Validate secrets
 	for secretName, secret := range project.Secrets {
-		if err := validateSecret(secretName, secret, validator); err != nil {
+		if err := validateSecretWithDeps(secretName, secret, validator, logger); err != nil {
 			return fmt.Errorf("secret %s: %w", secretName, err)
 		}
 	}
@@ -471,8 +480,8 @@ func validateVolume(_ string, volume types.VolumeConfig) error {
 	return nil
 }
 
-// validateSecret validates Docker Compose secret configuration.
-func validateSecret(secretName string, secret types.SecretConfig, validator *validate.SecretValidator) error {
+// validateSecretWithDeps validates Docker Compose secret configuration.
+func validateSecretWithDeps(secretName string, secret types.SecretConfig, validator *validate.SecretValidator, logger log.Logger) error {
 	if err := validator.ValidateSecretName(secretName); err != nil {
 		return fmt.Errorf("invalid secret name: %w", err)
 	}
@@ -481,7 +490,7 @@ func validateSecret(secretName string, secret types.SecretConfig, validator *val
 	if secret.File != "" {
 		// Allow relative paths but warn about potential security issues
 		if !filepath.IsAbs(secret.File) {
-			log.GetLogger().Debug("Secret uses relative file path", "secret", secretName, "path", secret.File)
+			logger.Debug("Secret uses relative file path", "secret", secretName, "path", secret.File)
 			// Check if path tries to escape current directory
 			if strings.Contains(secret.File, "..") {
 				return fmt.Errorf("secret file path contains directory traversal: %s", secret.File)

@@ -14,7 +14,7 @@ func (p *Processor) processUnit(unitItem *unit.QuadletUnit) error {
 	p.processedUnits[unitKey] = true
 
 	// Generate unit content
-	content := unit.GenerateQuadletUnit(*unitItem)
+	content := unit.GenerateQuadletUnit(*unitItem, p.logger)
 
 	// Get unit file path
 	unitPath := p.fs.GetUnitFilePath(unitItem.Name, unitItem.Type)

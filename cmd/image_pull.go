@@ -32,11 +32,20 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/git"
-	"github.com/trly/quad-ops/internal/log"
 )
 
 // PullCommand represents the pull command.
 type PullCommand struct{}
+
+// NewPullCommand creates a new PullCommand.
+func NewPullCommand() *PullCommand {
+	return &PullCommand{}
+}
+
+// getApp retrieves the App from the command context.
+func (c *PullCommand) getApp(cmd *cobra.Command) *App {
+	return cmd.Context().Value(appContextKey).(*App)
+}
 
 // GetCobraCommand gets the cobracomman.
 func (c *PullCommand) GetCobraCommand() *cobra.Command {
@@ -46,10 +55,11 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 		Args:  cobra.MaximumNArgs(1),
 	}
 
-	pullCmd.Run = func(_ *cobra.Command, args []string) {
+	pullCmd.Run = func(cmd *cobra.Command, args []string) {
+		app := c.getApp(cmd)
 		if len(args) == 0 {
-			for _, repoConfig := range cfg.Repositories {
-				gitRepo := git.NewGitRepository(repoConfig)
+			for _, repoConfig := range app.Config.Repositories {
+				gitRepo := git.NewGitRepository(repoConfig, app.ConfigProvider)
 				composeDir := gitRepo.Path
 				if repoConfig.ComposeDir != "" {
 					composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
@@ -57,15 +67,15 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 
 				projects, err := compose.ReadProjects(composeDir)
 				if err != nil {
-					log.GetLogger().Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "error", err)
-					log.GetLogger().Info("Check that the composeDir path exists in the repository", "repository", repoConfig.Name, "expectedPath", repoConfig.ComposeDir)
+					app.Logger.Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "error", err)
+					app.Logger.Info("Check that the composeDir path exists in the repository", "repository", repoConfig.Name, "expectedPath", repoConfig.ComposeDir)
 				}
 
 				for _, project := range projects {
 					for _, service := range project.Services {
-						err := pullImage(service.Image)
+						err := c.pullImage(app, service.Image)
 						if err != nil {
-							log.GetLogger().Error("Failed to pull image", "image", service.Image, "error", err)
+							app.Logger.Error("Failed to pull image", "image", service.Image, "error", err)
 						}
 					}
 				}
@@ -75,13 +85,13 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 	return pullCmd
 }
 
-func pullImage(image string) error {
+func (c *PullCommand) pullImage(app *App, image string) error {
 	// Use podman pull directly - it handles rootless mode automatically
 	args := []string{"pull"}
 
 	// Always show progress for better user experience
 	// Only add quiet flag if explicitly not verbose
-	if !cfg.Verbose {
+	if !app.Config.Verbose {
 		args = append(args, "--quiet")
 	}
 
@@ -91,7 +101,7 @@ func pullImage(image string) error {
 	cmd := exec.Command("podman", args...) // #nosec G204
 
 	// Set up environment for rootless operation
-	if cfg.UserMode {
+	if app.Config.UserMode {
 		env := os.Environ()
 		// Ensure XDG_RUNTIME_DIR is set for rootless operation
 		if os.Getenv("XDG_RUNTIME_DIR") == "" {
@@ -101,10 +111,10 @@ func pullImage(image string) error {
 	}
 
 	// Show progress by connecting stdout/stderr to the current process
-	if cfg.Verbose {
+	if app.Config.Verbose {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		log.GetLogger().Info("Pulling image", "image", image)
+		app.Logger.Info("Pulling image", "image", image)
 	} else {
 		// For non-verbose mode, still capture output for error reporting
 		output, err := cmd.CombinedOutput()
@@ -120,6 +130,6 @@ func pullImage(image string) error {
 		return fmt.Errorf("podman pull failed: %w", err)
 	}
 
-	log.GetLogger().Info("Successfully pulled image", "image", image)
+	app.Logger.Info("Successfully pulled image", "image", image)
 	return nil
 }

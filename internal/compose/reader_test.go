@@ -9,7 +9,6 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/trly/quad-ops/internal/log"
 )
 
 func TestParseComposeFile(t *testing.T) {
@@ -120,7 +119,7 @@ networks:
 
 func TestEnvFileVariableInterpolation(t *testing.T) {
 	// Initialize logger for test
-	log.Init(true)
+	// No longer needed - using dependency injection
 
 	// Create a temporary directory
 	tmpDir, err := os.MkdirTemp("", "compose-env-test")
@@ -247,7 +246,7 @@ func TestReadProjectsPermissionDenied(t *testing.T) {
 }
 
 func TestReadProjectsWalkDirectoryStructure(t *testing.T) {
-	log.Init(true)
+	// No longer needed - using dependency injection
 
 	tmpDir, err := os.MkdirTemp("", "compose-walk-test")
 	if err != nil {
@@ -325,7 +324,7 @@ services:
 }
 
 func TestReadProjectsWalkEmptyDirectory(t *testing.T) {
-	log.Init(true)
+	// No longer needed - using dependency injection
 
 	tmpDir, err := os.MkdirTemp("", "compose-empty-test")
 	if err != nil {
@@ -342,7 +341,7 @@ func TestReadProjectsWalkEmptyDirectory(t *testing.T) {
 }
 
 func TestReadProjectsWalkWithDirectoryAccessError(t *testing.T) {
-	log.Init(true)
+	// No longer needed - using dependency injection
 
 	tmpDir, err := os.MkdirTemp("", "compose-access-test")
 	if err != nil {
@@ -389,7 +388,7 @@ func TestReadProjectsNotADirectory(t *testing.T) {
 
 func TestParseComposeFileProjectNaming(t *testing.T) {
 	// Initialize logger for test
-	log.Init(true)
+	// No longer needed - using dependency injection
 
 	composeContent := `
 services:
@@ -465,7 +464,7 @@ services:
 
 func TestParseComposeFileRepositoriesEdgeCases(t *testing.T) {
 	// Initialize logger for test
-	log.Init(true)
+	// No longer needed - using dependency injection
 
 	composeContent := `
 services:
@@ -535,7 +534,7 @@ services:
 
 func TestParseComposeFileDefaultNaming(t *testing.T) {
 	// Initialize logger for test
-	log.Init(true)
+	// No longer needed - using dependency injection
 
 	composeContent := `
 services:

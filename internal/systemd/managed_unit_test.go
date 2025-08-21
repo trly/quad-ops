@@ -16,15 +16,17 @@ import (
 
 func TestManagedUnit(t *testing.T) {
 	// Initialize config and logger for tests
-	config.DefaultProvider().InitConfig()
-	log.Init(false)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.InitConfig()
 
 	t.Run("NewManagedUnit creates unit with dependencies", func(t *testing.T) {
 		mockFactory := &MockConnectionFactory{}
 		contextProvider := NewDefaultContextProvider()
 		textCaser := NewDefaultTextCaser()
+		configProvider := config.NewConfigProvider()
+		logger := log.NewLogger(false)
 
-		unit := NewManagedUnit("test-unit", "container", mockFactory, contextProvider, textCaser)
+		unit := NewManagedUnit("test-unit", "container", mockFactory, contextProvider, textCaser, configProvider, logger)
 
 		assert.Equal(t, "test-unit", unit.GetUnitName())
 		assert.Equal(t, "container", unit.GetUnitType())
@@ -222,5 +224,7 @@ func TestManagedUnit(t *testing.T) {
 func createTestManagedUnit(factory ConnectionFactory) *ManagedUnit {
 	contextProvider := NewDefaultContextProvider()
 	textCaser := NewDefaultTextCaser()
-	return NewManagedUnit("test-unit", "container", factory, contextProvider, textCaser)
+	configProvider := config.NewConfigProvider()
+	logger := log.NewLogger(false)
+	return NewManagedUnit("test-unit", "container", factory, contextProvider, textCaser, configProvider, logger)
 }

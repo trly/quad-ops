@@ -17,21 +17,25 @@ type ManagedUnit struct {
 	connectionFactory ConnectionFactory
 	contextProvider   ContextProvider
 	textCaser         TextCaser
+	configProvider    config.Provider
+	logger            log.Logger
 }
 
 // NewManagedUnit creates a new managed unit with injected dependencies.
-func NewManagedUnit(name, unitType string, connectionFactory ConnectionFactory, contextProvider ContextProvider, textCaser TextCaser) *ManagedUnit {
+func NewManagedUnit(name, unitType string, connectionFactory ConnectionFactory, contextProvider ContextProvider, textCaser TextCaser, configProvider config.Provider, logger log.Logger) *ManagedUnit {
 	return &ManagedUnit{
 		BaseUnit:          NewBaseUnit(name, unitType),
 		connectionFactory: connectionFactory,
 		contextProvider:   contextProvider,
 		textCaser:         textCaser,
+		configProvider:    configProvider,
+		logger:            logger,
 	}
 }
 
 // GetStatus returns the current status of the unit.
 func (u *ManagedUnit) GetStatus() (string, error) {
-	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), config.DefaultProvider().GetConfig().UserMode)
+	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), u.configProvider.GetConfig().UserMode)
 	if err != nil {
 		return "", err // Connection factory already wraps with proper error type
 	}
@@ -47,14 +51,14 @@ func (u *ManagedUnit) GetStatus() (string, error) {
 
 // Start starts the unit.
 func (u *ManagedUnit) Start() error {
-	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), config.DefaultProvider().GetConfig().UserMode)
+	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), u.configProvider.GetConfig().UserMode)
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	serviceName := u.GetServiceName()
-	log.GetLogger().Debug("Attempting to start unit", "name", serviceName)
+	u.logger.Debug("Attempting to start unit", "name", serviceName)
 
 	ch, err := conn.StartUnit(u.contextProvider.GetContext(), serviceName, "replace")
 	if err != nil {
@@ -73,13 +77,13 @@ func (u *ManagedUnit) Start() error {
 				subStateStr = subState.Value.Value().(string)
 			}
 
-			log.GetLogger().Debug("Unit is in activating state, waiting for completion",
+			u.logger.Debug("Unit is in activating state, waiting for completion",
 				"name", serviceName, "subState", subStateStr, "result", result)
 
 			// Wait longer for units that are starting (like downloading images)
-			waitTime := config.DefaultProvider().GetConfig().UnitStartTimeout
+			waitTime := u.configProvider.GetConfig().UnitStartTimeout
 			if subStateStr == "start" {
-				waitTime = config.DefaultProvider().GetConfig().ImagePullTimeout
+				waitTime = u.configProvider.GetConfig().ImagePullTimeout
 			}
 
 			time.Sleep(waitTime)
@@ -89,10 +93,10 @@ func (u *ManagedUnit) Start() error {
 			if err == nil {
 				finalState := finalActiveState.Value.Value().(string)
 				if finalState == "active" {
-					log.GetLogger().Info("Unit successfully started after activation delay", "name", serviceName)
+					u.logger.Info("Unit successfully started after activation delay", "name", serviceName)
 					return nil
 				}
-				log.GetLogger().Debug("Unit not active after waiting", "name", serviceName, "finalState", finalState)
+				u.logger.Debug("Unit not active after waiting", "name", serviceName, "finalState", finalState)
 			}
 		}
 
@@ -101,20 +105,20 @@ func (u *ManagedUnit) Start() error {
 			result)
 	}
 
-	log.GetLogger().Debug("Successfully started unit", "name", serviceName)
+	u.logger.Debug("Successfully started unit", "name", serviceName)
 	return nil
 }
 
 // Stop stops the unit.
 func (u *ManagedUnit) Stop() error {
-	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), config.DefaultProvider().GetConfig().UserMode)
+	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), u.configProvider.GetConfig().UserMode)
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	serviceName := u.GetServiceName()
-	log.GetLogger().Debug("Attempting to stop unit", "name", serviceName)
+	u.logger.Debug("Attempting to stop unit", "name", serviceName)
 
 	ch, err := conn.StopUnit(u.contextProvider.GetContext(), serviceName, "replace")
 	if err != nil {
@@ -127,20 +131,20 @@ func (u *ManagedUnit) Stop() error {
 			result)
 	}
 
-	log.GetLogger().Debug("Successfully stopped unit", "name", serviceName)
+	u.logger.Debug("Successfully stopped unit", "name", serviceName)
 	return nil
 }
 
 // Restart restarts the unit.
 func (u *ManagedUnit) Restart() error {
-	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), config.DefaultProvider().GetConfig().UserMode)
+	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), u.configProvider.GetConfig().UserMode)
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	serviceName := u.GetServiceName()
-	log.GetLogger().Debug("Attempting to restart unit", "name", serviceName)
+	u.logger.Debug("Attempting to restart unit", "name", serviceName)
 
 	ctx := u.contextProvider.GetContext()
 
@@ -171,7 +175,7 @@ func (u *ManagedUnit) Restart() error {
 				subStateStr = subState.Value.Value().(string)
 			}
 
-			log.GetLogger().Debug("Unit is in activating state, waiting for completion",
+			u.logger.Debug("Unit is in activating state, waiting for completion",
 				"name", serviceName, "subState", subStateStr, "result", result)
 
 			// Wait longer for units that are starting (like downloading images)
@@ -187,10 +191,10 @@ func (u *ManagedUnit) Restart() error {
 			if err == nil {
 				finalState := finalActiveState.Value.Value().(string)
 				if finalState == "active" {
-					log.GetLogger().Info("Unit successfully restarted after activation delay", "name", serviceName)
+					u.logger.Info("Unit successfully restarted after activation delay", "name", serviceName)
 					return nil
 				}
-				log.GetLogger().Debug("Unit not active after waiting", "name", serviceName, "finalState", finalState)
+				u.logger.Debug("Unit not active after waiting", "name", serviceName, "finalState", finalState)
 			}
 		}
 
@@ -198,13 +202,13 @@ func (u *ManagedUnit) Restart() error {
 			result)
 	}
 
-	log.GetLogger().Debug("Successfully restarted unit", "name", serviceName)
+	u.logger.Debug("Successfully restarted unit", "name", serviceName)
 	return nil
 }
 
 // Show displays the unit configuration and status.
 func (u *ManagedUnit) Show() error {
-	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), config.DefaultProvider().GetConfig().UserMode)
+	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), u.configProvider.GetConfig().UserMode)
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
@@ -256,14 +260,14 @@ func (u *ManagedUnit) Show() error {
 
 // ResetFailed resets the failed state of the unit.
 func (u *ManagedUnit) ResetFailed() error {
-	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), config.DefaultProvider().GetConfig().UserMode)
+	conn, err := u.connectionFactory.NewConnection(u.contextProvider.GetContext(), u.configProvider.GetConfig().UserMode)
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	serviceName := u.GetServiceName()
-	log.GetLogger().Debug("Resetting failed unit", "name", serviceName)
+	u.logger.Debug("Resetting failed unit", "name", serviceName)
 	err = conn.ResetFailedUnit(u.contextProvider.GetContext(), serviceName)
 	if err != nil {
 		return fmt.Errorf("error resetting failed unit %s: %w", serviceName, err)

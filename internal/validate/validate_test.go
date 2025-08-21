@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -36,14 +35,8 @@ func (m *MockCommandRunner) Run(name string, args ...string) ([]byte, error) {
 }
 
 func TestVerifySystemRequirements_Success(t *testing.T) {
-	// Set up test config
-	testConfig := &config.Settings{
-		Verbose: true,
-	}
-	config.DefaultProvider().SetConfig(testConfig)
-
-	// Initialize logger
-	log.Init(true)
+	// Create logger for testing
+	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates all commands succeeding
 	mock := &MockCommandRunner{
@@ -66,24 +59,17 @@ func TestVerifySystemRequirements_Success(t *testing.T) {
 		},
 	}
 
-	// Set mock runner and restore it after the test
-	SetCommandRunner(mock)
-	defer ResetCommandRunner()
+	// Create validator with mock runner
+	validator := NewValidator(logger, mock)
 
 	// Run test
-	err := SystemRequirements()
+	err := validator.SystemRequirements()
 	assert.NoError(t, err)
 }
 
 func TestVerifySystemRequirements_MissingSystemd(t *testing.T) {
-	// Set up config
-	testConfig := &config.Settings{
-		Verbose: true,
-	}
-	config.DefaultProvider().SetConfig(testConfig)
-
-	// Initialize logger
-	log.Init(true)
+	// Create logger for testing
+	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates systemd missing
 	mock := &MockCommandRunner{
@@ -98,25 +84,18 @@ func TestVerifySystemRequirements_MissingSystemd(t *testing.T) {
 		},
 	}
 
-	// Set mock runner and restore it after the test
-	SetCommandRunner(mock)
-	defer ResetCommandRunner()
+	// Create validator with mock runner
+	validator := NewValidator(logger, mock)
 
 	// Run test and check for expected error
-	err := SystemRequirements()
+	err := validator.SystemRequirements()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "systemd not found")
 }
 
 func TestVerifySystemRequirements_InvalidSystemd(t *testing.T) {
-	// Set up config
-	testConfig := &config.Settings{
-		Verbose: true,
-	}
-	config.DefaultProvider().SetConfig(testConfig)
-
-	// Initialize logger
-	log.Init(true)
+	// Create logger for testing
+	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates invalid systemd output
 	mock := &MockCommandRunner{
@@ -141,25 +120,18 @@ func TestVerifySystemRequirements_InvalidSystemd(t *testing.T) {
 		},
 	}
 
-	// Set mock runner and restore it after the test
-	SetCommandRunner(mock)
-	defer ResetCommandRunner()
+	// Create validator with mock runner
+	validator := NewValidator(logger, mock)
 
 	// Run test and check for expected error
-	err := SystemRequirements()
+	err := validator.SystemRequirements()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "systemd not properly installed")
 }
 
 func TestVerifySystemRequirements_MissingPodman(t *testing.T) {
-	// Set up config
-	testConfig := &config.Settings{
-		Verbose: true,
-	}
-	config.DefaultProvider().SetConfig(testConfig)
-
-	// Initialize logger
-	log.Init(true)
+	// Create logger for testing
+	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates podman missing
 	mock := &MockCommandRunner{
@@ -178,25 +150,18 @@ func TestVerifySystemRequirements_MissingPodman(t *testing.T) {
 		},
 	}
 
-	// Set mock runner and restore it after the test
-	SetCommandRunner(mock)
-	defer ResetCommandRunner()
+	// Create validator with mock runner
+	validator := NewValidator(logger, mock)
 
 	// Run test and check for expected error
-	err := SystemRequirements()
+	err := validator.SystemRequirements()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "podman not found")
 }
 
 func TestVerifySystemRequirements_MissingPodmanGenerator(t *testing.T) {
-	// Set up config
-	testConfig := &config.Settings{
-		Verbose: true,
-	}
-	config.DefaultProvider().SetConfig(testConfig)
-
-	// Initialize logger
-	log.Init(true)
+	// Create logger for testing
+	logger := log.NewLogger(true)
 
 	// Create mock runner that simulates podman-system-generator missing
 	mock := &MockCommandRunner{
@@ -219,12 +184,11 @@ func TestVerifySystemRequirements_MissingPodmanGenerator(t *testing.T) {
 		},
 	}
 
-	// Set mock runner and restore it after the test
-	SetCommandRunner(mock)
-	defer ResetCommandRunner()
+	// Create validator with mock runner
+	validator := NewValidator(logger, mock)
 
 	// Run test and check for expected error
-	err := SystemRequirements()
+	err := validator.SystemRequirements()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "podman systemd generator not found")
 }

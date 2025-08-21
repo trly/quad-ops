@@ -10,13 +10,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/log"
 )
 
 // TestDependencyInjectionIntegration verifies that dependency injection is working correctly
 // throughout the systemd package and that interfaces are properly implemented.
 func TestDependencyInjectionIntegration(t *testing.T) {
 	t.Run("DefaultFactory creates properly injected components", func(t *testing.T) {
-		factory := NewDefaultFactory()
+		configProvider := config.NewConfigProvider()
+		logger := log.NewLogger(false)
+		factory := NewDefaultFactory(configProvider, logger)
 
 		// Test that all components are created and injectable
 		assert.NotNil(t, factory.GetConnectionFactory())
@@ -39,7 +42,8 @@ func TestDependencyInjectionIntegration(t *testing.T) {
 
 	t.Run("UnitManager with mock dependencies works", func(t *testing.T) {
 		// Initialize config to prevent nil pointer dereference
-		config.DefaultProvider().InitConfig()
+		configProvider := config.NewDefaultConfigProvider()
+		configProvider.InitConfig()
 
 		// Setup mock connection that returns "active" status
 		mockConn := &MockConnection{
@@ -59,7 +63,9 @@ func TestDependencyInjectionIntegration(t *testing.T) {
 		textCaser := NewDefaultTextCaser()
 
 		// Create unit manager with mocked dependencies
-		unitManager := NewDefaultUnitManager(mockFactory, contextProvider, textCaser)
+		configProvider2 := config.NewConfigProvider()
+		logger := log.NewLogger(false)
+		unitManager := NewDefaultUnitManager(mockFactory, contextProvider, textCaser, configProvider2, logger)
 
 		// Test that the unit manager can get status using mocked connection
 		status, err := unitManager.GetStatus("test-unit", "container")
@@ -69,7 +75,8 @@ func TestDependencyInjectionIntegration(t *testing.T) {
 
 	t.Run("ManagedUnit with mock dependencies works", func(t *testing.T) {
 		// Initialize config to prevent nil pointer dereference
-		config.DefaultProvider().InitConfig()
+		configProvider := config.NewDefaultConfigProvider()
+		configProvider.InitConfig()
 
 		// Setup mock connection that returns "inactive" status
 		mockConn := &MockConnection{
@@ -89,7 +96,9 @@ func TestDependencyInjectionIntegration(t *testing.T) {
 		textCaser := NewDefaultTextCaser()
 
 		// Create managed unit with mocked dependencies
-		unit := NewManagedUnit("test-unit", "container", mockFactory, contextProvider, textCaser)
+		configProvider3 := config.NewConfigProvider()
+		logger2 := log.NewLogger(false)
+		unit := NewManagedUnit("test-unit", "container", mockFactory, contextProvider, textCaser, configProvider3, logger2)
 
 		// Test that the unit can get status using mocked connection
 		status, err := unit.GetStatus()
@@ -118,7 +127,10 @@ func TestDependencyInjectionIntegration(t *testing.T) {
 		}
 
 		// Create orchestrator with mocked unit manager
-		orchestrator := NewDefaultOrchestrator(mockUnitManager)
+		configProvider := config.NewConfigProvider()
+		logger := log.NewLogger(false)
+		connectionFactory := NewConnectionFactory(logger)
+		orchestrator := NewDefaultOrchestrator(mockUnitManager, connectionFactory, configProvider, logger)
 
 		// Test basic operation
 		assert.NotNil(t, orchestrator)

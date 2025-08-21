@@ -32,6 +32,11 @@ import (
 // ConfigCommand represents the config command for quad-ops CLI.
 type ConfigCommand struct{}
 
+// NewConfigCommand creates a new ConfigCommand.
+func NewConfigCommand() *ConfigCommand {
+	return &ConfigCommand{}
+}
+
 // GetCobraCommand returns the cobra command for config operations.
 func (c *ConfigCommand) GetCobraCommand() *cobra.Command {
 	return &cobra.Command{

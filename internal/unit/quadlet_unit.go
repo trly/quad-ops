@@ -7,7 +7,6 @@ import (
 
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/sorting"
-	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // QuadletUnit represents the configuration for a Quadlet unit, which can include
@@ -20,35 +19,6 @@ type QuadletUnit struct {
 	Volume    Volume        `yaml:"volume,omitempty"`
 	Network   Network       `yaml:"network,omitempty"`
 	Build     Build         `yaml:"build,omitempty"`
-}
-
-// GetSystemdUnit returns the appropriate systemd.Unit implementation for this QuadletUnit.
-func (u *QuadletUnit) GetSystemdUnit() systemd.Unit {
-	switch u.Type {
-	case "container":
-		container := u.Container
-		container.Name = u.Name
-		container.UnitType = "container"
-		return &container
-	case "volume":
-		volume := u.Volume
-		volume.Name = u.Name
-		volume.UnitType = "volume"
-		return &volume
-	case "network":
-		network := u.Network
-		network.Name = u.Name
-		network.UnitType = "network"
-		return &network
-	case "build":
-		build := u.Build
-		build.Name = u.Name
-		build.UnitType = "build"
-		return &build
-	default:
-		// Default to base implementation
-		return systemd.NewBaseUnit(u.Name, u.Type)
-	}
 }
 
 // SystemdConfig represents the configuration for a systemd unit.
@@ -512,8 +482,8 @@ func (u *QuadletUnit) generateServiceSection() string {
 }
 
 // GenerateQuadletUnit generates a quadlet unit file content from a unit configuration.
-func GenerateQuadletUnit(unit QuadletUnit) string {
-	log.GetLogger().Debug("Generating Quadlet unit", "name", unit.Name, "type", unit.Type)
+func GenerateQuadletUnit(unit QuadletUnit, logger log.Logger) string {
+	logger.Debug("Generating Quadlet unit", "name", unit.Name, "type", unit.Type)
 
 	content := unit.generateUnitSection()
 

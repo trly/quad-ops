@@ -27,21 +27,19 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // DownCommand represents the down command for quad-ops CLI.
-type DownCommand struct {
-	unitManager systemd.UnitManager
+type DownCommand struct{}
+
+// NewDownCommand creates a new DownCommand.
+func NewDownCommand() *DownCommand {
+	return &DownCommand{}
 }
 
-// NewDownCommand creates a new DownCommand with injected dependencies.
-func NewDownCommand() *DownCommand {
-	return &DownCommand{
-		unitManager: systemd.GetDefaultUnitManager(),
-	}
+// getApp retrieves the App from the command context.
+func (c *DownCommand) getApp(cmd *cobra.Command) *App {
+	return cmd.Context().Value(appContextKey).(*App)
 }
 
 // GetCobraCommand returns the cobra command for stopping all managed units.
@@ -50,12 +48,12 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 		Use:   "down",
 		Short: "Stop all managed units",
 		Long:  "Stop all managed units synchronized from repositories.",
-		Run: func(_ *cobra.Command, _ []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
 			// Get all units
-			unitRepo := repository.NewRepository()
-			units, err := unitRepo.FindAll()
+			units, err := app.UnitRepo.FindAll()
 			if err != nil {
-				log.GetLogger().Error("Failed to get units from database", "error", err)
+				app.Logger.Error("Failed to get units from database", "error", err)
 				os.Exit(1)
 			}
 
@@ -71,9 +69,9 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 
 			// Stop each unit
 			for _, u := range units {
-				err := c.unitManager.Stop(u.Name, u.Type)
+				err := app.UnitManager.Stop(u.Name, u.Type)
 				if err != nil {
-					log.GetLogger().Error("Failed to stop unit", "name", u.Name, "error", err)
+					app.Logger.Error("Failed to stop unit", "name", u.Name, "error", err)
 					failCount++
 				} else {
 					successCount++

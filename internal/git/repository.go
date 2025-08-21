@@ -18,15 +18,28 @@ type Repository struct {
 	Path    string
 	repo    *git.Repository
 	verbose bool `yaml:"-"`
+	logger  log.Logger
 }
 
-// NewGitRepository creates a new Repository instance with the given local path and remote URL.
-// The repository is not initialized until SyncRepository is called.
-func NewGitRepository(repository config.Repository) *Repository {
+// NewGitRepository creates a new Repository instance with explicit config provider.
+func NewGitRepository(repository config.Repository, configProvider config.Provider) *Repository {
+	cfg := configProvider.GetConfig()
 	return &Repository{
 		Repository: repository,
-		Path:       filepath.Join(config.DefaultProvider().GetConfig().RepositoryDir, repository.Name),
-		verbose:    config.DefaultProvider().GetConfig().Verbose,
+		Path:       filepath.Join(cfg.RepositoryDir, repository.Name),
+		verbose:    cfg.Verbose,
+		logger:     log.NewLogger(cfg.Verbose),
+	}
+}
+
+// NewGitRepositoryWithLogger creates a new Repository instance with explicit dependencies.
+func NewGitRepositoryWithLogger(repository config.Repository, configProvider config.Provider, logger log.Logger) *Repository {
+	cfg := configProvider.GetConfig()
+	return &Repository{
+		Repository: repository,
+		Path:       filepath.Join(cfg.RepositoryDir, repository.Name),
+		verbose:    cfg.Verbose,
+		logger:     logger,
 	}
 }
 
@@ -34,7 +47,7 @@ func NewGitRepository(repository config.Repository) *Repository {
 // or opens the existing repository and pulls the latest changes if it does.
 // It returns an error if any Git operations fail.
 func (r *Repository) SyncRepository() error {
-	log.GetLogger().Debug("Syncing repository", "path", filepath.Base(r.Path))
+	r.logger.Debug("Syncing repository", "path", filepath.Base(r.Path))
 
 	cloneOptions := &git.CloneOptions{URL: r.URL}
 	if r.verbose {
@@ -45,7 +58,7 @@ func (r *Repository) SyncRepository() error {
 
 	if err != nil {
 		if err == git.ErrRepositoryAlreadyExists {
-			log.GetLogger().Debug("Repository already exists, opening", "path", r.Path)
+			r.logger.Debug("Repository already exists, opening", "path", r.Path)
 
 			repo, err = git.PlainOpen(r.Path)
 			if err != nil {
@@ -64,7 +77,7 @@ func (r *Repository) SyncRepository() error {
 	r.repo = repo
 
 	if r.Reference != "" {
-		log.GetLogger().Debug("Checking out target", "ref", r.Reference)
+		r.logger.Debug("Checking out target", "ref", r.Reference)
 		return r.checkoutTarget()
 	}
 	return nil
@@ -77,7 +90,7 @@ func (r *Repository) checkoutTarget() error {
 	if err != nil {
 		return err
 	}
-	log.GetLogger().Debug("Attempting to checkout target as commit hash", "hash", r.Reference)
+	r.logger.Debug("Attempting to checkout target as commit hash", "hash", r.Reference)
 
 	hash := plumbing.NewHash(r.Reference)
 	err = worktree.Checkout(&git.CheckoutOptions{
@@ -86,7 +99,7 @@ func (r *Repository) checkoutTarget() error {
 	if err == nil {
 		return nil
 	}
-	log.GetLogger().Debug("Attempting to checkout target as branch/tag", "ref", r.Reference)
+	r.logger.Debug("Attempting to checkout target as branch/tag", "ref", r.Reference)
 
 	return worktree.Checkout(&git.CheckoutOptions{
 		Branch: plumbing.NewBranchReferenceName(r.Reference),
@@ -97,7 +110,7 @@ func (r *Repository) checkoutTarget() error {
 // It returns an error if any Git operations fail, except when the repository
 // is already up to date.
 func (r *Repository) pullLatest() error {
-	log.GetLogger().Debug("Pulling latest changes from origin")
+	r.logger.Debug("Pulling latest changes from origin")
 
 	worktree, err := r.repo.Worktree()
 	if err != nil {
@@ -109,7 +122,7 @@ func (r *Repository) pullLatest() error {
 		return err
 	}
 	if err == git.NoErrAlreadyUpToDate {
-		log.GetLogger().Debug("Repository is already up to date")
+		r.logger.Debug("Repository is already up to date")
 	}
 	return nil
 }

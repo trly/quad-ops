@@ -23,6 +23,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -35,6 +36,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+// contextKey is the type used for context keys to avoid collisions.
+type contextKey string
+
+// appContextKey is the context key for the App instance.
+const appContextKey = contextKey("app")
 
 // RootCommand represents the root command for quad-ops CLI.
 type RootCommand struct{}
@@ -56,8 +63,10 @@ func (c *RootCommand) GetCobraCommand() *cobra.Command {
 		Long: `Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.
 It automatically generates systemd unit files from Docker Compose files and handles unit reloading and restarting.`,
 		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			cfg = config.DefaultProvider().GetConfig()
+			configProv := config.NewDefaultConfigProvider()
+			cfg = configProv.GetConfig()
 			log.Init(verbose)
+			logger := log.NewLogger(verbose)
 
 			if verbose {
 				fmt.Printf("%s using config: %s\n\n", cmd.Root().Use, viper.GetViper().ConfigFileUsed())
@@ -73,7 +82,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 			if repositoryDir != "" {
 				// Validate repository directory path
 				if err := sorting.ValidatePath(repositoryDir); err != nil {
-					log.GetLogger().Error("Invalid repository directory", "path", repositoryDir, "error", err)
+					logger.Error("Invalid repository directory", "path", repositoryDir, "error", err)
 					os.Exit(1)
 				}
 				cfg.RepositoryDir = repositoryDir
@@ -82,7 +91,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 			if quadletDir != "" {
 				// Validate quadlet directory path
 				if err := sorting.ValidatePath(quadletDir); err != nil {
-					log.GetLogger().Error("Invalid quadlet directory", "path", quadletDir, "error", err)
+					logger.Error("Invalid quadlet directory", "path", quadletDir, "error", err)
 					os.Exit(1)
 				}
 				cfg.QuadletDir = quadletDir
@@ -94,9 +103,13 @@ It automatically generates systemd unit files from Docker Compose files and hand
 			if cmdName == "sync" || cmdName == "up" || cmdName == "down" || strings.HasPrefix(cmdName, "unit") || strings.HasPrefix(cmdName, "image") {
 				err := validate.SystemRequirements()
 				if err != nil {
-					log.GetLogger().Error("System requirements not met", "err", err)
+					logger.Error("System requirements not met", "err", err)
 				}
 			}
+
+			// Initialize app and store in context for commands that need it
+			app := NewApp(logger, configProv)
+			cmd.SetContext(context.WithValue(cmd.Context(), appContextKey, app))
 		},
 	}
 
@@ -107,15 +120,15 @@ It automatically generates systemd unit files from Docker Compose files and hand
 	rootCmd.PersistentFlags().StringVar(&repositoryDir, "repository-dir", "", "Path to the repository directory")
 
 	rootCmd.AddCommand(
-		(&ConfigCommand{}).GetCobraCommand(),
-		(&SyncCommand{}).GetCobraCommand(),
-		(&UnitCommand{}).GetCobraCommand(),
+		NewConfigCommand().GetCobraCommand(),
+		NewSyncCommand().GetCobraCommand(),
+		NewUnitCommand().GetCobraCommand(),
 		NewUpCommand().GetCobraCommand(),
-		(&ImageCommand{}).GetCobraCommand(),
+		NewImageCommand().GetCobraCommand(),
 		NewDownCommand().GetCobraCommand(),
-		(&UpdateCommand{}).GetCobraCommand(),
-		(&ValidateCommand{}).GetCobraCommand(),
-		(&VersionCommand{}).GetCobraCommand(),
+		NewUpdateCommand().GetCobraCommand(),
+		NewValidateCommand().GetCobraCommand(),
+		NewVersionCommand().GetCobraCommand(),
 	)
 
 	return rootCmd

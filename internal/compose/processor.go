@@ -2,12 +2,13 @@
 package compose
 
 import (
-	"log/slog"
-
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/systemd"
 	"github.com/trly/quad-ops/internal/unit"
 )
 
@@ -16,7 +17,7 @@ type Processor struct {
 	repo             Repository
 	systemd          SystemdManager
 	fs               FileSystem
-	logger           *slog.Logger
+	logger           log.Logger
 	force            bool
 	processedUnits   map[string]bool
 	changedUnits     []unit.QuadletUnit
@@ -24,7 +25,7 @@ type Processor struct {
 }
 
 // NewProcessor creates a new Processor with the given dependencies.
-func NewProcessor(repo Repository, systemd SystemdManager, fs FileSystem, logger *slog.Logger, force bool) *Processor {
+func NewProcessor(repo Repository, systemd SystemdManager, fs FileSystem, logger log.Logger, force bool) *Processor {
 	return &Processor{
 		repo:             repo,
 		systemd:          systemd,
@@ -39,10 +40,20 @@ func NewProcessor(repo Repository, systemd SystemdManager, fs FileSystem, logger
 
 // NewDefaultProcessor creates a new Processor with default real dependencies.
 func NewDefaultProcessor(force bool) *Processor {
-	repo := NewRepositoryAdapter(repository.NewRepository())
-	systemdMgr := NewSystemdAdapter()
-	fsMgr := NewFileSystemAdapter()
-	logger := log.GetLogger()
+	logger := log.NewLogger(false)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.InitConfig()
+	fsService := fs.NewServiceWithLogger(configProvider, logger)
+	repositoryImpl := repository.NewRepository(logger, fsService)
+	repo := NewRepositoryAdapter(repositoryImpl)
+
+	// Create systemd factory and get manager and orchestrator
+	systemdFactory := systemd.NewDefaultFactory(configProvider, logger)
+	unitManager := systemdFactory.GetUnitManager()
+	orchestrator := systemdFactory.GetOrchestrator()
+	systemdMgr := NewSystemdAdapter(unitManager, orchestrator)
+
+	fsMgr := NewFileSystemAdapter(configProvider)
 
 	return NewProcessor(repo, systemdMgr, fsMgr, logger, force)
 }

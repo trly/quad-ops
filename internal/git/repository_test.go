@@ -11,13 +11,10 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/log"
 )
 
-// setupTest initializes logger and creates a temporary directory with config.
-func setupTest(t *testing.T) (string, func()) {
-	log.Init(true)
-
+// setupTest creates a temporary directory and returns config provider for testing.
+func setupTest(t *testing.T) (string, config.Provider, func()) {
 	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
 	require.NoError(t, err)
 
@@ -25,10 +22,11 @@ func setupTest(t *testing.T) (string, func()) {
 		RepositoryDir: tmpDir,
 		Verbose:       true,
 	}
-	config.DefaultProvider().SetConfig(cfg)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(cfg)
 
 	cleanup := func() { _ = os.RemoveAll(tmpDir) }
-	return tmpDir, cleanup
+	return tmpDir, configProvider, cleanup
 }
 
 // createTestRepo creates a local git repository with an initial commit.
@@ -59,7 +57,7 @@ func createTestRepo(t *testing.T, repoDir string) (*git.Repository, string) {
 }
 
 func TestNewRepository(t *testing.T) {
-	tmpDir, cleanup := setupTest(t)
+	tmpDir, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	testRepo := config.Repository{
@@ -68,7 +66,7 @@ func TestNewRepository(t *testing.T) {
 		Reference: "main",
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 
 	require.Equal(t, testRepo.URL, repo.URL)
 	require.Equal(t, filepath.Join(tmpDir, testRepo.Name), repo.Path)
@@ -76,7 +74,7 @@ func TestNewRepository(t *testing.T) {
 }
 
 func TestSyncRepository(t *testing.T) {
-	_, cleanup := setupTest(t)
+	_, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	testRepo := config.Repository{
@@ -85,7 +83,7 @@ func TestSyncRepository(t *testing.T) {
 		Reference: "main",
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 
 	// Test invalid repository URL
 	err := repo.SyncRepository()
@@ -93,7 +91,7 @@ func TestSyncRepository(t *testing.T) {
 }
 
 func TestSyncRepositoryAlreadyExists(t *testing.T) {
-	tmpDir, cleanup := setupTest(t)
+	tmpDir, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	testRepo := config.Repository{
@@ -102,7 +100,7 @@ func TestSyncRepositoryAlreadyExists(t *testing.T) {
 		Reference: "main",
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 	require.Equal(t, "main", repo.Reference)
 
 	// Create the repository directory to simulate existing repo
@@ -120,7 +118,7 @@ func TestSyncRepositoryAlreadyExists(t *testing.T) {
 }
 
 func TestCheckoutTargetWithLocalRepo(t *testing.T) {
-	tmpDir, cleanup := setupTest(t)
+	tmpDir, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	// Create a real local git repository for testing
@@ -133,7 +131,7 @@ func TestCheckoutTargetWithLocalRepo(t *testing.T) {
 		Reference: commitHash,
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 
 	// Test syncing and checking out specific commit
 	err := repo.SyncRepository()
@@ -149,7 +147,7 @@ func TestCheckoutTargetWithLocalRepo(t *testing.T) {
 }
 
 func TestPullLatest(t *testing.T) {
-	tmpDir, cleanup := setupTest(t)
+	tmpDir, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	// Create a "remote" repository
@@ -161,7 +159,7 @@ func TestPullLatest(t *testing.T) {
 		URL:  remoteRepoDir,
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 
 	// Initial sync to clone the repository
 	err := repo.SyncRepository()
@@ -202,7 +200,7 @@ func TestPullLatest(t *testing.T) {
 }
 
 func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
-	tmpDir, cleanup := setupTest(t)
+	tmpDir, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	// Create a "remote" repository
@@ -214,7 +212,7 @@ func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
 		URL:  remoteRepoDir,
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 
 	// First sync - should clone the repository
 	err := repo.SyncRepository()
@@ -246,7 +244,7 @@ func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a new Repository instance to simulate running the command again
-	repo2 := NewGitRepository(testRepo)
+	repo2 := NewGitRepository(testRepo, configProv)
 
 	// Second sync - should open existing repo and pull latest changes
 	// This tests the git.ErrRepositoryAlreadyExists path (lines 46-56)
@@ -260,7 +258,7 @@ func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
 }
 
 func TestCheckoutTargetBranchFallback(t *testing.T) {
-	tmpDir, cleanup := setupTest(t)
+	tmpDir, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	// Create a "remote" repository with a branch
@@ -273,7 +271,7 @@ func TestCheckoutTargetBranchFallback(t *testing.T) {
 		Reference: "main", // Use branch name instead of commit hash
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 
 	// Sync repository - this will trigger checkoutTarget with branch name
 	// First it will try to checkout "main" as a commit hash (which will fail)
@@ -292,7 +290,7 @@ func TestCheckoutTargetBranchFallback(t *testing.T) {
 }
 
 func TestCheckoutTargetTag(t *testing.T) {
-	tmpDir, cleanup := setupTest(t)
+	tmpDir, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	// Create a "remote" repository with a tag
@@ -317,7 +315,7 @@ func TestCheckoutTargetTag(t *testing.T) {
 		Reference: tagName, // Use tag name
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 
 	// Sync repository - this will trigger checkoutTarget with tag name
 	// First it will try to checkout the tag as a commit hash (which will fail)
@@ -332,7 +330,7 @@ func TestCheckoutTargetTag(t *testing.T) {
 }
 
 func TestCheckoutTargetForceBranchFallback(t *testing.T) {
-	tmpDir, cleanup := setupTest(t)
+	tmpDir, configProv, cleanup := setupTest(t)
 	defer cleanup()
 
 	// Create a "remote" repository
@@ -374,7 +372,7 @@ func TestCheckoutTargetForceBranchFallback(t *testing.T) {
 		Reference: "feature", // Use branch name that is NOT a valid commit hash
 	}
 
-	repo := NewGitRepository(testRepo)
+	repo := NewGitRepository(testRepo, configProv)
 
 	// Sync repository - this will trigger checkoutTarget with branch name
 	// "feature" is not a valid commit hash, so it will fail the first checkout
@@ -390,4 +388,27 @@ func TestCheckoutTargetForceBranchFallback(t *testing.T) {
 	// Verify we're on the feature branch
 	require.True(t, ref.Name().IsBranch(), "Expected to be on a branch")
 	require.Equal(t, "feature", ref.Name().Short())
+}
+
+func TestNewGitRepository(t *testing.T) {
+	// Create a test config provider
+	testConfig := &config.Settings{
+		RepositoryDir: "/test/custom/repo/dir",
+		Verbose:       true,
+	}
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(testConfig)
+
+	repo := config.Repository{
+		Name: "test-repo",
+		URL:  "https://example.com/repo.git",
+	}
+
+	gitRepo := NewGitRepository(repo, configProvider)
+
+	require.Equal(t, "test-repo", gitRepo.Name)
+	require.Equal(t, "https://example.com/repo.git", gitRepo.URL)
+	require.Equal(t, "/test/custom/repo/dir/test-repo", gitRepo.Path)
+	require.True(t, gitRepo.verbose)
+	require.NotNil(t, gitRepo.logger)
 }

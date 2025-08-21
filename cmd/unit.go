@@ -30,6 +30,11 @@ import (
 // UnitCommand represents the unit command for quad-ops CLI.
 type UnitCommand struct{}
 
+// NewUnitCommand creates a new UnitCommand.
+func NewUnitCommand() *UnitCommand {
+	return &UnitCommand{}
+}
+
 var (
 	unitType string
 )

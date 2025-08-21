@@ -9,9 +9,9 @@ import (
 )
 
 func TestSecretValidator_ValidateSecretName(t *testing.T) {
-	// Initialize logger for tests
-	log.Init(false)
-	validator := NewSecretValidator()
+	// Create logger for testing
+	logger := log.NewLogger(false)
+	validator := NewSecretValidator(logger)
 
 	tests := []struct {
 		name        string
@@ -40,9 +40,9 @@ func TestSecretValidator_ValidateSecretName(t *testing.T) {
 }
 
 func TestSecretValidator_ValidateSecretValue(t *testing.T) {
-	// Initialize logger for tests
-	log.Init(false)
-	validator := NewSecretValidator()
+	// Create logger for testing
+	logger := log.NewLogger(false)
+	validator := NewSecretValidator(logger)
 
 	tests := []struct {
 		name        string
@@ -71,9 +71,9 @@ func TestSecretValidator_ValidateSecretValue(t *testing.T) {
 }
 
 func TestSecretValidator_ValidateSecretTarget(t *testing.T) {
-	// Initialize logger for tests
-	log.Init(false)
-	validator := NewSecretValidator()
+	// Create logger for testing
+	logger := log.NewLogger(false)
+	validator := NewSecretValidator(logger)
 
 	tests := []struct {
 		name        string
@@ -103,9 +103,9 @@ func TestSecretValidator_ValidateSecretTarget(t *testing.T) {
 }
 
 func TestSecretValidator_ValidateEnvValue(t *testing.T) {
-	// Initialize logger for tests
-	log.Init(false)
-	validator := NewSecretValidator()
+	// Create logger for testing
+	logger := log.NewLogger(false)
+	validator := NewSecretValidator(logger)
 
 	tests := []struct {
 		name        string
@@ -134,7 +134,11 @@ func TestSecretValidator_ValidateEnvValue(t *testing.T) {
 	}
 }
 
-func TestEnvKey(t *testing.T) {
+func TestValidateEnvKey(t *testing.T) {
+	// Create logger for testing
+	logger := log.NewLogger(false)
+	validator := NewSecretValidator(logger)
+
 	tests := []struct {
 		name        string
 		key         string
@@ -152,7 +156,7 @@ func TestEnvKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := EnvKey(tt.key)
+			err := validator.ValidateEnvKey(tt.key)
 			if tt.expectError {
 				assert.Error(t, err)
 			} else {

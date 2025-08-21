@@ -27,21 +27,20 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/sorting"
-	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // ShowCommand represents the unit show command.
-type ShowCommand struct {
-	unitManager systemd.UnitManager
+type ShowCommand struct{}
+
+// NewShowCommand creates a new ShowCommand.
+func NewShowCommand() *ShowCommand {
+	return &ShowCommand{}
 }
 
-// NewShowCommand creates a new ShowCommand with injected dependencies.
-func NewShowCommand() *ShowCommand {
-	return &ShowCommand{
-		unitManager: systemd.GetDefaultUnitManager(),
-	}
+// getApp retrieves the App from the command context.
+func (c *ShowCommand) getApp(cmd *cobra.Command) *App {
+	return cmd.Context().Value(appContextKey).(*App)
 }
 
 // GetCobraCommand returns the cobra command for showing unit details.
@@ -50,18 +49,19 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 		Use:   "show",
 		Short: "Show the contents of a quadlet unit",
 		Args:  cobra.ExactArgs(1),
-		Run: func(_ *cobra.Command, args []string) {
+		Run: func(cmd *cobra.Command, args []string) {
+			app := c.getApp(cmd)
 			name := args[0]
 
 			// Validate unit name to prevent command injection
 			if err := sorting.ValidateUnitName(name); err != nil {
-				log.GetLogger().Error("Invalid unit name", "error", err, "name", name)
+				app.Logger.Error("Invalid unit name", "error", err, "name", name)
 				os.Exit(1)
 			}
 
-			err := c.unitManager.Show(name, unitType)
+			err := app.UnitManager.Show(name, unitType)
 			if err != nil {
-				log.GetLogger().Error("Failed to show unit", "error", err)
+				app.Logger.Error("Failed to show unit", "error", err)
 				os.Exit(1)
 			}
 		},

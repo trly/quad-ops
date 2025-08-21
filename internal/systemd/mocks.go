@@ -153,7 +153,12 @@ func (m *MockUnitManager) GetUnit(name, unitType string) Unit {
 	if m.GetUnitFunc != nil {
 		return m.GetUnitFunc(name, unitType)
 	}
-	return NewBaseUnit(name, unitType)
+	// Return a mock unit for testing
+	return &MockUnit{
+		GetUnitNameFunc:    func() string { return name },
+		GetUnitTypeFunc:    func() string { return unitType },
+		GetServiceNameFunc: func() string { return name + ".service" },
+	}
 }
 
 // GetStatus returns the current status of a unit.
@@ -244,9 +249,9 @@ func (m *MockOrchestrator) RestartChangedUnits(changedUnits []UnitChange, projec
 
 // MockUnit implements Unit interface for testing.
 type MockUnit struct {
-	GetServiceNameFunc string
-	GetUnitTypeFunc    string
-	GetUnitNameFunc    string
+	GetServiceNameFunc func() string
+	GetUnitTypeFunc    func() string
+	GetUnitNameFunc    func() string
 	GetStatusFunc      func() (string, error)
 	StartFunc          func() error
 	StopFunc           func() error
@@ -257,24 +262,24 @@ type MockUnit struct {
 
 // GetServiceName returns the full systemd service name.
 func (m *MockUnit) GetServiceName() string {
-	if m.GetServiceNameFunc != "" {
-		return m.GetServiceNameFunc
+	if m.GetServiceNameFunc != nil {
+		return m.GetServiceNameFunc()
 	}
 	return "mock.service"
 }
 
 // GetUnitType returns the type of the unit.
 func (m *MockUnit) GetUnitType() string {
-	if m.GetUnitTypeFunc != "" {
-		return m.GetUnitTypeFunc
+	if m.GetUnitTypeFunc != nil {
+		return m.GetUnitTypeFunc()
 	}
 	return "container"
 }
 
 // GetUnitName returns the name of the unit.
 func (m *MockUnit) GetUnitName() string {
-	if m.GetUnitNameFunc != "" {
-		return m.GetUnitNameFunc
+	if m.GetUnitNameFunc != nil {
+		return m.GetUnitNameFunc()
 	}
 	return "mock"
 }

@@ -27,21 +27,19 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // UpCommand represents the up command for quad-ops CLI.
-type UpCommand struct {
-	unitManager systemd.UnitManager
+type UpCommand struct{}
+
+// NewUpCommand creates a new UpCommand.
+func NewUpCommand() *UpCommand {
+	return &UpCommand{}
 }
 
-// NewUpCommand creates a new UpCommand with injected dependencies.
-func NewUpCommand() *UpCommand {
-	return &UpCommand{
-		unitManager: systemd.GetDefaultUnitManager(),
-	}
+// getApp retrieves the App from the command context.
+func (c *UpCommand) getApp(cmd *cobra.Command) *App {
+	return cmd.Context().Value(appContextKey).(*App)
 }
 
 // GetCobraCommand returns the cobra command for starting all managed units.
@@ -50,12 +48,12 @@ func (c *UpCommand) GetCobraCommand() *cobra.Command {
 		Use:   "up",
 		Short: "Start all managed units",
 		Long:  "Start all managed units synchronized from repositories.",
-		Run: func(_ *cobra.Command, _ []string) {
+		Run: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
 			// Get all units
-			unitRepo := repository.NewRepository()
-			units, err := unitRepo.FindAll()
+			units, err := app.UnitRepo.FindAll()
 			if err != nil {
-				log.GetLogger().Error("Failed to get units from database", "error", err)
+				app.Logger.Error("Failed to get units from database", "error", err)
 				os.Exit(1)
 			}
 
@@ -72,11 +70,11 @@ func (c *UpCommand) GetCobraCommand() *cobra.Command {
 			// Start each unit
 			for _, u := range units {
 				// Reset any failed units before attempting to start
-				_ = c.unitManager.ResetFailed(u.Name, u.Type)
+				_ = app.UnitManager.ResetFailed(u.Name, u.Type)
 
-				err := c.unitManager.Start(u.Name, u.Type)
+				err := app.UnitManager.Start(u.Name, u.Type)
 				if err != nil {
-					log.GetLogger().Error("Failed to start unit", "name", u.Name, "error", err)
+					app.Logger.Error("Failed to start unit", "name", u.Name, "error", err)
 					failCount++
 				} else {
 					successCount++

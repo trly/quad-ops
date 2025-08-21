@@ -17,7 +17,8 @@ func TestGetUnitFilePath(t *testing.T) {
 	cfg := &config.Settings{
 		QuadletDir: "/test/quadlet",
 	}
-	config.DefaultProvider().SetConfig(cfg)
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(cfg)
 
 	tests := []struct {
 		name     string
@@ -47,7 +48,11 @@ func TestGetUnitFilePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := GetUnitFilePath(tt.unitName, tt.unitType)
+			// Create service with mock config
+			cfg := &config.Settings{QuadletDir: "/test/quadlet"}
+			provider := &config.MockProvider{Config: cfg}
+			service := NewServiceWithLogger(provider, log.NewLogger(false))
+			result := service.GetUnitFilePath(tt.unitName, tt.unitType)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -101,7 +106,11 @@ func TestHasUnitChanged(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			result := HasUnitChanged(unitPath, tt.newContent)
+			// Create service with temp directory config
+			cfg := &config.Settings{QuadletDir: tempDir}
+			provider := &config.MockProvider{Config: cfg}
+			service := NewServiceWithLogger(provider, log.NewLogger(false))
+			result := service.HasUnitChanged(unitPath, tt.newContent)
 			assert.Equal(t, tt.expected, result)
 
 			// Clean up for next test
@@ -143,7 +152,11 @@ func TestWriteUnitFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := WriteUnitFile(tt.unitPath, tt.content)
+			// Create service with temp directory config
+			cfg := &config.Settings{QuadletDir: tempDir}
+			provider := &config.MockProvider{Config: cfg}
+			service := NewServiceWithLogger(provider, log.NewLogger(false))
+			err := service.WriteUnitFile(tt.unitPath, tt.content)
 
 			if tt.expectError {
 				assert.Error(t, err)
@@ -188,4 +201,31 @@ func TestGetContentHash(t *testing.T) {
 			assert.Equal(t, tt.expected, fmt.Sprintf("%x", result))
 		})
 	}
+}
+
+func TestServiceWithConfigProvider(t *testing.T) {
+	// Create a test config provider
+	testConfig := &config.Settings{
+		QuadletDir: "/test/custom/quadlet/dir",
+	}
+	configProvider := config.NewDefaultConfigProvider()
+	configProvider.SetConfig(testConfig)
+
+	// Create filesystem service with config provider
+	fsService := NewService(configProvider)
+
+	// Test GetUnitFilePath uses the injected config
+	unitPath := fsService.GetUnitFilePath("test-service", "container")
+	expected := "/test/custom/quadlet/dir/test-service.container"
+	assert.Equal(t, expected, unitPath, "Service should use injected config for unit path")
+
+	// Test GetUnitFilesDirectory uses the injected config
+	dir := fsService.GetUnitFilesDirectory()
+	assert.Equal(t, "/test/custom/quadlet/dir", dir, "Service should use injected config for quadlet directory")
+
+	// Test GetContentHash works the same way
+	content := "test content"
+	hash1 := fsService.GetContentHash(content)
+	hash2 := string(GetContentHash(content)) // Compare with legacy function
+	assert.Equal(t, hash1, hash2, "Service hash should match legacy hash function")
 }

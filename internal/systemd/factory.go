@@ -1,5 +1,10 @@
 package systemd
 
+import (
+	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/log"
+)
+
 // DefaultFactory provides default implementations of all systemd interfaces.
 type DefaultFactory struct {
 	connectionFactory ConnectionFactory
@@ -7,15 +12,17 @@ type DefaultFactory struct {
 	textCaser         TextCaser
 	unitManager       UnitManager
 	orchestrator      Orchestrator
+	configProvider    config.Provider
+	logger            log.Logger
 }
 
 // NewDefaultFactory creates a new default factory with all default implementations.
-func NewDefaultFactory() *DefaultFactory {
-	connectionFactory := NewDefaultConnectionFactory()
+func NewDefaultFactory(configProvider config.Provider, logger log.Logger) *DefaultFactory {
+	connectionFactory := NewConnectionFactory(logger)
 	contextProvider := NewDefaultContextProvider()
 	textCaser := NewDefaultTextCaser()
-	unitManager := NewDefaultUnitManager(connectionFactory, contextProvider, textCaser)
-	orchestrator := NewDefaultOrchestrator(unitManager)
+	unitManager := NewDefaultUnitManager(connectionFactory, contextProvider, textCaser, configProvider, logger)
+	orchestrator := NewDefaultOrchestrator(unitManager, connectionFactory, configProvider, logger)
 
 	return &DefaultFactory{
 		connectionFactory: connectionFactory,
@@ -23,6 +30,8 @@ func NewDefaultFactory() *DefaultFactory {
 		textCaser:         textCaser,
 		unitManager:       unitManager,
 		orchestrator:      orchestrator,
+		configProvider:    configProvider,
+		logger:            logger,
 	}
 }
 
@@ -49,18 +58,4 @@ func (f *DefaultFactory) GetUnitManager() UnitManager {
 // GetOrchestrator returns the orchestrator.
 func (f *DefaultFactory) GetOrchestrator() Orchestrator {
 	return f.orchestrator
-}
-
-// Package-level convenience functions for backward compatibility
-
-var defaultFactory = NewDefaultFactory()
-
-// GetDefaultUnitManager returns the default unit manager instance.
-func GetDefaultUnitManager() UnitManager {
-	return defaultFactory.GetUnitManager()
-}
-
-// GetDefaultOrchestrator returns the default orchestrator instance.
-func GetDefaultOrchestrator() Orchestrator {
-	return defaultFactory.GetOrchestrator()
 }

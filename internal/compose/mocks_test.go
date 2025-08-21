@@ -1,8 +1,6 @@
 package compose
 
 import (
-	"log/slog"
-
 	"github.com/stretchr/testify/mock"
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/log"
@@ -79,7 +77,6 @@ func (m *MockFileSystem) GetContentHash(content string) string {
 }
 
 // initTestLogger initializes a test logger.
-func initTestLogger() *slog.Logger {
-	log.Init(true)
-	return log.GetLogger()
+func initTestLogger() log.Logger {
+	return log.NewLogger(false)
 }

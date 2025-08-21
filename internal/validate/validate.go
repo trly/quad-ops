@@ -15,7 +15,16 @@ type CommandRunner interface {
 }
 
 // RealCommandRunner implements CommandRunner using os/exec.
-type RealCommandRunner struct{}
+type RealCommandRunner struct {
+	logger log.Logger
+}
+
+// NewRealCommandRunner creates a new RealCommandRunner with the provided logger.
+func NewRealCommandRunner(logger log.Logger) *RealCommandRunner {
+	return &RealCommandRunner{
+		logger: logger,
+	}
+}
 
 // Run executes a command and returns its output.
 // WARNING: This method executes arbitrary commands and should only be used with trusted input.
@@ -27,29 +36,38 @@ func (r *RealCommandRunner) Run(name string, args ...string) ([]byte, error) {
 	}
 
 	// Log command execution for security auditing
-	log.GetLogger().Debug("Executing command", "name", name, "args", args)
+	r.logger.Debug("Executing command", "name", name, "args", args)
 
 	return exec.Command(name, args...).Output()
 }
 
-// default runner for use in production code.
-var defaultRunner CommandRunner = &RealCommandRunner{}
-
-// SetCommandRunner allows tests to inject a mock runner.
-func SetCommandRunner(runner CommandRunner) {
-	defaultRunner = runner
+// Validator provides system requirements validation with dependency injection.
+type Validator struct {
+	logger log.Logger
+	runner CommandRunner
 }
 
-// ResetCommandRunner restores the default runner.
-func ResetCommandRunner() {
-	defaultRunner = &RealCommandRunner{}
+// NewValidator creates a new Validator with the provided logger and command runner.
+func NewValidator(logger log.Logger, runner CommandRunner) *Validator {
+	return &Validator{
+		logger: logger,
+		runner: runner,
+	}
+}
+
+// NewValidatorWithDefaults creates a new Validator with default dependencies.
+func NewValidatorWithDefaults(logger log.Logger) *Validator {
+	return &Validator{
+		logger: logger,
+		runner: NewRealCommandRunner(logger),
+	}
 }
 
 // SystemRequirements checks if all required system tools are installed.
-func SystemRequirements() error {
-	log.GetLogger().Debug("Validating systemd availability")
+func (v *Validator) SystemRequirements() error {
+	v.logger.Debug("Validating systemd availability")
 
-	systemdVersion, err := defaultRunner.Run("systemctl", "--version")
+	systemdVersion, err := v.runner.Run("systemctl", "--version")
 	if err != nil {
 		return fmt.Errorf("systemd not found: %w", err)
 	}
@@ -58,20 +76,28 @@ func SystemRequirements() error {
 		return fmt.Errorf("systemd not properly installed")
 	}
 
-	log.GetLogger().Debug("Validating podman availability")
+	v.logger.Debug("Validating podman availability")
 
-	_, err = defaultRunner.Run("podman", "--version")
+	_, err = v.runner.Run("podman", "--version")
 	if err != nil {
 		return fmt.Errorf("podman not found: %w", err)
 	}
 
-	log.GetLogger().Debug("Validating podman-system-generator availability")
+	v.logger.Debug("Validating podman-system-generator availability")
 
 	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
-	_, err = defaultRunner.Run("test", "-f", generatorPath)
+	_, err = v.runner.Run("test", "-f", generatorPath)
 	if err != nil {
 		return fmt.Errorf("podman systemd generator not found (ensure podman is properly installed)")
 	}
 
 	return nil
+}
+
+// SystemRequirements checks if all required system tools are installed.
+// Deprecated: Use NewValidator and Validator.SystemRequirements instead.
+func SystemRequirements() error {
+	logger := log.NewLogger(false)
+	validator := NewValidatorWithDefaults(logger)
+	return validator.SystemRequirements()
 }

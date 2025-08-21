@@ -41,6 +41,11 @@ var (
 // VersionCommand represents the version command.
 type VersionCommand struct{}
 
+// NewVersionCommand creates a new VersionCommand.
+func NewVersionCommand() *VersionCommand {
+	return &VersionCommand{}
+}
+
 // GetCobraCommand returns the cobra command for displaying version information.
 func (c *VersionCommand) GetCobraCommand() *cobra.Command {
 	versionCmd := &cobra.Command{

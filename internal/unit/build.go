@@ -40,7 +40,7 @@ func NewBuild(name string) *Build {
 }
 
 // FromComposeBuild converts a Docker Compose build configuration to a Podman Quadlet build configuration.
-func (b *Build) FromComposeBuild(buildConfig types.BuildConfig, service types.ServiceConfig, projectName string) *Build {
+func (b *Build) FromComposeBuild(buildConfig types.BuildConfig, service types.ServiceConfig, projectName string, logger log.Logger) *Build {
 	// Basic fields
 	b.setBasicBuildFields(buildConfig, service)
 
@@ -54,7 +54,7 @@ func (b *Build) FromComposeBuild(buildConfig types.BuildConfig, service types.Se
 	b.processVolumes(buildConfig, projectName)
 
 	// Process advanced build configuration
-	b.processAdvancedConfig(buildConfig)
+	b.processAdvancedConfig(buildConfig, logger)
 
 	// Sort all fields for deterministic output
 	sortBuild(b)
@@ -176,21 +176,21 @@ func (b *Build) processVolumes(buildConfig types.BuildConfig, projectName string
 }
 
 // processAdvancedConfig processes advanced build configuration options.
-func (b *Build) processAdvancedConfig(buildConfig types.BuildConfig) {
+func (b *Build) processAdvancedConfig(buildConfig types.BuildConfig, logger log.Logger) {
 	// Process secrets with validation
 	if len(buildConfig.Secrets) > 0 {
-		validator := validate.NewSecretValidator()
+		validator := validate.NewSecretValidator(logger)
 		for _, secret := range buildConfig.Secrets {
 			// Validate secret name
 			if err := validator.ValidateSecretName(secret.Source); err != nil {
-				log.GetLogger().Warn("Invalid build secret name, skipping", "secret", secret.Source, "error", err)
+				logger.Warn("Invalid build secret name, skipping", "secret", secret.Source, "error", err)
 				continue
 			}
 
 			// Validate target if specified
 			if secret.Target != "" {
 				if err := validator.ValidateSecretTarget(secret.Target); err != nil {
-					log.GetLogger().Warn("Invalid build secret target, skipping", "secret", secret.Source, "target", secret.Target, "error", err)
+					logger.Warn("Invalid build secret target, skipping", "secret", secret.Source, "target", secret.Target, "error", err)
 					continue
 				}
 			}
@@ -211,7 +211,7 @@ func (b *Build) processAdvancedConfig(buildConfig types.BuildConfig) {
 		for _, ssh := range buildConfig.SSH {
 			b.PodmanArgs = append(b.PodmanArgs, fmt.Sprintf("--ssh=%s", ssh))
 		}
-		log.GetLogger().Warn("SSH authentication for builds is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.")
+		logger.Warn("SSH authentication for builds is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.")
 	}
 
 	// Process cache configuration if specified
@@ -221,7 +221,7 @@ func (b *Build) processAdvancedConfig(buildConfig types.BuildConfig) {
 		for _, cache := range buildConfig.CacheFrom {
 			b.PodmanArgs = append(b.PodmanArgs, fmt.Sprintf("--cache-from=%s", cache))
 		}
-		log.GetLogger().Warn("Build cache configuration is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.")
+		logger.Warn("Build cache configuration is not directly supported by Podman Quadlet. Using PodmanArgs directive instead.")
 	}
 
 	// Process additional build extensions if any

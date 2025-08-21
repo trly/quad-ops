@@ -10,6 +10,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
 )
@@ -123,7 +124,7 @@ func TestCustomHostnameNetworkAlias(t *testing.T) {
 	}
 
 	// Generate the content and check it contains both network aliases
-	content := GenerateQuadletUnit(*unit, logger)
+	content := GenerateQuadletUnit(*unit)
 	assert.Contains(t, content, "NetworkAlias=db", "Unit content should include service name as NetworkAlias")
 	assert.Contains(t, content, "NetworkAlias=photoprism-db", "Unit content should include custom hostname as NetworkAlias")
 }
@@ -161,7 +162,7 @@ func TestDeviceMappingFormat(t *testing.T) {
 	}
 
 	// Generate the content and check it contains correctly formatted device arguments
-	content := GenerateQuadletUnit(*unit, logger)
+	content := GenerateQuadletUnit(*unit)
 
 	// The device arguments should be properly formatted for podman
 	assert.Contains(t, content, "PodmanArgs=--device=/dev/nvme0", "Device paths should be properly formatted")
@@ -173,7 +174,7 @@ func TestDeviceMappingFormat(t *testing.T) {
 
 func TestServiceSpecificEnvironmentFiles(t *testing.T) {
 	// Initialize logger
-	logger := initTestLogger()
+	initTestLogger()
 	// Create a temporary directory for testing
 	tmpDir, err := os.MkdirTemp("", "quad-ops-env-test-*")
 	assert.NoError(t, err)
@@ -277,9 +278,6 @@ func TestServiceSpecificEnvironmentFiles(t *testing.T) {
 }
 
 func TestHealthCheckConversion(t *testing.T) {
-	// Initialize logger
-	logger := initTestLogger()
-
 	// Prepare health check configuration for the container
 	container := NewContainer("test-web")
 	container.Image = "nginx:latest"
@@ -301,7 +299,7 @@ func TestHealthCheckConversion(t *testing.T) {
 	}
 
 	// Generate the unit file
-	unitFile := GenerateQuadletUnit(quadletUnit, logger)
+	unitFile := GenerateQuadletUnit(quadletUnit)
 
 	// Check that health check settings are properly included
 	assert.Contains(t, unitFile, "HealthCmd=CMD-SHELL curl -f http://localhost/ || exit 1")
@@ -313,9 +311,6 @@ func TestHealthCheckConversion(t *testing.T) {
 }
 
 func TestDisabledHealthCheck(t *testing.T) {
-	// Initialize logger
-	logger := initTestLogger()
-
 	// Create a test service with disabled health check
 	service := types.ServiceConfig{
 		Name:  "db",
@@ -343,7 +338,7 @@ func TestDisabledHealthCheck(t *testing.T) {
 	}
 
 	// Generate the unit file
-	unitFile := GenerateQuadletUnit(quadletUnit, logger)
+	unitFile := GenerateQuadletUnit(quadletUnit)
 
 	// Check that health check settings are NOT included
 	assert.NotContains(t, unitFile, "HealthCmd")
@@ -351,7 +346,6 @@ func TestDisabledHealthCheck(t *testing.T) {
 }
 
 func TestDirectHealthCheckImplementation(t *testing.T) {
-	logger := initTestLogger()
 	// Directly test our conversion implementation by manually setting health check fields
 	container := &Container{
 		BaseUnit: BaseUnit{
@@ -377,7 +371,7 @@ func TestDirectHealthCheckImplementation(t *testing.T) {
 	}
 
 	// Generate the unit file
-	unitFile := GenerateQuadletUnit(quadletUnit, logger)
+	unitFile := GenerateQuadletUnit(quadletUnit)
 
 	// Check that health check settings are properly included in the unit file
 	assert.Contains(t, unitFile, "HealthCmd=CMD-SHELL curl -f http://localhost/ || exit 1")
@@ -389,9 +383,6 @@ func TestDirectHealthCheckImplementation(t *testing.T) {
 }
 
 func TestLoggingConfiguration(t *testing.T) {
-	// Initialize logger
-	logger := initTestLogger()
-
 	// Create a test container for logging
 	container := NewContainer("logging-test")
 
@@ -424,7 +415,7 @@ func TestLoggingConfiguration(t *testing.T) {
 	}
 
 	// Generate the unit file
-	unitFile := GenerateQuadletUnit(quadletUnit, logger)
+	unitFile := GenerateQuadletUnit(quadletUnit)
 
 	// Verify logging configuration is in the unit file
 	assert.Contains(t, unitFile, "LogDriver=json-file")
@@ -433,9 +424,6 @@ func TestLoggingConfiguration(t *testing.T) {
 }
 
 func TestRestartPolicy(t *testing.T) {
-	// Initialize logger
-	logger := initTestLogger()
-
 	// Test different restart policies
 	policies := map[string]string{
 		"no":             "no",
@@ -476,7 +464,7 @@ func TestRestartPolicy(t *testing.T) {
 		}
 
 		// Generate the unit file
-		unitFile := GenerateQuadletUnit(quadletUnit, logger)
+		unitFile := GenerateQuadletUnit(quadletUnit)
 
 		// Verify restart policy is correctly mapped
 		assert.Contains(t, unitFile, "Restart="+systemdPolicy,
@@ -485,9 +473,6 @@ func TestRestartPolicy(t *testing.T) {
 }
 
 func TestContainerResourceConstraints(t *testing.T) {
-	// Initialize logger
-	logger := initTestLogger()
-
 	// Create a test container with resource constraints
 	container := NewContainer("resource-test")
 
@@ -518,7 +503,7 @@ func TestContainerResourceConstraints(t *testing.T) {
 	}
 
 	// Generate the unit file
-	unitFile := GenerateQuadletUnit(quadletUnit, logger)
+	unitFile := GenerateQuadletUnit(quadletUnit)
 
 	// Verify resource constraints are in the unit file
 	// Memory is not supported by Podman Quadlet, so we don't include it in the unit file
@@ -602,7 +587,6 @@ func TestSecurityOptions(t *testing.T) {
 
 // TestProcessServiceResources tests the main resource processing coordination.
 func TestProcessServiceResources(t *testing.T) {
-	logger := initTestLogger()
 	container := NewContainer("resource-coordinator-test")
 
 	// Test combined resource processing
@@ -615,7 +599,7 @@ func TestProcessServiceResources(t *testing.T) {
 		SecurityOpt: []string{"label:disable"},
 	}
 
-	container.processServiceResources(service, logger)
+	container.processServiceResources(service)
 
 	// Verify all resource types were processed
 	assert.Equal(t, "104857600", container.Memory)
@@ -627,9 +611,6 @@ func TestProcessServiceResources(t *testing.T) {
 }
 
 func TestContainerAdvancedConfig(t *testing.T) {
-	// Initialize logger
-	logger := initTestLogger()
-
 	// Create a test container with advanced configuration
 	container := NewContainer("advanced-test")
 
@@ -676,7 +657,7 @@ func TestContainerAdvancedConfig(t *testing.T) {
 	}
 
 	// Generate the unit file
-	unitFile := GenerateQuadletUnit(quadletUnit, logger)
+	unitFile := GenerateQuadletUnit(quadletUnit)
 
 	// Verify advanced configuration is in the unit file
 	assert.Contains(t, unitFile, "Sysctl=net.core.somaxconn=1024")
@@ -689,7 +670,6 @@ func TestContainerAdvancedConfig(t *testing.T) {
 }
 
 func TestVolumeOptionsPreservation(t *testing.T) {
-	logger := initTestLogger()
 	container := NewContainer("test-volume-options")
 
 	// Create a service with various volume options including SELinux labels
@@ -732,7 +712,6 @@ func TestVolumeOptionsPreservation(t *testing.T) {
 }
 
 func TestExternalVolumeHandling(t *testing.T) {
-	logger := initTestLogger()
 	// Create a service that uses an external volume
 	service := types.ServiceConfig{
 		Name:  "test-service",
@@ -774,7 +753,6 @@ func TestExternalVolumeHandling(t *testing.T) {
 }
 
 func TestRegularVolumeHandling(t *testing.T) {
-	logger := initTestLogger()
 	// Create a service that uses a regular (non-external) volume
 	service := types.ServiceConfig{
 		Name:  "test-service",

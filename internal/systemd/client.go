@@ -1,19 +1,6 @@
 // Package systemd provides systemd unit management operations.
 package systemd
 
-import (
-	"context"
-
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
-)
-
-// Deprecated: Use ContextProvider interface instead.
-var ctx = context.Background()
-
-// Deprecated: Use TextCaser interface instead.
-var caser = cases.Title(language.English)
-
 // Unit defines the interface for managing systemd units.
 type Unit interface {
 	// GetServiceName returns the full systemd service name

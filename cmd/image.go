@@ -30,6 +30,11 @@ import (
 // ImageCommand represents the image command for quad-ops CLI.
 type ImageCommand struct{}
 
+// NewImageCommand creates a new ImageCommand.
+func NewImageCommand() *ImageCommand {
+	return &ImageCommand{}
+}
+
 // GetCobraCommand returns the cobra command for image operations.
 func (c *ImageCommand) GetCobraCommand() *cobra.Command {
 	imageCmd := &cobra.Command{
@@ -38,7 +43,7 @@ func (c *ImageCommand) GetCobraCommand() *cobra.Command {
 	}
 
 	imageCmd.AddCommand(
-		(&PullCommand{}).GetCobraCommand(),
+		NewPullCommand().GetCobraCommand(),
 	)
 
 	return imageCmd
