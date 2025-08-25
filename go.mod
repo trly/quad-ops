@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/SerhiiCho/timeago/v3 v3.3.1
 	github.com/compose-spec/compose-go/v2 v2.8.1
-	github.com/coreos/go-systemd/v22 v22.5.1-0.20231103132048-7d375ecc2b09
+	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/creativeprojects/go-selfupdate v1.5.0
 	github.com/fatih/color v1.18.0
 	github.com/go-git/go-git/v5 v5.16.2
