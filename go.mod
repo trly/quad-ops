@@ -11,7 +11,7 @@ require (
 	github.com/go-git/go-git/v5 v5.16.2
 	github.com/godbus/dbus/v5 v5.1.1-0.20241109141217-c266b19b28e9
 	github.com/rodaine/table v1.3.0
-	github.com/spf13/cobra v1.9.1
+	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/text v0.28.0
