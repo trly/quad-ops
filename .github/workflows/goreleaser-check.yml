@@ -9,6 +9,8 @@ on:
       - 'go.mod'
       - 'go.sum'
 
+permissions:
+  contents: read
 jobs:
   goreleaser-check:
     runs-on: ubuntu-latest
