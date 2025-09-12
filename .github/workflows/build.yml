@@ -35,7 +35,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.6
+          version: latest
           args: --timeout=5m --build-tags=exclude_graphdriver_btrfs,exclude_graphdriver_devicemapper,containers_image_openpgp
         env:
           CGO_ENABLED: 0
