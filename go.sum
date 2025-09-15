@@ -19,8 +19,8 @@ github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPd
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/cloudflare/circl v1.6.1 h1:zqIqSPIndyBh1bjLVVDHMPpVKqp8Su/V+6MeDzzQBQ0=
 github.com/cloudflare/circl v1.6.1/go.mod h1:uddAzsPgqdMAYatqJ0lsjX1oECcQLIlRpzZh3pJrofs=
-github.com/compose-spec/compose-go/v2 v2.8.1 h1:27O4dzyhiS/UEUKp1zHOHCBWD1WbxGsYGMNNaSejTk4=
-github.com/compose-spec/compose-go/v2 v2.8.1/go.mod h1:veko/VB7URrg/tKz3vmIAQDaz+CGiXH8vZsW79NmAww=
+github.com/compose-spec/compose-go/v2 v2.8.2 h1:A1iVoZJUex7buGv1CpnC5uwNuyTMBYpDAmBnAQmia9Q=
+github.com/compose-spec/compose-go/v2 v2.8.2/go.mod h1:Oky9AZGTRB4E+0VbTPZTUu4Kp+oEMMuwZXZtPPVT1iE=
 github.com/coreos/go-systemd/v22 v22.6.0 h1:aGVa/v8B7hpb0TKl0MWoAavPDmHvobFe5R5zn0bCJWo=
 github.com/coreos/go-systemd/v22 v22.6.0/go.mod h1:iG+pp635Fo7ZmV/j14KUcmEyWF+0X7Lua8rrTWzYgWU=
 github.com/cpuguy83/go-md2man/v2 v2.0.6/go.mod h1:oOW0eioCTA6cOiMLiUPZOpcVxMig6NIQQ7OS05n1F4g=
