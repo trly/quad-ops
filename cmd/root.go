@@ -51,6 +51,7 @@ var (
 	quadletDir     string
 	repositoryDir  string
 	verbose        bool
+	outputFormat   string
 )
 
 // GetCobraCommand returns the cobra root command for quad-ops CLI.
@@ -105,6 +106,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 	rootCmd.PersistentFlags().StringVar(&configFilePath, "config", "", "Path to the configuration file")
 	rootCmd.PersistentFlags().StringVar(&quadletDir, "quadlet-dir", "", "Path to the quadlet directory")
 	rootCmd.PersistentFlags().StringVar(&repositoryDir, "repository-dir", "", "Path to the repository directory")
+	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json, yaml)")
 
 	rootCmd.AddCommand(
 		NewConfigCommand().GetCobraCommand(),

@@ -42,12 +42,20 @@ func (c *DownCommand) getApp(cmd *cobra.Command) *App {
 	return cmd.Context().Value(appContextKey).(*App)
 }
 
-// GetCobraCommand returns the cobra command for stopping all managed units.
+// GetCobraCommand returns the cobra command for stopping managed units.
 func (c *DownCommand) GetCobraCommand() *cobra.Command {
 	downCmd := &cobra.Command{
-		Use:   "down",
-		Short: "Stop all managed units",
-		Long:  "Stop all managed units synchronized from repositories.",
+		Use:   "down [unit-name...]",
+		Short: "Stop managed units",
+		Long: `Stop managed units synchronized from repositories.
+
+If no unit names are provided, stops all managed units.
+If unit names are provided, stops only the specified units.
+
+Examples:
+  quad-ops down                    # Stop all units
+  quad-ops down web-service        # Stop specific unit
+  quad-ops down web api database   # Stop multiple units`,
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			app := c.getApp(cmd)
 			// Validate system requirements for stopping units
@@ -56,34 +64,46 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 				os.Exit(1)
 			}
 		},
-		Run: func(cmd *cobra.Command, _ []string) {
+		Run: func(cmd *cobra.Command, args []string) {
 			app := c.getApp(cmd)
-			// Get all units
-			units, err := app.UnitRepo.FindAll()
-			if err != nil {
-				app.Logger.Error("Failed to get units from database", "error", err)
-				os.Exit(1)
-			}
 
-			if len(units) == 0 {
-				if app.Config.Verbose {
-					fmt.Println("No managed units found")
+			// Get units to stop (all units or specified units)
+			var unitsToStop []string
+			if len(args) == 0 {
+				// Get all units
+				units, err := app.UnitRepo.FindAll()
+				if err != nil {
+					app.Logger.Error("Failed to get units from database", "error", err)
+					os.Exit(1)
 				}
-				return
+
+				if len(units) == 0 {
+					if app.Config.Verbose {
+						fmt.Println("No managed units found")
+					}
+					return
+				}
+
+				for _, u := range units {
+					unitsToStop = append(unitsToStop, u.Name)
+				}
+			} else {
+				// Use specified unit names
+				unitsToStop = args
 			}
 
 			if app.Config.Verbose {
-				fmt.Printf("Stopping %d managed units...\n", len(units))
+				fmt.Printf("Stopping %d units...\n", len(unitsToStop))
 			}
 
 			successCount := 0
 			failCount := 0
 
 			// Stop each unit
-			for _, u := range units {
-				err := app.UnitManager.Stop(u.Name, u.Type)
+			for _, unitName := range unitsToStop {
+				err := app.UnitManager.Stop(unitName, "container")
 				if err != nil {
-					app.Logger.Error("Failed to stop unit", "name", u.Name, "error", err)
+					app.Logger.Error("Failed to stop unit", "name", unitName, "error", err)
 					failCount++
 				} else {
 					successCount++

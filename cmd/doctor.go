@@ -82,13 +82,6 @@ This helps diagnose common setup and configuration issues.`,
 			results = append(results, c.checkDirectories(app)...)
 			results = append(results, c.checkRepositories(app)...)
 
-			// Display results
-			if app.Config.Verbose {
-				c.displayDetailedResults(results)
-			} else {
-				c.displaySummaryResults(results)
-			}
-
 			// Count failures
 			for _, result := range results {
 				if !result.Passed {
@@ -96,16 +89,31 @@ This helps diagnose common setup and configuration issues.`,
 				}
 			}
 
-			// Exit with appropriate code
-			if failureCount > 0 {
-				if !app.Config.Verbose {
-					fmt.Printf("\n%d checks failed. Run with --verbose for details.\n", failureCount)
+			// Display results based on output format
+			if outputFormat == "text" {
+				// Traditional text output
+				if app.Config.Verbose {
+					c.displayDetailedResults(results)
+				} else {
+					c.displaySummaryResults(results)
 				}
-				os.Exit(1)
-			} else if app.Config.Verbose {
-				fmt.Println("\n✓ All checks passed")
+
+				// Exit with appropriate code
+				if failureCount > 0 {
+					if !app.Config.Verbose {
+						fmt.Printf("\n%d checks failed. Run with --verbose for details.\n", failureCount)
+					}
+					os.Exit(1)
+				} else if app.Config.Verbose {
+					fmt.Println("\n✓ All checks passed")
+				}
+			} else {
+				// Structured output (JSON/YAML)
+				c.outputStructuredResults(results, failureCount)
+				if failureCount > 0 {
+					os.Exit(1)
+				}
 			}
-			// Silent success following Unix philosophy
 		},
 	}
 
@@ -392,4 +400,43 @@ func (c *DoctorCommand) displayDetailedResults(results []CheckResult) {
 		}
 		fmt.Println()
 	}
+}
+
+// outputStructuredResults outputs health check results in structured format (JSON/YAML).
+func (c *DoctorCommand) outputStructuredResults(results []CheckResult, failureCount int) {
+	checks := make([]CheckResultStructured, 0, len(results))
+	passedCount := 0
+
+	for _, result := range results {
+		status := "failed"
+		if result.Passed {
+			status = "passed"
+			passedCount++
+		}
+
+		checks = append(checks, CheckResultStructured{
+			Name:        result.Name,
+			Status:      status,
+			Message:     result.Message,
+			Suggestions: result.Suggestions,
+		})
+	}
+
+	overall := "passed"
+	if failureCount > 0 {
+		overall = "failed"
+	}
+
+	output := HealthCheckOutput{
+		Overall: overall,
+		Checks:  checks,
+		Summary: map[string]int{
+			"total":  len(results),
+			"passed": passedCount,
+			"failed": failureCount,
+		},
+	}
+
+	// Print structured output
+	_ = PrintOutput(outputFormat, output)
 }

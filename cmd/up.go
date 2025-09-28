@@ -42,12 +42,20 @@ func (c *UpCommand) getApp(cmd *cobra.Command) *App {
 	return cmd.Context().Value(appContextKey).(*App)
 }
 
-// GetCobraCommand returns the cobra command for starting all managed units.
+// GetCobraCommand returns the cobra command for starting managed units.
 func (c *UpCommand) GetCobraCommand() *cobra.Command {
 	upCmd := &cobra.Command{
-		Use:   "up",
-		Short: "Start all managed units",
-		Long:  "Start all managed units synchronized from repositories.",
+		Use:   "up [unit-name...]",
+		Short: "Start managed units",
+		Long: `Start managed units synchronized from repositories.
+
+If no unit names are provided, starts all managed units.
+If unit names are provided, starts only the specified units.
+
+Examples:
+  quad-ops up                    # Start all units
+  quad-ops up web-service        # Start specific unit
+  quad-ops up web api database   # Start multiple units`,
 		PreRun: func(cmd *cobra.Command, _ []string) {
 			app := c.getApp(cmd)
 			// Validate system requirements for starting units
@@ -56,37 +64,49 @@ func (c *UpCommand) GetCobraCommand() *cobra.Command {
 				os.Exit(1)
 			}
 		},
-		Run: func(cmd *cobra.Command, _ []string) {
+		Run: func(cmd *cobra.Command, args []string) {
 			app := c.getApp(cmd)
-			// Get all units
-			units, err := app.UnitRepo.FindAll()
-			if err != nil {
-				app.Logger.Error("Failed to get units from database", "error", err)
-				os.Exit(1)
-			}
 
-			if len(units) == 0 {
-				if app.Config.Verbose {
-					fmt.Println("No managed units found")
+			// Get units to start (all units or specified units)
+			var unitsToStart []string
+			if len(args) == 0 {
+				// Get all units
+				units, err := app.UnitRepo.FindAll()
+				if err != nil {
+					app.Logger.Error("Failed to get units from database", "error", err)
+					os.Exit(1)
 				}
-				return
+
+				if len(units) == 0 {
+					if app.Config.Verbose {
+						fmt.Println("No managed units found")
+					}
+					return
+				}
+
+				for _, u := range units {
+					unitsToStart = append(unitsToStart, u.Name)
+				}
+			} else {
+				// Use specified unit names
+				unitsToStart = args
 			}
 
 			if app.Config.Verbose {
-				fmt.Printf("Starting %d managed units...\n", len(units))
+				fmt.Printf("Starting %d units...\n", len(unitsToStart))
 			}
 
 			successCount := 0
 			failCount := 0
 
 			// Start each unit
-			for _, u := range units {
+			for _, unitName := range unitsToStart {
 				// Reset any failed units before attempting to start
-				_ = app.UnitManager.ResetFailed(u.Name, u.Type)
+				_ = app.UnitManager.ResetFailed(unitName, "container")
 
-				err := app.UnitManager.Start(u.Name, u.Type)
+				err := app.UnitManager.Start(unitName, "container")
 				if err != nil {
-					app.Logger.Error("Failed to start unit", "name", u.Name, "error", err)
+					app.Logger.Error("Failed to start unit", "name", unitName, "error", err)
 					failCount++
 				} else {
 					successCount++

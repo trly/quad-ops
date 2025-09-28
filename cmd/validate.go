@@ -83,14 +83,16 @@ Examples:
   quad-ops validate docker-compose.yml
   quad-ops validate /path/to/my-service.compose.yml
 
-  # Clone and validate a git repository
+  # Clone and validate a git repository (use --repo flag, NOT path argument)
   quad-ops validate --repo https://github.com/user/repo.git
 
   # Clone specific branch/tag and validate
   quad-ops validate --repo https://github.com/user/repo.git --ref main
 
   # Validate specific compose directory in repository
-  quad-ops validate --repo https://github.com/user/repo.git --compose-dir services`,
+  quad-ops validate --repo https://github.com/user/repo.git --compose-dir services
+
+Note: Use either a local path OR the --repo flag, but not both.`,
 
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
@@ -102,9 +104,9 @@ Examples:
 				validatePath = "."
 			}
 
-			// Validate arguments
-			if repoURL != "" && validatePath != "" && validatePath != "." {
-				return fmt.Errorf("cannot specify both repository URL and local path")
+			// Validate arguments - make mutually exclusive options clear
+			if repoURL != "" && len(args) > 0 {
+				return fmt.Errorf("cannot specify both --repo flag and local path argument")
 			}
 
 			return nil
