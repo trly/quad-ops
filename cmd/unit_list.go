@@ -57,6 +57,14 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 	unitListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
+			// Validate system requirements for unit operations
+			if err := app.Validator.SystemRequirements(); err != nil {
+				app.Logger.Error("System requirements not met", "error", err)
+				os.Exit(1)
+			}
+		},
 		Run: func(cmd *cobra.Command, _ []string) {
 			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 			columnFmt := color.New(color.FgYellow).SprintfFunc()

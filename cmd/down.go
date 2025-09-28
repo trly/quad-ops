@@ -48,6 +48,14 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 		Use:   "down",
 		Short: "Stop all managed units",
 		Long:  "Stop all managed units synchronized from repositories.",
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
+			// Validate system requirements for stopping units
+			if err := app.Validator.SystemRequirements(); err != nil {
+				app.Logger.Error("System requirements not met", "error", err)
+				os.Exit(1)
+			}
+		},
 		Run: func(cmd *cobra.Command, _ []string) {
 			app := c.getApp(cmd)
 			// Get all units

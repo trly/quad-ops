@@ -1,0 +1,395 @@
+// Package cmd provides the command line interface for quad-ops
+/*
+Copyright © 2025 Travis Lyons travis.lyons@gmail.com
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+*/
+package cmd
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	"github.com/trly/quad-ops/internal/git"
+)
+
+// DoctorCommand represents the doctor command for quad-ops CLI.
+type DoctorCommand struct{}
+
+// NewDoctorCommand creates a new DoctorCommand.
+func NewDoctorCommand() *DoctorCommand {
+	return &DoctorCommand{}
+}
+
+// getApp retrieves the App from the command context.
+func (c *DoctorCommand) getApp(cmd *cobra.Command) *App {
+	return cmd.Context().Value(appContextKey).(*App)
+}
+
+// CheckResult represents the result of a diagnostic check.
+type CheckResult struct {
+	Name        string
+	Passed      bool
+	Message     string
+	Suggestions []string
+}
+
+// GetCobraCommand returns the cobra command for doctor operations.
+func (c *DoctorCommand) GetCobraCommand() *cobra.Command {
+	doctorCmd := &cobra.Command{
+		Use:   "doctor",
+		Short: "Check system health and configuration",
+		Long: `Check system health and configuration for quad-ops.
+
+The doctor command performs comprehensive checks of:
+- System requirements (systemd, podman)
+- Configuration file validity
+- Directory permissions and accessibility
+- Repository connectivity
+- File system requirements
+
+This helps diagnose common setup and configuration issues.`,
+		Run: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
+
+			// Collect all diagnostic results
+			var results []CheckResult
+			var failureCount int
+
+			// Run all checks
+			results = append(results, c.checkSystemRequirements(app)...)
+			results = append(results, c.checkConfiguration(app)...)
+			results = append(results, c.checkDirectories(app)...)
+			results = append(results, c.checkRepositories(app)...)
+
+			// Display results
+			if app.Config.Verbose {
+				c.displayDetailedResults(results)
+			} else {
+				c.displaySummaryResults(results)
+			}
+
+			// Count failures
+			for _, result := range results {
+				if !result.Passed {
+					failureCount++
+				}
+			}
+
+			// Exit with appropriate code
+			if failureCount > 0 {
+				if !app.Config.Verbose {
+					fmt.Printf("\n%d checks failed. Run with --verbose for details.\n", failureCount)
+				}
+				os.Exit(1)
+			} else if app.Config.Verbose {
+				fmt.Println("\n✓ All checks passed")
+			}
+			// Silent success following Unix philosophy
+		},
+	}
+
+	return doctorCmd
+}
+
+// checkSystemRequirements validates core system dependencies.
+func (c *DoctorCommand) checkSystemRequirements(app *App) []CheckResult {
+	var results []CheckResult
+
+	// Check systemd and podman
+	err := app.Validator.SystemRequirements()
+	if err != nil {
+		suggestions := []string{
+			"Install systemd if running on a systemd-based system",
+			"Install podman for container operations",
+			"Ensure systemd and podman are in your PATH",
+		}
+		results = append(results, CheckResult{
+			Name:        "System Requirements",
+			Passed:      false,
+			Message:     err.Error(),
+			Suggestions: suggestions,
+		})
+	} else {
+		results = append(results, CheckResult{
+			Name:    "System Requirements",
+			Passed:  true,
+			Message: "systemd and podman are available",
+		})
+	}
+
+	return results
+}
+
+// checkConfiguration validates configuration file and settings.
+func (c *DoctorCommand) checkConfiguration(app *App) []CheckResult {
+	var results []CheckResult
+
+	// Check if config file exists and is readable
+	configFile := viper.GetViper().ConfigFileUsed()
+	if configFile == "" {
+		results = append(results, CheckResult{
+			Name:    "Configuration File",
+			Passed:  false,
+			Message: "No configuration file found",
+			Suggestions: []string{
+				"Create a configuration file at ~/.config/quad-ops/config.yaml",
+				"Or specify config file path with --config flag",
+				"Run 'quad-ops config' to see current configuration",
+			},
+		})
+	} else {
+		if _, err := os.Stat(configFile); err != nil {
+			results = append(results, CheckResult{
+				Name:    "Configuration File",
+				Passed:  false,
+				Message: fmt.Sprintf("Configuration file not accessible: %v", err),
+				Suggestions: []string{
+					"Check file permissions on " + configFile,
+					"Verify the file path is correct",
+				},
+			})
+		} else {
+			results = append(results, CheckResult{
+				Name:    "Configuration File",
+				Passed:  true,
+				Message: fmt.Sprintf("Configuration loaded from %s", configFile),
+			})
+		}
+	}
+
+	// Check if repositories are configured
+	if len(app.Config.Repositories) == 0 {
+		results = append(results, CheckResult{
+			Name:    "Repository Configuration",
+			Passed:  false,
+			Message: "No repositories configured",
+			Suggestions: []string{
+				"Add repository configurations to your config file",
+				"Each repository should specify name, url, and target branch",
+			},
+		})
+	} else {
+		results = append(results, CheckResult{
+			Name:    "Repository Configuration",
+			Passed:  true,
+			Message: fmt.Sprintf("%d repositories configured", len(app.Config.Repositories)),
+		})
+	}
+
+	return results
+}
+
+// checkDirectories validates directory permissions and accessibility.
+func (c *DoctorCommand) checkDirectories(app *App) []CheckResult {
+	var results []CheckResult
+
+	// Check quadlet directory
+	quadletDir := app.Config.QuadletDir
+	if err := c.checkDirectory("Quadlet Directory", quadletDir); err != nil {
+		suggestions := []string{
+			fmt.Sprintf("Create directory: mkdir -p %s", quadletDir),
+			fmt.Sprintf("Fix permissions: chmod 755 %s", quadletDir),
+		}
+		results = append(results, CheckResult{
+			Name:        "Quadlet Directory",
+			Passed:      false,
+			Message:     err.Error(),
+			Suggestions: suggestions,
+		})
+	} else {
+		results = append(results, CheckResult{
+			Name:    "Quadlet Directory",
+			Passed:  true,
+			Message: fmt.Sprintf("Directory accessible at %s", quadletDir),
+		})
+	}
+
+	// Check repository directory
+	repoDir := app.Config.RepositoryDir
+	if err := c.checkDirectory("Repository Directory", repoDir); err != nil {
+		suggestions := []string{
+			fmt.Sprintf("Create directory: mkdir -p %s", repoDir),
+			fmt.Sprintf("Fix permissions: chmod 755 %s", repoDir),
+		}
+		results = append(results, CheckResult{
+			Name:        "Repository Directory",
+			Passed:      false,
+			Message:     err.Error(),
+			Suggestions: suggestions,
+		})
+	} else {
+		results = append(results, CheckResult{
+			Name:    "Repository Directory",
+			Passed:  true,
+			Message: fmt.Sprintf("Directory accessible at %s", repoDir),
+		})
+	}
+
+	return results
+}
+
+// checkRepositories validates repository connectivity and accessibility.
+func (c *DoctorCommand) checkRepositories(app *App) []CheckResult {
+	results := make([]CheckResult, 0, len(app.Config.Repositories))
+
+	for _, repoConfig := range app.Config.Repositories {
+		gitRepo := git.NewGitRepository(repoConfig, app.ConfigProvider)
+
+		// Check if repository directory exists
+		repoPath := gitRepo.Path
+		if _, err := os.Stat(repoPath); err != nil {
+			suggestions := []string{
+				"Run 'quad-ops sync' to clone repositories",
+				"Check network connectivity to repository URL",
+				"Verify git credentials if using private repositories",
+			}
+			results = append(results, CheckResult{
+				Name:        fmt.Sprintf("Repository: %s", repoConfig.Name),
+				Passed:      false,
+				Message:     fmt.Sprintf("Repository not cloned locally: %v", err),
+				Suggestions: suggestions,
+			})
+			continue
+		}
+
+		// Check if it's a valid git repository
+		if !c.isValidGitRepo(repoPath) {
+			suggestions := []string{
+				fmt.Sprintf("Remove invalid directory: rm -rf %s", repoPath),
+				"Run 'quad-ops sync' to re-clone repository",
+			}
+			results = append(results, CheckResult{
+				Name:        fmt.Sprintf("Repository: %s", repoConfig.Name),
+				Passed:      false,
+				Message:     "Directory exists but is not a valid git repository",
+				Suggestions: suggestions,
+			})
+			continue
+		}
+
+		// Check compose directory if specified
+		if repoConfig.ComposeDir != "" {
+			composeDir := filepath.Join(repoPath, repoConfig.ComposeDir)
+			if _, err := os.Stat(composeDir); err != nil {
+				suggestions := []string{
+					fmt.Sprintf("Verify compose directory path in configuration: %s", repoConfig.ComposeDir),
+					"Check if the directory exists in the repository",
+				}
+				results = append(results, CheckResult{
+					Name:        fmt.Sprintf("Repository: %s", repoConfig.Name),
+					Passed:      false,
+					Message:     fmt.Sprintf("Compose directory not found: %s", repoConfig.ComposeDir),
+					Suggestions: suggestions,
+				})
+				continue
+			}
+		}
+
+		results = append(results, CheckResult{
+			Name:    fmt.Sprintf("Repository: %s", repoConfig.Name),
+			Passed:  true,
+			Message: fmt.Sprintf("Repository accessible at %s", repoPath),
+		})
+	}
+
+	return results
+}
+
+// checkDirectory validates a directory exists and is accessible.
+func (c *DoctorCommand) checkDirectory(_, path string) error {
+	if path == "" {
+		return fmt.Errorf("directory path is empty")
+	}
+
+	// Check if directory exists
+	stat, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("directory does not exist: %s", path)
+		}
+		return fmt.Errorf("cannot access directory: %v", err)
+	}
+
+	// Check if it's actually a directory
+	if !stat.IsDir() {
+		return fmt.Errorf("path exists but is not a directory: %s", path)
+	}
+
+	// Check if directory is writable
+	testFile := filepath.Join(path, ".quad-ops-test")
+	if err := os.WriteFile(testFile, []byte("test"), 0600); err != nil {
+		return fmt.Errorf("directory is not writable: %v", err)
+	}
+	_ = os.Remove(testFile) // Cleanup - ignore error
+
+	return nil
+}
+
+// isValidGitRepo checks if the given path contains a valid git repository.
+func (c *DoctorCommand) isValidGitRepo(path string) bool {
+	gitDir := filepath.Join(path, ".git")
+	if stat, err := os.Stat(gitDir); err != nil || !stat.IsDir() {
+		return false
+	}
+	return true
+}
+
+// displaySummaryResults shows a brief summary of check results.
+func (c *DoctorCommand) displaySummaryResults(results []CheckResult) {
+	var failed []CheckResult
+
+	for _, result := range results {
+		if !result.Passed {
+			failed = append(failed, result)
+		}
+	}
+
+	if len(failed) > 0 {
+		fmt.Println("Issues found:")
+		for _, result := range failed {
+			fmt.Printf("✗ %s: %s\n", result.Name, result.Message)
+		}
+	}
+}
+
+// displayDetailedResults shows detailed information about all checks.
+func (c *DoctorCommand) displayDetailedResults(results []CheckResult) {
+	fmt.Println("System Health Check Results:")
+	fmt.Println(strings.Repeat("=", 40))
+
+	for _, result := range results {
+		if result.Passed {
+			fmt.Printf("✓ %s: %s\n", result.Name, result.Message)
+		} else {
+			fmt.Printf("✗ %s: %s\n", result.Name, result.Message)
+			if len(result.Suggestions) > 0 {
+				fmt.Println("  Suggestions:")
+				for _, suggestion := range result.Suggestions {
+					fmt.Printf("    - %s\n", suggestion)
+				}
+			}
+		}
+		fmt.Println()
+	}
+}

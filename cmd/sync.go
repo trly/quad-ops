@@ -25,9 +25,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
-	"time"
 
-	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/git"
@@ -47,11 +45,9 @@ func (c *SyncCommand) getApp(cmd *cobra.Command) *App {
 }
 
 var (
-	dryRun       bool
-	repoName     string
-	daemonMode   bool
-	syncInterval time.Duration
-	force        bool
+	dryRun   bool
+	repoName string
+	force    bool
 )
 
 // GetCobraCommand returns the cobra command for sync operations.
@@ -71,6 +67,14 @@ repositories:
     cleanup:
       action: Delete`,
 
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
+			// Validate system requirements for sync operations
+			if err := app.Validator.SystemRequirements(); err != nil {
+				app.Logger.Error("System requirements not met", "error", err)
+				os.Exit(1)
+			}
+		},
 		Run: func(cmd *cobra.Command, _ []string) {
 			app := c.getApp(cmd)
 			if err := os.MkdirAll(app.Config.QuadletDir, 0750); err != nil {
@@ -78,21 +82,11 @@ repositories:
 				os.Exit(1)
 			}
 
-			if syncInterval > 0 {
-				app.Config.SyncInterval = syncInterval
-			}
-
 			c.syncRepositories(app)
-
-			if daemonMode {
-				c.syncDaemon(app)
-			}
 		},
 	}
 
 	syncCmd.Flags().BoolVarP(&dryRun, "dry-run", "d", false, "Perform a dry run without making any changes.")
-	syncCmd.Flags().BoolVar(&daemonMode, "daemon", false, "Run as a daemon.")
-	syncCmd.Flags().DurationVarP(&syncInterval, "sync-interval", "i", 5*time.Minute, "Interval between synchronization checks.")
 	syncCmd.Flags().StringVarP(&repoName, "repo", "r", "", "Synchronize a single, named, repository.")
 	syncCmd.Flags().BoolVarP(&force, "force", "f", false, "Force synchronization even if the repository has not changed.")
 
@@ -160,39 +154,6 @@ func (c *SyncCommand) syncRepositories(app *App) {
 			processedUnits = updatedMap
 		} else {
 			app.Logger.Info("Dry-run: would process repository", "name", repoConfig.Name)
-		}
-	}
-}
-
-func (c *SyncCommand) syncDaemon(app *App) {
-	app.Logger.Info("Starting sync daemon", "interval", app.Config.SyncInterval)
-
-	// Notify systemd that the daemon is ready
-	if sent, err := daemon.SdNotify(false, daemon.SdNotifyReady); err != nil {
-		app.Logger.Warn("Failed to notify systemd of readiness", "error", err)
-	} else if sent {
-		app.Logger.Info("Notified systemd that daemon is ready")
-	}
-
-	ticker := time.NewTicker(app.Config.SyncInterval)
-	defer ticker.Stop()
-
-	// Send periodic watchdog notifications if configured
-	watchdogTicker := time.NewTicker(30 * time.Second)
-	defer watchdogTicker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			app.Logger.Debug("Starting scheduled sync")
-			c.syncRepositories(app)
-		case <-watchdogTicker.C:
-			// Send watchdog notification to systemd
-			if sent, err := daemon.SdNotify(false, daemon.SdNotifyWatchdog); err != nil {
-				app.Logger.Debug("Failed to send watchdog notification", "error", err)
-			} else if sent {
-				app.Logger.Debug("Sent watchdog notification to systemd")
-			}
 		}
 	}
 }

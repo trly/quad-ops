@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/sorting"
@@ -22,6 +23,15 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 		Use:   "status",
 		Short: "Show the status of a quadlet unit",
 		Args:  cobra.ExactArgs(1),
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			// Get unit manager from app context
+			app := cmd.Context().Value(appContextKey).(*App)
+			// Validate system requirements for unit operations
+			if err := app.Validator.SystemRequirements(); err != nil {
+				app.Logger.Error("System requirements not met", "error", err)
+				os.Exit(1)
+			}
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			name := args[0]
 

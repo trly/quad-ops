@@ -49,6 +49,14 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 		Use:   "show",
 		Short: "Show the contents of a quadlet unit",
 		Args:  cobra.ExactArgs(1),
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
+			// Validate system requirements for unit operations
+			if err := app.Validator.SystemRequirements(); err != nil {
+				app.Logger.Error("System requirements not met", "error", err)
+				os.Exit(1)
+			}
+		},
 		Run: func(cmd *cobra.Command, args []string) {
 			app := c.getApp(cmd)
 			name := args[0]

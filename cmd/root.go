@@ -26,7 +26,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
@@ -95,20 +94,8 @@ It automatically generates systemd unit files from Docker Compose files and hand
 				cfg.QuadletDir = quadletDir
 			}
 
-			// Initialize app first so we can access its validator
+			// Initialize app and store in context for commands that need it
 			app := NewApp(logger, configProv)
-
-			// Only check system requirements for commands that actually need systemd/podman
-			// validate command has its own optional --check-system flag
-			cmdName := cmd.Name()
-			if cmdName == "sync" || cmdName == "up" || cmdName == "down" || strings.HasPrefix(cmdName, "unit") || strings.HasPrefix(cmdName, "image") {
-				err := app.Validator.SystemRequirements()
-				if err != nil {
-					logger.Error("System requirements not met", "err", err)
-				}
-			}
-
-			// Store app in context for commands that need it
 			cmd.SetContext(context.WithValue(cmd.Context(), appContextKey, app))
 		},
 	}
@@ -122,6 +109,8 @@ It automatically generates systemd unit files from Docker Compose files and hand
 	rootCmd.AddCommand(
 		NewConfigCommand().GetCobraCommand(),
 		NewSyncCommand().GetCobraCommand(),
+		NewDaemonCommand().GetCobraCommand(),
+		NewDoctorCommand().GetCobraCommand(),
 		NewUnitCommand().GetCobraCommand(),
 		NewUpCommand().GetCobraCommand(),
 		NewImageCommand().GetCobraCommand(),

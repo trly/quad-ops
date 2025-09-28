@@ -53,6 +53,14 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 		Use:   "pull",
 		Short: "pull an image from a registry",
 		Args:  cobra.MaximumNArgs(1),
+		PreRun: func(cmd *cobra.Command, _ []string) {
+			app := c.getApp(cmd)
+			// Validate system requirements for image operations
+			if err := app.Validator.SystemRequirements(); err != nil {
+				app.Logger.Error("System requirements not met", "error", err)
+				os.Exit(1)
+			}
+		},
 	}
 
 	pullCmd.Run = func(cmd *cobra.Command, args []string) {
