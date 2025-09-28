@@ -58,11 +58,15 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 			}
 
 			if len(units) == 0 {
-				fmt.Println("No managed units found")
+				if app.Config.Verbose {
+					fmt.Println("No managed units found")
+				}
 				return
 			}
 
-			fmt.Printf("Stopping %d managed units...\n", len(units))
+			if app.Config.Verbose {
+				fmt.Printf("Stopping %d managed units...\n", len(units))
+			}
 
 			successCount := 0
 			failCount := 0
@@ -78,7 +82,13 @@ func (c *DownCommand) GetCobraCommand() *cobra.Command {
 				}
 			}
 
-			fmt.Printf("Successfully stopped %d units, failed to stop %d units\n", successCount, failCount)
+			// Only output summary on failure or in verbose mode
+			if failCount > 0 {
+				fmt.Printf("Failed to stop %d units\n", failCount)
+				os.Exit(1)
+			} else if app.Config.Verbose {
+				fmt.Printf("Successfully stopped %d units\n", successCount)
+			}
 		},
 	}
 

@@ -302,7 +302,7 @@ func validateComposeWithDeps(path string, logger log.Logger) error {
 		return nil
 	}
 
-	logger.Info("Found compose projects for validation", "count", len(projects))
+	logger.Debug("Found compose projects for validation", "count", len(projects))
 
 	// Validate each project
 	var validationErrors []string
@@ -327,17 +327,14 @@ func validateComposeWithDeps(path string, logger log.Logger) error {
 		"errors", len(validationErrors))
 
 	if len(validationErrors) > 0 {
-		fmt.Printf("\nValidation Summary:\n")
-		fmt.Printf("✓ Valid projects: %d\n", validProjectCount)
-		fmt.Printf("✗ Invalid projects: %d\n", len(validationErrors))
-		fmt.Printf("\nValidation Errors:\n")
+		fmt.Printf("Validation Errors:\n")
 		for _, err := range validationErrors {
 			fmt.Printf("  • %s\n", err)
 		}
 		return fmt.Errorf("validation failed with %d errors", len(validationErrors))
 	}
 
-	fmt.Printf("\n✓ All %d projects validated successfully\n", validProjectCount)
+	// Success is silent - only show output in verbose mode via logger
 	return nil
 }
 
