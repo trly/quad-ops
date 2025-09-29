@@ -104,7 +104,7 @@ This helps diagnose common setup and configuration issues.`,
 // buildDeps creates production dependencies for the doctor command.
 func (c *DoctorCommand) buildDeps(app *App) DoctorDeps {
 	return DoctorDeps{
-		CommonDeps:      NewCommonDeps(app.Logger),
+		CommonDeps:      NewRootDeps(app),
 		NewGitRepo:      git.NewGitRepository,
 		ViperConfigFile: func() string { return viper.GetViper().ConfigFileUsed() },
 	}

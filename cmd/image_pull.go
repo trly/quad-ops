@@ -88,7 +88,7 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 // buildDeps creates production dependencies for pull.
 func (c *PullCommand) buildDeps(app *App) PullDeps {
 	return PullDeps{
-		CommonDeps:  NewCommonDeps(app.Logger),
+		CommonDeps:  NewRootDeps(app),
 		ExecCommand: exec.Command,
 		Environ:     os.Environ,
 		Getuid:      os.Getuid,

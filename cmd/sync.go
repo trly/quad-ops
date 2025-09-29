@@ -104,7 +104,7 @@ repositories:
 // buildDeps creates production dependencies for the sync command.
 func (c *SyncCommand) buildDeps(app *App) SyncDeps {
 	return SyncDeps{
-		CommonDeps:          NewCommonDeps(app.Logger),
+		CommonDeps:          NewRootDeps(app),
 		NewGitRepository:    git.NewGitRepository,
 		ReadProjects:        compose.ReadProjects,
 		NewDefaultProcessor: compose.NewDefaultProcessor,

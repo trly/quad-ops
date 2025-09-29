@@ -98,6 +98,6 @@ func (c *ShowCommand) Run(_ context.Context, app *App, opts ShowOptions, _ ShowD
 // buildDeps creates production dependencies for the show command.
 func (c *ShowCommand) buildDeps(app *App) ShowDeps {
 	return ShowDeps{
-		CommonDeps: NewCommonDeps(app.Logger),
+		CommonDeps: NewRootDeps(app),
 	}
 }

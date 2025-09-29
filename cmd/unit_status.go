@@ -76,6 +76,6 @@ func (c *StatusCommand) Run(_ context.Context, app *App, opts StatusOptions, _ S
 // buildDeps creates production dependencies for the status command.
 func (c *StatusCommand) buildDeps(app *App) StatusDeps {
 	return StatusDeps{
-		CommonDeps: NewCommonDeps(app.Logger),
+		CommonDeps: NewRootDeps(app),
 	}
 }

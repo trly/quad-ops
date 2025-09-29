@@ -17,14 +17,14 @@ import (
 
 // MockSyncPerformer implements SyncPerformer for testing.
 type MockSyncPerformer struct {
-	PerformSyncFunc func(context.Context, *App, *SyncCommand, SyncOptions, SyncDeps)
+	PerformSyncFunc func(context.Context, *App, *SyncCommand, SyncOptions, SyncDeps, DaemonDeps)
 	CallCount       int
 }
 
-func (m *MockSyncPerformer) PerformSync(ctx context.Context, app *App, syncCmd *SyncCommand, opts SyncOptions, deps SyncDeps) {
+func (m *MockSyncPerformer) PerformSync(ctx context.Context, app *App, syncCmd *SyncCommand, opts SyncOptions, syncDeps SyncDeps, daemonDeps DaemonDeps) {
 	m.CallCount++
 	if m.PerformSyncFunc != nil {
-		m.PerformSyncFunc(ctx, app, syncCmd, opts, deps)
+		m.PerformSyncFunc(ctx, app, syncCmd, opts, syncDeps, daemonDeps)
 	}
 }
 
@@ -95,7 +95,7 @@ func TestDaemonCommand_InitialSync(t *testing.T) {
 	// Override sync performer to count calls and cancel quickly
 	daemonCmd := NewDaemonCommand()
 	mockPerformer := &MockSyncPerformer{
-		PerformSyncFunc: func(_ context.Context, _ *App, _ *SyncCommand, _ SyncOptions, _ SyncDeps) {
+		PerformSyncFunc: func(_ context.Context, _ *App, _ *SyncCommand, _ SyncOptions, _ SyncDeps, _ DaemonDeps) {
 			syncCount++
 		},
 	}
@@ -254,7 +254,7 @@ func TestDaemonCommand_SyncPerformer(t *testing.T) {
 
 	// Mock sync performer to avoid real operations
 	mockPerformer := &MockSyncPerformer{
-		PerformSyncFunc: func(_ context.Context, receivedApp *App, receivedSyncCmd *SyncCommand, receivedOpts SyncOptions, _ SyncDeps) {
+		PerformSyncFunc: func(_ context.Context, receivedApp *App, receivedSyncCmd *SyncCommand, receivedOpts SyncOptions, _ SyncDeps, _ DaemonDeps) {
 			// Verify the correct parameters were passed
 			assert.Equal(t, app, receivedApp)
 			assert.Equal(t, syncCmd, receivedSyncCmd)
@@ -264,7 +264,8 @@ func TestDaemonCommand_SyncPerformer(t *testing.T) {
 	daemonCmd.syncPerformer = mockPerformer
 
 	// Execute via the sync performer
-	daemonCmd.syncPerformer.PerformSync(context.Background(), app, syncCmd, syncOpts, syncDeps)
+	daemonDeps := daemonCmd.buildDeps(app)
+	daemonCmd.syncPerformer.PerformSync(context.Background(), app, syncCmd, syncOpts, syncDeps, daemonDeps)
 
 	// Verify mock was called
 	assert.Equal(t, 1, mockPerformer.CallCount)

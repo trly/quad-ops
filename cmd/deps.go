@@ -78,9 +78,16 @@ type CommonDeps struct {
 
 // NewCommonDeps creates production common dependencies.
 func NewCommonDeps(logger log.Logger) CommonDeps {
+	fs := NewFileSystemOps()
 	return CommonDeps{
 		Clock:      clock.New(),
-		FileSystem: &FileSystemOps{},
+		FileSystem: &fs,
 		Logger:     logger,
 	}
+}
+
+// NewRootDeps creates common root dependencies for all commands.
+// This helper reduces duplication in buildDeps methods.
+func NewRootDeps(app *App) CommonDeps {
+	return NewCommonDeps(app.Logger)
 }

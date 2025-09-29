@@ -87,7 +87,7 @@ Examples:
 // buildDeps creates production dependencies for the down command.
 func (c *DownCommand) buildDeps(app *App) DownDeps {
 	return DownDeps{
-		CommonDeps: NewCommonDeps(app.Logger),
+		CommonDeps: NewRootDeps(app),
 	}
 }
 

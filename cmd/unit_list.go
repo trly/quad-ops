@@ -97,23 +97,23 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 }
 
 // Run executes the list command with injected dependencies.
-func (c *ListCommand) Run(_ context.Context, app *App, opts ListOptions, _ ListDeps) error {
+func (c *ListCommand) Run(_ context.Context, app *App, opts ListOptions, deps ListDeps) error {
 	headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 	columnFmt := color.New(color.FgYellow).SprintfFunc()
 	tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Updated")
 	tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
-	return c.findAndDisplayUnits(app, tbl, opts.UnitType)
+	return c.findAndDisplayUnits(app, tbl, opts.UnitType, deps)
 }
 
 // buildDeps creates production dependencies for the list command.
 func (c *ListCommand) buildDeps(app *App) ListDeps {
 	return ListDeps{
-		CommonDeps: NewCommonDeps(app.Logger),
+		CommonDeps: NewRootDeps(app),
 	}
 }
 
-func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType string) error {
+func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType string, deps ListDeps) error {
 	var units []repository.Unit
 	var err error
 
@@ -131,12 +131,12 @@ func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType st
 	for _, u := range units {
 		unitStatus, err := app.UnitManager.GetStatus(u.Name, u.Type)
 		if err != nil {
-			app.Logger.Debug("Error getting unit status", "error", err)
+			deps.Logger.Debug("Error getting unit status", "error", err)
 			unitStatus = "UNKNOWN"
 		}
 		updateAtString, err := timeago.Parse(u.UpdatedAt)
 		if err != nil {
-			app.Logger.Debug("Error parsing update at time", "error", err)
+			deps.Logger.Debug("Error parsing update at time", "error", err)
 			updateAtString = "UNKNOWN"
 		}
 		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), updateAtString)

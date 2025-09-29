@@ -46,16 +46,16 @@ type DaemonDeps struct {
 
 // SyncPerformer defines the interface for performing sync operations.
 type SyncPerformer interface {
-	PerformSync(context.Context, *App, *SyncCommand, SyncOptions, SyncDeps)
+	PerformSync(context.Context, *App, *SyncCommand, SyncOptions, SyncDeps, DaemonDeps)
 }
 
 // DefaultSyncPerformer implements SyncPerformer with the default behavior.
 type DefaultSyncPerformer struct{}
 
 // PerformSync executes a sync operation using the default implementation.
-func (d *DefaultSyncPerformer) PerformSync(ctx context.Context, app *App, syncCmd *SyncCommand, opts SyncOptions, deps SyncDeps) {
-	if err := syncCmd.syncRepositories(ctx, app, opts, deps); err != nil {
-		app.Logger.Error("Sync failed", "error", err)
+func (d *DefaultSyncPerformer) PerformSync(ctx context.Context, app *App, syncCmd *SyncCommand, opts SyncOptions, syncDeps SyncDeps, daemonDeps DaemonDeps) {
+	if err := syncCmd.syncRepositories(ctx, app, opts, syncDeps); err != nil {
+		daemonDeps.Logger.Error("Sync failed", "error", err)
 	}
 }
 
@@ -116,7 +116,7 @@ when running under systemd supervision.`,
 // buildDeps creates production dependencies for the daemon.
 func (c *DaemonCommand) buildDeps(app *App) DaemonDeps {
 	return DaemonDeps{
-		CommonDeps: NewCommonDeps(app.Logger),
+		CommonDeps: NewRootDeps(app),
 		Notify:     daemon.SdNotify,
 	}
 }
@@ -147,7 +147,7 @@ func (c *DaemonCommand) Run(ctx context.Context, app *App, opts DaemonOptions, d
 	if app.Config.Verbose {
 		deps.Logger.Info("Performing initial sync")
 	}
-	c.syncPerformer.PerformSync(ctx, app, syncCmd, syncOpts, syncDeps)
+	c.syncPerformer.PerformSync(ctx, app, syncCmd, syncOpts, syncDeps, deps)
 
 	// Start daemon mode
 	return c.runDaemon(ctx, app, syncCmd, syncOpts, syncDeps, deps)
@@ -178,7 +178,7 @@ func (c *DaemonCommand) runDaemon(ctx context.Context, app *App, syncCmd *SyncCo
 			return ctx.Err()
 		case <-ticker.C:
 			deps.Logger.Debug("Starting scheduled sync")
-			c.syncPerformer.PerformSync(ctx, app, syncCmd, syncOpts, syncDeps)
+			c.syncPerformer.PerformSync(ctx, app, syncCmd, syncOpts, syncDeps, deps)
 		case <-watchdogTicker.C:
 			// Send watchdog notification to systemd
 			if sent, err := deps.Notify(false, daemon.SdNotifyWatchdog); err != nil {
