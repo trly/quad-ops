@@ -20,7 +20,7 @@ type App struct {
 	FSService      *fs.Service
 	UnitRepo       repository.Repository
 	UnitManager    systemd.UnitManager
-	Validator      *validate.Validator
+	Validator      SystemValidator
 }
 
 // NewApp creates a new App with all dependencies initialized.

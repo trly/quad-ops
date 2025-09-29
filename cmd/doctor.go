@@ -33,6 +33,16 @@ import (
 	"github.com/trly/quad-ops/internal/git"
 )
 
+// Test seams for external dependencies.
+var (
+	osStat          = os.Stat
+	osWriteFile     = os.WriteFile
+	osRemove        = os.Remove
+	newGitRepo      = git.NewGitRepository
+	doctorExitFunc  = os.Exit
+	viperConfigFile = func() string { return viper.GetViper().ConfigFileUsed() }
+)
+
 // DoctorCommand represents the doctor command for quad-ops CLI.
 type DoctorCommand struct{}
 
@@ -103,7 +113,7 @@ This helps diagnose common setup and configuration issues.`,
 					if !app.Config.Verbose {
 						fmt.Printf("\n%d checks failed. Run with --verbose for details.\n", failureCount)
 					}
-					os.Exit(1)
+					doctorExitFunc(1)
 				} else if app.Config.Verbose {
 					fmt.Println("\n✓ All checks passed")
 				}
@@ -111,7 +121,7 @@ This helps diagnose common setup and configuration issues.`,
 				// Structured output (JSON/YAML)
 				c.outputStructuredResults(results, failureCount)
 				if failureCount > 0 {
-					os.Exit(1)
+					doctorExitFunc(1)
 				}
 			}
 		},
@@ -154,7 +164,7 @@ func (c *DoctorCommand) checkConfiguration(app *App) []CheckResult {
 	var results []CheckResult
 
 	// Check if config file exists and is readable
-	configFile := viper.GetViper().ConfigFileUsed()
+	configFile := viperConfigFile()
 	if configFile == "" {
 		results = append(results, CheckResult{
 			Name:    "Configuration File",
@@ -167,7 +177,7 @@ func (c *DoctorCommand) checkConfiguration(app *App) []CheckResult {
 			},
 		})
 	} else {
-		if _, err := os.Stat(configFile); err != nil {
+		if _, err := osStat(configFile); err != nil {
 			results = append(results, CheckResult{
 				Name:    "Configuration File",
 				Passed:  false,
@@ -262,11 +272,11 @@ func (c *DoctorCommand) checkRepositories(app *App) []CheckResult {
 	results := make([]CheckResult, 0, len(app.Config.Repositories))
 
 	for _, repoConfig := range app.Config.Repositories {
-		gitRepo := git.NewGitRepository(repoConfig, app.ConfigProvider)
+		gitRepo := newGitRepo(repoConfig, app.ConfigProvider)
 
 		// Check if repository directory exists
 		repoPath := gitRepo.Path
-		if _, err := os.Stat(repoPath); err != nil {
+		if _, err := osStat(repoPath); err != nil {
 			suggestions := []string{
 				"Run 'quad-ops sync' to clone repositories",
 				"Check network connectivity to repository URL",
@@ -299,7 +309,7 @@ func (c *DoctorCommand) checkRepositories(app *App) []CheckResult {
 		// Check compose directory if specified
 		if repoConfig.ComposeDir != "" {
 			composeDir := filepath.Join(repoPath, repoConfig.ComposeDir)
-			if _, err := os.Stat(composeDir); err != nil {
+			if _, err := osStat(composeDir); err != nil {
 				suggestions := []string{
 					fmt.Sprintf("Verify compose directory path in configuration: %s", repoConfig.ComposeDir),
 					"Check if the directory exists in the repository",
@@ -331,7 +341,7 @@ func (c *DoctorCommand) checkDirectory(_, path string) error {
 	}
 
 	// Check if directory exists
-	stat, err := os.Stat(path)
+	stat, err := osStat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("directory does not exist: %s", path)
@@ -346,10 +356,10 @@ func (c *DoctorCommand) checkDirectory(_, path string) error {
 
 	// Check if directory is writable
 	testFile := filepath.Join(path, ".quad-ops-test")
-	if err := os.WriteFile(testFile, []byte("test"), 0600); err != nil {
+	if err := osWriteFile(testFile, []byte("test"), 0600); err != nil {
 		return fmt.Errorf("directory is not writable: %v", err)
 	}
-	_ = os.Remove(testFile) // Cleanup - ignore error
+	_ = osRemove(testFile) // Cleanup - ignore error
 
 	return nil
 }
@@ -357,7 +367,7 @@ func (c *DoctorCommand) checkDirectory(_, path string) error {
 // isValidGitRepo checks if the given path contains a valid git repository.
 func (c *DoctorCommand) isValidGitRepo(path string) bool {
 	gitDir := filepath.Join(path, ".git")
-	if stat, err := os.Stat(gitDir); err != nil || !stat.IsDir() {
+	if stat, err := osStat(gitDir); err != nil || !stat.IsDir() {
 		return false
 	}
 	return true

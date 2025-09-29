@@ -29,6 +29,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// exitFunc allows tests to override os.Exit behavior.
+var exitFunc = os.Exit
+
 // UpCommand represents the up command for quad-ops CLI.
 type UpCommand struct{}
 
@@ -61,7 +64,7 @@ Examples:
 			// Validate system requirements for starting units
 			if err := app.Validator.SystemRequirements(); err != nil {
 				app.Logger.Error("System requirements not met", "error", err)
-				os.Exit(1)
+				exitFunc(1)
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -74,7 +77,7 @@ Examples:
 				units, err := app.UnitRepo.FindAll()
 				if err != nil {
 					app.Logger.Error("Failed to get units from database", "error", err)
-					os.Exit(1)
+					exitFunc(1)
 				}
 
 				if len(units) == 0 {
@@ -116,7 +119,7 @@ Examples:
 			// Only output summary on failure or in verbose mode
 			if failCount > 0 {
 				fmt.Printf("Failed to start %d units\n", failCount)
-				os.Exit(1)
+				exitFunc(1)
 			} else if app.Config.Verbose {
 				fmt.Printf("Successfully started %d units\n", successCount)
 			}

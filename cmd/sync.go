@@ -31,6 +31,15 @@ import (
 	"github.com/trly/quad-ops/internal/git"
 )
 
+// Test seams for external dependencies.
+var (
+	osMkdirAll          = os.MkdirAll
+	newGitRepository    = git.NewGitRepository
+	readProjects        = compose.ReadProjects
+	newDefaultProcessor = compose.NewDefaultProcessor
+	syncExitFunc        = os.Exit
+)
+
 // SyncCommand represents the sync command for quad-ops CLI.
 type SyncCommand struct{}
 
@@ -72,14 +81,14 @@ repositories:
 			// Validate system requirements for sync operations
 			if err := app.Validator.SystemRequirements(); err != nil {
 				app.Logger.Error("System requirements not met", "error", err)
-				os.Exit(1)
+				syncExitFunc(1)
 			}
 		},
 		Run: func(cmd *cobra.Command, _ []string) {
 			app := c.getApp(cmd)
-			if err := os.MkdirAll(app.Config.QuadletDir, 0750); err != nil {
+			if err := osMkdirAll(app.Config.QuadletDir, 0750); err != nil {
 				app.Logger.Error("Failed to create quadlet directory", "error", err)
-				os.Exit(1)
+				syncExitFunc(1)
 			}
 
 			c.syncRepositories(app)
@@ -104,7 +113,7 @@ func (c *SyncCommand) syncRepositories(app *App) {
 		if !dryRun {
 			app.Logger.Debug("Processing repository", "name", repoConfig.Name)
 
-			gitRepo := git.NewGitRepository(repoConfig, app.ConfigProvider)
+			gitRepo := newGitRepository(repoConfig, app.ConfigProvider)
 			if err := gitRepo.SyncRepository(); err != nil {
 				app.Logger.Error("Failed to sync repository", "name", repoConfig.Name, "error", err)
 				continue
@@ -118,7 +127,7 @@ func (c *SyncCommand) syncRepositories(app *App) {
 
 			app.Logger.Debug("Looking for compose files", "dir", composeDir)
 
-			projects, err := compose.ReadProjects(composeDir)
+			projects, err := readProjects(composeDir)
 			if err != nil {
 				if repoConfig.ComposeDir != "" {
 					app.Logger.Error("Failed to read projects from repository", "name", repoConfig.Name, "composeDir", repoConfig.ComposeDir, "error", err)
@@ -137,7 +146,7 @@ func (c *SyncCommand) syncRepositories(app *App) {
 				isLastRepo = true
 			}
 
-			processor := compose.NewDefaultProcessor(force)
+			processor := newDefaultProcessor(force)
 			if processedUnits != nil {
 				processor.WithExistingProcessedUnits(processedUnits)
 			}
