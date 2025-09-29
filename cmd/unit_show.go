@@ -24,11 +24,22 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"os"
+	"context"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/sorting"
 )
+
+// ShowOptions holds show command options.
+type ShowOptions struct {
+	UnitType string
+}
+
+// ShowDeps holds show dependencies.
+type ShowDeps struct {
+	CommonDeps
+}
 
 // ShowCommand represents the unit show command.
 type ShowCommand struct{}
@@ -45,34 +56,48 @@ func (c *ShowCommand) getApp(cmd *cobra.Command) *App {
 
 // GetCobraCommand returns the cobra command for showing unit details.
 func (c *ShowCommand) GetCobraCommand() *cobra.Command {
+	var opts ShowOptions
+
 	unitShowCmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show the contents of a quadlet unit",
 		Args:  cobra.ExactArgs(1),
-		PreRun: func(cmd *cobra.Command, _ []string) {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
-			// Validate system requirements for unit operations
-			if err := app.Validator.SystemRequirements(); err != nil {
-				app.Logger.Error("System requirements not met", "error", err)
-				os.Exit(1)
-			}
+			return app.Validator.SystemRequirements()
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			app := c.getApp(cmd)
-			name := args[0]
-
-			// Validate unit name to prevent command injection
-			if err := sorting.ValidateUnitName(name); err != nil {
-				app.Logger.Error("Invalid unit name", "error", err, "name", name)
-				os.Exit(1)
-			}
-
-			err := app.UnitManager.Show(name, unitType)
-			if err != nil {
-				app.Logger.Error("Failed to show unit", "error", err)
-				os.Exit(1)
-			}
+			deps := c.buildDeps(app)
+			return c.Run(cmd.Context(), app, opts, deps, args[0])
 		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
+
+	unitShowCmd.Flags().StringVarP(&opts.UnitType, "type", "t", "container", "Type of unit (container, volume, network, image)")
+
 	return unitShowCmd
+}
+
+// Run executes the show command with injected dependencies.
+func (c *ShowCommand) Run(_ context.Context, app *App, opts ShowOptions, _ ShowDeps, unitName string) error {
+	// Validate unit name to prevent command injection
+	if err := sorting.ValidateUnitName(unitName); err != nil {
+		return fmt.Errorf("invalid unit name %q: %w", unitName, err)
+	}
+
+	err := app.UnitManager.Show(unitName, opts.UnitType)
+	if err != nil {
+		return fmt.Errorf("failed to show unit %q: %w", unitName, err)
+	}
+
+	return nil
+}
+
+// buildDeps creates production dependencies for the show command.
+func (c *ShowCommand) buildDeps(app *App) ShowDeps {
+	return ShowDeps{
+		CommonDeps: NewCommonDeps(app.Logger),
+	}
 }

@@ -23,6 +23,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,18 +31,21 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/git"
 )
 
-// Test seams for external dependencies.
-var (
-	osStat          = os.Stat
-	osWriteFile     = os.WriteFile
-	osRemove        = os.Remove
-	newGitRepo      = git.NewGitRepository
-	doctorExitFunc  = os.Exit
-	viperConfigFile = func() string { return viper.GetViper().ConfigFileUsed() }
-)
+// DoctorOptions holds doctor command options.
+type DoctorOptions struct {
+	// Currently no specific options for doctor command
+}
+
+// DoctorDeps holds doctor dependencies.
+type DoctorDeps struct {
+	CommonDeps
+	NewGitRepo      func(config.Repository, config.Provider) *git.Repository
+	ViperConfigFile func() string
+}
 
 // DoctorCommand represents the doctor command for quad-ops CLI.
 type DoctorCommand struct{}
@@ -66,6 +70,8 @@ type CheckResult struct {
 
 // GetCobraCommand returns the cobra command for doctor operations.
 func (c *DoctorCommand) GetCobraCommand() *cobra.Command {
+	var opts DoctorOptions
+
 	doctorCmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check system health and configuration",
@@ -79,59 +85,81 @@ The doctor command performs comprehensive checks of:
 - File system requirements
 
 This helps diagnose common setup and configuration issues.`,
-		Run: func(cmd *cobra.Command, _ []string) {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
-
-			// Collect all diagnostic results
-			var results []CheckResult
-			var failureCount int
-
-			// Run all checks
-			results = append(results, c.checkSystemRequirements(app)...)
-			results = append(results, c.checkConfiguration(app)...)
-			results = append(results, c.checkDirectories(app)...)
-			results = append(results, c.checkRepositories(app)...)
-
-			// Count failures
-			for _, result := range results {
-				if !result.Passed {
-					failureCount++
-				}
-			}
-
-			// Display results based on output format
-			if outputFormat == "text" {
-				// Traditional text output
-				if app.Config.Verbose {
-					c.displayDetailedResults(results)
-				} else {
-					c.displaySummaryResults(results)
-				}
-
-				// Exit with appropriate code
-				if failureCount > 0 {
-					if !app.Config.Verbose {
-						fmt.Printf("\n%d checks failed. Run with --verbose for details.\n", failureCount)
-					}
-					doctorExitFunc(1)
-				} else if app.Config.Verbose {
-					fmt.Println("\n✓ All checks passed")
-				}
-			} else {
-				// Structured output (JSON/YAML)
-				c.outputStructuredResults(results, failureCount)
-				if failureCount > 0 {
-					doctorExitFunc(1)
-				}
-			}
+			return app.Validator.SystemRequirements()
 		},
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			app := c.getApp(cmd)
+			deps := c.buildDeps(app)
+			return c.Run(cmd.Context(), app, opts, deps)
+		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	return doctorCmd
 }
 
+// buildDeps creates production dependencies for the doctor command.
+func (c *DoctorCommand) buildDeps(app *App) DoctorDeps {
+	return DoctorDeps{
+		CommonDeps:      NewCommonDeps(app.Logger),
+		NewGitRepo:      git.NewGitRepository,
+		ViperConfigFile: func() string { return viper.GetViper().ConfigFileUsed() },
+	}
+}
+
+// Run executes the doctor command with injected dependencies.
+func (c *DoctorCommand) Run(_ context.Context, app *App, _ DoctorOptions, deps DoctorDeps) error {
+	// Collect all diagnostic results
+	var results []CheckResult
+	var failureCount int
+
+	// Run all checks
+	results = append(results, c.checkSystemRequirements(app, deps)...)
+	results = append(results, c.checkConfiguration(app, deps)...)
+	results = append(results, c.checkDirectories(app, deps)...)
+	results = append(results, c.checkRepositories(app, deps)...)
+
+	// Count failures
+	for _, result := range results {
+		if !result.Passed {
+			failureCount++
+		}
+	}
+
+	// Display results based on output format
+	if app.OutputFormat == "text" {
+		// Traditional text output
+		if app.Config.Verbose {
+			c.displayDetailedResults(results)
+		} else {
+			c.displaySummaryResults(results)
+		}
+
+		// Return error instead of exiting
+		if failureCount > 0 {
+			if !app.Config.Verbose {
+				fmt.Printf("\n%d checks failed. Run with --verbose for details.\n", failureCount)
+			}
+			return fmt.Errorf("doctor found %d issues", failureCount)
+		} else if app.Config.Verbose {
+			fmt.Println("\n✓ All checks passed")
+		}
+	} else {
+		// Structured output (JSON/YAML)
+		c.outputStructuredResults(app, results, failureCount)
+		if failureCount > 0 {
+			return fmt.Errorf("doctor found %d issues", failureCount)
+		}
+	}
+
+	return nil
+}
+
 // checkSystemRequirements validates core system dependencies.
-func (c *DoctorCommand) checkSystemRequirements(app *App) []CheckResult {
+func (c *DoctorCommand) checkSystemRequirements(app *App, _ DoctorDeps) []CheckResult {
 	var results []CheckResult
 
 	// Check systemd and podman
@@ -160,11 +188,11 @@ func (c *DoctorCommand) checkSystemRequirements(app *App) []CheckResult {
 }
 
 // checkConfiguration validates configuration file and settings.
-func (c *DoctorCommand) checkConfiguration(app *App) []CheckResult {
+func (c *DoctorCommand) checkConfiguration(app *App, deps DoctorDeps) []CheckResult {
 	var results []CheckResult
 
 	// Check if config file exists and is readable
-	configFile := viperConfigFile()
+	configFile := deps.ViperConfigFile()
 	if configFile == "" {
 		results = append(results, CheckResult{
 			Name:    "Configuration File",
@@ -177,7 +205,7 @@ func (c *DoctorCommand) checkConfiguration(app *App) []CheckResult {
 			},
 		})
 	} else {
-		if _, err := osStat(configFile); err != nil {
+		if _, err := deps.FileSystem.Stat(configFile); err != nil {
 			results = append(results, CheckResult{
 				Name:    "Configuration File",
 				Passed:  false,
@@ -219,12 +247,12 @@ func (c *DoctorCommand) checkConfiguration(app *App) []CheckResult {
 }
 
 // checkDirectories validates directory permissions and accessibility.
-func (c *DoctorCommand) checkDirectories(app *App) []CheckResult {
+func (c *DoctorCommand) checkDirectories(app *App, deps DoctorDeps) []CheckResult {
 	var results []CheckResult
 
 	// Check quadlet directory
 	quadletDir := app.Config.QuadletDir
-	if err := c.checkDirectory("Quadlet Directory", quadletDir); err != nil {
+	if err := c.checkDirectory("Quadlet Directory", quadletDir, deps); err != nil {
 		suggestions := []string{
 			fmt.Sprintf("Create directory: mkdir -p %s", quadletDir),
 			fmt.Sprintf("Fix permissions: chmod 755 %s", quadletDir),
@@ -245,7 +273,7 @@ func (c *DoctorCommand) checkDirectories(app *App) []CheckResult {
 
 	// Check repository directory
 	repoDir := app.Config.RepositoryDir
-	if err := c.checkDirectory("Repository Directory", repoDir); err != nil {
+	if err := c.checkDirectory("Repository Directory", repoDir, deps); err != nil {
 		suggestions := []string{
 			fmt.Sprintf("Create directory: mkdir -p %s", repoDir),
 			fmt.Sprintf("Fix permissions: chmod 755 %s", repoDir),
@@ -268,15 +296,15 @@ func (c *DoctorCommand) checkDirectories(app *App) []CheckResult {
 }
 
 // checkRepositories validates repository connectivity and accessibility.
-func (c *DoctorCommand) checkRepositories(app *App) []CheckResult {
+func (c *DoctorCommand) checkRepositories(app *App, deps DoctorDeps) []CheckResult {
 	results := make([]CheckResult, 0, len(app.Config.Repositories))
 
 	for _, repoConfig := range app.Config.Repositories {
-		gitRepo := newGitRepo(repoConfig, app.ConfigProvider)
+		gitRepo := deps.NewGitRepo(repoConfig, app.ConfigProvider)
 
 		// Check if repository directory exists
 		repoPath := gitRepo.Path
-		if _, err := osStat(repoPath); err != nil {
+		if _, err := deps.FileSystem.Stat(repoPath); err != nil {
 			suggestions := []string{
 				"Run 'quad-ops sync' to clone repositories",
 				"Check network connectivity to repository URL",
@@ -292,7 +320,7 @@ func (c *DoctorCommand) checkRepositories(app *App) []CheckResult {
 		}
 
 		// Check if it's a valid git repository
-		if !c.isValidGitRepo(repoPath) {
+		if !c.isValidGitRepo(repoPath, deps) {
 			suggestions := []string{
 				fmt.Sprintf("Remove invalid directory: rm -rf %s", repoPath),
 				"Run 'quad-ops sync' to re-clone repository",
@@ -309,7 +337,7 @@ func (c *DoctorCommand) checkRepositories(app *App) []CheckResult {
 		// Check compose directory if specified
 		if repoConfig.ComposeDir != "" {
 			composeDir := filepath.Join(repoPath, repoConfig.ComposeDir)
-			if _, err := osStat(composeDir); err != nil {
+			if _, err := deps.FileSystem.Stat(composeDir); err != nil {
 				suggestions := []string{
 					fmt.Sprintf("Verify compose directory path in configuration: %s", repoConfig.ComposeDir),
 					"Check if the directory exists in the repository",
@@ -335,13 +363,13 @@ func (c *DoctorCommand) checkRepositories(app *App) []CheckResult {
 }
 
 // checkDirectory validates a directory exists and is accessible.
-func (c *DoctorCommand) checkDirectory(_, path string) error {
+func (c *DoctorCommand) checkDirectory(_, path string, deps DoctorDeps) error {
 	if path == "" {
 		return fmt.Errorf("directory path is empty")
 	}
 
 	// Check if directory exists
-	stat, err := osStat(path)
+	stat, err := deps.FileSystem.Stat(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("directory does not exist: %s", path)
@@ -356,18 +384,20 @@ func (c *DoctorCommand) checkDirectory(_, path string) error {
 
 	// Check if directory is writable
 	testFile := filepath.Join(path, ".quad-ops-test")
-	if err := osWriteFile(testFile, []byte("test"), 0600); err != nil {
+	if err := deps.FileSystem.WriteFile(testFile, []byte("test"), 0600); err != nil {
 		return fmt.Errorf("directory is not writable: %v", err)
 	}
-	_ = osRemove(testFile) // Cleanup - ignore error
+	if err := deps.FileSystem.Remove(testFile); err != nil {
+		deps.Logger.Debug("Failed to cleanup test file", "file", testFile, "error", err)
+	}
 
 	return nil
 }
 
 // isValidGitRepo checks if the given path contains a valid git repository.
-func (c *DoctorCommand) isValidGitRepo(path string) bool {
+func (c *DoctorCommand) isValidGitRepo(path string, deps DoctorDeps) bool {
 	gitDir := filepath.Join(path, ".git")
-	if stat, err := osStat(gitDir); err != nil || !stat.IsDir() {
+	if stat, err := deps.FileSystem.Stat(gitDir); err != nil || !stat.IsDir() {
 		return false
 	}
 	return true
@@ -413,7 +443,7 @@ func (c *DoctorCommand) displayDetailedResults(results []CheckResult) {
 }
 
 // outputStructuredResults outputs health check results in structured format (JSON/YAML).
-func (c *DoctorCommand) outputStructuredResults(results []CheckResult, failureCount int) {
+func (c *DoctorCommand) outputStructuredResults(app *App, results []CheckResult, failureCount int) {
 	checks := make([]CheckResultStructured, 0, len(results))
 	passedCount := 0
 
@@ -448,5 +478,5 @@ func (c *DoctorCommand) outputStructuredResults(results []CheckResult, failureCo
 	}
 
 	// Print structured output
-	_ = PrintOutput(outputFormat, output)
+	_ = PrintOutput(app.OutputFormat, output)
 }

@@ -3,52 +3,86 @@ title: "down"
 weight: 30
 ---
 
-# down
+# quad-ops down
 
-Stop all managed container units.
+Stop managed units synchronized from repositories.
+
+If no unit names are provided, stops all managed units.
+If unit names are provided, stops only the specified units.
+
+Examples:
+  quad-ops down                    # Stop all units
+  quad-ops down web-service        # Stop specific unit
+  quad-ops down web api database   # Stop multiple units
 
 ## Synopsis
 
 ```
-quad-ops down
+quad-ops down [unit-name...] [flags]
+```
+
+## Options
+
+```
+  -h, --help   help for down
+```
+
+## Global Options
+
+```
+      --config string           Path to the configuration file
+  -o, --output string           Output format (text, json, yaml) (default "text")
+      --quadlet-dir string      Path to the quadlet directory
+      --repository-dir string   Path to the repository directory
+  -u, --user                    Run in user mode
+  -v, --verbose                 Enable verbose logging
 ```
 
 ## Description
 
-The `down` command stops all container units that have been synchronized from configured repositories. It performs the following operations:
+The `down` command stops container units that have been synchronized from configured repositories. It performs the following operations:
 
-1. **Unit Discovery** - Finds all container units in the quadlet directory
+1. **Unit Discovery** - Finds all container units in the quadlet directory (or specific named units)
 2. **Service Stop** - Stops each container unit using systemd
 3. **Status Report** - Provides feedback on successful and failed operations
 
 This command is useful for shutting down your entire container infrastructure for maintenance or system shutdown.
 
-## Options
-
-No command-specific options are available for this command.
-
-### Global Options
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--config` | `-c` | Path to configuration file |
-| `--verbose` | `-v` | Enable verbose output |
-
 ## Examples
 
+### Stop all managed containers
+
 ```bash
-# Stop all managed containers
 quad-ops down
 ```
 
-## Related Commands
+### Stop a specific service
 
-- **[up](up)** - Start all managed containers
-- **[sync](sync)** - Synchronize repositories
-- **[unit list](unit-list)** - Check container status after stopping
-- **[unit show](unit-show)** - View detailed unit configuration
+```bash
+quad-ops down web-service
+```
 
-## See Also
+### Stop multiple specific services
 
-- [Container Management](../container-management) - Understanding container lifecycle
-- [Getting Started](../getting-started) - Initial setup guide
+```bash
+quad-ops down web api database
+```
+
+### Stop with verbose output
+
+```bash
+quad-ops down --verbose
+```
+
+### Stop in user mode
+
+```bash
+quad-ops down --user
+```
+
+### Stop with JSON output format
+
+```bash
+quad-ops down --output json
+```
+

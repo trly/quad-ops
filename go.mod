@@ -32,6 +32,7 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
+	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect

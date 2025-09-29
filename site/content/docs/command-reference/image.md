@@ -1,16 +1,70 @@
 ---
-title: "image pull"
-weight: 45
+title: "image"
+weight: 50
 ---
 
-# image pull
+# quad-ops image
 
-Pull container images from configured repositories.
+subcommands for managing and viewing images for quad-ops managed services
 
 ## Synopsis
 
 ```
-quad-ops image pull
+quad-ops image [command]
+```
+
+## Available Commands
+
+- **[pull](pull)** - pull an image from a registry
+
+## Options
+
+```
+  -h, --help   help for image
+```
+
+## Global Options
+
+```
+      --config string           Path to the configuration file
+  -o, --output string           Output format (text, json, yaml) (default "text")
+      --quadlet-dir string      Path to the quadlet directory
+      --repository-dir string   Path to the repository directory
+  -u, --user                    Run in user mode
+  -v, --verbose                 Enable verbose logging
+```
+
+## Description
+
+The `image` command provides subcommands for managing container images used by quad-ops managed services. Currently supports pulling images from registries.
+
+---
+
+# quad-ops image pull
+
+pull an image from a registry
+
+## Synopsis
+
+```
+quad-ops image pull [flags]
+```
+
+## Options
+
+```
+  -h, --help   help for pull
+```
+
+## Global Options
+
+```
+      --config string           Path to the configuration file
+  -o, --output string           Output format (text, json, yaml) (default "text")
+      --quadlet-dir string      Path to the quadlet directory
+      --repository-dir string   Path to the repository directory
+  -u, --user                    Run in user mode
+  -v, --verbose                 Enable verbose logging
 ```
 
 ## Description
@@ -19,32 +73,28 @@ The `image pull` command downloads container images referenced in your Docker Co
 
 This command respects the `--user` flag for rootless operation and automatically sets the appropriate `XDG_RUNTIME_DIR` for user mode.
 
-## Global Options
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--config` | | Path to configuration file |
-| `--verbose` | `-v` | Enable verbose output showing pull progress |
-| `--user` | `-u` | Pull images in rootless user mode |
-| `--quadlet-dir` | | Override unit output directory |
-| `--repository-dir` | | Override git checkout directory |
-
 ## Examples
 
 ### Pull All Images
+
 Pull all images referenced in configured repositories:
+
 ```bash
 sudo quad-ops image pull
 ```
 
 ### Rootless Mode
+
 Pull images in user mode:
+
 ```bash
 quad-ops --user image pull
 ```
 
 ### Verbose Output
+
 Show detailed pull progress:
+
 ```bash
 sudo quad-ops --verbose image pull
 ```
@@ -56,17 +106,3 @@ sudo quad-ops --verbose image pull
 - For rootless mode, ensure proper user namespace configuration
 - Large images may take time to download; use `--verbose` to monitor progress
 - For systemd unit timeout configuration during sync operations, see [Configuration](../../configuration/quad-ops-configuration)
-
-## Exit Codes
-
-| Code | Description |
-|------|-------------|
-| `0` | Success - all images pulled successfully |
-| `1` | General error during image pull |
-| `2` | Invalid command usage |
-| `3` | Configuration error |
-
-## Related Commands
-
-- [sync](../sync) - Synchronize repositories (includes image pulling)
-- [Configuration](../../configuration/quad-ops-configuration) - Configure image pull settings

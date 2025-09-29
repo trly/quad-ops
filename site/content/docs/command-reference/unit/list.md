@@ -49,9 +49,3 @@ quad-ops unit list --type network
 | `--quadlet-dir` | | Override unit output directory |
 | `--repository-dir` | | Override git checkout directory |
 
-## Related Commands
-
-- **[show](show)** - Show the contents of a quadlet unit
-- **[sync](../sync)** - Synchronize repositories to create units
-- **[up](../up)** - Start container units
-- **[down](../down)** - Stop container units

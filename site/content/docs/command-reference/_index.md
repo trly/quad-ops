@@ -29,86 +29,8 @@ quad-ops [global-options] <command> [command-options] [arguments]
 
 ## Available Commands
 
-### Core Operations
-- **[sync](sync)** - Synchronize repositories and deploy containers
-- **[up](up)** - Start all or specific services
-- **[down](down)** - Stop and remove services
-- **[validate](validate)** - Validate Docker Compose files and quad-ops extensions
-- **[update](update)** - Update quad-ops to the latest version
-- **[version](version)** - Show version information and check for updates
-
-### Image Management
-- **[image pull](image)** - Pull container images from repositories
-
-### Unit Management
-- **[unit list](unit/list)** - List deployed units and their status
-- **[unit show](unit/show)** - Display detailed unit information
-
-### Configuration
-- **[config](config)** - Configuration management commands
-
-## Command Categories
-
-### Repository Operations
-Commands that interact with Git repositories and perform synchronization.
-
-### Validation & Development
-Commands for validating Docker Compose files and supporting development workflows.
-
-### Service Management
-Commands for controlling container lifecycle and examining running services.
-
-### Unit Administration
-Commands for managing Quadlet units and their systemd integration.
-
-### System Configuration
-Commands for validating and managing Quad-Ops configuration.
-
-## Common Usage Patterns
-
-### Development Workflow
-```bash
-# Validate compose files before committing
-quad-ops validate docker-compose.yml
-
-# Validate entire project directory
-quad-ops validate ./compose-files/
-```
-
-### Initial Deployment
-```bash
-# Configure repositories and perform first sync
-sudo quad-ops sync
-```
-
-### Regular Operations
-```bash
-# Check service status
-sudo quad-ops unit list
-
-# Restart specific service
-sudo quad-ops up myapp-web
-
-# Stop all services for maintenance
-sudo quad-ops down
-```
-
-## Exit Codes
-
-Quad-Ops uses standard exit codes for scripting and automation:
-
-| Exit Code | Meaning |
-|-----------|---------|
-| `0` | Success |
-| `1` | General error |
-| `2` | Invalid command usage |
-| `3` | Configuration error |
-| `4` | Git operation failed |
-| `5` | systemd operation failed |
-
-## Getting Help
-
 ### Command-Specific Help
+
 ```bash
 # Help for any command
 quad-ops <command> --help
@@ -118,13 +40,30 @@ quad-ops sync --help
 quad-ops unit list --help
 ```
 
-### Manual Pages
-```bash
-# View manual page (if installed)
-man quad-ops
-man quad-ops-sync
-```
+### Core Operations
 
-## Next Steps
+- **[sync](sync)** - Synchronize repositories and deploy containers
+- **[daemon](daemon)** - Run quad-ops as a daemon with periodic synchronization
+- **[up](up)** - Start all or specific services
+- **[down](down)** - Stop and remove services
+- **[validate](validate)** - Validate Docker Compose files and quad-ops extensions
+- **[update](update)** - Update quad-ops to the latest version
+- **[version](version)** - Show version information and check for updates
 
-Browse the individual command references for detailed information on options, examples, and use cases.
+### System Health
+
+- **[doctor](doctor)** - Check system health and configuration
+
+### Image Management
+
+- **[image pull](image)** - Pull container images from repositories
+
+### Unit Management
+
+- **[unit list](unit/list)** - List deployed units and their status
+- **[unit show](unit/show)** - Display detailed unit information
+
+### Configuration
+
+- **[config](config)** - Configuration management commands
+

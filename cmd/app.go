@@ -21,6 +21,7 @@ type App struct {
 	UnitRepo       repository.Repository
 	UnitManager    systemd.UnitManager
 	Validator      SystemValidator
+	OutputFormat   string
 }
 
 // NewApp creates a new App with all dependencies initialized.

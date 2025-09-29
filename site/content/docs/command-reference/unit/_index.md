@@ -44,15 +44,3 @@ The following unit types are supported:
 | `image` | Podman image units |
 | `all` | All unit types |
 
-## Related Commands
-
-- **[sync](../sync)** - Synchronize repositories to create units
-- **[up](../up)** - Start container units
-- **[down](../down)** - Stop container units
-- **[config](../config)** - Validate configuration
-
-## See Also
-
-- [Container Management](../../container-management) - Understanding unit lifecycle
-- [Configuration](../../configuration) - Unit configuration options
-- [Getting Started](../../getting-started) - Initial setup guide

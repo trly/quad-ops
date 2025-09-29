@@ -3,53 +3,87 @@ title: "up"
 weight: 20
 ---
 
-# up
+# quad-ops up
 
-Start all managed container units.
+Start managed units synchronized from repositories.
+
+If no unit names are provided, starts all managed units.
+If unit names are provided, starts only the specified units.
+
+Examples:
+  quad-ops up                    # Start all units
+  quad-ops up web-service        # Start specific unit
+  quad-ops up web api database   # Start multiple units
 
 ## Synopsis
 
 ```
-quad-ops up
+quad-ops up [unit-name...] [flags]
+```
+
+## Options
+
+```
+  -h, --help   help for up
+```
+
+## Global Options
+
+```
+      --config string           Path to the configuration file
+  -o, --output string           Output format (text, json, yaml) (default "text")
+      --quadlet-dir string      Path to the quadlet directory
+      --repository-dir string   Path to the repository directory
+  -u, --user                    Run in user mode
+  -v, --verbose                 Enable verbose logging
 ```
 
 ## Description
 
-The `up` command starts all container units that have been synchronized from configured repositories. It performs the following operations:
+The `up` command starts container units that have been synchronized from configured repositories. It performs the following operations:
 
-1. **Unit Discovery** - Finds all container units in the quadlet directory
+1. **Unit Discovery** - Finds all container units in the quadlet directory (or specific named units)
 2. **Unit Reset** - Resets any failed units before attempting to start them
 3. **Service Start** - Starts each container unit using systemd
 4. **Status Report** - Provides feedback on successful and failed operations
 
 This command is useful for bringing up your entire container infrastructure after system restarts or maintenance.
 
-## Options
-
-No command-specific options are available for this command.
-
-### Global Options
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--config` | `-c` | Path to configuration file |
-| `--verbose` | `-v` | Enable verbose output |
-
 ## Examples
 
+### Start all managed containers
+
 ```bash
-# Start all managed containers
 quad-ops up
 ```
 
-## Related Commands
+### Start a specific service
 
-- **[sync](sync)** - Synchronize repositories before starting
-- **[down](down)** - Stop all managed containers
-- **[unit list](unit-list)** - Check container status after starting
-- **[unit show](unit-show)** - View detailed unit configuration
+```bash
+quad-ops up web-service
+```
 
-## See Also
+### Start multiple specific services
 
-- [Container Management](../container-management) - Understanding container lifecycle
-- [Getting Started](../getting-started) - Initial setup guide
+```bash
+quad-ops up web api database
+```
+
+### Start with verbose output
+
+```bash
+quad-ops up --verbose
+```
+
+### Start in user mode
+
+```bash
+quad-ops up --user
+```
+
+### Start with JSON output format
+
+```bash
+quad-ops up --output json
+```
+

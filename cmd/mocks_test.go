@@ -26,7 +26,8 @@ func (m *MockValidator) SystemRequirements() error {
 
 // MockUnitRepo implements repository.Repository for testing.
 type MockUnitRepo struct {
-	FindAllFunc func() ([]repository.Unit, error)
+	FindAllFunc        func() ([]repository.Unit, error)
+	FindByUnitTypeFunc func(string) ([]repository.Unit, error)
 }
 
 func (m *MockUnitRepo) FindAll() ([]repository.Unit, error) {
@@ -36,7 +37,10 @@ func (m *MockUnitRepo) FindAll() ([]repository.Unit, error) {
 	return []repository.Unit{}, nil
 }
 
-func (m *MockUnitRepo) FindByUnitType(string) ([]repository.Unit, error) {
+func (m *MockUnitRepo) FindByUnitType(unitType string) ([]repository.Unit, error) {
+	if m.FindByUnitTypeFunc != nil {
+		return m.FindByUnitTypeFunc(unitType)
+	}
 	return []repository.Unit{}, nil
 }
 func (m *MockUnitRepo) FindByID(int64) (repository.Unit, error) { return repository.Unit{}, nil }
@@ -48,9 +52,11 @@ type MockUnitManager struct {
 	StartFunc        func(string, string) error
 	StopFunc         func(string, string) error
 	ResetFailedFunc  func(string, string) error
+	ShowFunc         func(string, string) error
 	StartCalls       []StartCall
 	StopCalls        []StopCall
 	ResetFailedCalls []ResetFailedCall
+	ShowCalls        []ShowCall
 }
 
 type StartCall struct {
@@ -62,6 +68,10 @@ type StopCall struct {
 }
 
 type ResetFailedCall struct {
+	Name, UnitType string
+}
+
+type ShowCall struct {
 	Name, UnitType string
 }
 
@@ -89,10 +99,17 @@ func (m *MockUnitManager) ResetFailed(name, unitType string) error {
 	return nil
 }
 
+func (m *MockUnitManager) Show(name, unitType string) error {
+	m.ShowCalls = append(m.ShowCalls, ShowCall{Name: name, UnitType: unitType})
+	if m.ShowFunc != nil {
+		return m.ShowFunc(name, unitType)
+	}
+	return nil
+}
+
 func (m *MockUnitManager) GetUnit(string, string) systemd.Unit      { return nil }
 func (m *MockUnitManager) GetStatus(string, string) (string, error) { return "", nil }
 func (m *MockUnitManager) Restart(string, string) error             { return nil }
-func (m *MockUnitManager) Show(string, string) error                { return nil }
 func (m *MockUnitManager) ReloadSystemd() error                     { return nil }
 func (m *MockUnitManager) GetUnitFailureDetails(string) string      { return "" }
 

@@ -3,14 +3,48 @@ title: "sync"
 weight: 10
 ---
 
-# sync
+# quad-ops sync
 
-Synchronize Git repositories and deploy container configurations.
+Synchronizes the Docker Compose files defined in configured repositories with quadlet units on the local system.
+
+Repositories are defined in the quad-ops config file as a list of Repository objects.
+
+---
+
+```yaml
+repositories:
+  - name: quad-ops-compose
+    url: https://github.com/trly/quad-ops-compose.git
+    target: main
+    cleanup:
+      action: Delete
+```
 
 ## Synopsis
 
 ```
-quad-ops sync [OPTIONS]
+quad-ops sync [flags]
+```
+
+## Options
+
+```
+  -d, --dry-run       Perform a dry run without making any changes.
+  -f, --force         Force synchronization even if the repository has not changed.
+  -h, --help          help for sync
+  -r, --repo string   Synchronize a single, named, repository.
+
+```
+
+## Global Options
+
+```
+      --config string           Path to the configuration file
+  -o, --output string           Output format (text, json, yaml) (default "text")
+      --quadlet-dir string      Path to the quadlet directory
+      --repository-dir string   Path to the repository directory
+  -u, --user                    Run in user mode
+  -v, --verbose                 Enable verbose logging
 ```
 
 ## Description
@@ -25,35 +59,41 @@ The `sync` command is the core operation of Quad-Ops. It performs a complete syn
 
 This command is safe to run repeatedly and will only make necessary changes.
 
-## Options
+## Examples
 
-| Option | Short | Type | Default | Description |
-|--------|-------|------|---------|-------------|
-| `--dry-run` | `-d` | boolean | `false` | Perform a dry run without making any changes |
-| `--daemon` | | boolean | `false` | Run as a daemon |
-| `--sync-interval` | `-i` | duration | `5m` | Interval between synchronization checks |
-| `--repo` | `-r` | string | | Synchronize a single, named, repository |
-| `--force` | `-f` | boolean | `false` | Force synchronization even if the repository has not changed |
+### Synchronize all configured repositories
 
-### Global Options
+```bash
+quad-ops sync
+```
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--config` | | Path to configuration file |
-| `--verbose` | `-v` | Enable verbose output |
-| `--user` | `-u` | Run in rootless user mode |
-| `--quadlet-dir` | | Override unit output directory |
-| `--repository-dir` | | Override git checkout directory |
+### Dry run to see what would be changed
 
-## Related Commands
+```bash
+quad-ops sync --dry-run
+```
 
-- **[up](up)** - Start services after sync
-- **[down](down)** - Stop services before maintenance
-- **[unit list](unit-list)** - Check sync results
-- **[config](config)** - Validate configuration before sync
+### Force synchronization of all repositories
 
-## See Also
+```bash
+quad-ops sync --force
+```
 
-- [Configuration](../configuration) - Setup and repository configuration
-- [Getting Started](../getting-started) - Initial setup guide
-- [Container Management](../container-management) - Understanding the sync process
+### Synchronize only a specific repository
+
+```bash
+quad-ops sync --repo quad-ops-compose
+```
+
+### Synchronize with verbose output
+
+```bash
+quad-ops sync --verbose
+```
+
+### User mode synchronization
+
+```bash
+quad-ops sync --user
+```
+

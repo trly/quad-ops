@@ -24,9 +24,9 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
-	"os"
 
 	"github.com/SerhiiCho/timeago/v3"
 	"github.com/fatih/color"
@@ -34,6 +34,16 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/repository"
 )
+
+// ListOptions holds list command options.
+type ListOptions struct {
+	UnitType string
+}
+
+// ListDeps holds list dependencies.
+type ListDeps struct {
+	CommonDeps
+}
 
 // ListCommand represents the unit list command.
 type ListCommand struct{}
@@ -54,44 +64,56 @@ var (
 
 // GetCobraCommand returns the cobra command for listing units.
 func (c *ListCommand) GetCobraCommand() *cobra.Command {
+	var opts ListOptions
+
 	unitListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Lists units currently managed by quad-ops",
-		PreRun: func(cmd *cobra.Command, _ []string) {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
-			// Validate system requirements for unit operations
 			if err := app.Validator.SystemRequirements(); err != nil {
-				app.Logger.Error("System requirements not met", "error", err)
-				os.Exit(1)
+				return err
 			}
+			return validateUnitType(opts.UnitType)
 		},
-		Run: func(cmd *cobra.Command, _ []string) {
-			headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
-			columnFmt := color.New(color.FgYellow).SprintfFunc()
-			tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Updated")
-			tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
-
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
-			c.findAndDisplayUnits(app, tbl, unitType)
+			deps := c.buildDeps(app)
+			return c.Run(cmd.Context(), app, opts, deps)
 		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
-	unitListCmd.Flags().StringVarP(&unitType, "type", "t", "container", "Type of unit to manage (container, volume, network, image, all)")
+	unitListCmd.Flags().StringVarP(&opts.UnitType, "type", "t", "container", "Type of unit to manage (container, volume, network, image, all)")
 	err := unitListCmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
 		return allowedUnitTypes, cobra.ShellCompDirectiveNoFileComp
 	})
 	if err != nil {
-		fmt.Printf("Error registering flag completion: %v\n", err)
-		os.Exit(1)
-	}
-	unitListCmd.PreRunE = func(_ *cobra.Command, _ []string) error {
-		return validateUnitType(unitType)
+		return unitListCmd
 	}
 
 	return unitListCmd
 }
 
-func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType string) {
+// Run executes the list command with injected dependencies.
+func (c *ListCommand) Run(_ context.Context, app *App, opts ListOptions, _ ListDeps) error {
+	headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
+	columnFmt := color.New(color.FgYellow).SprintfFunc()
+	tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Updated")
+	tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
+
+	return c.findAndDisplayUnits(app, tbl, opts.UnitType)
+}
+
+// buildDeps creates production dependencies for the list command.
+func (c *ListCommand) buildDeps(app *App) ListDeps {
+	return ListDeps{
+		CommonDeps: NewCommonDeps(app.Logger),
+	}
+}
+
+func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType string) error {
 	var units []repository.Unit
 	var err error
 
@@ -103,8 +125,7 @@ func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType st
 	}
 
 	if err != nil {
-		app.Logger.Error("Error finding units", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("error finding units: %w", err)
 	}
 
 	for _, u := range units {
@@ -121,9 +142,14 @@ func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType st
 		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), updateAtString)
 	}
 	tbl.Print()
+	return nil
 }
 
 func validateUnitType(unitType string) error {
+	// Allow empty string as it defaults to container behavior
+	if unitType == "" {
+		return nil
+	}
 	for _, allowedType := range allowedUnitTypes {
 		if unitType == allowedType {
 			return nil

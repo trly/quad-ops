@@ -23,10 +23,21 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/spf13/cobra"
 )
+
+// DownOptions holds down command options.
+type DownOptions struct {
+	// No specific flags for down command currently
+}
+
+// DownDeps holds down dependencies.
+type DownDeps struct {
+	CommonDeps
+}
 
 // DownCommand represents the down command for quad-ops CLI.
 type DownCommand struct{}
@@ -43,6 +54,8 @@ func (c *DownCommand) getApp(cmd *cobra.Command) *App {
 
 // GetCobraCommand returns the cobra command for stopping managed units.
 func (c *DownCommand) GetCobraCommand() *cobra.Command {
+	var opts DownOptions
+
 	downCmd := &cobra.Command{
 		Use:   "down [unit-name...]",
 		Short: "Stop managed units",
@@ -55,69 +68,79 @@ Examples:
   quad-ops down                    # Stop all units
   quad-ops down web-service        # Stop specific unit
   quad-ops down web api database   # Stop multiple units`,
-		PreRun: func(cmd *cobra.Command, _ []string) {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
-			// Validate system requirements for stopping units
-			if err := app.Validator.SystemRequirements(); err != nil {
-				app.Logger.Error("System requirements not met", "error", err)
-				exitFunc(1)
-			}
+			return app.Validator.SystemRequirements()
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			app := c.getApp(cmd)
-
-			// Get units to stop (all units or specified units)
-			var unitsToStop []string
-			if len(args) == 0 {
-				// Get all units
-				units, err := app.UnitRepo.FindAll()
-				if err != nil {
-					app.Logger.Error("Failed to get units from database", "error", err)
-					exitFunc(1)
-				}
-
-				if len(units) == 0 {
-					if app.Config.Verbose {
-						fmt.Println("No managed units found")
-					}
-					return
-				}
-
-				for _, u := range units {
-					unitsToStop = append(unitsToStop, u.Name)
-				}
-			} else {
-				// Use specified unit names
-				unitsToStop = args
-			}
-
-			if app.Config.Verbose {
-				fmt.Printf("Stopping %d units...\n", len(unitsToStop))
-			}
-
-			successCount := 0
-			failCount := 0
-
-			// Stop each unit
-			for _, unitName := range unitsToStop {
-				err := app.UnitManager.Stop(unitName, "container")
-				if err != nil {
-					app.Logger.Error("Failed to stop unit", "name", unitName, "error", err)
-					failCount++
-				} else {
-					successCount++
-				}
-			}
-
-			// Only output summary on failure or in verbose mode
-			if failCount > 0 {
-				fmt.Printf("Failed to stop %d units\n", failCount)
-				exitFunc(1)
-			} else if app.Config.Verbose {
-				fmt.Printf("Successfully stopped %d units\n", successCount)
-			}
+			deps := c.buildDeps(app)
+			return c.Run(cmd.Context(), app, opts, deps, args)
 		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	return downCmd
+}
+
+// buildDeps creates production dependencies for the down command.
+func (c *DownCommand) buildDeps(app *App) DownDeps {
+	return DownDeps{
+		CommonDeps: NewCommonDeps(app.Logger),
+	}
+}
+
+// Run executes the down command with injected dependencies.
+func (c *DownCommand) Run(_ context.Context, app *App, _ DownOptions, deps DownDeps, args []string) error {
+	// Get units to stop (all units or specified units)
+	var unitsToStop []string
+	if len(args) == 0 {
+		// Get all units
+		units, err := app.UnitRepo.FindAll()
+		if err != nil {
+			return fmt.Errorf("failed to get units from database: %w", err)
+		}
+
+		if len(units) == 0 {
+			if app.Config.Verbose {
+				fmt.Println("No managed units found")
+			}
+			return nil
+		}
+
+		for _, u := range units {
+			unitsToStop = append(unitsToStop, u.Name)
+		}
+	} else {
+		// Use specified unit names
+		unitsToStop = args
+	}
+
+	if app.Config.Verbose {
+		fmt.Printf("Stopping %d units...\n", len(unitsToStop))
+	}
+
+	successCount := 0
+	failCount := 0
+
+	// Stop each unit
+	for _, unitName := range unitsToStop {
+		err := app.UnitManager.Stop(unitName, "container")
+		if err != nil {
+			deps.Logger.Error("Failed to stop unit", "name", unitName, "error", err)
+			failCount++
+		} else {
+			successCount++
+		}
+	}
+
+	// Only output summary on failure or in verbose mode
+	if failCount > 0 {
+		return fmt.Errorf("failed to stop %d units", failCount)
+	} else if app.Config.Verbose {
+		fmt.Printf("Successfully stopped %d units\n", successCount)
+	}
+
+	return nil
 }

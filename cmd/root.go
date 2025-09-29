@@ -41,72 +41,53 @@ type contextKey string
 // appContextKey is the context key for the App instance.
 const appContextKey = contextKey("app")
 
+// RootOptions holds root command options.
+type RootOptions struct {
+	UserMode       bool
+	ConfigFilePath string
+	QuadletDir     string
+	RepositoryDir  string
+	Verbose        bool
+	OutputFormat   string
+}
+
+// RootDeps holds root dependencies.
+type RootDeps struct {
+	CommonDeps
+	ValidatePath func(string) error
+	ExpandEnv    func(string) string
+}
+
 // RootCommand represents the root command for quad-ops CLI.
 type RootCommand struct{}
 
 var (
-	cfg            *config.Settings
-	userMode       bool
-	configFilePath string
-	quadletDir     string
-	repositoryDir  string
-	verbose        bool
-	outputFormat   string
+	cfg *config.Settings
 )
 
 // GetCobraCommand returns the cobra root command for quad-ops CLI.
 func (c *RootCommand) GetCobraCommand() *cobra.Command {
+	var opts RootOptions
+
 	rootCmd := &cobra.Command{
 		Use:   "quad-ops",
 		Short: "Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.",
 		Long: `Quad-Ops manages Quadlet container units by synchronizing them from Git repositories.
 It automatically generates systemd unit files from Docker Compose files and handles unit reloading and restarting.`,
-		PersistentPreRun: func(cmd *cobra.Command, _ []string) {
-			configProv := config.NewConfigProvider()
-			cfg = configProv.GetConfig()
-			logger := log.NewLogger(verbose)
-
-			if verbose {
-				fmt.Printf("%s using config: %s\n\n", cmd.Root().Use, viper.GetViper().ConfigFileUsed())
-				cfg.Verbose = verbose
-			}
-
-			if userMode {
-				cfg.UserMode = userMode
-				cfg.RepositoryDir = os.ExpandEnv(config.DefaultUserRepositoryDir)
-				cfg.QuadletDir = os.ExpandEnv(config.DefaultUserQuadletDir)
-			}
-
-			if repositoryDir != "" {
-				// Validate repository directory path
-				if err := sorting.ValidatePath(repositoryDir); err != nil {
-					logger.Error("Invalid repository directory", "path", repositoryDir, "error", err)
-					os.Exit(1)
-				}
-				cfg.RepositoryDir = repositoryDir
-			}
-
-			if quadletDir != "" {
-				// Validate quadlet directory path
-				if err := sorting.ValidatePath(quadletDir); err != nil {
-					logger.Error("Invalid quadlet directory", "path", quadletDir, "error", err)
-					os.Exit(1)
-				}
-				cfg.QuadletDir = quadletDir
-			}
-
-			// Initialize app and store in context for commands that need it
-			app := NewApp(logger, configProv)
-			cmd.SetContext(context.WithValue(cmd.Context(), appContextKey, app))
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			deps := c.buildDeps()
+			return c.persistentPreRun(cmd, opts, deps)
 		},
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
-	rootCmd.PersistentFlags().BoolVarP(&userMode, "user", "u", false, "Run in user mode")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Enable verbose logging")
-	rootCmd.PersistentFlags().StringVar(&configFilePath, "config", "", "Path to the configuration file")
-	rootCmd.PersistentFlags().StringVar(&quadletDir, "quadlet-dir", "", "Path to the quadlet directory")
-	rootCmd.PersistentFlags().StringVar(&repositoryDir, "repository-dir", "", "Path to the repository directory")
-	rootCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "text", "Output format (text, json, yaml)")
+	rootCmd.PersistentFlags().BoolVarP(&opts.UserMode, "user", "u", false, "Run in user mode")
+	rootCmd.PersistentFlags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Enable verbose logging")
+	rootCmd.PersistentFlags().StringVar(&opts.ConfigFilePath, "config", "", "Path to the configuration file")
+	rootCmd.PersistentFlags().StringVar(&opts.QuadletDir, "quadlet-dir", "", "Path to the quadlet directory")
+	rootCmd.PersistentFlags().StringVar(&opts.RepositoryDir, "repository-dir", "", "Path to the repository directory")
+	rootCmd.PersistentFlags().StringVarP(&opts.OutputFormat, "output", "o", "text", "Output format (text, json, yaml)")
 
 	rootCmd.AddCommand(
 		NewConfigCommand().GetCobraCommand(),
@@ -123,4 +104,53 @@ It automatically generates systemd unit files from Docker Compose files and hand
 	)
 
 	return rootCmd
+}
+
+// buildDeps creates production dependencies for root.
+func (c *RootCommand) buildDeps() RootDeps {
+	return RootDeps{
+		CommonDeps:   CommonDeps{}, // Will be initialized in persistentPreRun
+		ValidatePath: sorting.ValidatePath,
+		ExpandEnv:    os.ExpandEnv,
+	}
+}
+
+// persistentPreRun executes the persistent pre-run logic with injected dependencies.
+func (c *RootCommand) persistentPreRun(cmd *cobra.Command, opts RootOptions, deps RootDeps) error {
+	configProv := config.NewConfigProvider()
+	cfg = configProv.GetConfig()
+	logger := log.NewLogger(opts.Verbose)
+
+	if opts.Verbose {
+		fmt.Printf("%s using config: %s\n\n", cmd.Root().Use, viper.GetViper().ConfigFileUsed())
+		cfg.Verbose = opts.Verbose
+	}
+
+	if opts.UserMode {
+		cfg.UserMode = opts.UserMode
+		cfg.RepositoryDir = deps.ExpandEnv(config.DefaultUserRepositoryDir)
+		cfg.QuadletDir = deps.ExpandEnv(config.DefaultUserQuadletDir)
+	}
+
+	if opts.RepositoryDir != "" {
+		// Validate repository directory path
+		if err := deps.ValidatePath(opts.RepositoryDir); err != nil {
+			return fmt.Errorf("invalid repository directory %s: %w", opts.RepositoryDir, err)
+		}
+		cfg.RepositoryDir = opts.RepositoryDir
+	}
+
+	if opts.QuadletDir != "" {
+		// Validate quadlet directory path
+		if err := deps.ValidatePath(opts.QuadletDir); err != nil {
+			return fmt.Errorf("invalid quadlet directory %s: %w", opts.QuadletDir, err)
+		}
+		cfg.QuadletDir = opts.QuadletDir
+	}
+
+	// Initialize app and store in context for commands that need it
+	app := NewApp(logger, configProv)
+	app.OutputFormat = opts.OutputFormat
+	cmd.SetContext(context.WithValue(cmd.Context(), appContextKey, app))
+	return nil
 }

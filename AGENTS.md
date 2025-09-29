@@ -10,18 +10,70 @@
 
 ## Architecture
 
-GitOps framework converting Docker Compose to systemd Quadlet units:
+GitOps framework converting Docker Compose to systemd Quadlet units with modern dependency injection patterns:
 
-- `cmd/` - CLI commands and main entry point
-- `internal/compose/` - Docker Compose parsing and conversion
+### Core Packages
+
+- `cmd/` - **CLI commands with dependency injection** - All commands use modern DI patterns with no global state
+- `internal/compose/` - Docker Compose parsing and conversion to Quadlet units
 - `internal/unit/` - Quadlet unit generation (container, network, volume, build)
 - `internal/systemd/` - systemd orchestration and service management
-- `internal/git/` - Git repository synchronization
-- `internal/config/` - Configuration management via Viper
+- `internal/git/` - Git repository synchronization with configurable backends
+- `internal/config/` - Configuration management via Viper with validation
 - `internal/fs/` - File system operations with hash-based change detection
 - `internal/execx/` - Command execution abstraction for testability
 - `internal/testutil/` - Test utilities and helpers for reducing boilerplate
 - `internal/validate/` - System validation with dependency injection
+- `internal/log/` - Structured logging with configurable levels
+- `internal/repository/` - Unit repository abstraction for storage
+- `internal/dependency/` - Service dependency graph analysis
+
+### Modern CLI Architecture (All Commands Migrated)
+
+**Dependency Injection Pattern**: All CLI commands use modern dependency injection instead of global test seams:
+
+```go
+// Modern command structure
+type CommandOptions struct {    // Flags bound to struct
+    Flag1 string
+    Flag2 bool
+}
+
+type CommandDeps struct {       // Dependencies injected
+    CommonDeps                  // Shared: Clock, FileSystem, Logger
+    SpecificDep SomeInterface   // Command-specific dependencies
+}
+
+func (c *Command) Run(ctx context.Context, app *App, opts CommandOptions, deps CommandDeps) error {
+    // Fully testable implementation with injected dependencies
+    return nil
+}
+```
+
+**Benefits**:
+- ✅ **No global state** - Commands are stateless and thread-safe
+- ✅ **Fast, reliable tests** - No hanging, no test interference (506+ tests in ~400ms)
+- ✅ **Deterministic** - Using `benbjohnson/clock` for time-based testing
+- ✅ **Error-based flow** - Commands return errors, main handles exit codes
+- ✅ **Mockable dependencies** - All external calls are injected and testable
+
+### Command Architecture Details
+
+**All CLI commands follow this pattern:**
+
+1. **Options Struct** - Command flags bound to structured data (no global variables)
+2. **Dependencies Struct** - External dependencies injected for testability
+3. **PreRunE/RunE** - Cobra handlers that return errors instead of calling os.Exit
+4. **Run Method** - Pure function taking `(ctx, app, options, dependencies)`
+5. **buildDeps Method** - Factory for production dependencies
+
+**Migrated Commands:**
+- `daemon` - Long-running daemon with periodic sync and systemd integration
+- `sync` - Repository synchronization with git and compose processing  
+- `up/down` - Service lifecycle management with systemd orchestration
+- `doctor` - System validation and health checks
+- `unit_*` - Unit inspection and management commands
+- `image_pull, root` - Utility commands with proper error handling
 
 ## Code Style
 

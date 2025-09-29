@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -13,12 +12,6 @@ import (
 
 // TestUpCommand_ValidationFailure verifies that validation failures are handled correctly.
 func TestUpCommand_ValidationFailure(t *testing.T) {
-	// Setup exit capture
-	var exitCode int
-	oldExit := exitFunc
-	exitFunc = func(code int) { exitCode = code }
-	t.Cleanup(func() { exitFunc = oldExit })
-
 	// Create app with failing validator
 	app := NewAppBuilder(t).
 		WithValidator(&MockValidator{
@@ -31,24 +24,18 @@ func TestUpCommand_ValidationFailure(t *testing.T) {
 	// Setup command with app in context
 	upCmd := NewUpCommand()
 	cmd := upCmd.GetCobraCommand()
-	ctx := context.WithValue(context.Background(), appContextKey, app)
-	cmd.SetContext(ctx)
+	SetupCommandContext(cmd, app)
 
-	// Execute PreRun (which should trigger validation)
-	cmd.PreRun(cmd, []string{})
+	// Execute PreRunE (which should trigger validation)
+	err := cmd.PreRunE(cmd, []string{})
 
-	// Verify exit was called with code 1
-	assert.Equal(t, 1, exitCode)
+	// Verify error was returned
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "systemd not found")
 }
 
 // TestUpCommand_StartUnitsSuccess verifies successful unit starting.
 func TestUpCommand_StartUnitsSuccess(t *testing.T) {
-	// Setup exit capture
-	var exitCode int
-	oldExit := exitFunc
-	exitFunc = func(code int) { exitCode = code }
-	t.Cleanup(func() { exitFunc = oldExit })
-
 	// Create mocks
 	unitManager := &MockUnitManager{}
 	unitRepo := &MockUnitRepo{
@@ -67,18 +54,16 @@ func TestUpCommand_StartUnitsSuccess(t *testing.T) {
 		WithVerbose(true).
 		Build(t)
 
-	// Setup command with captured output
+	// Setup command and execute
 	upCmd := NewUpCommand()
 	cmd := upCmd.GetCobraCommand()
-	ctx := context.WithValue(context.Background(), appContextKey, app)
-	cmd.SetContext(ctx)
+	SetupCommandContext(cmd, app)
 
-	// Execute command (both PreRun and Run)
-	cmd.PreRun(cmd, []string{})
-	cmd.Run(cmd, []string{})
+	// Execute command using helper
+	err := ExecuteCommand(t, cmd, []string{})
 
-	// Verify no exit was called (success case)
-	assert.Equal(t, 0, exitCode)
+	// Verify success
+	require.NoError(t, err)
 
 	// Verify unit operations were called correctly
 	assert.Len(t, unitManager.ResetFailedCalls, 2)
@@ -97,12 +82,6 @@ func TestUpCommand_StartUnitsSuccess(t *testing.T) {
 
 // TestUpCommand_WithOutput demonstrates proper output capture using helpers.
 func TestUpCommand_WithOutput(t *testing.T) {
-	// Setup exit capture
-	var exitCode int
-	oldExit := exitFunc
-	exitFunc = func(code int) { exitCode = code }
-	t.Cleanup(func() { exitFunc = oldExit })
-
 	// Create mocks
 	unitManager := &MockUnitManager{}
 	unitRepo := &MockUnitRepo{
@@ -125,9 +104,8 @@ func TestUpCommand_WithOutput(t *testing.T) {
 	// Execute with full output capture
 	output, err := ExecuteCommandWithCapture(t, cmd, []string{})
 
-	// Verify success (no exit called)
+	// Verify success
 	require.NoError(t, err)
-	assert.Equal(t, 0, exitCode)
 
 	// Verify service calls
 	assert.Len(t, unitManager.StartCalls, 1)

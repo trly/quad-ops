@@ -43,9 +43,3 @@ quad-ops unit show myapp-network
 | `--config` | `-c` | Path to configuration file |
 | `--verbose` | `-v` | Enable verbose output |
 
-## Related Commands
-
-- **[list](list)** - List units currently managed by quad-ops
-- **[sync](../sync)** - Synchronize repositories to create units
-- **[up](../up)** - Start container units
-- **[down](../down)** - Stop container units

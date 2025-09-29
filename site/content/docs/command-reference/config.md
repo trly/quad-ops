@@ -3,21 +3,39 @@ title: "config"
 weight: 50
 ---
 
-# config
+# quad-ops config
 
-Display current configuration.
+Display the current configuration including defaults and overrides.
 
 ## Synopsis
 
 ```
-quad-ops config [OPTIONS]
+quad-ops config [flags]
+```
+
+## Options
+
+```
+  -h, --help   help for config
+```
+
+## Global Options
+
+```
+      --config string           Path to the configuration file
+  -o, --output string           Output format (text, json, yaml) (default "text")
+      --quadlet-dir string      Path to the quadlet directory
+      --repository-dir string   Path to the repository directory
+  -u, --user                    Run in user mode
+  -v, --verbose                 Enable verbose logging
 ```
 
 ## Description
 
-The `config` command displays the current configuration for quad-ops, including all defaults and any overrides. The output is formatted as YAML for easy inspection and debugging.
+The `config` command displays the current configuration for quad-ops, including all defaults and any overrides from configuration files or command-line flags.
 
 This command is useful for:
+
 - Verifying configuration settings
 - Debugging configuration issues  
 - Understanding active configuration values
@@ -25,47 +43,54 @@ This command is useful for:
 
 ## Examples
 
+### Display current configuration
+
 ```bash
-# Display current configuration
 quad-ops config
+```
 
-# Display configuration with verbose output
+### Display configuration in JSON format
+
+```bash
+quad-ops config --output json
+```
+
+### Display configuration in YAML format
+
+```bash
+quad-ops config --output yaml
+```
+
+### Display configuration with verbose output
+
+```bash
 quad-ops config --verbose
+```
 
-# Display configuration using custom config file
+### Display configuration using custom config file
+
+```bash
 quad-ops config --config /path/to/config.yaml
+```
+
+### Display user mode configuration
+
+```bash
+quad-ops config --user
 ```
 
 ## Sample Output
 
 ```yaml
 repositorydir: /var/lib/quad-ops
-syncinterval: 5m0s
 quadletdir: /etc/containers/systemd
 usermode: false
 verbose: false
 repositories:
-  - url: https://github.com/user/repo.git
-    branch: main
-    path: containers
+  - name: quad-ops-compose
+    url: https://github.com/trly/quad-ops-compose.git
+    target: main
+    cleanup:
+      action: Delete
 ```
 
-## Global Options
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--config` | `-c` | Path to configuration file |
-| `--verbose` | `-v` | Enable verbose output |
-
-## Related Commands
-
-- **[sync](sync)** - Synchronize repositories using the current configuration
-- **[up](up)** - Start container units
-- **[down](down)** - Stop container units
-- **[unit](unit)** - Manage quadlet units
-
-## See Also
-
-- [Configuration](../configuration) - Detailed configuration options
-- [Getting Started](../getting-started) - Initial setup guide
-- [Repository Management](../repository-management) - Managing Git repositories

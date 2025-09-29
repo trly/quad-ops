@@ -35,10 +35,6 @@ func NewUnitCommand() *UnitCommand {
 	return &UnitCommand{}
 }
 
-var (
-	unitType string
-)
-
 // GetCobraCommand returns the cobra command for unit operations.
 func (c *UnitCommand) GetCobraCommand() *cobra.Command {
 	unitCmd := &cobra.Command{
