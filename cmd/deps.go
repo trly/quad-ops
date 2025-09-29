@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"context"
 	"io/fs"
 	"os"
-	"time"
 
 	"github.com/benbjohnson/clock"
 	"github.com/trly/quad-ops/internal/log"
@@ -71,16 +69,10 @@ func NewFileSystemOps() FileSystemOps {
 // NotifyFunc represents systemd notification function.
 type NotifyFunc func(unsetEnvironment bool, state string) (bool, error)
 
-// TickerFunc represents ticker creation function.
-type TickerFunc func(time.Duration) *time.Ticker
-
-// ContextFunc represents context creation function.
-type ContextFunc func() context.Context
-
 // CommonDeps provides dependencies common across commands.
 type CommonDeps struct {
 	Clock      clock.Clock
-	FileSystem FileSystemOps
+	FileSystem FileSystem
 	Logger     log.Logger
 }
 
@@ -88,7 +80,7 @@ type CommonDeps struct {
 func NewCommonDeps(logger log.Logger) CommonDeps {
 	return CommonDeps{
 		Clock:      clock.New(),
-		FileSystem: NewFileSystemOps(),
+		FileSystem: &FileSystemOps{},
 		Logger:     logger,
 	}
 }

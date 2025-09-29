@@ -46,21 +46,15 @@ type DaemonDeps struct {
 
 // SyncPerformer defines the interface for performing sync operations.
 type SyncPerformer interface {
-	PerformSync(*App, *SyncCommand)
+	PerformSync(context.Context, *App, *SyncCommand, SyncOptions, SyncDeps)
 }
 
 // DefaultSyncPerformer implements SyncPerformer with the default behavior.
 type DefaultSyncPerformer struct{}
 
 // PerformSync executes a sync operation using the default implementation.
-func (d *DefaultSyncPerformer) PerformSync(app *App, syncCmd *SyncCommand) {
-	// Use the modern dependency injection approach
-	syncOpts := SyncOptions{
-		RepoName: "", // Empty means all repositories
-		Force:    false,
-	}
-	deps := syncCmd.buildDeps(app)
-	if err := syncCmd.syncRepositories(context.Background(), app, syncOpts, deps); err != nil {
+func (d *DefaultSyncPerformer) PerformSync(ctx context.Context, app *App, syncCmd *SyncCommand, opts SyncOptions, deps SyncDeps) {
+	if err := syncCmd.syncRepositories(ctx, app, opts, deps); err != nil {
 		app.Logger.Error("Sync failed", "error", err)
 	}
 }
@@ -139,21 +133,28 @@ func (c *DaemonCommand) Run(ctx context.Context, app *App, opts DaemonOptions, d
 		app.Config.SyncInterval = opts.SyncInterval
 	}
 
-	// Create sync command instance for reuse
+	// Create sync command instance and build its dependencies once
 	syncCmd := NewSyncCommand()
+	syncDeps := syncCmd.buildDeps(app)
+
+	// Prepare sync options from daemon flags
+	syncOpts := SyncOptions{
+		RepoName: opts.RepoName,
+		Force:    opts.Force,
+	}
 
 	// Perform initial sync
 	if app.Config.Verbose {
 		deps.Logger.Info("Performing initial sync")
 	}
-	c.syncPerformer.PerformSync(app, syncCmd)
+	c.syncPerformer.PerformSync(ctx, app, syncCmd, syncOpts, syncDeps)
 
 	// Start daemon mode
-	return c.runDaemon(ctx, app, syncCmd, opts, deps)
+	return c.runDaemon(ctx, app, syncCmd, syncOpts, syncDeps, deps)
 }
 
 // runDaemon starts the daemon loop with periodic sync operations.
-func (c *DaemonCommand) runDaemon(ctx context.Context, app *App, syncCmd *SyncCommand, _ DaemonOptions, deps DaemonDeps) error {
+func (c *DaemonCommand) runDaemon(ctx context.Context, app *App, syncCmd *SyncCommand, syncOpts SyncOptions, syncDeps SyncDeps, deps DaemonDeps) error {
 	deps.Logger.Info("Starting sync daemon", "interval", app.Config.SyncInterval)
 
 	// Notify systemd that the daemon is ready
@@ -177,7 +178,7 @@ func (c *DaemonCommand) runDaemon(ctx context.Context, app *App, syncCmd *SyncCo
 			return ctx.Err()
 		case <-ticker.C:
 			deps.Logger.Debug("Starting scheduled sync")
-			c.syncPerformer.PerformSync(app, syncCmd)
+			c.syncPerformer.PerformSync(ctx, app, syncCmd, syncOpts, syncDeps)
 		case <-watchdogTicker.C:
 			// Send watchdog notification to systemd
 			if sent, err := deps.Notify(false, daemon.SdNotifyWatchdog); err != nil {

@@ -17,14 +17,14 @@ import (
 
 // MockSyncPerformer implements SyncPerformer for testing.
 type MockSyncPerformer struct {
-	PerformSyncFunc func(*App, *SyncCommand)
+	PerformSyncFunc func(context.Context, *App, *SyncCommand, SyncOptions, SyncDeps)
 	CallCount       int
 }
 
-func (m *MockSyncPerformer) PerformSync(app *App, syncCmd *SyncCommand) {
+func (m *MockSyncPerformer) PerformSync(ctx context.Context, app *App, syncCmd *SyncCommand, opts SyncOptions, deps SyncDeps) {
 	m.CallCount++
 	if m.PerformSyncFunc != nil {
-		m.PerformSyncFunc(app, syncCmd)
+		m.PerformSyncFunc(ctx, app, syncCmd, opts, deps)
 	}
 }
 
@@ -52,7 +52,7 @@ func TestDaemonCommand_DirectoryCreationFailure(t *testing.T) {
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
-			FileSystem: FileSystemOps{
+			FileSystem: &FileSystemOps{
 				MkdirAllFunc: func(_ string, _ os.FileMode) error {
 					return errors.New("permission denied")
 				},
@@ -77,7 +77,7 @@ func TestDaemonCommand_InitialSync(t *testing.T) {
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
-			FileSystem: FileSystemOps{
+			FileSystem: &FileSystemOps{
 				MkdirAllFunc: func(_ string, _ os.FileMode) error { return nil },
 			},
 			Logger: testutil.NewTestLogger(t),
@@ -95,7 +95,7 @@ func TestDaemonCommand_InitialSync(t *testing.T) {
 	// Override sync performer to count calls and cancel quickly
 	daemonCmd := NewDaemonCommand()
 	mockPerformer := &MockSyncPerformer{
-		PerformSyncFunc: func(_ *App, _ *SyncCommand) {
+		PerformSyncFunc: func(_ context.Context, _ *App, _ *SyncCommand, _ SyncOptions, _ SyncDeps) {
 			syncCount++
 		},
 	}
@@ -122,7 +122,7 @@ func TestDaemonCommand_SystemdNotifications(t *testing.T) {
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
-			FileSystem: FileSystemOps{
+			FileSystem: &FileSystemOps{
 				MkdirAllFunc: func(_ string, _ os.FileMode) error { return nil },
 			},
 			Logger: testutil.NewTestLogger(t),
@@ -153,7 +153,7 @@ func TestDaemonCommand_SystemdNotificationError(t *testing.T) {
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
-			FileSystem: FileSystemOps{
+			FileSystem: &FileSystemOps{
 				MkdirAllFunc: func(_ string, _ os.FileMode) error { return nil },
 			},
 			Logger: testutil.NewTestLogger(t),
@@ -181,7 +181,7 @@ func TestDaemonCommand_SyncIntervalOverride(t *testing.T) {
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
-			FileSystem: FileSystemOps{
+			FileSystem: &FileSystemOps{
 				MkdirAllFunc: func(_ string, _ os.FileMode) error { return nil },
 			},
 			Logger: testutil.NewTestLogger(t),
@@ -249,18 +249,22 @@ func TestDaemonCommand_SyncPerformer(t *testing.T) {
 	syncCmd := NewSyncCommand()
 	daemonCmd := NewDaemonCommand()
 
+	syncOpts := SyncOptions{RepoName: "test", Force: true}
+	syncDeps := syncCmd.buildDeps(app)
+
 	// Mock sync performer to avoid real operations
 	mockPerformer := &MockSyncPerformer{
-		PerformSyncFunc: func(receivedApp *App, receivedSyncCmd *SyncCommand) {
+		PerformSyncFunc: func(_ context.Context, receivedApp *App, receivedSyncCmd *SyncCommand, receivedOpts SyncOptions, _ SyncDeps) {
 			// Verify the correct parameters were passed
 			assert.Equal(t, app, receivedApp)
 			assert.Equal(t, syncCmd, receivedSyncCmd)
+			assert.Equal(t, syncOpts, receivedOpts)
 		},
 	}
 	daemonCmd.syncPerformer = mockPerformer
 
 	// Execute via the sync performer
-	daemonCmd.syncPerformer.PerformSync(app, syncCmd)
+	daemonCmd.syncPerformer.PerformSync(context.Background(), app, syncCmd, syncOpts, syncDeps)
 
 	// Verify mock was called
 	assert.Equal(t, 1, mockPerformer.CallCount)
