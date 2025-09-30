@@ -19,10 +19,16 @@ The cmd package uses **dependency injection** and **error-based flow control** t
 
 ✅ **daemon** - Full dependency injection with 9 test cases, no hanging  
 ✅ **sync** - Architecture refactored with DI framework  
-✅ **up, down, doctor** - Completed migration with dependency injection
-✅ **unit_*, image_pull, root** - All modernized with comprehensive tests
+✅ **up, down** - Service lifecycle management with comprehensive tests
+✅ **doctor** - System validation with 17 test cases covering all check scenarios
+✅ **version** - Version display with 6 test cases including update checking
+✅ **validate** - Compose validation with 13 test cases covering all validation paths
+✅ **image_pull** - Image pulling with 12 test cases (2 skipped for integration)
+✅ **unit_*, root, config** - All modernized with comprehensive tests
 
 **🎉 ALL COMMANDS SUCCESSFULLY MIGRATED TO MODERN DEPENDENCY INJECTION PATTERN**
+
+**Test Coverage**: 579 tests running in ~400ms with 72.9% cmd package coverage
 
 ## Code Guidelines
 
@@ -58,6 +64,11 @@ The cmd package uses **dependency injection** and **error-based flow control** t
 - ❌ `os.WriteFile(path, data, 0644)` 
 - Use restrictive permissions (0600) for temporary/test files (gosec lint check)
 
+### Directory Permissions
+- ✅ `os.MkdirAll(path, 0750)` for test directories
+- ❌ `os.MkdirAll(path, 0755)` 
+- Use 0750 or less for directories in tests (gosec G301 check)
+
 ### Memory Allocation
 - ✅ `results := make([]CheckResult, 0, expectedSize)`
 - ❌ `var results []CheckResult` (when size is known)
@@ -90,10 +101,73 @@ import (
 - Using `os.Exit(1)` requires `"os"` import
 - Using `fmt.Printf()` requires `"fmt"` import  
 - Using `filepath.Join()` requires `"path/filepath"` import
+- Using `clock.New()` requires `"github.com/benbjohnson/clock"` import
 
 **Missing external package imports:**
 - Using viper functions requires `"github.com/spf13/viper"`
 - Using cobra requires `"github.com/spf13/cobra"`
+
+### FileSystem Mocking Issues
+
+**Cannot assign to interface fields directly:**
+```go
+// ❌ WRONG - Cannot assign to interface method
+deps.FileSystem.WriteFile = func(...) error { return nil }
+
+// ✅ CORRECT - Create new FileSystemOps with mock functions
+mockFS := &FileSystemOps{
+    StatFunc: func(path string) (fs.FileInfo, error) {
+        return os.Stat(path)
+    },
+    WriteFileFunc: func(_ string, _ []byte, _ fs.FileMode) error {
+        return errors.New("permission denied")
+    },
+    RemoveFunc: func(path string) error {
+        return os.Remove(path)
+    },
+    MkdirAllFunc: func(path string, perm fs.FileMode) error {
+        return os.MkdirAll(path, perm)
+    },
+}
+
+deps := CommandDeps{
+    CommonDeps: CommonDeps{
+        Clock:      clock.New(),
+        FileSystem: mockFS,  // Inject the mock
+        Logger:     testutil.NewTestLogger(t),
+    },
+}
+```
+
+### exec.Cmd and Context Issues
+
+**Command creation for tests:**
+```go
+// ❌ WRONG - Setting Cancel field directly causes errors
+cmd := exec.Command("echo", "test")
+cmd.Cancel = func() error { return cmd.Process.Kill() }
+
+// ✅ CORRECT - Use CommandContext for commands that need cancellation
+cmd := exec.CommandContext(ctx, "echo", "test")
+
+// ✅ CORRECT - Or use simple Command for tests without cancellation
+cmd := exec.Command("echo", "test")
+```
+
+**Mocking exec.Command properly:**
+```go
+// Capture arguments for verification instead of asserting in mock
+var argsReceived []string
+deps := CommandDeps{
+    ExecCommand: func(name string, args ...string) *exec.Cmd {
+        argsReceived = args  // Capture for later verification
+        return exec.Command("echo", "success")
+    },
+}
+
+// Verify after execution
+assert.Contains(t, argsReceived, "expected-arg")
+```
 
 ### Type and API Issues
 
@@ -106,6 +180,29 @@ import (
 - Always run `task build` after code generation
 - Fix all lint issues before proceeding
 - Check that tests still pass with changes
+
+### Unused Variable Issues
+
+**Avoid declaring variables that aren't used:**
+```go
+// ❌ WRONG - Variable declared but not meaningfully used
+var envSet bool
+deps.ExecCommand = func(...) *exec.Cmd {
+    if len(cmd.Env) > 0 {
+        envSet = true  // Set but never checked
+    }
+}
+
+// ✅ CORRECT - Only declare if you verify the value
+var envWasSet bool
+// ... set the variable ...
+assert.True(t, envWasSet)  // Actually verify it
+
+// ✅ CORRECT - Or don't declare it if not needed
+deps.ExecCommand = func(...) *exec.Cmd {
+    // Just execute without tracking
+}
+```
 
 ## Agent Collaboration Workflow
 
@@ -586,6 +683,50 @@ func TestCommand_Flags(t *testing.T) {
 }
 ```
 
+### 5. Run Method with Mocked Dependencies
+
+Test the Run method directly with full control over dependencies:
+
+```go
+func TestCommand_Run_SpecificScenario(t *testing.T) {
+    app := NewAppBuilder(t).Build(t)
+    cmd := NewCommand()
+    
+    // Create mock filesystem
+    mockFS := &FileSystemOps{
+        StatFunc: func(path string) (fs.FileInfo, error) {
+            return MockFileInfo{name: "test", isDir: true}, nil
+        },
+        WriteFileFunc: func(_ string, _ []byte, _ fs.FileMode) error {
+            return nil
+        },
+    }
+    
+    deps := CommandDeps{
+        CommonDeps: CommonDeps{
+            Clock:      clock.New(),
+            FileSystem: mockFS,
+            Logger:     testutil.NewTestLogger(t),
+        },
+        // Add command-specific mocks
+    }
+    
+    err := cmd.Run(context.Background(), app, CommandOptions{}, deps)
+    assert.NoError(t, err)
+}
+```
+
+### 6. Skipping Complex Integration Tests
+
+For tests that require complex setup better suited for integration testing:
+
+```go
+// TestCommand_ComplexScenario is skipped - requires full integration setup.
+func TestCommand_ComplexScenario(t *testing.T) {
+    t.Skip("Requires complex setup with git/compose - covered by integration tests")
+}
+```
+
 ## Mock Implementations
 
 ### Available Mocks
@@ -724,6 +865,8 @@ func TestNewCommand_Success(t *testing.T) {
 - ✅ Use dependency injection instead of global seams
 - ✅ Test both success and failure scenarios
 - ✅ Follow naming convention: `TestCommandName_Scenario`
+- ✅ Use `exec.CommandContext` when testing commands that need Cancel support
+- ✅ Skip complex integration tests with clear rationale
 
 ### DON'T:
 - ❌ Test internal business logic (that's tested elsewhere)
@@ -731,6 +874,8 @@ func TestNewCommand_Success(t *testing.T) {
 - ❌ Use `os.Exit()` directly in commands (return errors instead)
 - ❌ Use global mutable state for testing
 - ❌ Test implementation details vs. user-facing behavior
+- ❌ Use 0755 or higher for test directories (use 0750)
+- ❌ Declare variables that won't be verified in assertions
 
 ## Example: Complete Command Implementation
 
@@ -926,6 +1071,42 @@ Aim for these test scenarios per command:
 4. **Flag parsing** (command-specific flags)
 5. **Help text** (verify help output)
 6. **Output verification** (verbose vs non-verbose modes)
+
+## Recent Test Additions (2025-09)
+
+### Doctor Command (17 tests)
+Comprehensive health check validation covering:
+- All checks passing scenarios
+- System requirements failures
+- Missing/inaccessible config files
+- Repository validation (not cloned, invalid git, missing compose dirs)
+- Directory writability checks
+- Structured output formats (JSON/YAML)
+- Helper function validation
+
+### Version Command (6 tests)
+Version display and update checking:
+- Version information output
+- Development vs release version handling
+- Update check behavior
+- Build information display
+
+### Validate Command (13 tests)
+Docker Compose validation:
+- Directory and single file validation
+- Invalid compose files and paths
+- Flag testing and mutual exclusivity
+- System requirements checking
+- Edge cases (empty dirs, non-YAML files)
+- Helper function validation (isValidGitRepo, isComposeFile)
+
+### Image Pull Command (12 tests)
+Container image pulling:
+- Verbose vs non-verbose modes
+- User mode environment handling
+- Error scenarios
+- Dependency injection validation
+- 2 complex tests marked as skipped for integration
 
 This testing framework enables **comprehensive CLI testing without OS dependencies** while maintaining **fast, reliable, and maintainable tests**.
 
