@@ -4,11 +4,12 @@ go 1.25.0
 
 require (
 	github.com/SerhiiCho/timeago/v3 v3.3.1
+	github.com/benbjohnson/clock v1.3.5
 	github.com/compose-spec/compose-go/v2 v2.9.0
 	github.com/coreos/go-systemd/v22 v22.6.0
 	github.com/creativeprojects/go-selfupdate v1.5.1
 	github.com/fatih/color v1.18.0
-	github.com/go-git/go-git/v5 v5.16.2
+	github.com/go-git/go-git/v5 v5.16.3
 	github.com/godbus/dbus/v5 v5.1.1-0.20241109141217-c266b19b28e9
 	github.com/rodaine/table v1.3.0
 	github.com/spf13/cobra v1.10.1
@@ -32,7 +33,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
-	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/cloudflare/circl v1.6.1 // indirect
 	github.com/davidmz/go-pageant v1.0.2 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
