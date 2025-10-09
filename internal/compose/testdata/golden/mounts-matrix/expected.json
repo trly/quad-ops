@@ -15,7 +15,7 @@
         "Ports": null,
         "Mounts": [
           {
-            "Source": "../../../../../../../../../../../host/config",
+            "Source": "/host/config",
             "Target": "/app/config",
             "Type": "bind",
             "ReadOnly": false,
@@ -31,7 +31,7 @@
             "BindOptions": null
           },
           {
-            "Source": "../../../../../../../../../../../readonly",
+            "Source": "/readonly",
             "Target": "/app/ro",
             "Type": "bind",
             "ReadOnly": true,

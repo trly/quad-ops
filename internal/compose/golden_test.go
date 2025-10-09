@@ -133,18 +133,20 @@ func normalizeBundle(specs []service.Spec, volumes []service.Volume, networks []
 }
 
 func normalizeSpec(spec *service.Spec, basePath string) {
-	// Normalize EnvFiles to relative paths
+	// Normalize EnvFiles - only convert to relative if inside test directory
 	for i, envFile := range spec.Container.EnvFiles {
-		if rel, err := filepath.Rel(basePath, envFile); err == nil {
-			spec.Container.EnvFiles[i] = rel
+		if filepath.IsAbs(envFile) {
+			if rel, err := filepath.Rel(basePath, envFile); err == nil && !filepath.IsAbs(rel) && !isPathOutsideBase(rel) {
+				spec.Container.EnvFiles[i] = rel
+			}
 		}
 	}
 
-	// Normalize mount source paths to relative paths for bind mounts
+	// Normalize mount source paths for bind mounts - only convert to relative if inside test directory
 	for i := range spec.Container.Mounts {
 		mount := &spec.Container.Mounts[i]
-		if mount.Type == "bind" && mount.Source != "" {
-			if rel, err := filepath.Rel(basePath, mount.Source); err == nil {
+		if mount.Type == "bind" && mount.Source != "" && filepath.IsAbs(mount.Source) {
+			if rel, err := filepath.Rel(basePath, mount.Source); err == nil && !filepath.IsAbs(rel) && !isPathOutsideBase(rel) {
 				mount.Source = rel
 			}
 		}
@@ -219,4 +221,10 @@ func normalizeNetwork(net *service.Network) {
 			return net.IPAM.Config[i].Subnet < net.IPAM.Config[j].Subnet
 		})
 	}
+}
+
+// isPathOutsideBase checks if a relative path escapes the base directory with ..
+func isPathOutsideBase(relPath string) bool {
+	return filepath.IsAbs(relPath) || filepath.Clean(relPath) != relPath ||
+		len(relPath) > 2 && relPath[:3] == "../"
 }
