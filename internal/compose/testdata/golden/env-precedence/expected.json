@@ -18,8 +18,8 @@
           "TIMEOUT": "30"
         },
         "EnvFiles": [
-          "/Users/trly/src/github.com/trly/quad-ops/internal/compose/testdata/golden/env-precedence/env.common",
-          "/Users/trly/src/github.com/trly/quad-ops/internal/compose/testdata/golden/env-precedence/env.prod"
+          "env.common",
+          "env.prod"
         ],
         "WorkingDir": "",
         "User": "",
