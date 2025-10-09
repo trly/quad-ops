@@ -73,6 +73,7 @@ type Mount struct {
 // MountType represents the type of mount.
 type MountType string
 
+// Mount type constants.
 const (
 	MountTypeBind   MountType = "bind"
 	MountTypeVolume MountType = "volume"
@@ -86,22 +87,23 @@ type BindOptions struct {
 
 // Resources represents resource constraints.
 type Resources struct {
-	Memory            string  // Memory limit (e.g., "512m", "2g")
-	MemoryReservation string  // Memory soft limit
-	MemorySwap        string  // Memory + swap limit
-	CPUShares         int64   // CPU shares (relative weight)
-	CPUQuota          int64   // CPU quota in microseconds
-	CPUPeriod         int64   // CPU period in microseconds
-	PidsLimit         int64   // Maximum PIDs
+	Memory            string // Memory limit (e.g., "512m", "2g")
+	MemoryReservation string // Memory soft limit
+	MemorySwap        string // Memory + swap limit
+	CPUShares         int64  // CPU shares (relative weight)
+	CPUQuota          int64  // CPU quota in microseconds
+	CPUPeriod         int64  // CPU period in microseconds
+	PidsLimit         int64  // Maximum PIDs
 }
 
 // RestartPolicy represents the container restart policy.
 type RestartPolicy string
 
+// Restart policy constants.
 const (
-	RestartPolicyNo        RestartPolicy = "no"
-	RestartPolicyAlways    RestartPolicy = "always"
-	RestartPolicyOnFailure RestartPolicy = "on-failure"
+	RestartPolicyNo            RestartPolicy = "no"
+	RestartPolicyAlways        RestartPolicy = "always"
+	RestartPolicyOnFailure     RestartPolicy = "on-failure"
 	RestartPolicyUnlessStopped RestartPolicy = "unless-stopped"
 )
 
@@ -117,32 +119,32 @@ type Healthcheck struct {
 
 // Security represents security settings.
 type Security struct {
-	Privileged       bool     // Run with elevated privileges
-	CapAdd           []string // Linux capabilities to add
-	CapDrop          []string // Linux capabilities to drop
-	SecurityOpt      []string // Security options
-	ReadonlyRootfs   bool     // Read-only root filesystem
-	SELinuxType      string   // SELinux type label
-	AppArmorProfile  string   // AppArmor profile
-	SeccompProfile   string   // Seccomp profile
+	Privileged      bool     // Run with elevated privileges
+	CapAdd          []string // Linux capabilities to add
+	CapDrop         []string // Linux capabilities to drop
+	SecurityOpt     []string // Security options
+	ReadonlyRootfs  bool     // Read-only root filesystem
+	SELinuxType     string   // SELinux type label
+	AppArmorProfile string   // AppArmor profile
+	SeccompProfile  string   // Seccomp profile
 }
 
 // Build represents container build configuration.
 type Build struct {
-	Context               string            // Build context path
-	Dockerfile            string            // Dockerfile path
-	Target                string            // Build target
-	Args                  map[string]string // Build arguments
-	Labels                map[string]string // Image labels
-	CacheFrom             []string          // Cache sources
-	Pull                  bool              // Always pull base image
-	Networks              []string          // Networks for build
-	Volumes               []string          // Volumes for build
-	Secrets               []string          // Secrets for build
-	Tags                  []string          // Image tags
-	Annotations           []string          // Image annotations
-	SetWorkingDirectory   string            // Working directory for build
-	PodmanArgs            []string          // Additional Podman build args
+	Context             string            // Build context path
+	Dockerfile          string            // Dockerfile path
+	Target              string            // Build target
+	Args                map[string]string // Build arguments
+	Labels              map[string]string // Image labels
+	CacheFrom           []string          // Cache sources
+	Pull                bool              // Always pull base image
+	Networks            []string          // Networks for build
+	Volumes             []string          // Volumes for build
+	Secrets             []string          // Secrets for build
+	Tags                []string          // Image tags
+	Annotations         []string          // Image annotations
+	SetWorkingDirectory string            // Working directory for build
+	PodmanArgs          []string          // Additional Podman build args
 }
 
 // Logging represents logging configuration.
@@ -197,8 +199,8 @@ type Network struct {
 
 // IPAM represents IP address management configuration.
 type IPAM struct {
-	Driver  string       // IPAM driver
-	Config  []IPAMConfig // IPAM configurations
+	Driver  string            // IPAM driver
+	Config  []IPAMConfig      // IPAM configurations
 	Options map[string]string // Driver options
 }
 

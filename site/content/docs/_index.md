@@ -13,6 +13,9 @@ Quad-Ops is a lightweight GitOps framework that synchronizes Docker Compose file
 
 ## Documentation Sections
 
+### [Architecture](architecture)
+Cross-platform design, domain models, and how quad-ops adapts to different service managers (systemd, launchd).
+
 ### [Getting Started](getting-started)
 Quick setup guide to get Quad-Ops running in under 10 minutes.
 

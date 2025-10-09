@@ -32,7 +32,7 @@ func (e ValidationErrors) Error() string {
 	if len(e) == 0 {
 		return ""
 	}
-	var messages []string
+	messages := make([]string, 0, len(e))
 	for _, err := range e {
 		messages = append(messages, err.Error())
 	}
@@ -120,10 +120,10 @@ func (c *Container) Validate() error {
 	// Validate restart policy
 	if c.RestartPolicy != "" {
 		validPolicies := map[RestartPolicy]bool{
-			RestartPolicyNo:             true,
-			RestartPolicyAlways:         true,
-			RestartPolicyOnFailure:      true,
-			RestartPolicyUnlessStopped:  true,
+			RestartPolicyNo:            true,
+			RestartPolicyAlways:        true,
+			RestartPolicyOnFailure:     true,
+			RestartPolicyUnlessStopped: true,
 		}
 		if !validPolicies[c.RestartPolicy] {
 			errs = append(errs, ValidationError{
@@ -228,15 +228,15 @@ func (i *IPAM) Validate() error {
 func SanitizeName(name string) string {
 	// Replace invalid characters with hyphens
 	result := regexp.MustCompile(`[^a-zA-Z0-9_.-]+`).ReplaceAllString(name, "-")
-	
+
 	// Ensure it starts with alphanumeric
 	result = regexp.MustCompile(`^[^a-zA-Z0-9]+`).ReplaceAllString(result, "")
-	
+
 	// Remove trailing invalid characters
 	result = regexp.MustCompile(`[^a-zA-Z0-9]+$`).ReplaceAllString(result, "")
-	
+
 	// Collapse multiple hyphens
 	result = regexp.MustCompile(`-+`).ReplaceAllString(result, "-")
-	
+
 	return result
 }

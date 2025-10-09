@@ -26,19 +26,19 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/sorting"
+	"github.com/trly/quad-ops/internal/repository"
 )
 
 // ShowOptions holds show command options.
-type ShowOptions struct {
-	UnitType string
-}
+type ShowOptions struct{}
 
 // ShowDeps holds show dependencies.
 type ShowDeps struct {
 	CommonDeps
+	ArtifactStore repository.ArtifactStore
 }
 
 // ShowCommand represents the unit show command.
@@ -59,8 +59,8 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 	var opts ShowOptions
 
 	unitShowCmd := &cobra.Command{
-		Use:   "show",
-		Short: "Show the contents of a quadlet unit",
+		Use:   "show SERVICE",
+		Short: "Show the contents of a service artifact",
 		Args:  cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
@@ -75,21 +75,48 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 		SilenceErrors: true,
 	}
 
-	unitShowCmd.Flags().StringVarP(&opts.UnitType, "type", "t", "container", "Type of unit (container, volume, network, image)")
-
 	return unitShowCmd
 }
 
 // Run executes the show command with injected dependencies.
-func (c *ShowCommand) Run(_ context.Context, app *App, opts ShowOptions, _ ShowDeps, unitName string) error {
-	// Validate unit name to prevent command injection
-	if err := sorting.ValidateUnitName(unitName); err != nil {
-		return fmt.Errorf("invalid unit name %q: %w", unitName, err)
+func (c *ShowCommand) Run(ctx context.Context, _ *App, _ ShowOptions, deps ShowDeps, serviceName string) error {
+	// List all artifacts to find matching service
+	artifacts, err := deps.ArtifactStore.List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list artifacts: %w", err)
 	}
 
-	err := app.UnitManager.Show(unitName, opts.UnitType)
-	if err != nil {
-		return fmt.Errorf("failed to show unit %q: %w", unitName, err)
+	// Find artifacts matching the service name
+	var matchingArtifacts []struct {
+		Path    string
+		Content string
+	}
+
+	for _, artifact := range artifacts {
+		// Check if artifact matches the service name (handles both systemd and launchd)
+		if matchesServiceName(artifact.Path, serviceName) {
+			matchingArtifacts = append(matchingArtifacts, struct {
+				Path    string
+				Content string
+			}{
+				Path:    artifact.Path,
+				Content: string(artifact.Content),
+			})
+		}
+	}
+
+	if len(matchingArtifacts) == 0 {
+		return fmt.Errorf("no artifact found for service %q", serviceName)
+	}
+
+	// Display all matching artifacts
+	for i, artifact := range matchingArtifacts {
+		if i > 0 {
+			fmt.Println() // Blank line between artifacts
+		}
+		fmt.Printf("# Artifact: %s\n", artifact.Path)
+		fmt.Println(strings.Repeat("-", 80))
+		fmt.Println(artifact.Content)
 	}
 
 	return nil
@@ -98,6 +125,7 @@ func (c *ShowCommand) Run(_ context.Context, app *App, opts ShowOptions, _ ShowD
 // buildDeps creates production dependencies for the show command.
 func (c *ShowCommand) buildDeps(app *App) ShowDeps {
 	return ShowDeps{
-		CommonDeps: NewRootDeps(app),
+		CommonDeps:    NewRootDeps(app),
+		ArtifactStore: app.ArtifactStore,
 	}
 }

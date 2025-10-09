@@ -84,6 +84,23 @@ fi
 
 print_info "Install path: $FINAL_INSTALL_PATH"
 
+# Detect operating system
+OS=$(uname -s)
+case $OS in
+    Linux)
+        OS="linux"
+        ;;
+    Darwin)
+        OS="darwin"
+        ;;
+    *)
+        print_error "Unsupported operating system: $OS"
+        exit 1
+        ;;
+esac
+
+print_info "Detected operating system: $OS"
+
 # Detect architecture
 ARCH=$(uname -m)
 case $ARCH in
@@ -102,12 +119,27 @@ esac
 print_info "Detected architecture: $ARCH"
 
 # Check dependencies
-for cmd in curl tar sha256sum; do
+for cmd in curl tar; do
     if ! command -v $cmd >/dev/null 2>&1; then
         print_error "Required command '$cmd' not found"
         exit 1
     fi
 done
+
+# Use shasum on macOS, sha256sum on Linux
+if [[ "$OS" == "darwin" ]]; then
+    if ! command -v shasum >/dev/null 2>&1; then
+        print_error "Required command 'shasum' not found"
+        exit 1
+    fi
+    CHECKSUM_CMD="shasum -a 256"
+else
+    if ! command -v sha256sum >/dev/null 2>&1; then
+        print_error "Required command 'sha256sum' not found"
+        exit 1
+    fi
+    CHECKSUM_CMD="sha256sum"
+fi
 
 # Get version to install
 if [[ -n "$VERSION_OVERRIDE" ]]; then
@@ -131,7 +163,7 @@ else
 fi
 
 # Construct download URLs
-BINARY_FILE="${BINARY_NAME}_${VERSION#v}_linux_${ARCH}.tar.gz"
+BINARY_FILE="${BINARY_NAME}_${VERSION#v}_${OS}_${ARCH}.tar.gz"
 CHECKSUM_FILE="${BINARY_NAME}_${VERSION#v}_checksums.txt"
 BINARY_URL="https://github.com/$REPO/releases/download/$VERSION/$BINARY_FILE"
 CHECKSUM_URL="https://github.com/$REPO/releases/download/$VERSION/$CHECKSUM_FILE"
@@ -165,7 +197,7 @@ if [[ -z "$EXPECTED_CHECKSUM" ]]; then
     exit 1
 fi
 
-ACTUAL_CHECKSUM=$(sha256sum "$BINARY_FILE" | awk '{print $1}')
+ACTUAL_CHECKSUM=$($CHECKSUM_CMD "$BINARY_FILE" | awk '{print $1}')
 if [[ "$EXPECTED_CHECKSUM" != "$ACTUAL_CHECKSUM" ]]; then
     print_error "Checksum verification failed!"
     print_error "Expected: $EXPECTED_CHECKSUM"
@@ -325,8 +357,8 @@ install_example_config() {
     fi
 }
 
-# Install systemd service if systemctl is available
-if command -v systemctl >/dev/null 2>&1; then
+# Install systemd service if systemctl is available (Linux only)
+if [[ "$OS" == "linux" ]] && command -v systemctl >/dev/null 2>&1; then
     install_systemd_service
 fi
 

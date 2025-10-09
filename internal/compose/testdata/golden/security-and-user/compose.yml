@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  app:
+    image: myapp:1.0
+    user: "1000:1000"
+    group_add:
+      - "2000"
+      - "3000"
+    cap_add:
+      - NET_ADMIN
+      - SYS_TIME
+    cap_drop:
+      - ALL
+    privileged: false
+    read_only: true
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=docker-default
+      - label=type:container_runtime_t
+    devices:
+      - "/dev/sda:/dev/xvda"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+      - "custom.local:192.168.1.100"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    dns_search:
+      - example.com
+    hostname: myapp-host
+    working_dir: /app
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
