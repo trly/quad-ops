@@ -65,8 +65,12 @@ func TestSpecConverter_Golden(t *testing.T) {
 				assert.NoError(t, net.Validate(), "network %s failed validation", net.Name)
 			}
 
+			// Get absolute path of case directory for normalization
+			absCaseDir, err := filepath.Abs(caseDir)
+			require.NoError(t, err, "failed to get absolute path")
+
 			// Create normalized bundle
-			bundle := normalizeBundle(specs, volumes, networks)
+			bundle := normalizeBundle(specs, volumes, networks, absCaseDir)
 
 			// Marshal to JSON
 			actual, err := json.MarshalIndent(bundle, "", "  ")
@@ -90,7 +94,7 @@ func TestSpecConverter_Golden(t *testing.T) {
 	}
 }
 
-func normalizeBundle(specs []service.Spec, volumes []service.Volume, networks []service.Network) TestBundle {
+func normalizeBundle(specs []service.Spec, volumes []service.Volume, networks []service.Network, basePath string) TestBundle {
 	// Sort services by name
 	sort.Slice(specs, func(i, j int) bool {
 		return specs[i].Name < specs[j].Name
@@ -98,7 +102,7 @@ func normalizeBundle(specs []service.Spec, volumes []service.Volume, networks []
 
 	// Normalize each spec
 	for i := range specs {
-		normalizeSpec(&specs[i])
+		normalizeSpec(&specs[i], basePath)
 	}
 
 	// Sort volumes by name
@@ -128,7 +132,24 @@ func normalizeBundle(specs []service.Spec, volumes []service.Volume, networks []
 	}
 }
 
-func normalizeSpec(spec *service.Spec) {
+func normalizeSpec(spec *service.Spec, basePath string) {
+	// Normalize EnvFiles to relative paths
+	for i, envFile := range spec.Container.EnvFiles {
+		if rel, err := filepath.Rel(basePath, envFile); err == nil {
+			spec.Container.EnvFiles[i] = rel
+		}
+	}
+
+	// Normalize mount source paths to relative paths for bind mounts
+	for i := range spec.Container.Mounts {
+		mount := &spec.Container.Mounts[i]
+		if mount.Type == "bind" && mount.Source != "" {
+			if rel, err := filepath.Rel(basePath, mount.Source); err == nil {
+				mount.Source = rel
+			}
+		}
+	}
+
 	// Sort dependencies
 	sort.Strings(spec.DependsOn)
 
