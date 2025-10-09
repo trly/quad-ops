@@ -10,14 +10,39 @@ Quad-Ops is a lightweight GitOps framework for Podman containers managed by [Qua
 
 ## Key Features
 
-- Monitor multiple Git repositories for container configurations
-- Support for standard Docker Compose files (services, networks, volumes, secrets)
-- Support for Podman-specific features like exposing secrets as environment variables
+- **GitOps workflow** - Monitor multiple Git repositories for container configurations
+- **Standard Docker Compose** - Full support for Docker Compose files (services, networks, volumes, secrets)
+- **Cross-platform** - Works on Linux (systemd/Quadlet) and macOS (launchd) with Podman
+- **Smart change detection** - SHA256-based detection prevents unnecessary service restarts
 - **Init containers** - Run initialization containers before main services start (similar to Kubernetes)
-- Automatic detection of service-specific environment files
-- Automated dependencies via systemd unit relationships
-- Intelligent restarts - only restarts services that changed and their dependents
-- Works in both system-wide and user (rootless) modes
+- **Intelligent restarts** - Only restarts services whose artifacts actually changed
+- **Podman-specific features** - Support for exposing secrets as environment variables
+- **Flexible deployment** - Works in both system-wide and user (rootless) modes
+- **Production-ready** - Built with dependency injection, comprehensive test coverage (582+ tests)
+
+## Architecture
+
+Quad-Ops uses a clean, modular architecture with clear separation of concerns:
+
+```
+Docker Compose → Service Specs → Platform Artifacts → Service Lifecycle
+     ↓               ↓                 ↓                    ↓
+   Reader        Converter         Renderer             Lifecycle
+                                                         Manager
+```
+
+1. **Compose Reader** - Parses Docker Compose YAML files
+2. **Spec Converter** - Converts to platform-agnostic service specifications
+3. **Platform Renderer** - Generates platform-specific artifacts (Quadlet units on Linux, launchd plists on macOS)
+4. **Lifecycle Manager** - Manages service start/stop/restart via systemd or launchd
+5. **Change Detection** - SHA256 hashing ensures only changed services restart
+
+This architecture makes it easy to:
+- Add new platforms (Windows services, etc.)
+- Test components in isolation with dependency injection
+- Understand and maintain the codebase
+
+For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Configuration Example
 
@@ -52,6 +77,26 @@ go build -o quad-ops cmd/quad-ops/main.go  # Build binary only
 
 ## Installation
 
+### Quick Install (Recommended)
+
+Linux and macOS are both supported with automatic platform detection:
+
+```bash
+# System-wide installation (Linux and macOS)
+curl -fsSL https://raw.githubusercontent.com/trly/quad-ops/main/install.sh | bash
+
+# User installation (rootless containers)
+curl -fsSL https://raw.githubusercontent.com/trly/quad-ops/main/install.sh | bash -s -- --user
+```
+
+The installer automatically:
+- Detects your platform (Linux/macOS) and architecture (amd64/arm64)
+- Downloads and verifies the correct binary
+- Installs systemd services (Linux only)
+- Sets up example configuration files
+
+### Manual Installation
+
 ```bash
 # Build the binary
 go build -o quad-ops cmd/quad-ops/main.go
@@ -63,12 +108,8 @@ sudo mv quad-ops /usr/local/bin/
 sudo mkdir -p /etc/quad-ops
 sudo cp configs/config.yaml.example /etc/quad-ops/config.yaml
 
-# Install the systemd service file (optional)
+# Linux only: Install the systemd service file (optional)
 sudo cp build/quad-ops.service /etc/systemd/system/quad-ops.service
-
-# Reload systemd daemon
 sudo systemctl daemon-reload
-
-# Enable and start the service
 sudo systemctl enable --now quad-ops
 ```

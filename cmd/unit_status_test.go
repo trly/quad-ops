@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trly/quad-ops/internal/platform"
 )
 
 func TestStatusCommand_ValidationFailure(t *testing.T) {
@@ -27,45 +28,26 @@ func TestStatusCommand_ValidationFailure(t *testing.T) {
 }
 
 func TestStatusCommand_Success(t *testing.T) {
-	unitManager := &MockUnitManager{
-		ShowFunc: func(_, _ string) error {
-			return nil
+	lifecycle := &MockLifecycle{
+		StatusFunc: func(_ context.Context, _ string) (*platform.ServiceStatus, error) {
+			return &platform.ServiceStatus{
+				Name:        "test-service",
+				Active:      true,
+				State:       "running",
+				Description: "Test service",
+			}, nil
 		},
 	}
 
 	app := NewAppBuilder(t).
-		WithUnitManager(unitManager).
+		WithLifecycle(lifecycle).
 		Build(t)
 
 	cmd := NewStatusCommand().GetCobraCommand()
 	SetupCommandContext(cmd, app)
 
-	err := ExecuteCommand(t, cmd, []string{"test-unit"})
+	err := ExecuteCommand(t, cmd, []string{"test-service"})
 	assert.NoError(t, err)
-	assert.Len(t, unitManager.ShowCalls, 1)
-	assert.Equal(t, "test-unit", unitManager.ShowCalls[0].Name)
-	assert.Equal(t, "container", unitManager.ShowCalls[0].UnitType)
-}
-
-func TestStatusCommand_WithCustomType(t *testing.T) {
-	unitManager := &MockUnitManager{
-		ShowFunc: func(_, _ string) error {
-			return nil
-		},
-	}
-
-	app := NewAppBuilder(t).
-		WithUnitManager(unitManager).
-		Build(t)
-
-	cmd := NewStatusCommand().GetCobraCommand()
-	SetupCommandContext(cmd, app)
-
-	err := ExecuteCommand(t, cmd, []string{"--type", "volume", "test-unit"})
-	assert.NoError(t, err)
-	assert.Len(t, unitManager.ShowCalls, 1)
-	assert.Equal(t, "test-unit", unitManager.ShowCalls[0].Name)
-	assert.Equal(t, "volume", unitManager.ShowCalls[0].UnitType)
 }
 
 func TestStatusCommand_InvalidUnitName(t *testing.T) {
@@ -75,27 +57,27 @@ func TestStatusCommand_InvalidUnitName(t *testing.T) {
 
 	err := ExecuteCommand(t, cmd, []string{"invalid|unit"})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid unit name")
+	assert.Contains(t, err.Error(), "invalid service name")
 }
 
-func TestStatusCommand_UnitManagerError(t *testing.T) {
-	unitManager := &MockUnitManager{
-		ShowFunc: func(_, _ string) error {
-			return errors.New("unit not found")
+func TestStatusCommand_LifecycleError(t *testing.T) {
+	lifecycle := &MockLifecycle{
+		StatusFunc: func(_ context.Context, _ string) (*platform.ServiceStatus, error) {
+			return nil, errors.New("service not found")
 		},
 	}
 
 	app := NewAppBuilder(t).
-		WithUnitManager(unitManager).
+		WithLifecycle(lifecycle).
 		Build(t)
 
 	cmd := NewStatusCommand().GetCobraCommand()
 	SetupCommandContext(cmd, app)
 
-	err := ExecuteCommand(t, cmd, []string{"missing-unit"})
+	err := ExecuteCommand(t, cmd, []string{"missing-service"})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error showing unit status")
-	assert.Contains(t, err.Error(), "unit not found")
+	assert.Contains(t, err.Error(), "failed to get status")
+	assert.Contains(t, err.Error(), "service not found")
 }
 
 func TestStatusCommand_Help(t *testing.T) {
@@ -103,28 +85,29 @@ func TestStatusCommand_Help(t *testing.T) {
 	output, err := ExecuteCommandWithCapture(t, cmd, []string{"--help"})
 
 	require.NoError(t, err)
-	assert.Contains(t, output, "Show the status of a quadlet unit")
-	assert.Contains(t, output, "--type")
+	assert.Contains(t, output, "Show the status of a service")
 }
 
 func TestStatusCommand_Run(t *testing.T) {
-	unitManager := &MockUnitManager{
-		ShowFunc: func(_, _ string) error {
-			return nil
+	// Mock lifecycle to be returned by GetLifecycle
+	lifecycle := &MockLifecycle{
+		StatusFunc: func(_ context.Context, _ string) (*platform.ServiceStatus, error) {
+			return &platform.ServiceStatus{
+				Name:   "test-service",
+				Active: true,
+				State:  "running",
+			}, nil
 		},
 	}
 
 	app := NewAppBuilder(t).
-		WithUnitManager(unitManager).
+		WithLifecycle(lifecycle).
 		Build(t)
 
 	statusCommand := NewStatusCommand()
-	opts := StatusOptions{UnitType: "container"}
+	opts := StatusOptions{}
 	deps := StatusDeps{CommonDeps: NewCommonDeps(app.Logger)}
 
-	err := statusCommand.Run(context.Background(), app, opts, deps, "test-unit")
+	err := statusCommand.Run(context.Background(), app, opts, deps, "test-service")
 	assert.NoError(t, err)
-	assert.Len(t, unitManager.ShowCalls, 1)
-	assert.Equal(t, "test-unit", unitManager.ShowCalls[0].Name)
-	assert.Equal(t, "container", unitManager.ShowCalls[0].UnitType)
 }

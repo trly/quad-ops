@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  app:
+    image: myapp:1.0
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 512M
+          pids: 100
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 2048
+      nproc: 512
+    sysctls:
+      net.core.somaxconn: 1024
+      net.ipv4.tcp_syncookies: 0

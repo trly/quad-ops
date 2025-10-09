@@ -149,7 +149,10 @@ func (c *RootCommand) persistentPreRun(cmd *cobra.Command, opts RootOptions, dep
 	}
 
 	// Initialize app and store in context for commands that need it
-	app := NewApp(logger, configProv)
+	app, err := NewApp(logger, configProv)
+	if err != nil {
+		return fmt.Errorf("failed to initialize application: %w", err)
+	}
 	app.OutputFormat = opts.OutputFormat
 	cmd.SetContext(context.WithValue(cmd.Context(), appContextKey, app))
 	return nil

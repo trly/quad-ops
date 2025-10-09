@@ -28,12 +28,18 @@ func TestDoctorCommand_ValidationFailure(t *testing.T) {
 		Build(t)
 
 	doctorCmd := NewDoctorCommand()
-	cmd := doctorCmd.GetCobraCommand()
-	SetupCommandContext(cmd, app)
+	deps := DoctorDeps{
+		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
+		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
+			return &git.Repository{Path: "/nonexistent"}
+		},
+		ViperConfigFile: func() string { return "" },
+		GetOS:           func() string { return "linux" },
+	}
 
-	err := cmd.PreRunE(cmd, []string{})
+	err := doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "systemd not found")
+	assert.Contains(t, err.Error(), "issues")
 }
 
 // TestDoctorCommand_Success tests successful doctor execution.
@@ -92,6 +98,7 @@ func TestDoctorCommand_Run_AllChecksPass(t *testing.T) {
 			return &git.Repository{Path: tempDir}
 		},
 		ViperConfigFile: func() string { return filepath.Join(tempDir, "config.yaml") },
+		GetOS:           func() string { return "linux" },
 	}
 
 	// Create config file for test
@@ -125,6 +132,7 @@ func TestDoctorCommand_Run_SystemRequirementsFailure(t *testing.T) {
 			return &git.Repository{Path: "/nonexistent"}
 		},
 		ViperConfigFile: func() string { return "" },
+		GetOS:           func() string { return "linux" },
 	}
 
 	err := doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
@@ -152,6 +160,7 @@ func TestDoctorCommand_Run_NoConfigFile(t *testing.T) {
 			return &git.Repository{Path: tempDir}
 		},
 		ViperConfigFile: func() string { return "" },
+		GetOS:           func() string { return "linux" },
 	}
 
 	err := doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
@@ -184,6 +193,7 @@ func TestDoctorCommand_Run_NoRepositoriesConfigured(t *testing.T) {
 			return &git.Repository{Path: tempDir}
 		},
 		ViperConfigFile: func() string { return configFile },
+		GetOS:           func() string { return "linux" },
 	}
 
 	err = doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
@@ -235,6 +245,7 @@ func TestDoctorCommand_Run_DirectoryNotWritable(t *testing.T) {
 			return &git.Repository{Path: tempDir}
 		},
 		ViperConfigFile: func() string { return configFile },
+		GetOS:           func() string { return "linux" },
 	}
 
 	err = doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
@@ -268,6 +279,7 @@ func TestDoctorCommand_Run_RepositoryNotCloned(t *testing.T) {
 			return &git.Repository{Path: "/nonexistent/path"}
 		},
 		ViperConfigFile: func() string { return configFile },
+		GetOS:           func() string { return "linux" },
 	}
 
 	err = doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
@@ -305,6 +317,7 @@ func TestDoctorCommand_Run_InvalidGitRepository(t *testing.T) {
 			return &git.Repository{Path: repoDir}
 		},
 		ViperConfigFile: func() string { return configFile },
+		GetOS:           func() string { return "linux" },
 	}
 
 	err = doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
@@ -342,6 +355,7 @@ func TestDoctorCommand_Run_ComposeDirNotFound(t *testing.T) {
 			return &git.Repository{Path: repoDir}
 		},
 		ViperConfigFile: func() string { return configFile },
+		GetOS:           func() string { return "linux" },
 	}
 
 	err = doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
@@ -369,6 +383,7 @@ func TestDoctorCommand_Run_StructuredOutput(t *testing.T) {
 			return &git.Repository{Path: tempDir}
 		},
 		ViperConfigFile: func() string { return "" },
+		GetOS:           func() string { return "linux" },
 	}
 
 	err := doctorCmd.Run(context.Background(), app, DoctorOptions{}, deps)
@@ -380,6 +395,7 @@ func TestDoctorCommand_CheckDirectory_EmptyPath(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
+		GetOS:      func() string { return "linux" },
 	}
 
 	err := doctorCmd.checkDirectory("test", "", deps)
@@ -397,6 +413,7 @@ func TestDoctorCommand_CheckDirectory_NotDirectory(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
+		GetOS:      func() string { return "linux" },
 	}
 
 	err = doctorCmd.checkDirectory("test", filePath, deps)
@@ -414,6 +431,7 @@ func TestDoctorCommand_IsValidGitRepo(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
+		GetOS:      func() string { return "linux" },
 	}
 
 	valid := doctorCmd.isValidGitRepo(tempDir, deps)

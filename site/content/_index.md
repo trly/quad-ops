@@ -19,19 +19,23 @@ weight: 0
 ![GitHub Release](https://img.shields.io/github/v/release/trly/quad-ops)
 [![codecov](https://codecov.io/gh/trly/quad-ops/graph/badge.svg?token=ID6CGJPXR6)](https://codecov.io/gh/trly/quad-ops)
 
-A lightweight GitOps framework for podman containers managed by [Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
+A cross-platform GitOps framework for container management with native service integration
 
-Quad-Ops is a tool that helps you manage container deployments using Podman and systemd in a GitOps workflow. It watches Git repositories for standard [Docker Compose](https://compose-spec.io/) files and automatically converts them into unit files that systemd can use to run your containers.
+Quad-Ops is a tool that helps you manage container deployments in a GitOps workflow. It watches Git repositories for standard [Docker Compose](https://compose-spec.io/) files and automatically converts them into native service definitions for your platform:
+
+- **Linux**: systemd + [Podman Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
+- **macOS**: launchd (planned)
 
 ## What Makes Quad-Ops Different
 
 While Quad-Ops uses [Docker Compose](https://compose-spec.io/)  as its configuration format, there are some key differences from traditional [Docker Compose](https://compose-spec.io/)  deployments:
 
 1. **GitOps-Based**: Changes to containers are driven by Git repositories, not manual commands
-2. **Systemd Integration**: Containers are managed by systemd instead of a Docker daemon
-3. **Podman Backend**: Uses Podman's daemonless container engine instead of Docker
-4. **Automated Dependencies**: Service relationships are automatically converted to systemd unit dependencies
-5. **Intelligent Restarts**: Only restarts services that have changed and their dependents
+2. **Cross-Platform**: Automatically adapts to your platform's native service manager (systemd on Linux, launchd on macOS)
+3. **Native Integration**: Containers are managed by your platform's service manager, not a separate daemon
+4. **Platform-Agnostic Models**: Uses platform-neutral service definitions that render to platform-specific formats
+5. **Automated Dependencies**: Service relationships are automatically converted to native dependency directives
+6. **Intelligent Restarts**: Only restarts services that have changed and their dependents
 
 ## Key Features:
 - Monitor multiple Git repositories for container configurations

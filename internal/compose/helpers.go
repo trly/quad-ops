@@ -13,6 +13,14 @@ func Prefix(projectName, resourceName string) string {
 	return fmt.Sprintf("%s-%s", projectName, resourceName)
 }
 
+// NameResolver returns the explicit name if provided, otherwise returns the default name.
+func NameResolver(explicitName, defaultName string) string {
+	if explicitName != "" {
+		return explicitName
+	}
+	return defaultName
+}
+
 // FindEnvFiles discovers environment files for a service in a working directory.
 func FindEnvFiles(serviceName, workingDir string) []string {
 	if workingDir == "" {
