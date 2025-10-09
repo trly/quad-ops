@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -45,6 +46,7 @@ type DoctorDeps struct {
 	CommonDeps
 	NewGitRepo      func(config.Repository, config.Provider) *git.Repository
 	ViperConfigFile func() string
+	GetOS           func() string
 }
 
 // DoctorCommand represents the doctor command for quad-ops CLI.
@@ -78,17 +80,13 @@ func (c *DoctorCommand) GetCobraCommand() *cobra.Command {
 		Long: `Check system health and configuration for quad-ops.
 
 The doctor command performs comprehensive checks of:
-- System requirements (systemd, podman)
+- System requirements (systemd/podman on Linux, launchd/podman on macOS)
 - Configuration file validity
 - Directory permissions and accessibility
 - Repository connectivity
 - File system requirements
 
 This helps diagnose common setup and configuration issues.`,
-		PreRunE: func(cmd *cobra.Command, _ []string) error {
-			app := c.getApp(cmd)
-			return app.Validator.SystemRequirements()
-		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
 			deps := c.buildDeps(app)
@@ -107,6 +105,7 @@ func (c *DoctorCommand) buildDeps(app *App) DoctorDeps {
 		CommonDeps:      NewRootDeps(app),
 		NewGitRepo:      git.NewGitRepository,
 		ViperConfigFile: func() string { return viper.GetViper().ConfigFileUsed() },
+		GetOS:           func() string { return runtime.GOOS },
 	}
 }
 
@@ -159,17 +158,35 @@ func (c *DoctorCommand) Run(_ context.Context, app *App, _ DoctorOptions, deps D
 }
 
 // checkSystemRequirements validates core system dependencies.
-func (c *DoctorCommand) checkSystemRequirements(app *App, _ DoctorDeps) []CheckResult {
+func (c *DoctorCommand) checkSystemRequirements(app *App, deps DoctorDeps) []CheckResult {
 	var results []CheckResult
 
-	// Check systemd and podman
+	// Check platform-specific requirements
 	err := app.Validator.SystemRequirements()
 	if err != nil {
-		suggestions := []string{
-			"Install systemd if running on a systemd-based system",
-			"Install podman for container operations",
-			"Ensure systemd and podman are in your PATH",
+		// Platform-specific suggestions
+		var suggestions []string
+		platform := deps.GetOS()
+
+		switch platform {
+		case "linux":
+			suggestions = []string{
+				"Install systemd if running on a systemd-based system",
+				"Install podman for container operations",
+				"Ensure systemd and podman are in your PATH",
+			}
+		case "darwin":
+			suggestions = []string{
+				"Install podman via Podman Desktop (https://podman-desktop.io) or Homebrew (brew install podman)",
+				"Ensure podman is in your PATH",
+				"launchd is built-in on macOS and should be available by default",
+			}
+		default:
+			suggestions = []string{
+				"quad-ops requires Linux (systemd) or macOS (launchd) for service management",
+			}
 		}
+
 		results = append(results, CheckResult{
 			Name:        "System Requirements",
 			Passed:      false,
@@ -177,10 +194,23 @@ func (c *DoctorCommand) checkSystemRequirements(app *App, _ DoctorDeps) []CheckR
 			Suggestions: suggestions,
 		})
 	} else {
+		// Platform-specific success message
+		var message string
+		platform := deps.GetOS()
+
+		switch platform {
+		case "linux":
+			message = "systemd and podman are available"
+		case "darwin":
+			message = "launchd and podman are available"
+		default:
+			message = "platform requirements met"
+		}
+
 		results = append(results, CheckResult{
 			Name:    "System Requirements",
 			Passed:  true,
-			Message: "systemd and podman are available",
+			Message: message,
 		})
 	}
 

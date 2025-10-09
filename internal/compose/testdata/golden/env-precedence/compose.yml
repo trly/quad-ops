@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  app:
+    image: testapp:1.0
+    env_file:
+      - env.common
+      - env.prod
+    environment:
+      # Override from env files
+      LOG_LEVEL: debug
+      # Interpolation
+      APP_URL: "http://${HOST:-localhost}:${PORT:-8080}"
+      # Empty value
+      EMPTY_VAR: ""
+      # Numeric
+      TIMEOUT: "30"
+      # Missing with default
+      FALLBACK: "${MISSING:-default_value}"

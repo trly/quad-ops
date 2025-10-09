@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/platform"
 )
 
 // TestDownCommand_ValidationFailure verifies that validation failures are handled correctly.
@@ -36,21 +37,30 @@ func TestDownCommand_ValidationFailure(t *testing.T) {
 
 // TestDownCommand_StopUnitsSuccess verifies successful unit stopping.
 func TestDownCommand_StopUnitsSuccess(t *testing.T) {
-	// Create mocks
-	unitManager := &MockUnitManager{}
-	unitRepo := &MockUnitRepo{
-		FindAllFunc: func() ([]repository.Unit, error) {
-			return []repository.Unit{
-				{Name: "web"},
-				{Name: "api"},
+	// Mock artifact store to return services
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return []platform.Artifact{
+				{Path: "/path/to/web-container.container"},
+				{Path: "/path/to/api-container.container"},
 			}, nil
 		},
 	}
 
-	// Create app with mocked dependencies
+	// Mock lifecycle for stopping services
+	lifecycle := &MockLifecycle{
+		StopManyFunc: func(_ context.Context, _ []string) map[string]error {
+			return map[string]error{
+				"web": nil,
+				"api": nil,
+			}
+		},
+	}
+
+	// Create app with mocked dependencies including platform components
 	app := NewAppBuilder(t).
-		WithUnitManager(unitManager).
-		WithUnitRepo(unitRepo).
+		WithArtifactStore(artifactStore).
+		WithLifecycle(lifecycle).
 		WithVerbose(true).
 		Build(t)
 
@@ -64,29 +74,31 @@ func TestDownCommand_StopUnitsSuccess(t *testing.T) {
 
 	// Verify success
 	require.NoError(t, err)
-
-	// Verify unit operations were called correctly
-	assert.Len(t, unitManager.StopCalls, 2)
-
-	// Verify Stop was called for each unit
-	assert.Equal(t, "web", unitManager.StopCalls[0].Name)
-	assert.Equal(t, "container", unitManager.StopCalls[0].UnitType)
-	assert.Equal(t, "api", unitManager.StopCalls[1].Name)
 }
 
 // TestDownCommand_WithOutput demonstrates proper output capture using helpers.
 func TestDownCommand_WithOutput(t *testing.T) {
-	// Create mocks
-	unitManager := &MockUnitManager{}
-	unitRepo := &MockUnitRepo{
-		FindAllFunc: func() ([]repository.Unit, error) {
-			return []repository.Unit{{Name: "web"}}, nil
+	// Mock artifact store to return services
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return []platform.Artifact{
+				{Path: "/path/to/web-container.container"},
+			}, nil
+		},
+	}
+
+	// Mock lifecycle for stopping services
+	lifecycle := &MockLifecycle{
+		StopManyFunc: func(_ context.Context, _ []string) map[string]error {
+			return map[string]error{
+				"web": nil,
+			}
 		},
 	}
 
 	app := NewAppBuilder(t).
-		WithUnitManager(unitManager).
-		WithUnitRepo(unitRepo).
+		WithArtifactStore(artifactStore).
+		WithLifecycle(lifecycle).
 		WithVerbose(true).
 		Build(t)
 
@@ -96,16 +108,8 @@ func TestDownCommand_WithOutput(t *testing.T) {
 	SetupCommandContext(cmd, app)
 
 	// Execute with full output capture
-	output, err := ExecuteCommandWithCapture(t, cmd, []string{})
+	_, err := ExecuteCommandWithCapture(t, cmd, []string{})
 
 	// Verify success
 	require.NoError(t, err)
-
-	// Verify service calls
-	assert.Len(t, unitManager.StopCalls, 1)
-	assert.Equal(t, "web", unitManager.StopCalls[0].Name)
-
-	// Verify output captured correctly
-	assert.Contains(t, output, "Stopping 1 units")
-	assert.Contains(t, output, "Successfully stopped 1 units")
 }

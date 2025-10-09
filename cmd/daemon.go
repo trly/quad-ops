@@ -25,9 +25,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"runtime"
+	"sync/atomic"
 	"time"
 
-	"github.com/coreos/go-systemd/v22/daemon"
 	"github.com/spf13/cobra"
 )
 
@@ -38,39 +39,25 @@ type DaemonOptions struct {
 	Force        bool
 }
 
+// SyncRunner defines the interface for performing sync operations.
+type SyncRunner interface {
+	Run(context.Context, *App, SyncOptions, SyncDeps) error
+	buildDeps(*App) SyncDeps
+}
+
 // DaemonDeps holds daemon dependencies.
 type DaemonDeps struct {
 	CommonDeps
-	Notify NotifyFunc
-}
-
-// SyncPerformer defines the interface for performing sync operations.
-type SyncPerformer interface {
-	PerformSync(context.Context, *App, *SyncCommand, SyncOptions, SyncDeps, DaemonDeps)
-}
-
-// DefaultSyncPerformer implements SyncPerformer with the default behavior.
-type DefaultSyncPerformer struct{}
-
-// PerformSync executes a sync operation using the default implementation.
-func (d *DefaultSyncPerformer) PerformSync(ctx context.Context, app *App, syncCmd *SyncCommand, opts SyncOptions, syncDeps SyncDeps, daemonDeps DaemonDeps) {
-	if err := syncCmd.syncRepositories(ctx, app, opts, syncDeps); err != nil {
-		daemonDeps.Logger.Error("Sync failed", "error", err)
-	}
+	Notify      NotifyFunc
+	SyncCommand SyncRunner
 }
 
 // DaemonCommand represents the daemon command for quad-ops CLI.
-type DaemonCommand struct {
-	// syncPerformer allows tests to override sync behavior
-	syncPerformer SyncPerformer
-}
+type DaemonCommand struct{}
 
 // NewDaemonCommand creates a new DaemonCommand.
 func NewDaemonCommand() *DaemonCommand {
-	cmd := &DaemonCommand{}
-	// Set default sync performer implementation
-	cmd.syncPerformer = &DefaultSyncPerformer{}
-	return cmd
+	return &DaemonCommand{}
 }
 
 // getApp retrieves the App from the command context.
@@ -91,8 +78,9 @@ The daemon will perform initial synchronization and then continue running,
 periodically syncing repositories at the specified interval. This is ideal 
 for continuous deployment scenarios where you want automatic updates.
 
-The daemon integrates with systemd, sending readiness and watchdog notifications
-when running under systemd supervision.`,
+On Linux, the daemon integrates with systemd, sending readiness and watchdog 
+notifications when running under systemd supervision. On macOS, the daemon runs 
+without systemd integration.`,
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
 			return app.Validator.SystemRequirements()
@@ -115,9 +103,22 @@ when running under systemd supervision.`,
 
 // buildDeps creates production dependencies for the daemon.
 func (c *DaemonCommand) buildDeps(app *App) DaemonDeps {
+	// Use platform-specific notify function
+	var notifyFunc NotifyFunc
+	if runtime.GOOS == "linux" {
+		// Use systemd notifications on Linux
+		notifyFunc = sdNotify
+	} else {
+		// No-op notifier on other platforms
+		notifyFunc = func(_ bool, _ string) (bool, error) {
+			return false, nil
+		}
+	}
+
 	return DaemonDeps{
-		CommonDeps: NewRootDeps(app),
-		Notify:     daemon.SdNotify,
+		CommonDeps:  NewRootDeps(app),
+		Notify:      notifyFunc,
+		SyncCommand: NewSyncCommand(),
 	}
 }
 
@@ -133,38 +134,50 @@ func (c *DaemonCommand) Run(ctx context.Context, app *App, opts DaemonOptions, d
 		app.Config.SyncInterval = opts.SyncInterval
 	}
 
-	// Create sync command instance and build its dependencies once
-	syncCmd := NewSyncCommand()
-	syncDeps := syncCmd.buildDeps(app)
+	// Build sync dependencies once
+	syncDeps := deps.SyncCommand.buildDeps(app)
 
 	// Prepare sync options from daemon flags
 	syncOpts := SyncOptions{
 		RepoName: opts.RepoName,
 		Force:    opts.Force,
+		DryRun:   false,
 	}
 
 	// Perform initial sync
 	if app.Config.Verbose {
 		deps.Logger.Info("Performing initial sync")
 	}
-	c.syncPerformer.PerformSync(ctx, app, syncCmd, syncOpts, syncDeps, deps)
+
+	if err := deps.SyncCommand.Run(ctx, app, syncOpts, syncDeps); err != nil {
+		deps.Logger.Error("Initial sync failed", "error", err)
+		// Continue to daemon mode even if initial sync fails
+	}
 
 	// Start daemon mode
-	return c.runDaemon(ctx, app, syncCmd, syncOpts, syncDeps, deps)
+	return c.runDaemon(ctx, app, syncOpts, deps, syncDeps)
 }
 
 // runDaemon starts the daemon loop with periodic sync operations.
-func (c *DaemonCommand) runDaemon(ctx context.Context, app *App, syncCmd *SyncCommand, syncOpts SyncOptions, syncDeps SyncDeps, deps DaemonDeps) error {
+func (c *DaemonCommand) runDaemon(ctx context.Context, app *App, syncOpts SyncOptions, deps DaemonDeps, syncDeps SyncDeps) error {
 	deps.Logger.Info("Starting sync daemon", "interval", app.Config.SyncInterval)
 
-	// Notify systemd that the daemon is ready
-	if sent, err := deps.Notify(false, daemon.SdNotifyReady); err != nil {
+	// Notify systemd that the daemon is ready (no-op on non-Linux)
+	if sent, err := deps.Notify(false, SdNotifyReady); err != nil {
 		deps.Logger.Warn("Failed to notify systemd of readiness", "error", err)
 	} else if sent {
 		deps.Logger.Info("Notified systemd that daemon is ready")
 	}
 
-	ticker := deps.Clock.Ticker(app.Config.SyncInterval)
+	// Atomic guard to prevent overlapping syncs
+	var syncing atomic.Bool
+
+	// Backoff state for repeated failures
+	consecutiveFailures := 0
+	maxBackoffInterval := 30 * time.Minute
+	baseInterval := app.Config.SyncInterval
+
+	ticker := deps.Clock.Ticker(baseInterval)
 	defer ticker.Stop()
 
 	// Send periodic watchdog notifications if configured
@@ -176,12 +189,58 @@ func (c *DaemonCommand) runDaemon(ctx context.Context, app *App, syncCmd *SyncCo
 		case <-ctx.Done():
 			deps.Logger.Info("Daemon context cancelled, shutting down")
 			return ctx.Err()
+
 		case <-ticker.C:
+			// Use atomic guard to prevent overlapping syncs
+			if !syncing.CompareAndSwap(false, true) {
+				deps.Logger.Warn("Previous sync still running, skipping this interval")
+				continue
+			}
+
+			// Perform sync in current goroutine (blocking)
 			deps.Logger.Debug("Starting scheduled sync")
-			c.syncPerformer.PerformSync(ctx, app, syncCmd, syncOpts, syncDeps, deps)
+			err := deps.SyncCommand.Run(ctx, app, syncOpts, syncDeps)
+
+			// Release sync lock
+			syncing.Store(false)
+
+			if err != nil {
+				consecutiveFailures++
+				deps.Logger.Error("Sync failed", "error", err, "consecutive_failures", consecutiveFailures)
+
+				// Apply exponential backoff on repeated failures
+				if consecutiveFailures > 1 {
+					// Calculate 2^(n-1), with bounds checking to prevent overflow
+					exponent := consecutiveFailures - 1
+					if exponent > 30 { // Prevent overflow beyond 2^30
+						exponent = 30
+					}
+					backoffMultiplier := 1 << exponent // 2^(n-1)
+					newInterval := baseInterval * time.Duration(backoffMultiplier)
+					if newInterval > maxBackoffInterval {
+						newInterval = maxBackoffInterval
+					}
+
+					deps.Logger.Warn("Applying backoff after repeated failures",
+						"consecutive_failures", consecutiveFailures,
+						"new_interval", newInterval)
+
+					// Reset ticker with new interval
+					ticker.Reset(newInterval)
+				}
+			} else {
+				// Sync succeeded - reset failure counter and interval
+				if consecutiveFailures > 0 {
+					deps.Logger.Info("Sync succeeded after failures, resetting interval",
+						"previous_failures", consecutiveFailures)
+					consecutiveFailures = 0
+					ticker.Reset(baseInterval)
+				}
+			}
+
 		case <-watchdogTicker.C:
-			// Send watchdog notification to systemd
-			if sent, err := deps.Notify(false, daemon.SdNotifyWatchdog); err != nil {
+			// Send watchdog notification to systemd (no-op on non-Linux)
+			if sent, err := deps.Notify(false, SdNotifyWatchdog); err != nil {
 				deps.Logger.Debug("Failed to send watchdog notification", "error", err)
 			} else if sent {
 				deps.Logger.Debug("Sent watchdog notification to systemd")

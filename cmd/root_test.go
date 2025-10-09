@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
+	"runtime"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -88,6 +89,11 @@ func TestRootCommand_PersistentPreRun_InvalidQuadletDir(t *testing.T) {
 }
 
 func TestRootCommand_PersistentPreRun_Success(t *testing.T) {
+	// Skip on macOS until launchd support is implemented
+	if runtime.GOOS == "darwin" {
+		t.Skip("macOS (launchd) platform not yet implemented")
+	}
+
 	rootCmd := &RootCommand{}
 	deps := RootDeps{
 		ValidatePath: func(_ string) error { return nil },

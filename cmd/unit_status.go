@@ -10,9 +10,7 @@ import (
 )
 
 // StatusOptions holds status command options.
-type StatusOptions struct {
-	UnitType string
-}
+type StatusOptions struct{}
 
 // StatusDeps holds status dependencies.
 type StatusDeps struct {
@@ -37,8 +35,8 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 	var opts StatusOptions
 
 	unitStatusCmd := &cobra.Command{
-		Use:   "status",
-		Short: "Show the status of a quadlet unit",
+		Use:   "status SERVICE",
+		Short: "Show the status of a service",
 		Args:  cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
@@ -53,21 +51,49 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 		SilenceErrors: true,
 	}
 
-	unitStatusCmd.Flags().StringVarP(&opts.UnitType, "type", "t", "container", "Type of unit (container, volume, network, image)")
-
 	return unitStatusCmd
 }
 
 // Run executes the status command with injected dependencies.
-func (c *StatusCommand) Run(_ context.Context, app *App, opts StatusOptions, _ StatusDeps, unitName string) error {
-	// Validate unit name to prevent command injection
-	if err := sorting.ValidateUnitName(unitName); err != nil {
-		return fmt.Errorf("invalid unit name %q: %w", unitName, err)
+func (c *StatusCommand) Run(ctx context.Context, app *App, _ StatusOptions, deps StatusDeps, serviceName string) error {
+	// Validate service name to prevent command injection
+	if err := sorting.ValidateUnitName(serviceName); err != nil {
+		return fmt.Errorf("invalid service name %q: %w", serviceName, err)
 	}
 
-	err := app.UnitManager.Show(unitName, opts.UnitType)
+	// Get lifecycle from app
+	lifecycle, err := app.GetLifecycle(ctx)
 	if err != nil {
-		return fmt.Errorf("error showing unit status for %q: %w", unitName, err)
+		return fmt.Errorf("failed to get lifecycle: %w", err)
+	}
+
+	// Get status from Lifecycle
+	status, err := lifecycle.Status(ctx, serviceName)
+	if err != nil {
+		return fmt.Errorf("failed to get status for service %q: %w", serviceName, err)
+	}
+
+	// Display status
+	deps.Logger.Info("Service status",
+		"service", serviceName,
+		"active", status.Active,
+		"state", status.State,
+		"description", status.Description,
+	)
+
+	if status.SubState != "" {
+		deps.Logger.Info("Substate", "substate", status.SubState)
+	}
+
+	if status.Active && status.PID > 0 {
+		deps.Logger.Info("Service is running",
+			"pid", status.PID,
+			"since", status.Since,
+		)
+	}
+
+	if status.Error != "" {
+		deps.Logger.Error("Service error", "error", status.Error)
 	}
 
 	return nil

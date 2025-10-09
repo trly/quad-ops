@@ -9,16 +9,30 @@ This guide provides step-by-step manual installation instructions for users who 
 
 > **Quick Start Available:** For faster installation, see our [Quick Start](../quick-start/) guide using the automated installer script.
 
+## Platform Support
+
+Quad-Ops supports both Linux and macOS with automatic platform detection:
+
+- **Linux**: systemd + Podman Quadlet (fully supported)
+- **macOS**: Podman support with manual daemon (launchd integration planned)
+
 ## Prerequisites
 
+### Linux
 - [Podman](https://podman.io/docs/installation) 4.0+
 - [Git](https://git-scm.com/downloads)
 - systemd-based Linux distribution
+
+### macOS
+- [Podman](https://podman.io/docs/installation) 4.0+
+- [Git](https://git-scm.com/downloads)
+- macOS 10.15+
 
 ## Manual Installation
 
 ### Option 1: Install Prebuilt Binary (Recommended)
 
+**Linux (amd64):**
 ```bash
 # Download latest release (update version as needed)
 wget https://github.com/trly/quad-ops/releases/latest/download/quad-ops_linux_amd64.tar.gz
@@ -34,6 +48,22 @@ tar -xzf quad-ops_linux_amd64.tar.gz
 sudo mv quad-ops /usr/local/bin/
 sudo chmod +x /usr/local/bin/quad-ops
 sudo chown root:root /usr/local/bin/quad-ops
+
+# Verify installation
+quad-ops --version
+```
+
+**macOS (arm64 - Apple Silicon):**
+```bash
+# Download latest release
+curl -LO https://github.com/trly/quad-ops/releases/latest/download/quad-ops_darwin_arm64.tar.gz
+
+# Extract the binary
+tar -xzf quad-ops_darwin_arm64.tar.gz
+
+# Install binary
+sudo mv quad-ops /usr/local/bin/
+sudo chmod +x /usr/local/bin/quad-ops
 
 # Verify installation
 quad-ops --version
@@ -68,7 +98,7 @@ sudo mv config.yaml.example /etc/quad-ops/
 sudo cp /etc/quad-ops/config.yaml.example /etc/quad-ops/config.yaml
 ```
 
-### Install Systemd Service (Optional)
+### Install Systemd Service (Optional - Linux only)
 
 ```bash
 # Download systemd service file
@@ -78,6 +108,8 @@ wget https://raw.githubusercontent.com/trly/quad-ops/main/build/package/quad-ops
 sudo mv quad-ops.service /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
+
+> **macOS Note**: Systemd services are Linux-only. macOS users can run `quad-ops daemon` manually or create a launchd plist until native launchd support is implemented.
 
 ## Basic Configuration
 
@@ -238,6 +270,8 @@ sudo podman ps
 
 ## Setting Up for Production
 
+### Linux - Systemd Service
+
 For continuous operation, enable the systemd service:
 
 ```bash
@@ -252,6 +286,20 @@ sudo journalctl -u quad-ops -f
 ```
 
 For more advanced setups including user services and template services, see the [Systemd Service](../configuration/systemd-service/) guide.
+
+### macOS - Manual Daemon
+
+macOS users can run the daemon manually:
+
+```bash
+# Run the daemon (stays in foreground)
+quad-ops daemon
+
+# Or run in background with logs
+nohup quad-ops daemon > /var/log/quad-ops.log 2>&1 &
+```
+
+> **Coming Soon**: Native launchd integration for macOS will provide automatic service management similar to systemd on Linux.
 
 ## Docker Compose Tips for Quad-Ops
 

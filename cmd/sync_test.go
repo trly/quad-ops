@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/git"
 	"github.com/trly/quad-ops/internal/testutil"
 )
 
@@ -34,6 +33,29 @@ func TestSyncCommand_ValidationFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "systemd not found")
 }
 
+// TestSyncCommand_UnsupportedPlatform tests handling of unsupported platform.
+func TestSyncCommand_UnsupportedPlatform(t *testing.T) {
+	deps := SyncDeps{
+		CommonDeps: CommonDeps{
+			Clock: clock.NewMock(),
+			FileSystem: &FileSystemOps{
+				MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+			},
+			Logger: testutil.NewTestLogger(t),
+		},
+	}
+
+	// Build app with unsupported platform (e.g., windows)
+	app := NewAppBuilder(t).WithOS("windows").Build(t)
+
+	syncCmd := NewSyncCommand()
+	opts := SyncOptions{}
+
+	err := syncCmd.Run(context.Background(), app, opts, deps)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "platform not supported")
+}
+
 // TestSyncCommand_DirectoryCreationFailure tests quadlet directory creation failure.
 func TestSyncCommand_DirectoryCreationFailure(t *testing.T) {
 	deps := SyncDeps{
@@ -48,7 +70,10 @@ func TestSyncCommand_DirectoryCreationFailure(t *testing.T) {
 		},
 	}
 
-	app := NewAppBuilder(t).Build(t)
+	app := NewAppBuilder(t).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
+		Build(t)
 	syncCmd := NewSyncCommand()
 	opts := SyncOptions{}
 
@@ -76,10 +101,12 @@ func TestSyncCommand_DryRun(t *testing.T) {
 			},
 			Logger: testutil.NewTestLogger(t),
 		},
-		NewGitRepository: func(_ config.Repository, _ config.Provider) *git.Repository {
-			gitSyncCalled = true
-			return &git.Repository{}
-		},
+		// TODO: Add mock implementations for new interfaces
+		GitSyncer:        nil,
+		ComposeProcessor: nil,
+		Renderer:         nil,
+		ArtifactStore:    nil,
+		Lifecycle:        nil,
 	}
 
 	app := NewAppBuilder(t).
@@ -88,6 +115,8 @@ func TestSyncCommand_DryRun(t *testing.T) {
 				{Name: "test-repo"},
 			},
 		}).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
 		Build(t)
 
 	syncCmd := NewSyncCommand()

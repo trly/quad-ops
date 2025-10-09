@@ -1,0 +1,103 @@
+{
+  "services": [
+    {
+      "Name": "env-precedence-app",
+      "Description": "Service app from project env-precedence",
+      "Container": {
+        "Image": "testapp:1.0",
+        "Command": null,
+        "Args": null,
+        "Env": {
+          "API_VERSION": "v1",
+          "APP_URL": "http://localhost:8080",
+          "CACHE_ENABLED": "true",
+          "DATABASE_URL": "postgres://prod.example.com/prod",
+          "EMPTY_VAR": "",
+          "FALLBACK": "default_value",
+          "LOG_LEVEL": "debug",
+          "TIMEOUT": "30"
+        },
+        "EnvFiles": [
+          "/Users/trly/src/github.com/trly/quad-ops/internal/compose/testdata/golden/env-precedence/env.common",
+          "/Users/trly/src/github.com/trly/quad-ops/internal/compose/testdata/golden/env-precedence/env.prod"
+        ],
+        "WorkingDir": "",
+        "User": "",
+        "Group": "",
+        "Ports": null,
+        "Mounts": null,
+        "Resources": {
+          "Memory": "",
+          "MemoryReservation": "",
+          "MemorySwap": "",
+          "CPUShares": 0,
+          "CPUQuota": 0,
+          "CPUPeriod": 0,
+          "PidsLimit": 0
+        },
+        "RestartPolicy": "no",
+        "Healthcheck": null,
+        "Security": {
+          "Privileged": false,
+          "CapAdd": null,
+          "CapDrop": null,
+          "SecurityOpt": null,
+          "ReadonlyRootfs": false,
+          "SELinuxType": "",
+          "AppArmorProfile": "",
+          "SeccompProfile": ""
+        },
+        "Build": null,
+        "Labels": null,
+        "Hostname": "",
+        "ContainerName": "env-precedence-app",
+        "Entrypoint": null,
+        "Init": false,
+        "ReadOnly": false,
+        "Logging": {
+          "Driver": "",
+          "Options": null
+        },
+        "Secrets": null,
+        "Network": {
+          "Mode": "bridge",
+          "Aliases": null
+        },
+        "Tmpfs": null,
+        "Ulimits": null,
+        "Sysctls": null,
+        "UserNS": "",
+        "PodmanArgs": null,
+        "PidsLimit": 0
+      },
+      "Volumes": null,
+      "Networks": [
+        {
+          "Name": "env-precedence-env-precedence_default",
+          "Driver": "",
+          "Options": null,
+          "Labels": null,
+          "IPAM": null,
+          "Internal": false,
+          "IPv6": false,
+          "External": false
+        }
+      ],
+      "DependsOn": null,
+      "Annotations": null
+    }
+  ],
+  "volumes": null,
+  "networks": [
+    {
+      "Name": "env-precedence-env-precedence_default",
+      "Driver": "",
+      "Options": null,
+      "Labels": null,
+      "IPAM": null,
+      "Internal": false,
+      "IPv6": false,
+      "External": false
+    }
+  ]
+}
