@@ -275,10 +275,7 @@ func TestDaemonCommand_SyncFailureBackoff(t *testing.T) {
 	// This test verifies the basic mechanism is in place
 }
 
-// TestDaemonCommand_OverlappingSyncPrevention tests singleflight/atomic guard.
-func TestDaemonCommand_OverlappingSyncPrevention(t *testing.T) {
-	t.Skip("Complex timing test - covered by integration tests")
-}
+
 
 // TestDaemonCommand_Help tests help output.
 func TestDaemonCommand_Help(t *testing.T) {

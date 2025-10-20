@@ -166,6 +166,26 @@ func (m *MockArtifactStore) Delete(ctx context.Context, paths []string) error {
 	return nil
 }
 
+// MockGitSyncer implements GitSyncerInterface for testing.
+type MockGitSyncer struct {
+	SyncAllFunc  func(context.Context, []config.Repository) ([]repository.SyncResult, error)
+	SyncRepoFunc func(context.Context, config.Repository) repository.SyncResult
+}
+
+func (m *MockGitSyncer) SyncAll(ctx context.Context, repos []config.Repository) ([]repository.SyncResult, error) {
+	if m.SyncAllFunc != nil {
+		return m.SyncAllFunc(ctx, repos)
+	}
+	return []repository.SyncResult{}, nil
+}
+
+func (m *MockGitSyncer) SyncRepo(ctx context.Context, repo config.Repository) repository.SyncResult {
+	if m.SyncRepoFunc != nil {
+		return m.SyncRepoFunc(ctx, repo)
+	}
+	return repository.SyncResult{Repository: repo, Success: true}
+}
+
 // AppBuilder provides a fluent interface for building test Apps.
 type AppBuilder struct {
 	logger           log.Logger

@@ -210,9 +210,4 @@ func TestMockConnection(t *testing.T) {
 	})
 }
 
-func TestGetConnection(t *testing.T) {
-	t.Run("GetConnection creates connection", func(t *testing.T) {
-		// Skip this test as it requires systemd to be running and config initialized
-		t.Skip("Requires actual systemd connection - covered by integration tests")
-	})
-}
+

@@ -224,3 +224,286 @@ func TestExtractArtifactType(t *testing.T) {
 		})
 	}
 }
+
+func TestListCommand_Run_TableDriven(t *testing.T) {
+	tests := []struct {
+		name           string
+		artifacts      []platform.Artifact
+		opts           ListOptions
+		setupLifecycle func() *MockLifecycle
+		setupStore     func(artifacts []platform.Artifact) *MockArtifactStore
+		expectError    bool
+		errorContains  string
+	}{
+		{
+			name: "list artifacts without status",
+			artifacts: []platform.Artifact{
+				{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+				{Path: "com.github.trly.api.container", Hash: "def456", Mode: 0644},
+			},
+			opts: ListOptions{Status: false},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:      "empty artifact list",
+			artifacts: []platform.Artifact{},
+			opts:      ListOptions{Status: false},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:      "artifact store error",
+			artifacts: nil,
+			opts:      ListOptions{Status: false},
+			setupStore: func(_ []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return nil, errors.New("database connection failed")
+					},
+				}
+			},
+			expectError:   true,
+			errorContains: "failed to list artifacts",
+		},
+		{
+			name: "list with status - active service",
+			artifacts: []platform.Artifact{
+				{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+			},
+			opts: ListOptions{Status: true},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			setupLifecycle: func() *MockLifecycle {
+				return &MockLifecycle{
+					StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+						return &platform.ServiceStatus{
+							Name:   name,
+							Active: true,
+							State:  "running",
+						}, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "list with status - inactive service",
+			artifacts: []platform.Artifact{
+				{Path: "com.github.trly.db.container", Hash: "xyz789", Mode: 0644},
+			},
+			opts: ListOptions{Status: true},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			setupLifecycle: func() *MockLifecycle {
+				return &MockLifecycle{
+					StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+						return &platform.ServiceStatus{
+							Name:   name,
+							Active: false,
+							State:  "stopped",
+						}, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "list with status - status error",
+			artifacts: []platform.Artifact{
+				{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+			},
+			opts: ListOptions{Status: true},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			setupLifecycle: func() *MockLifecycle {
+				return &MockLifecycle{
+					StatusFunc: func(_ context.Context, _ string) (*platform.ServiceStatus, error) {
+						return nil, errors.New("service not found")
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "filter out non-prefix artifacts",
+			artifacts: []platform.Artifact{
+				{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+				{Path: "other-service.container", Hash: "xyz789", Mode: 0644},
+			},
+			opts: ListOptions{Status: false},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "long hash truncation",
+			artifacts: []platform.Artifact{
+				{Path: "com.github.trly.web.container", Hash: "abcdef1234567890abcdef1234567890", Mode: 0644},
+			},
+			opts: ListOptions{Status: false},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "non-service artifact with status flag",
+			artifacts: []platform.Artifact{
+				{Path: "com.github.trly.config.volume", Hash: "vol123", Mode: 0644},
+			},
+			opts: ListOptions{Status: true},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			setupLifecycle: func() *MockLifecycle {
+				return &MockLifecycle{
+					StatusFunc: func(_ context.Context, _ string) (*platform.ServiceStatus, error) {
+						t.Fatal("StatusFunc should not be called for non-service artifacts")
+						return nil, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := tt.setupStore(tt.artifacts)
+
+			appBuilder := NewAppBuilder(t).WithArtifactStore(store)
+
+			if tt.setupLifecycle != nil {
+				lifecycle := tt.setupLifecycle()
+				appBuilder = appBuilder.WithLifecycle(lifecycle)
+			}
+
+			app := appBuilder.Build(t)
+
+			listCommand := NewListCommand()
+			deps := ListDeps{
+				CommonDeps:    NewCommonDeps(app.Logger),
+				ArtifactStore: store,
+			}
+
+			err := listCommand.Run(context.Background(), app, tt.opts, deps)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestListCommand_GetLifecycleError(t *testing.T) {
+	artifacts := []platform.Artifact{
+		{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+	}
+
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return artifacts, nil
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithArtifactStore(artifactStore).
+		WithOS("unsupported-platform").
+		Build(t)
+
+	listCommand := NewListCommand()
+	opts := ListOptions{Status: true}
+	deps := ListDeps{
+		CommonDeps:    NewCommonDeps(app.Logger),
+		ArtifactStore: artifactStore,
+	}
+
+	err := listCommand.Run(context.Background(), app, opts, deps)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get lifecycle")
+}
+
+func TestListCommand_MixedArtifactTypes(t *testing.T) {
+	artifacts := []platform.Artifact{
+		{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+		{Path: "com.github.trly.data.volume", Hash: "vol456", Mode: 0644},
+		{Path: "com.github.trly.app-network.network", Hash: "net789", Mode: 0644},
+	}
+
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return artifacts, nil
+		},
+	}
+
+	lifecycle := &MockLifecycle{
+		StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+			return &platform.ServiceStatus{
+				Name:   name,
+				Active: true,
+				State:  "running",
+			}, nil
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithArtifactStore(artifactStore).
+		WithLifecycle(lifecycle).
+		Build(t)
+
+	listCommand := NewListCommand()
+	opts := ListOptions{Status: true}
+	deps := ListDeps{
+		CommonDeps:    NewCommonDeps(app.Logger),
+		ArtifactStore: artifactStore,
+	}
+
+	err := listCommand.Run(context.Background(), app, opts, deps)
+	assert.NoError(t, err)
+}

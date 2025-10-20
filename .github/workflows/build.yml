@@ -66,7 +66,11 @@ jobs:
         run: go build -v ./...
 
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
     needs: lint
     steps:
       - uses: actions/checkout@v4
@@ -81,9 +85,12 @@ jobs:
         run: go mod download
 
       - name: Run tests with coverage
-        run: go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
+        run: go test -v -race -covermode=atomic -coverprofile=coverage-${{ matrix.os }}.out ./...
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage-${{ matrix.os }}.out
+          flags: ${{ matrix.os }}
+          name: coverage-${{ matrix.os }}

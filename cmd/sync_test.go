@@ -82,13 +82,6 @@ func TestSyncCommand_DirectoryCreationFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "permission denied")
 }
 
-// TestSyncCommand_Success tests successful sync operation.
-func TestSyncCommand_Success(t *testing.T) {
-	t.Skip("Skipping test that requires full git.Repository initialization - test basic path instead")
-	// Testing non-dry-run path requires complex git.Repository setup
-	// Coverage is better provided by integration tests or simpler unit tests
-}
-
 // TestSyncCommand_DryRun tests dry run mode.
 func TestSyncCommand_DryRun(t *testing.T) {
 	var gitSyncCalled bool
@@ -127,16 +120,6 @@ func TestSyncCommand_DryRun(t *testing.T) {
 	err := syncCmd.Run(context.Background(), app, opts, deps)
 	assert.NoError(t, err)
 	assert.False(t, gitSyncCalled, "Git sync should not be called in dry run mode")
-}
-
-// TestSyncCommand_NoChanges tests behavior when repository has no changes.
-func TestSyncCommand_NoChanges(t *testing.T) {
-	t.Skip("Skipping test that requires git.Repository - change detection not yet implemented in sync.go")
-}
-
-// TestSyncCommand_RepoFilter tests repository filtering.
-func TestSyncCommand_RepoFilter(t *testing.T) {
-	t.Skip("Skipping test that requires full git.Repository initialization")
 }
 
 // TestSyncCommand_Help tests help output.
