@@ -142,7 +142,7 @@ func (c *SyncCommand) syncRepositories(ctx context.Context, app *App, opts SyncO
 }
 
 // processRepository processes a single repository.
-func (c *SyncCommand) processRepository(_ context.Context, app *App, repoConfig config.Repository, opts SyncOptions, deps SyncDeps, _ map[string]bool) error {
+func (c *SyncCommand) processRepository(_ context.Context, app *App, repoConfig config.Repository, opts SyncOptions, deps SyncDeps, processedUnits map[string]bool) error {
 	if !opts.DryRun {
 		deps.Logger.Debug("Processing repository", "name", repoConfig.Name)
 
@@ -171,11 +171,25 @@ func (c *SyncCommand) processRepository(_ context.Context, app *App, repoConfig 
 			return fmt.Errorf("failed to read projects: %w", err)
 		}
 
-		// Process projects using the old processor interface for now
+		// Process projects with the shared map, only perform cleanup after the last repository
+		isLastRepo := repoConfig.Name == app.Config.Repositories[len(app.Config.Repositories)-1].Name
+
+		// If specific repo is specified, always do cleanup
+		if opts.RepoName != "" {
+			isLastRepo = true
+		}
+
 		processor := deps.NewDefaultProcessor(opts.Force)
-		// TODO: Update processor interface to use dependency injection
-		_ = processor // For now, just acknowledge we have it
-		deps.Logger.Info("Would process projects", "count", len(projects))
+		processor.WithExistingProcessedUnits(processedUnits)
+
+		if err := processor.ProcessProjects(projects, isLastRepo); err != nil {
+			return fmt.Errorf("failed to process projects: %w", err)
+		}
+
+		// Update the shared map with units from this repository
+		for k, v := range processor.GetProcessedUnits() {
+			processedUnits[k] = v
+		}
 	}
 
 	return nil

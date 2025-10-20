@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"os"
 	"testing"
 
 	"github.com/benbjohnson/clock"
@@ -139,4 +140,40 @@ func TestSyncCommand_Flags(t *testing.T) {
 	forceFlag := cmd.Flags().Lookup("force")
 	require.NotNil(t, forceFlag)
 	assert.Equal(t, "false", forceFlag.DefValue)
+}
+
+// TestSyncCommand_ProcessorCodePath verifies the processor code path exists and isn't skipped.
+// This is a regression test for GitHub issue #47 where v0.21.0 created a processor
+// but never called ProcessProjects(), only logging "Would process projects" count=2.
+// The bug was introduced in commit c76faf2 where processor was assigned to _ unused variable.
+func TestSyncCommand_ProcessorCodePath(t *testing.T) {
+	// This test verifies the code no longer contains the bug pattern:
+	// ❌ processor := deps.NewDefaultProcessor(opts.Force)
+	// ❌ _ = processor // Bug: processor created but discarded!
+	// ❌ deps.Logger.Info("Would process projects", "count", len(projects))
+	//
+	// Instead it should call:
+	// ✅ processor.ProcessProjects(projects, isLastRepo)
+
+	// Read the sync.go file to verify the bug pattern doesn't exist
+	sourceCode, err := os.ReadFile("sync.go")
+	require.NoError(t, err, "Should be able to read sync.go")
+
+	code := string(sourceCode)
+
+	// Verify we don't have the bug pattern: processor assigned to underscore
+	assert.NotContains(t, code, "_ = processor",
+		"Processor should not be discarded with _ assignment (GitHub issue #47)")
+
+	// Verify we don't have the old "Would process projects" log that indicated the bug
+	assert.NotContains(t, code, `"Would process projects"`,
+		"Should not have 'Would process projects' log line (indicates bug from issue #47)")
+
+	// Verify we have the actual ProcessProjects call
+	assert.Contains(t, code, "processor.ProcessProjects",
+		"Code should call processor.ProcessProjects to actually process the projects")
+
+	// Verify we have the WithExistingProcessedUnits call for proper state tracking
+	assert.Contains(t, code, "WithExistingProcessedUnits",
+		"Code should track processed units across repositories")
 }
