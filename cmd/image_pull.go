@@ -43,7 +43,7 @@ type PullOptions struct {
 // PullDeps holds pull dependencies.
 type PullDeps struct {
 	CommonDeps
-	ExecCommand func(name string, arg ...string) *exec.Cmd
+	ExecCommand func(ctx context.Context, name string, arg ...string) *exec.Cmd
 	Environ     func() []string
 	Getuid      func() int
 }
@@ -89,7 +89,7 @@ func (c *PullCommand) GetCobraCommand() *cobra.Command {
 func (c *PullCommand) buildDeps(app *App) PullDeps {
 	return PullDeps{
 		CommonDeps:  NewRootDeps(app),
-		ExecCommand: exec.Command,
+		ExecCommand: exec.CommandContext,
 		Environ:     os.Environ,
 		Getuid:      os.Getuid,
 	}
@@ -124,7 +124,7 @@ func (c *PullCommand) Run(ctx context.Context, app *App, _ PullOptions, deps Pul
 	return nil
 }
 
-func (c *PullCommand) pullImage(_ context.Context, app *App, deps PullDeps, image string) error {
+func (c *PullCommand) pullImage(ctx context.Context, app *App, deps PullDeps, image string) error {
 	// Use podman pull directly - it handles rootless mode automatically
 	args := []string{"pull"}
 
@@ -137,13 +137,7 @@ func (c *PullCommand) pullImage(_ context.Context, app *App, deps PullDeps, imag
 	args = append(args, image)
 
 	// Build command safely - podman is a known safe command
-	cmd := deps.ExecCommand("podman", args...) // #nosec G204
-	cmd.Cancel = func() error {
-		if cmd.Process != nil {
-			return cmd.Process.Kill()
-		}
-		return nil
-	}
+	cmd := deps.ExecCommand(ctx, "podman", args...) // #nosec G204
 
 	// Set up environment for rootless operation
 	if app.Config.UserMode {

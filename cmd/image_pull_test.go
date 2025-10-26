@@ -54,10 +54,10 @@ func TestPullCommand_Run_WithMockDeps(t *testing.T) {
 	var executedCommands [][]string
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(name string, args ...string) *exec.Cmd {
+		ExecCommand: func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			allArgs := append([]string{name}, args...)
 			executedCommands = append(executedCommands, allArgs)
-			return exec.Command("echo", "pulled successfully")
+			return exec.CommandContext(ctx, "echo", "pulled successfully")
 		},
 		Environ: func() []string {
 			return []string{"TEST=true"}
@@ -99,11 +99,11 @@ func TestPullCommand_PullImage_Verbose(t *testing.T) {
 	var argsReceived []string
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(name string, args ...string) *exec.Cmd {
+		ExecCommand: func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			commandCalled = true
 			argsReceived = args
 			assert.Equal(t, "podman", name)
-			cmd := exec.CommandContext(context.Background(), "echo", "pulled")
+			cmd := exec.CommandContext(ctx, "echo", "pulled")
 			return cmd
 		},
 		Environ: func() []string {
@@ -137,11 +137,11 @@ func TestPullCommand_PullImage_NonVerbose(t *testing.T) {
 	var argsReceived []string
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(name string, args ...string) *exec.Cmd {
+		ExecCommand: func(ctx context.Context, name string, args ...string) *exec.Cmd {
 			commandCalled = true
 			argsReceived = args
 			assert.Equal(t, "podman", name)
-			cmd := exec.CommandContext(context.Background(), "echo", "pulled")
+			cmd := exec.CommandContext(ctx, "echo", "pulled")
 			return cmd
 		},
 		Environ: func() []string {
@@ -174,8 +174,8 @@ func TestPullCommand_PullImage_UserMode(t *testing.T) {
 
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(_ string, _ ...string) *exec.Cmd {
-			return exec.CommandContext(context.Background(), "echo", "pulled")
+		ExecCommand: func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, "echo", "pulled")
 		},
 		Environ: func() []string {
 			return []string{}
@@ -210,8 +210,8 @@ func TestPullCommand_PullImage_Failed(t *testing.T) {
 
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(_ string, _ ...string) *exec.Cmd {
-			return exec.Command("false")
+		ExecCommand: func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, "false")
 		},
 		Environ: func() []string {
 			return []string{}
@@ -244,8 +244,8 @@ func TestPullCommand_Run_RepositoryReadError(t *testing.T) {
 	pullCmd := NewPullCommand()
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(_ string, _ ...string) *exec.Cmd {
-			return exec.Command("echo", "pulled")
+		ExecCommand: func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, "echo", "pulled")
 		},
 		Environ: func() []string {
 			return []string{}
@@ -290,8 +290,8 @@ services:
 
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(_ string, _ ...string) *exec.Cmd {
-			return exec.Command("false")
+		ExecCommand: func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, "false")
 		},
 		Environ: func() []string {
 			return []string{}
@@ -332,9 +332,9 @@ func TestPullCommand_PullImage_VerboseError(t *testing.T) {
 	var runCalled bool
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(_ string, _ ...string) *exec.Cmd {
+		ExecCommand: func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
 			runCalled = true
-			cmd := exec.Command("sh", "-c", "exit 1")
+			cmd := exec.CommandContext(ctx, "sh", "-c", "exit 1")
 			return cmd
 		},
 		Environ: func() []string {
@@ -369,8 +369,8 @@ func TestPullCommand_Run_WithArgs(t *testing.T) {
 
 	deps := PullDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		ExecCommand: func(_ string, _ ...string) *exec.Cmd {
-			return exec.Command("echo", "pulled")
+		ExecCommand: func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, "echo", "pulled")
 		},
 		Environ: func() []string {
 			return []string{}
