@@ -1,3 +1,5 @@
+//go:build darwin
+
 package launchd
 
 import (
@@ -171,6 +173,10 @@ func TestRenderer_Render(t *testing.T) {
 			assert.Contains(t, content, "<!DOCTYPE plist")
 			assert.Contains(t, content, "<plist version=\"1.0\">")
 			assert.Contains(t, content, "</plist>")
+
+			// Ensure Program key is not present when ProgramArguments is used
+			assert.NotContains(t, content, "<key>Program</key>", "Program key should not be present when ProgramArguments is used")
+			assert.Contains(t, content, "<key>ProgramArguments</key>", "ProgramArguments key should be present")
 
 			// Run test-specific validations
 			tt.validate(t, content)

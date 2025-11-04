@@ -1,3 +1,5 @@
+//go:build darwin
+
 package launchd
 
 import (
@@ -92,7 +94,6 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 	// Build plist
 	plist := &Plist{
 		Label:               label,
-		Program:             r.opts.PodmanPath,
 		ProgramArguments:    append([]string{r.opts.PodmanPath}, podmanArgs...),
 		RunAtLoad:           true,
 		KeepAlive:           keepAlive,

@@ -1,3 +1,5 @@
+//go:build darwin
+
 package launchd
 
 import (
@@ -66,6 +68,8 @@ func TestLifecycle_Start(t *testing.T) {
 				opts := testOptions()
 				// Podman machine check
 				m.SetOutput(opts.PodmanPath, []string{"machine", "inspect", "--format", "{{.State}}"}, "running\n")
+				// isServiceLoaded check - returns false (service not loaded)
+				m.SetError("launchctl", []string{"print", "gui/501/com.github.trly.test-service"}, errors.New("Could not find service"))
 				// Bootstrap (success)
 				m.SetOutput("launchctl", []string{"bootstrap", "gui/501", "/Users/test/Library/LaunchAgents/com.github.trly.test-service.plist"}, "")
 				// Enable
@@ -86,14 +90,14 @@ func TestLifecycle_Start(t *testing.T) {
 			errMsg:  "podman machine is not running",
 		},
 		{
-			name:    "already loaded fallback",
+			name:    "service already loaded",
 			service: "test-service",
 			setupMock: func(m *MockRunner) {
 				opts := testOptions()
 				m.SetOutput(opts.PodmanPath, []string{"machine", "inspect", "--format", "{{.State}}"}, "running\n")
-				// Bootstrap fails (already loaded)
-				m.SetError("launchctl", []string{"bootstrap", "gui/501", "/Users/test/Library/LaunchAgents/com.github.trly.test-service.plist"},
-					errors.New("service already loaded"))
+				// isServiceLoaded check - returns true (service loaded)
+				m.SetOutput("launchctl", []string{"print", "gui/501/com.github.trly.test-service"}, "state = running\n")
+				// Skip bootstrap since already loaded
 				m.SetOutput("launchctl", []string{"enable", "gui/501/com.github.trly.test-service"}, "")
 				m.SetOutput("launchctl", []string{"kickstart", "-k", "gui/501/com.github.trly.test-service"}, "")
 			},

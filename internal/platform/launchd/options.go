@@ -1,3 +1,5 @@
+//go:build darwin
+
 // Package launchd provides macOS launchd platform adapter for quad-ops.
 package launchd
 
@@ -6,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // Domain represents launchd domain type.
@@ -140,9 +143,20 @@ func (o *Options) Validate() error {
 		}
 	}
 
-	// Determine if sudo is needed for system domain
-	if o.Domain == DomainSystem && os.Getuid() != 0 {
-		o.UseSudo = true
+	// Validate domain/directory consistency and set sudo for system domain
+	if o.Domain == DomainSystem {
+		// System domain requires LaunchDaemons directory
+		if strings.Contains(o.PlistDir, "LaunchAgents") {
+			return fmt.Errorf("system domain requires LaunchDaemons directory, got: %s", o.PlistDir)
+		}
+
+		// System domain requires system logs directory (not user home)
+		if strings.HasPrefix(o.LogsDir, homeDir) {
+			return fmt.Errorf("system domain requires system logs directory (e.g., /var/log), got: %s", o.LogsDir)
+		}
+
+		// Podman on macOS runs rootless via podman-machine; system LaunchDaemons not supported
+		return fmt.Errorf("system domain launchd is not supported with rootless Podman on macOS; use user domain")
 	}
 
 	// Resolve podman path

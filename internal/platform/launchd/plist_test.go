@@ -1,3 +1,5 @@
+//go:build darwin
+
 package launchd
 
 import (
@@ -80,7 +82,7 @@ func TestEncodePlist(t *testing.T) {
 		assert.Contains(t, result, "<key>Crashed</key>")
 	})
 
-	t.Run("plist with Program field", func(t *testing.T) {
+	t.Run("plist with Program field only", func(t *testing.T) {
 		p := &Plist{
 			Label:   "com.example.test",
 			Program: "/usr/bin/test",
@@ -92,6 +94,22 @@ func TestEncodePlist(t *testing.T) {
 		result := string(data)
 		assert.Contains(t, result, "<key>Program</key>", "missing Program key")
 		assert.Contains(t, result, "<string>/usr/bin/test</string>", "missing Program value")
+		assert.NotContains(t, result, "<key>ProgramArguments</key>", "ProgramArguments should not be present")
+	})
+
+	t.Run("plist with ProgramArguments excludes Program", func(t *testing.T) {
+		p := &Plist{
+			Label:            "com.example.test",
+			Program:          "/usr/bin/test", // Should be ignored
+			ProgramArguments: []string{"/usr/bin/test", "--arg"},
+		}
+
+		data, err := EncodePlist(p)
+		require.NoError(t, err)
+
+		result := string(data)
+		assert.Contains(t, result, "<key>ProgramArguments</key>", "missing ProgramArguments key")
+		assert.NotContains(t, result, "<key>Program</key>", "Program key should not be present when ProgramArguments is used")
 	})
 
 	t.Run("plist with optional fields", func(t *testing.T) {

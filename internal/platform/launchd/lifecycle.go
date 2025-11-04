@@ -1,3 +1,5 @@
+//go:build darwin
+
 package launchd
 
 import (
@@ -44,6 +46,19 @@ func (l *Lifecycle) Reload(_ context.Context) error {
 	return nil
 }
 
+// isServiceLoaded checks if a service is loaded in launchd.
+func (l *Lifecycle) isServiceLoaded(ctx context.Context, domainTarget string) (bool, error) {
+	_, err := l.runCommandOutput(ctx, "launchctl", "print", domainTarget)
+	if err != nil {
+		// If launchctl print fails, the service is not loaded
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "Could not find") {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to query service state: %w", err)
+	}
+	return true, nil
+}
+
 // Start starts a service.
 func (l *Lifecycle) Start(ctx context.Context, name string) error {
 	// Check podman machine is running
@@ -61,10 +76,15 @@ func (l *Lifecycle) Start(ctx context.Context, name string) error {
 		"domain", domainTarget,
 	)
 
-	// Try modern launchctl bootstrap + kickstart
-	if err := l.runCommand(ctx, "launchctl", "bootstrap", l.opts.DomainID(), plistPath); err != nil {
-		// If already bootstrapped, that's fine
-		if !strings.Contains(err.Error(), "already loaded") && !strings.Contains(err.Error(), "service already loaded") {
+	// Check if service is already loaded
+	loaded, err := l.isServiceLoaded(ctx, domainTarget)
+	if err != nil {
+		return fmt.Errorf("failed to check service state: %w", err)
+	}
+
+	// Bootstrap if not loaded
+	if !loaded {
+		if err := l.runCommand(ctx, "launchctl", "bootstrap", l.opts.DomainID(), plistPath); err != nil {
 			l.logger.Debug("Bootstrap failed, trying legacy load", "error", err)
 
 			// Fallback to legacy load
@@ -131,10 +151,18 @@ func (l *Lifecycle) Restart(ctx context.Context, name string) error {
 		return fmt.Errorf("podman machine check failed: %w", err)
 	}
 
-	// 1. Bootout (stop and unload) - ignore errors if not running
-	_ = l.runCommand(ctx, "launchctl", "bootout", domainTarget)
+	// 1. Check if service is loaded
+	loaded, err := l.isServiceLoaded(ctx, domainTarget)
+	if err != nil {
+		return fmt.Errorf("failed to check service state: %w", err)
+	}
 
-	// 2. Bootstrap (reload plist)
+	// 2. Bootout (stop and unload) if loaded
+	if loaded {
+		_ = l.runCommand(ctx, "launchctl", "bootout", domainTarget)
+	}
+
+	// 3. Bootstrap (reload plist)
 	if err := l.runCommand(ctx, "launchctl", "bootstrap", l.opts.DomainID(), plistPath); err != nil {
 		// Fallback to legacy load for older macOS
 		if err := l.runCommand(ctx, "launchctl", "load", "-w", plistPath); err != nil {
@@ -142,10 +170,10 @@ func (l *Lifecycle) Restart(ctx context.Context, name string) error {
 		}
 	}
 
-	// 3. Enable if possible
+	// 4. Enable if possible
 	_ = l.runCommand(ctx, "launchctl", "enable", domainTarget)
 
-	// 4. Kickstart to start the service
+	// 5. Kickstart to start the service
 	if err := l.runCommand(ctx, "launchctl", "kickstart", "-k", domainTarget); err != nil {
 		// Fallback to legacy start
 		if err := l.runCommand(ctx, "launchctl", "start", label); err != nil {

@@ -1,3 +1,5 @@
+//go:build darwin
+
 package launchd
 
 import (
@@ -38,13 +40,11 @@ func EncodePlist(p *Plist) ([]byte, error) {
 	// Write required fields
 	writeDictEntry(buf, "Label", p.Label)
 
-	// Write Program or ProgramArguments
-	if p.Program != "" {
-		writeDictEntry(buf, "Program", p.Program)
-	}
-
+	// Write Program or ProgramArguments (mutually exclusive)
 	if len(p.ProgramArguments) > 0 {
 		writeDictArrayEntry(buf, "ProgramArguments", p.ProgramArguments)
+	} else if p.Program != "" {
+		writeDictEntry(buf, "Program", p.Program)
 	}
 
 	// Write optional fields

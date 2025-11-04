@@ -30,6 +30,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/dependency"
+	"github.com/trly/quad-ops/internal/service"
 )
 
 // UpOptions holds up command options.
@@ -51,6 +53,91 @@ type UpDeps struct {
 
 // UpCommand represents the up command for quad-ops CLI.
 type UpCommand struct{}
+
+// serviceRegistry tracks all service specs and their dependencies.
+type serviceRegistry struct {
+	specs map[string]service.Spec
+	graph *dependency.ServiceDependencyGraph
+}
+
+// newServiceRegistry creates a new service registry.
+func newServiceRegistry() *serviceRegistry {
+	return &serviceRegistry{
+		specs: make(map[string]service.Spec),
+		graph: dependency.NewServiceDependencyGraph(),
+	}
+}
+
+// add registers a service spec and its dependencies.
+func (r *serviceRegistry) add(spec service.Spec) error {
+	r.specs[spec.Name] = spec
+
+	// Add service to dependency graph
+	if err := r.graph.AddService(spec.Name); err != nil {
+		return err
+	}
+
+	// Add dependencies
+	for _, depName := range spec.DependsOn {
+		if err := r.graph.AddDependency(spec.Name, depName); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// orderAndExpand returns services in dependency order, expanding to include dependencies.
+// If names is empty, returns all services in topological order.
+func (r *serviceRegistry) orderAndExpand(names []string) ([]string, error) {
+	if len(names) == 0 {
+		// Return all services in topological order
+		return r.graph.GetTopologicalOrder()
+	}
+
+	// Build expanded set including dependencies
+	needed := make(map[string]bool)
+	toProcess := append([]string{}, names...)
+
+	for len(toProcess) > 0 {
+		current := toProcess[0]
+		toProcess = toProcess[1:]
+
+		if needed[current] {
+			continue
+		}
+
+		// Verify service exists
+		if _, ok := r.specs[current]; !ok {
+			return nil, fmt.Errorf("service not found: %s", current)
+		}
+
+		needed[current] = true
+
+		// Add dependencies to process
+		deps, err := r.graph.GetDependencies(current)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get dependencies for %s: %w", current, err)
+		}
+		toProcess = append(toProcess, deps...)
+	}
+
+	// Get full topological order
+	fullOrder, err := r.graph.GetTopologicalOrder()
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter to only needed services while preserving order
+	result := make([]string, 0, len(needed))
+	for _, svc := range fullOrder {
+		if needed[svc] {
+			result = append(result, svc)
+		}
+	}
+
+	return result, nil
+}
 
 // NewUpCommand creates a new UpCommand.
 func NewUpCommand() *UpCommand {
@@ -154,8 +241,8 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		}
 	}
 
-	// Track all available services from compose processing
-	allServices := make(map[string]bool)
+	// Track all service specs and dependencies
+	registry := newServiceRegistry()
 	anyChanges := false
 
 	// 1. Process compose files from selected repositories
@@ -188,9 +275,13 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 			deps.Logger.Debug("Processed compose project",
 				"repo", repo.Name, "project", project.Name, "services", len(specs))
 
-			// Track service names
+			// Register services with dependencies
 			for _, spec := range specs {
-				allServices[spec.Name] = true
+				if err := registry.add(spec); err != nil {
+					deps.Logger.Error("Failed to register service",
+						"repo", repo.Name, "service", spec.Name, "error", err)
+					return fmt.Errorf("failed to register service %s: %w", spec.Name, err)
+				}
 			}
 
 			// 2. Render to platform-specific artifacts
@@ -231,11 +322,12 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 
 	// Handle dry-run mode early exit
 	if opts.DryRun {
-		serviceList := make([]string, 0, len(allServices))
-		for svc := range allServices {
-			serviceList = append(serviceList, svc)
+		// Get all services in dependency order for display
+		orderedServices, err := registry.orderAndExpand(nil)
+		if err != nil {
+			return fmt.Errorf("failed to determine service order: %w", err)
 		}
-		deps.Logger.Info("Would start services (dry-run)", "services", serviceList)
+		deps.Logger.Info("Would start services in dependency order (dry-run)", "services", orderedServices)
 		return nil
 	}
 
@@ -247,34 +339,38 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		}
 	}
 
-	// 5. Determine target services (filter by --services flag or all specs)
-	var servicesToStart []string
+	// 5. Determine target services and order by dependencies
+	var orderedServices []string
+	var orderErr error
+
 	if len(opts.Services) > 0 {
-		// Use specified services
-		servicesToStart = opts.Services
-		// Validate requested services exist
-		for _, svc := range servicesToStart {
-			if !allServices[svc] {
-				deps.Logger.Warn("Requested service not found in compose files", "service", svc)
-			}
+		// Order specified services and expand with dependencies
+		orderedServices, orderErr = registry.orderAndExpand(opts.Services)
+		if orderErr != nil {
+			return fmt.Errorf("failed to determine start order: %w", orderErr)
 		}
+		deps.Logger.Info("Starting requested services with dependencies",
+			"requested", opts.Services,
+			"expanded", orderedServices)
 	} else {
-		// Start all discovered services
-		servicesToStart = make([]string, 0, len(allServices))
-		for svc := range allServices {
-			servicesToStart = append(servicesToStart, svc)
+		// Start all discovered services in dependency order
+		orderedServices, orderErr = registry.orderAndExpand(nil)
+		if orderErr != nil {
+			return fmt.Errorf("failed to determine start order: %w", orderErr)
 		}
 	}
 
-	if len(servicesToStart) == 0 {
+	if len(orderedServices) == 0 {
 		deps.Logger.Info("No services to start")
 		return nil
 	}
 
-	// 6. Start services using Lifecycle.StartMany
-	deps.Logger.Info("Starting services", "count", len(servicesToStart))
+	// 6. Start services in dependency order using Lifecycle.StartMany
+	deps.Logger.Info("Starting services in dependency order",
+		"count", len(orderedServices),
+		"order", orderedServices)
 
-	startErrors := deps.Lifecycle.StartMany(ctx, servicesToStart)
+	startErrors := deps.Lifecycle.StartMany(ctx, orderedServices)
 
 	// Log results
 	successCount := 0
