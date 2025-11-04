@@ -238,8 +238,8 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		{
 			name: "list artifacts without status",
 			artifacts: []platform.Artifact{
-				{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
-				{Path: "com.github.trly.api.container", Hash: "def456", Mode: 0644},
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
+				{Path: "dev.trly.quad-ops.api.container", Hash: "def456", Mode: 0644},
 			},
 			opts: ListOptions{Status: false},
 			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
@@ -281,7 +281,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		{
 			name: "list with status - active service",
 			artifacts: []platform.Artifact{
-				{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
 			},
 			opts: ListOptions{Status: true},
 			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
@@ -307,7 +307,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		{
 			name: "list with status - inactive service",
 			artifacts: []platform.Artifact{
-				{Path: "com.github.trly.db.container", Hash: "xyz789", Mode: 0644},
+				{Path: "dev.trly.quad-ops.db.container", Hash: "xyz789", Mode: 0644},
 			},
 			opts: ListOptions{Status: true},
 			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
@@ -333,7 +333,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		{
 			name: "list with status - status error",
 			artifacts: []platform.Artifact{
-				{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
 			},
 			opts: ListOptions{Status: true},
 			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
@@ -355,7 +355,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		{
 			name: "filter out non-prefix artifacts",
 			artifacts: []platform.Artifact{
-				{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
 				{Path: "other-service.container", Hash: "xyz789", Mode: 0644},
 			},
 			opts: ListOptions{Status: false},
@@ -371,7 +371,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		{
 			name: "long hash truncation",
 			artifacts: []platform.Artifact{
-				{Path: "com.github.trly.web.container", Hash: "abcdef1234567890abcdef1234567890", Mode: 0644},
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abcdef1234567890abcdef1234567890", Mode: 0644},
 			},
 			opts: ListOptions{Status: false},
 			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
@@ -386,7 +386,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		{
 			name: "non-service artifact with status flag",
 			artifacts: []platform.Artifact{
-				{Path: "com.github.trly.config.volume", Hash: "vol123", Mode: 0644},
+				{Path: "dev.trly.quad-ops.config.volume", Hash: "vol123", Mode: 0644},
 			},
 			opts: ListOptions{Status: true},
 			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
@@ -443,7 +443,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 
 func TestListCommand_GetLifecycleError(t *testing.T) {
 	artifacts := []platform.Artifact{
-		{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
+		{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
 	}
 
 	artifactStore := &MockArtifactStore{
@@ -471,9 +471,9 @@ func TestListCommand_GetLifecycleError(t *testing.T) {
 
 func TestListCommand_MixedArtifactTypes(t *testing.T) {
 	artifacts := []platform.Artifact{
-		{Path: "com.github.trly.web.container", Hash: "abc123", Mode: 0644},
-		{Path: "com.github.trly.data.volume", Hash: "vol456", Mode: 0644},
-		{Path: "com.github.trly.app-network.network", Hash: "net789", Mode: 0644},
+		{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
+		{Path: "dev.trly.quad-ops.data.volume", Hash: "vol456", Mode: 0644},
+		{Path: "dev.trly.quad-ops.app-network.network", Hash: "net789", Mode: 0644},
 	}
 
 	artifactStore := &MockArtifactStore{

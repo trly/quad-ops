@@ -97,8 +97,8 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 	filteredArtifacts := make([]platform.Artifact, 0, len(artifacts))
 	for _, artifact := range artifacts {
 		base := filepath.Base(artifact.Path)
-		// Match both old prefix (com.github.trly) and new prefix (dev.trly.quad-ops)
-		if strings.Contains(base, "com.github.trly") || strings.Contains(base, "dev.trly.quad-ops") {
+		// Match dev.trly.quad-ops prefix
+		if strings.Contains(base, "dev.trly.quad-ops") {
 			filteredArtifacts = append(filteredArtifacts, artifact)
 		}
 	}

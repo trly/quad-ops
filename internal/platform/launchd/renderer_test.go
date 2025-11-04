@@ -33,7 +33,7 @@ func TestRenderer_Render(t *testing.T) {
 			opts: testOptions(),
 			validate: func(t *testing.T, content string) {
 				assert.Contains(t, content, "<key>Label</key>")
-				assert.Contains(t, content, "<string>com.github.trly.test-service</string>")
+				assert.Contains(t, content, "<string>dev.trly.quad-ops.test-service</string>")
 				assert.Contains(t, content, "<key>ProgramArguments</key>")
 				assert.Contains(t, content, "<string>run</string>")
 				assert.Contains(t, content, "<string>--rm</string>")
@@ -201,21 +201,21 @@ func TestBuildLabel(t *testing.T) {
 	}{
 		{
 			name:      "simple service",
-			prefix:    "com.github.trly",
+			prefix:    "dev.trly.quad-ops",
 			service:   "nginx",
-			wantLabel: "com.github.trly.nginx",
+			wantLabel: "dev.trly.quad-ops.nginx",
 		},
 		{
 			name:      "service with special chars",
-			prefix:    "com.github.trly",
+			prefix:    "dev.trly.quad-ops",
 			service:   "my-app_v2",
-			wantLabel: "com.github.trly.my-app_v2",
+			wantLabel: "dev.trly.quad-ops.my-app_v2",
 		},
 		{
 			name:      "service with invalid chars",
-			prefix:    "com.github.trly",
+			prefix:    "dev.trly.quad-ops",
 			service:   "app@v1#test",
-			wantLabel: "com.github.trly.app-v1-test",
+			wantLabel: "dev.trly.quad-ops.app-v1-test",
 		},
 	}
 

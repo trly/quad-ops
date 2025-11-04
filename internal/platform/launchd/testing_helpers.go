@@ -24,7 +24,7 @@ func testOptions() Options {
 	return Options{
 		Domain:      DomainUser,
 		PodmanPath:  mockPodman,
-		LabelPrefix: "com.github.trly",
+		LabelPrefix: "dev.trly.quad-ops",
 		PlistDir:    plistDir,
 		LogsDir:     logsDir,
 		UID:         501,

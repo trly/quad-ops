@@ -69,13 +69,13 @@ func TestLifecycle_Start(t *testing.T) {
 				// Podman machine check
 				m.SetOutput(opts.PodmanPath, []string{"machine", "inspect", "--format", "{{.State}}"}, "running\n")
 				// isServiceLoaded check - returns false (service not loaded)
-				m.SetError("launchctl", []string{"print", "gui/501/com.github.trly.test-service"}, errors.New("Could not find service"))
+				m.SetError("launchctl", []string{"print", "gui/501/dev.trly.quad-ops.test-service"}, errors.New("Could not find service"))
 				// Bootstrap (success)
-				m.SetOutput("launchctl", []string{"bootstrap", "gui/501", "/Users/test/Library/LaunchAgents/com.github.trly.test-service.plist"}, "")
+				m.SetOutput("launchctl", []string{"bootstrap", "gui/501", "/Users/test/Library/LaunchAgents/dev.trly.quad-ops.test-service.plist"}, "")
 				// Enable
-				m.SetOutput("launchctl", []string{"enable", "gui/501/com.github.trly.test-service"}, "")
+				m.SetOutput("launchctl", []string{"enable", "gui/501/dev.trly.quad-ops.test-service"}, "")
 				// Kickstart
-				m.SetOutput("launchctl", []string{"kickstart", "-k", "gui/501/com.github.trly.test-service"}, "")
+				m.SetOutput("launchctl", []string{"kickstart", "-k", "gui/501/dev.trly.quad-ops.test-service"}, "")
 			},
 			wantErr: false,
 		},
@@ -96,10 +96,10 @@ func TestLifecycle_Start(t *testing.T) {
 				opts := testOptions()
 				m.SetOutput(opts.PodmanPath, []string{"machine", "inspect", "--format", "{{.State}}"}, "running\n")
 				// isServiceLoaded check - returns true (service loaded)
-				m.SetOutput("launchctl", []string{"print", "gui/501/com.github.trly.test-service"}, "state = running\n")
+				m.SetOutput("launchctl", []string{"print", "gui/501/dev.trly.quad-ops.test-service"}, "state = running\n")
 				// Skip bootstrap since already loaded
-				m.SetOutput("launchctl", []string{"enable", "gui/501/com.github.trly.test-service"}, "")
-				m.SetOutput("launchctl", []string{"kickstart", "-k", "gui/501/com.github.trly.test-service"}, "")
+				m.SetOutput("launchctl", []string{"enable", "gui/501/dev.trly.quad-ops.test-service"}, "")
+				m.SetOutput("launchctl", []string{"kickstart", "-k", "gui/501/dev.trly.quad-ops.test-service"}, "")
 			},
 			wantErr: false,
 		},
@@ -139,7 +139,7 @@ func TestLifecycle_Stop(t *testing.T) {
 			name:    "successful stop",
 			service: "test-service",
 			setupMock: func(m *MockRunner) {
-				m.SetOutput("launchctl", []string{"bootout", "gui/501/com.github.trly.test-service"}, "")
+				m.SetOutput("launchctl", []string{"bootout", "gui/501/dev.trly.quad-ops.test-service"}, "")
 			},
 			wantErr: false,
 		},
@@ -147,9 +147,9 @@ func TestLifecycle_Stop(t *testing.T) {
 			name:    "bootout fails, fallback to unload",
 			service: "test-service",
 			setupMock: func(m *MockRunner) {
-				m.SetError("launchctl", []string{"bootout", "gui/501/com.github.trly.test-service"}, errors.New("not found"))
-				m.SetOutput("launchctl", []string{"stop", "com.github.trly.test-service"}, "")
-				m.SetOutput("launchctl", []string{"unload", "-w", "/Users/test/Library/LaunchAgents/com.github.trly.test-service.plist"}, "")
+				m.SetError("launchctl", []string{"bootout", "gui/501/dev.trly.quad-ops.test-service"}, errors.New("not found"))
+				m.SetOutput("launchctl", []string{"stop", "dev.trly.quad-ops.test-service"}, "")
+				m.SetOutput("launchctl", []string{"unload", "-w", "/Users/test/Library/LaunchAgents/dev.trly.quad-ops.test-service.plist"}, "")
 			},
 			wantErr: false,
 		},
@@ -188,7 +188,7 @@ func TestLifecycle_Status(t *testing.T) {
 			name:    "service running",
 			service: "test-service",
 			setupMock: func(m *MockRunner) {
-				m.SetOutput("launchctl", []string{"print", "gui/501/com.github.trly.test-service"},
+				m.SetOutput("launchctl", []string{"print", "gui/501/dev.trly.quad-ops.test-service"},
 					"state = running\npid = 12345")
 			},
 			wantActive: true,
@@ -199,7 +199,7 @@ func TestLifecycle_Status(t *testing.T) {
 			name:    "service not running",
 			service: "test-service",
 			setupMock: func(m *MockRunner) {
-				m.SetError("launchctl", []string{"print", "gui/501/com.github.trly.test-service"}, errors.New("not found"))
+				m.SetError("launchctl", []string{"print", "gui/501/dev.trly.quad-ops.test-service"}, errors.New("not found"))
 				m.SetOutput("launchctl", []string{"list"}, "")
 			},
 			wantActive: false,

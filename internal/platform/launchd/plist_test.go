@@ -203,8 +203,8 @@ func TestSanitizeLabel(t *testing.T) {
 		},
 		{
 			name:     "already clean",
-			input:    "com.github.trly.web-service",
-			expected: "com.github.trly.web-service",
+			input:    "dev.trly.quad-ops.web-service",
+			expected: "dev.trly.quad-ops.web-service",
 		},
 	}
 

@@ -31,8 +31,8 @@ type Options struct {
 	// If empty, will be resolved from PATH or common locations.
 	PodmanPath string
 
-	// LabelPrefix is the prefix for launchd labels (e.g., "com.github.trly").
-	// Default: "com.github.trly"
+	// LabelPrefix is the prefix for launchd labels (e.g., "dev.trly.quad-ops").
+	// Default: "dev.trly.quad-ops"
 	LabelPrefix string
 
 	// PlistDir is the directory where plist files will be written.

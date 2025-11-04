@@ -38,7 +38,7 @@ import (
 //
 // For launchd artifacts (.plist):
 //   - "com.example.web-service.plist" -> "web-service"
-//   - "com.github.trly.api.plist" -> "api"
+//   - "dev.trly.quad-ops.api.plist" -> "api"
 //   - "simple.plist" -> "simple"
 func parseServiceNameFromArtifact(path string) string {
 	base := filepath.Base(path)
