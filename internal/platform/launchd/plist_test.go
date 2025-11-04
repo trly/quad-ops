@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"strings"
 	"testing"
-	"unsafe"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -201,26 +200,26 @@ func TestSanitizeLabel(t *testing.T) {
 
 func TestWriteHelpers(t *testing.T) {
 	t.Run("writeDictEntry skips empty values", func(t *testing.T) {
-		var buf strings.Builder
-		writeDictEntry((*bytes.Buffer)(unsafe.Pointer(&buf)), "TestKey", "")
+		var buf bytes.Buffer
+		writeDictEntry(&buf, "TestKey", "")
 		assert.Equal(t, 0, buf.Len(), "writeDictEntry should skip empty values")
 	})
 
 	t.Run("writeDictIntEntry skips zero values", func(t *testing.T) {
-		var buf strings.Builder
-		writeDictIntEntry((*bytes.Buffer)(unsafe.Pointer(&buf)), "TestKey", 0)
+		var buf bytes.Buffer
+		writeDictIntEntry(&buf, "TestKey", 0)
 		assert.Equal(t, 0, buf.Len(), "writeDictIntEntry should skip zero values")
 	})
 
 	t.Run("writeDictArrayEntry skips empty arrays", func(t *testing.T) {
-		var buf strings.Builder
-		writeDictArrayEntry((*bytes.Buffer)(unsafe.Pointer(&buf)), "TestKey", []string{})
+		var buf bytes.Buffer
+		writeDictArrayEntry(&buf, "TestKey", []string{})
 		assert.Equal(t, 0, buf.Len(), "writeDictArrayEntry should skip empty arrays")
 	})
 
 	t.Run("writeDictDictEntry skips empty maps", func(t *testing.T) {
-		var buf strings.Builder
-		writeDictDictEntry((*bytes.Buffer)(unsafe.Pointer(&buf)), "TestKey", map[string]string{})
+		var buf bytes.Buffer
+		writeDictDictEntry(&buf, "TestKey", map[string]string{})
 		assert.Equal(t, 0, buf.Len(), "writeDictDictEntry should skip empty maps")
 	})
 }

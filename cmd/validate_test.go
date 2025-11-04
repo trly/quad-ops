@@ -1275,7 +1275,9 @@ func TestValidateCommand_AccessError(t *testing.T) {
 	err = os.Chmod(tempFile, 0000)
 	require.NoError(t, err)
 
-	defer os.Chmod(tempFile, 0600)
+	defer func() {
+		_ = os.Chmod(tempFile, 0600)
+	}()
 
 	err = validateComposeWithDeps(tempFile, logger)
 	assert.Error(t, err)
@@ -1306,7 +1308,9 @@ func TestValidateCommand_DirectoryReadError(t *testing.T) {
 	err := os.MkdirAll(badDir, 0000)
 	require.NoError(t, err)
 
-	defer os.Chmod(badDir, 0750)
+	defer func() {
+		_ = os.Chmod(badDir, 0600) // #nosec G302
+	}()
 
 	// Note: os.ReadDir may still succeed with 000 permissions on macOS
 	// This test documents the behavior but doesn't strictly enforce an error
