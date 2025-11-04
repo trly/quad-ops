@@ -209,5 +209,3 @@ func TestMockConnection(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
-
-

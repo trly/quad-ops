@@ -81,8 +81,6 @@ func TestPullCommand_Flags(t *testing.T) {
 	assert.Equal(t, 0, flags.NFlag(), "Pull command should not have specific flags")
 }
 
-
-
 func TestPullCommand_PullImage_Verbose(t *testing.T) {
 	app := NewAppBuilder(t).
 		WithConfig(&config.Settings{
@@ -382,5 +380,3 @@ func TestPullCommand_Run_WithArgs(t *testing.T) {
 
 	assert.NoError(t, err)
 }
-
-

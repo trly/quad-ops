@@ -843,9 +843,9 @@ func TestValidateSecretWithDeps(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:       "secret name with underscores",
-			secretName: "my_secret_key",
-			secret:     types.SecretConfig{Name: "my_secret_key"},
+			name:        "secret name with underscores",
+			secretName:  "my_secret_key",
+			secret:      types.SecretConfig{Name: "my_secret_key"},
 			expectError: false,
 		},
 		{

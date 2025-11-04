@@ -56,9 +56,45 @@ func DefaultOptions() Options {
 
 	return Options{
 		Domain:      DomainUser,
-		LabelPrefix: "com.github.trly",
+		LabelPrefix: "dev.trly.quad-ops",
 		PlistDir:    filepath.Join(homeDir, "Library", "LaunchAgents"),
 		LogsDir:     filepath.Join(homeDir, "Library", "Logs", "quad-ops"),
+		UID:         uid,
+		UseSudo:     false,
+	}
+}
+
+// OptionsFromSettings creates launchd options from configuration settings.
+// Respects user overrides while providing sensible defaults.
+func OptionsFromSettings(_, quadletDir string, userMode bool) Options {
+	homeDir, _ := os.UserHomeDir()
+	uid := os.Getuid()
+
+	domain := DomainUser
+	if !userMode {
+		domain = DomainSystem
+	}
+
+	// Use config values if provided, otherwise use defaults
+	plistDir := quadletDir
+	if plistDir == "" {
+		if domain == DomainUser {
+			plistDir = filepath.Join(homeDir, "Library", "LaunchAgents")
+		} else {
+			plistDir = "/Library/LaunchDaemons"
+		}
+	}
+
+	logsDir := filepath.Join(homeDir, "Library", "Logs", "quad-ops")
+	if domain == DomainSystem {
+		logsDir = "/var/log/quad-ops"
+	}
+
+	return Options{
+		Domain:      domain,
+		LabelPrefix: "dev.trly.quad-ops",
+		PlistDir:    plistDir,
+		LogsDir:     logsDir,
 		UID:         uid,
 		UseSudo:     false,
 	}
@@ -71,7 +107,7 @@ func (o *Options) Validate() error {
 		o.Domain = DomainUser
 	}
 	if o.LabelPrefix == "" {
-		o.LabelPrefix = "com.github.trly"
+		o.LabelPrefix = "dev.trly.quad-ops"
 	}
 	if o.UID == 0 {
 		o.UID = os.Getuid()

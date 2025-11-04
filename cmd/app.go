@@ -64,12 +64,8 @@ func NewApp(logger log.Logger, configProv config.Provider) (*App, error) {
 	fsService := fs.NewServiceWithLogger(configProv, logger)
 
 	// New architecture components (platform-independent)
-	// Determine artifact store base directory based on platform
+	// Use QuadletDir as artifact base - it's already platform-specific from config
 	artifactBaseDir := cfg.QuadletDir
-	if runtime.GOOS == "darwin" {
-		launchdOpts := launchd.DefaultOptions()
-		artifactBaseDir = launchdOpts.PlistDir // ~/Library/LaunchAgents or /Library/LaunchDaemons
-	}
 	artifactStore := repository.NewArtifactStore(fsService, logger, artifactBaseDir)
 	gitSyncer := repository.NewGitSyncer(configProv, logger)
 	composeProcessor := newComposeProcessor(cfg)
@@ -131,8 +127,12 @@ func (a *App) initPlatform() {
 			// Launchd platform (macOS)
 			a.Logger.Debug("Initializing platform: launchd (macOS)")
 
-			// Create launchd options
-			launchdOpts := launchd.DefaultOptions()
+			// Create launchd options from config settings
+			launchdOpts := launchd.OptionsFromSettings(
+				a.Config.RepositoryDir,
+				a.Config.QuadletDir,
+				a.Config.UserMode,
+			)
 
 			// Initialize renderer
 			renderer, err := launchd.NewRenderer(launchdOpts, a.Logger)

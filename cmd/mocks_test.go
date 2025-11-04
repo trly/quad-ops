@@ -199,11 +199,13 @@ type AppBuilder struct {
 }
 
 // NewAppBuilder creates a new AppBuilder with sensible defaults.
+// Defaults to Linux platform to avoid platform initialization unless explicitly testing platform features.
 func NewAppBuilder(t *testing.T) *AppBuilder {
 	return &AppBuilder{
 		logger:    testutil.NewTestLogger(t),
 		config:    &config.Settings{Verbose: false},
 		validator: &MockValidator{},
+		os:        "linux", // Default to linux to avoid platform-specific initialization
 	}
 }
 

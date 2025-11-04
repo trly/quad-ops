@@ -93,11 +93,12 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 		return fmt.Errorf("failed to list artifacts: %w", err)
 	}
 
-	// Filter artifacts to only show services with com.github.trly prefix
+	// Filter artifacts to only show quad-ops managed services
 	filteredArtifacts := make([]platform.Artifact, 0, len(artifacts))
 	for _, artifact := range artifacts {
 		base := filepath.Base(artifact.Path)
-		if strings.Contains(base, "com.github.trly") {
+		// Match both old prefix (com.github.trly) and new prefix (dev.trly.quad-ops)
+		if strings.Contains(base, "com.github.trly") || strings.Contains(base, "dev.trly.quad-ops") {
 			filteredArtifacts = append(filteredArtifacts, artifact)
 		}
 	}

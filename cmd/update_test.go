@@ -73,8 +73,6 @@ func TestUpdateCommand_Output(_ *testing.T) {
 	_ = cmd.RunE(cmd, []string{})
 }
 
-
-
 // TestUpdateCommand_RunE_Exists verifies RunE function is set.
 func TestUpdateCommand_RunE_Exists(t *testing.T) {
 	cmd := NewUpdateCommand().GetCobraCommand()

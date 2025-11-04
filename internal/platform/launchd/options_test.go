@@ -13,7 +13,7 @@ func TestDefaultOptions(t *testing.T) {
 	opts := DefaultOptions()
 
 	assert.Equal(t, DomainUser, opts.Domain)
-	assert.Equal(t, "com.github.trly", opts.LabelPrefix)
+	assert.Equal(t, "dev.trly.quad-ops", opts.LabelPrefix)
 	assert.NotZero(t, opts.UID)
 	assert.False(t, opts.UseSudo)
 
@@ -22,13 +22,53 @@ func TestDefaultOptions(t *testing.T) {
 	assert.Equal(t, filepath.Join(homeDir, "Library", "Logs", "quad-ops"), opts.LogsDir)
 }
 
+func TestOptionsFromSettings(t *testing.T) {
+	homeDir, _ := os.UserHomeDir()
+
+	t.Run("user mode with defaults", func(t *testing.T) {
+		opts := OptionsFromSettings("", "", true)
+
+		assert.Equal(t, DomainUser, opts.Domain)
+		assert.Equal(t, "dev.trly.quad-ops", opts.LabelPrefix)
+		assert.Equal(t, filepath.Join(homeDir, "Library", "LaunchAgents"), opts.PlistDir)
+		assert.Equal(t, filepath.Join(homeDir, "Library", "Logs", "quad-ops"), opts.LogsDir)
+		assert.False(t, opts.UseSudo)
+	})
+
+	t.Run("user mode with custom plist dir", func(t *testing.T) {
+		customPlistDir := "/custom/plist/dir"
+		opts := OptionsFromSettings("", customPlistDir, true)
+
+		assert.Equal(t, DomainUser, opts.Domain)
+		assert.Equal(t, customPlistDir, opts.PlistDir)
+	})
+
+	t.Run("system mode with defaults", func(t *testing.T) {
+		opts := OptionsFromSettings("", "", false)
+
+		assert.Equal(t, DomainSystem, opts.Domain)
+		assert.Equal(t, "dev.trly.quad-ops", opts.LabelPrefix)
+		assert.Equal(t, "/Library/LaunchDaemons", opts.PlistDir)
+		assert.Equal(t, "/var/log/quad-ops", opts.LogsDir)
+	})
+
+	t.Run("system mode with custom plist dir", func(t *testing.T) {
+		customPlistDir := "/custom/system/plist"
+		opts := OptionsFromSettings("", customPlistDir, false)
+
+		assert.Equal(t, DomainSystem, opts.Domain)
+		assert.Equal(t, customPlistDir, opts.PlistDir)
+		assert.Equal(t, "/var/log/quad-ops", opts.LogsDir)
+	})
+}
+
 func TestOptions_Validate(t *testing.T) {
 	t.Run("sets defaults for empty options", func(t *testing.T) {
 		opts := Options{}
 		err := opts.Validate()
 
 		assert.Equal(t, DomainUser, opts.Domain)
-		assert.Equal(t, "com.github.trly", opts.LabelPrefix)
+		assert.Equal(t, "dev.trly.quad-ops", opts.LabelPrefix)
 
 		if err == nil {
 			t.Skip("podman is available, skipping error test")

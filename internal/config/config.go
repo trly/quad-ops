@@ -3,6 +3,8 @@ package config
 
 import (
 	"os"
+	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/spf13/viper"
@@ -136,7 +138,30 @@ func initConfigInternal() (*Settings, error) {
 		return nil, err
 	}
 
+	// Apply platform-specific defaults if values are still at defaults
+	applyPlatformDefaults(cfg)
+
 	return cfg, nil
+}
+
+// applyPlatformDefaults adjusts configuration for platform-specific defaults.
+// Only applies macOS defaults when values are unset or still at Linux defaults.
+func applyPlatformDefaults(cfg *Settings) {
+	if runtime.GOOS == "darwin" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return
+		}
+
+		// Apply macOS defaults only if still at Linux defaults
+		if cfg.QuadletDir == DefaultQuadletDir {
+			cfg.QuadletDir = filepath.Join(homeDir, "Library", "LaunchAgents")
+		}
+
+		if cfg.RepositoryDir == DefaultRepositoryDir {
+			cfg.RepositoryDir = filepath.Join(homeDir, "Library", "Application Support", "dev.trly.quad-ops")
+		}
+	}
 }
 
 // MockProvider is a test implementation of Provider for testing purposes.

@@ -275,8 +275,6 @@ func TestDaemonCommand_SyncFailureBackoff(t *testing.T) {
 	// This test verifies the basic mechanism is in place
 }
 
-
-
 // TestDaemonCommand_Help tests help output.
 func TestDaemonCommand_Help(t *testing.T) {
 	cmd := NewDaemonCommand().GetCobraCommand()
