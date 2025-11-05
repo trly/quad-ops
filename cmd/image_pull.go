@@ -32,7 +32,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
-	"github.com/trly/quad-ops/internal/git"
 )
 
 // PullOptions holds pull command options.
@@ -99,10 +98,10 @@ func (c *PullCommand) buildDeps(app *App) PullDeps {
 func (c *PullCommand) Run(ctx context.Context, app *App, _ PullOptions, deps PullDeps, args []string) error {
 	if len(args) == 0 {
 		for _, repoConfig := range app.Config.Repositories {
-			gitRepo := git.NewGitRepository(repoConfig, app.ConfigProvider)
-			composeDir := gitRepo.Path
+			// Use repository directory from config instead of git.Repository
+			composeDir := filepath.Join(app.Config.RepositoryDir, repoConfig.Name)
 			if repoConfig.ComposeDir != "" {
-				composeDir = filepath.Join(gitRepo.Path, repoConfig.ComposeDir)
+				composeDir = filepath.Join(composeDir, repoConfig.ComposeDir)
 			}
 
 			projects, err := compose.ReadProjects(composeDir)

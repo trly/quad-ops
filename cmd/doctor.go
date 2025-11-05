@@ -32,8 +32,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/git"
 )
 
 // DoctorOptions holds doctor command options.
@@ -44,7 +42,6 @@ type DoctorOptions struct {
 // DoctorDeps holds doctor dependencies.
 type DoctorDeps struct {
 	CommonDeps
-	NewGitRepo      func(config.Repository, config.Provider) *git.Repository
 	ViperConfigFile func() string
 	GetOS           func() string
 }
@@ -103,7 +100,6 @@ This helps diagnose common setup and configuration issues.`,
 func (c *DoctorCommand) buildDeps(app *App) DoctorDeps {
 	return DoctorDeps{
 		CommonDeps:      NewRootDeps(app),
-		NewGitRepo:      git.NewGitRepository,
 		ViperConfigFile: func() string { return viper.GetViper().ConfigFileUsed() },
 		GetOS:           func() string { return runtime.GOOS },
 	}
@@ -330,10 +326,10 @@ func (c *DoctorCommand) checkRepositories(app *App, deps DoctorDeps) []CheckResu
 	results := make([]CheckResult, 0, len(app.Config.Repositories))
 
 	for _, repoConfig := range app.Config.Repositories {
-		gitRepo := deps.NewGitRepo(repoConfig, app.ConfigProvider)
+		// Use repository directory from config instead of git.Repository
+		repoPath := filepath.Join(app.Config.RepositoryDir, repoConfig.Name)
 
 		// Check if repository directory exists
-		repoPath := gitRepo.Path
 		if _, err := deps.FileSystem.Stat(repoPath); err != nil {
 			suggestions := []string{
 				"Run 'quad-ops sync' to clone repositories",

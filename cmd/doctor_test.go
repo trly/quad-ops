@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/git"
 	"github.com/trly/quad-ops/internal/testutil"
 )
 
@@ -30,9 +29,7 @@ func TestDoctorCommand_ValidationFailure(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: "/nonexistent"}
-		},
+
 		ViperConfigFile: func() string { return "" },
 		GetOS:           func() string { return "linux" },
 	}
@@ -94,9 +91,7 @@ func TestDoctorCommand_Run_AllChecksPass(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: tempDir}
-		},
+
 		ViperConfigFile: func() string { return filepath.Join(tempDir, "config.yaml") },
 		GetOS:           func() string { return "linux" },
 	}
@@ -128,9 +123,7 @@ func TestDoctorCommand_Run_SystemRequirementsFailure(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: "/nonexistent"}
-		},
+
 		ViperConfigFile: func() string { return "" },
 		GetOS:           func() string { return "linux" },
 	}
@@ -156,9 +149,7 @@ func TestDoctorCommand_Run_NoConfigFile(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: tempDir}
-		},
+
 		ViperConfigFile: func() string { return "" },
 		GetOS:           func() string { return "linux" },
 	}
@@ -189,9 +180,7 @@ func TestDoctorCommand_Run_NoRepositoriesConfigured(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: tempDir}
-		},
+
 		ViperConfigFile: func() string { return configFile },
 		GetOS:           func() string { return "linux" },
 	}
@@ -241,9 +230,7 @@ func TestDoctorCommand_Run_DirectoryNotWritable(t *testing.T) {
 			FileSystem: mockFS,
 			Logger:     testutil.NewTestLogger(t),
 		},
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: tempDir}
-		},
+
 		ViperConfigFile: func() string { return configFile },
 		GetOS:           func() string { return "linux" },
 	}
@@ -275,9 +262,7 @@ func TestDoctorCommand_Run_RepositoryNotCloned(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: "/nonexistent/path"}
-		},
+
 		ViperConfigFile: func() string { return configFile },
 		GetOS:           func() string { return "linux" },
 	}
@@ -313,9 +298,7 @@ func TestDoctorCommand_Run_InvalidGitRepository(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: repoDir}
-		},
+
 		ViperConfigFile: func() string { return configFile },
 		GetOS:           func() string { return "linux" },
 	}
@@ -351,9 +334,7 @@ func TestDoctorCommand_Run_ComposeDirNotFound(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: repoDir}
-		},
+
 		ViperConfigFile: func() string { return configFile },
 		GetOS:           func() string { return "linux" },
 	}
@@ -379,9 +360,7 @@ func TestDoctorCommand_Run_StructuredOutput(t *testing.T) {
 	doctorCmd := NewDoctorCommand()
 	deps := DoctorDeps{
 		CommonDeps: NewCommonDeps(testutil.NewTestLogger(t)),
-		NewGitRepo: func(_ config.Repository, _ config.Provider) *git.Repository {
-			return &git.Repository{Path: tempDir}
-		},
+
 		ViperConfigFile: func() string { return "" },
 		GetOS:           func() string { return "linux" },
 	}

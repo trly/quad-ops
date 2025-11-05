@@ -23,6 +23,7 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -32,8 +33,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/git"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/repository"
 	"github.com/trly/quad-ops/internal/validate"
 )
 
@@ -177,9 +178,6 @@ func cloneRepositoryWithDeps(logger log.Logger, configProvider config.Provider) 
 		Reference: repoRef,
 	}
 
-	// Create git repository instance
-	gitRepo := git.NewGitRepository(repoConfig, configProvider)
-
 	// Override the default path to use a temporary directory with safe naming
 	var tempPath string
 	if tempDir != "" {
@@ -188,40 +186,52 @@ func cloneRepositoryWithDeps(logger log.Logger, configProvider config.Provider) 
 	} else {
 		tempPath = filepath.Join(os.TempDir(), "quad-ops-validate")
 	}
-	gitRepo.Path = tempPath
 
 	// Validation: ensure the path has our expected suffix for safety
-	if !strings.HasSuffix(gitRepo.Path, "quad-ops-validate") {
-		return "", nil, fmt.Errorf("invalid temporary path for security reasons: %s", gitRepo.Path)
+	if !strings.HasSuffix(tempPath, "quad-ops-validate") {
+		return "", nil, fmt.Errorf("invalid temporary path for security reasons: %s", tempPath)
 	}
 
 	// Check if we should skip clone
-	if skipClone && isValidGitRepo(gitRepo.Path) {
-		logger.Info("Skipping clone, using existing repository", "path", gitRepo.Path)
-		return gitRepo.Path, func() error { return nil }, nil
+	if skipClone && isValidGitRepo(tempPath) {
+		logger.Info("Skipping clone, using existing repository", "path", tempPath)
+		return tempPath, func() error { return nil }, nil
 	}
 
 	// Remove existing directory if it exists (only if it ends with our suffix)
-	if _, err := os.Stat(gitRepo.Path); err == nil {
-		if err := os.RemoveAll(gitRepo.Path); err != nil {
+	if _, err := os.Stat(tempPath); err == nil {
+		if err := os.RemoveAll(tempPath); err != nil {
 			return "", nil, fmt.Errorf("failed to remove existing directory: %w", err)
 		}
 	}
 
-	// Perform the clone
-	if err := gitRepo.SyncRepository(); err != nil {
-		return "", nil, fmt.Errorf("failed to clone repository: %w", err)
+	// Use GitSyncer to clone the repository
+	gitSyncer := repository.NewGitSyncer(configProvider, logger)
+
+	// Override repository dir temporarily for this sync
+	cfg := configProvider.GetConfig()
+	originalRepoDir := cfg.RepositoryDir
+	cfg.RepositoryDir = filepath.Dir(tempPath)
+
+	ctx := context.Background()
+	result := gitSyncer.SyncRepo(ctx, repoConfig)
+
+	// Restore original repository dir
+	cfg.RepositoryDir = originalRepoDir
+
+	if result.Error != nil {
+		return "", nil, fmt.Errorf("failed to clone repository: %w", result.Error)
 	}
 
 	// Return path and cleanup function
 	cleanup := func() error {
-		if !skipClone && strings.HasSuffix(gitRepo.Path, "quad-ops-validate") {
-			return os.RemoveAll(gitRepo.Path)
+		if !skipClone && strings.HasSuffix(tempPath, "quad-ops-validate") {
+			return os.RemoveAll(tempPath)
 		}
 		return nil
 	}
 
-	return gitRepo.Path, cleanup, nil
+	return tempPath, cleanup, nil
 }
 
 // isValidGitRepo checks if the given path contains a valid git repository.
