@@ -57,30 +57,37 @@ func (l *Lifecycle) Reload(_ context.Context) error {
 	return fmt.Errorf("launchd lifecycle is only available on darwin, current platform: %s", runtime.GOOS)
 }
 
+// Start is a stub for non-Darwin platforms.
 func (l *Lifecycle) Start(_ context.Context, _ string) error {
 	return fmt.Errorf("launchd lifecycle is only available on darwin, current platform: %s", runtime.GOOS)
 }
 
+// Stop is a stub for non-Darwin platforms.
 func (l *Lifecycle) Stop(_ context.Context, _ string) error {
 	return fmt.Errorf("launchd lifecycle is only available on darwin, current platform: %s", runtime.GOOS)
 }
 
+// Restart is a stub for non-Darwin platforms.
 func (l *Lifecycle) Restart(_ context.Context, _ string) error {
 	return fmt.Errorf("launchd lifecycle is only available on darwin, current platform: %s", runtime.GOOS)
 }
 
+// Status is a stub for non-Darwin platforms.
 func (l *Lifecycle) Status(_ context.Context, _ string) (*platform.ServiceStatus, error) {
 	return nil, fmt.Errorf("launchd lifecycle is only available on darwin, current platform: %s", runtime.GOOS)
 }
 
+// StartMany is a stub for non-Darwin platforms.
 func (l *Lifecycle) StartMany(_ context.Context, _ []string) map[string]error {
 	return map[string]error{"_": fmt.Errorf("launchd lifecycle is only available on darwin, current platform: %s", runtime.GOOS)}
 }
 
+// StopMany is a stub for non-Darwin platforms.
 func (l *Lifecycle) StopMany(_ context.Context, _ []string) map[string]error {
 	return map[string]error{"_": fmt.Errorf("launchd lifecycle is only available on darwin, current platform: %s", runtime.GOOS)}
 }
 
+// RestartMany is a stub for non-Darwin platforms.
 func (l *Lifecycle) RestartMany(_ context.Context, _ []string) map[string]error {
 	return map[string]error{"_": fmt.Errorf("launchd lifecycle is only available on darwin, current platform: %s", runtime.GOOS)}
 }
