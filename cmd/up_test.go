@@ -1,13 +1,19 @@
 package cmd
 
 import (
+	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/platform"
+	"github.com/trly/quad-ops/internal/service"
 )
 
 // TestUpCommand_ValidationFailure verifies that validation failures are handled correctly.
@@ -34,84 +40,504 @@ func TestUpCommand_ValidationFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "systemd not found")
 }
 
-// TestUpCommand_StartUnitsSuccess verifies successful unit starting.
-func TestUpCommand_StartUnitsSuccess(t *testing.T) {
+// TestUpCommand_Success verifies successful service startup with compose processing.
+func TestUpCommand_Success(t *testing.T) {
+	// Create temporary directory for compose files
+	tempDir := t.TempDir()
+	repoDir := filepath.Join(tempDir, "test-repo")
+	_ = os.MkdirAll(repoDir, 0750)
+
+	// Write a simple compose file
+	composeContent := `services:
+  web:
+    image: nginx:latest
+  api:
+    image: httpd:latest
+`
+	_ = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
+
 	// Create mocks
-	unitManager := &MockUnitManager{}
-	unitRepo := &MockUnitRepo{
-		FindAllFunc: func() ([]repository.Unit, error) {
-			return []repository.Unit{
-				{Name: "web"},
-				{Name: "api"},
+	processedSpecs := []service.Spec{
+		{Name: "web", Container: service.Container{Image: "nginx:latest"}},
+		{Name: "api", Container: service.Container{Image: "httpd:latest"}},
+	}
+
+	mockProcessor := &MockComposeProcessor{
+		ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+			return processedSpecs, nil
+		},
+	}
+
+	mockRenderer := &MockRenderer{
+		RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+			return &platform.RenderResult{
+				Artifacts: []platform.Artifact{
+					{Path: "web.container", Content: []byte("web unit"), Hash: "abc123"},
+					{Path: "api.container", Content: []byte("api unit"), Hash: "def456"},
+				},
+				ServiceChanges: map[string]platform.ChangeStatus{
+					"web": {Changed: true, ArtifactPaths: []string{"web.container"}},
+					"api": {Changed: true, ArtifactPaths: []string{"api.container"}},
+				},
 			}, nil
 		},
 	}
 
-	// Create app with mocked dependencies
-	app := NewAppBuilder(t).
-		WithUnitManager(unitManager).
-		WithUnitRepo(unitRepo).
-		WithVerbose(true).
-		Build(t)
+	changedPaths := []string{"web.container", "api.container"}
+	mockStore := &MockArtifactStore{
+		WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+			return changedPaths, nil
+		},
+	}
 
-	// Setup command and execute
-	upCmd := NewUpCommand()
-	cmd := upCmd.GetCobraCommand()
-	SetupCommandContext(cmd, app)
+	startCalls := make(map[string]error)
+	mockLifecycle := &MockLifecycle{
+		ReloadFunc: func(_ context.Context) error {
+			return nil
+		},
+		StartManyFunc: func(_ context.Context, names []string) map[string]error {
+			for _, name := range names {
+				startCalls[name] = nil
+			}
+			return startCalls
+		},
+	}
 
-	// Execute command using helper
-	err := ExecuteCommand(t, cmd, []string{})
-
-	// Verify success
-	require.NoError(t, err)
-
-	// Verify unit operations were called correctly
-	assert.Len(t, unitManager.ResetFailedCalls, 2)
-	assert.Len(t, unitManager.StartCalls, 2)
-
-	// Verify ResetFailed was called for each unit
-	assert.Equal(t, "web", unitManager.ResetFailedCalls[0].Name)
-	assert.Equal(t, "container", unitManager.ResetFailedCalls[0].UnitType)
-	assert.Equal(t, "api", unitManager.ResetFailedCalls[1].Name)
-
-	// Verify Start was called for each unit
-	assert.Equal(t, "web", unitManager.StartCalls[0].Name)
-	assert.Equal(t, "container", unitManager.StartCalls[0].UnitType)
-	assert.Equal(t, "api", unitManager.StartCalls[1].Name)
-}
-
-// TestUpCommand_WithOutput demonstrates proper output capture using helpers.
-func TestUpCommand_WithOutput(t *testing.T) {
-	// Create mocks
-	unitManager := &MockUnitManager{}
-	unitRepo := &MockUnitRepo{
-		FindAllFunc: func() ([]repository.Unit, error) {
-			return []repository.Unit{{Name: "web"}}, nil
+	// Build app with test repositories
+	cfg := &config.Settings{
+		RepositoryDir: tempDir,
+		QuadletDir:    filepath.Join(tempDir, "quadlet"),
+		Repositories: []config.Repository{
+			{Name: "test-repo", URL: "https://example.com/test.git"},
 		},
 	}
 
 	app := NewAppBuilder(t).
-		WithUnitManager(unitManager).
-		WithUnitRepo(unitRepo).
-		WithVerbose(true).
+		WithConfig(cfg).
+		WithComposeProcessor(mockProcessor).
+		WithRenderer(mockRenderer).
+		WithArtifactStore(mockStore).
+		WithLifecycle(mockLifecycle).
 		Build(t)
 
-	// Create command and setup context
+	// Execute command
 	upCmd := NewUpCommand()
 	cmd := upCmd.GetCobraCommand()
 	SetupCommandContext(cmd, app)
 
-	// Execute with full output capture
-	output, err := ExecuteCommandWithCapture(t, cmd, []string{})
-
-	// Verify success
+	err := ExecuteCommand(t, cmd, []string{})
 	require.NoError(t, err)
 
-	// Verify service calls
-	assert.Len(t, unitManager.StartCalls, 1)
-	assert.Equal(t, "web", unitManager.StartCalls[0].Name)
+	// Verify services were started
+	assert.Len(t, startCalls, 2)
+	assert.Contains(t, startCalls, "web")
+	assert.Contains(t, startCalls, "api")
+}
 
-	// Verify output captured correctly
-	assert.Contains(t, output, "Starting 1 units")
-	assert.Contains(t, output, "Successfully started 1 units")
+// TestUpCommand_DryRun verifies dry-run mode behavior.
+func TestUpCommand_DryRun(t *testing.T) {
+	// Create temporary directory for compose files
+	tempDir := t.TempDir()
+	repoDir := filepath.Join(tempDir, "test-repo")
+	_ = os.MkdirAll(repoDir, 0750)
+
+	// Write a simple compose file
+	composeContent := `services:
+  web:
+    image: nginx:latest
+`
+	_ = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
+
+	// Create mocks
+	processedSpecs := []service.Spec{
+		{Name: "web", Container: service.Container{Image: "nginx:latest"}},
+	}
+
+	mockProcessor := &MockComposeProcessor{
+		ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+			return processedSpecs, nil
+		},
+	}
+
+	mockRenderer := &MockRenderer{
+		RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+			return &platform.RenderResult{
+				Artifacts: []platform.Artifact{
+					{Path: "web.container", Content: []byte("web unit"), Hash: "abc123"},
+				},
+				ServiceChanges: map[string]platform.ChangeStatus{
+					"web": {Changed: true, ArtifactPaths: []string{"web.container"}},
+				},
+			}, nil
+		},
+	}
+
+	writeCalled := false
+	mockStore := &MockArtifactStore{
+		WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+			writeCalled = true
+			return nil, nil
+		},
+	}
+
+	startCalled := false
+	mockLifecycle := &MockLifecycle{
+		StartManyFunc: func(_ context.Context, _ []string) map[string]error {
+			startCalled = true
+			return nil
+		},
+	}
+
+	// Build app
+	cfg := &config.Settings{
+		RepositoryDir: tempDir,
+		QuadletDir:    filepath.Join(tempDir, "quadlet"),
+		Repositories: []config.Repository{
+			{Name: "test-repo", URL: "https://example.com/test.git"},
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithConfig(cfg).
+		WithComposeProcessor(mockProcessor).
+		WithRenderer(mockRenderer).
+		WithArtifactStore(mockStore).
+		WithLifecycle(mockLifecycle).
+		Build(t)
+
+	// Execute command with dry-run flag
+	upCmd := NewUpCommand()
+	cmd := upCmd.GetCobraCommand()
+	SetupCommandContext(cmd, app)
+
+	err := ExecuteCommand(t, cmd, []string{"--dry-run"})
+	require.NoError(t, err)
+
+	// Verify no actual changes were made
+	assert.False(t, writeCalled, "Write should not be called in dry-run")
+	assert.False(t, startCalled, "StartMany should not be called in dry-run")
+}
+
+// TestUpCommand_FilterByServices verifies filtering by --services flag.
+func TestUpCommand_FilterByServices(t *testing.T) {
+	// Create temporary directory for compose files
+	tempDir := t.TempDir()
+	repoDir := filepath.Join(tempDir, "test-repo")
+	_ = os.MkdirAll(repoDir, 0750)
+
+	// Write a compose file with multiple services
+	composeContent := `services:
+  web:
+    image: nginx:latest
+  api:
+    image: httpd:latest
+  db:
+    image: postgres:latest
+`
+	_ = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
+
+	// Create mocks
+	processedSpecs := []service.Spec{
+		{Name: "web", Container: service.Container{Image: "nginx:latest"}},
+		{Name: "api", Container: service.Container{Image: "httpd:latest"}},
+		{Name: "db", Container: service.Container{Image: "postgres:latest"}},
+	}
+
+	mockProcessor := &MockComposeProcessor{
+		ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+			return processedSpecs, nil
+		},
+	}
+
+	mockRenderer := &MockRenderer{
+		RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+			return &platform.RenderResult{
+				Artifacts: []platform.Artifact{
+					{Path: "web.container", Content: []byte("web unit"), Hash: "abc123"},
+					{Path: "api.container", Content: []byte("api unit"), Hash: "def456"},
+					{Path: "db.container", Content: []byte("db unit"), Hash: "ghi789"},
+				},
+				ServiceChanges: map[string]platform.ChangeStatus{
+					"web": {Changed: true, ArtifactPaths: []string{"web.container"}},
+					"api": {Changed: true, ArtifactPaths: []string{"api.container"}},
+					"db":  {Changed: true, ArtifactPaths: []string{"db.container"}},
+				},
+			}, nil
+		},
+	}
+
+	mockStore := &MockArtifactStore{
+		WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+			return []string{"web.container", "api.container", "db.container"}, nil
+		},
+	}
+
+	startCalls := make(map[string]error)
+	mockLifecycle := &MockLifecycle{
+		ReloadFunc: func(_ context.Context) error {
+			return nil
+		},
+		StartManyFunc: func(_ context.Context, names []string) map[string]error {
+			for _, name := range names {
+				startCalls[name] = nil
+			}
+			return startCalls
+		},
+	}
+
+	// Build app
+	cfg := &config.Settings{
+		RepositoryDir: tempDir,
+		QuadletDir:    filepath.Join(tempDir, "quadlet"),
+		Repositories: []config.Repository{
+			{Name: "test-repo", URL: "https://example.com/test.git"},
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithConfig(cfg).
+		WithComposeProcessor(mockProcessor).
+		WithRenderer(mockRenderer).
+		WithArtifactStore(mockStore).
+		WithLifecycle(mockLifecycle).
+		Build(t)
+
+	// Execute command with --services filter
+	upCmd := NewUpCommand()
+	cmd := upCmd.GetCobraCommand()
+	SetupCommandContext(cmd, app)
+
+	err := ExecuteCommand(t, cmd, []string{"--services", "web,api"})
+	require.NoError(t, err)
+
+	// Verify only specified services were started
+	assert.Len(t, startCalls, 2)
+	assert.Contains(t, startCalls, "web")
+	assert.Contains(t, startCalls, "api")
+	assert.NotContains(t, startCalls, "db")
+}
+
+// TestUpCommand_DependencyOrdering verifies services start in dependency order.
+func TestUpCommand_DependencyOrdering(t *testing.T) {
+	// Create temporary directory for compose files
+	tempDir := t.TempDir()
+	repoDir := filepath.Join(tempDir, "test-repo")
+	_ = os.MkdirAll(repoDir, 0750)
+
+	// Write a compose file with dependencies: web depends on db
+	composeContent := `services:
+  web:
+    image: nginx:latest
+    depends_on:
+      - db
+  db:
+    image: postgres:latest
+`
+	_ = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
+
+	// Create service specs with dependencies
+	processedSpecs := []service.Spec{
+		{
+			Name:      "web",
+			Container: service.Container{Image: "nginx:latest"},
+			DependsOn: []string{"db"},
+		},
+		{
+			Name:      "db",
+			Container: service.Container{Image: "postgres:latest"},
+			DependsOn: []string{},
+		},
+	}
+
+	mockProcessor := &MockComposeProcessor{
+		ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+			return processedSpecs, nil
+		},
+	}
+
+	mockRenderer := &MockRenderer{
+		RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+			return &platform.RenderResult{
+				Artifacts: []platform.Artifact{
+					{Path: "web.container", Content: []byte("web unit"), Hash: "abc123"},
+					{Path: "db.container", Content: []byte("db unit"), Hash: "def456"},
+				},
+				ServiceChanges: map[string]platform.ChangeStatus{
+					"web": {Changed: true, ArtifactPaths: []string{"web.container"}},
+					"db":  {Changed: true, ArtifactPaths: []string{"db.container"}},
+				},
+			}, nil
+		},
+	}
+
+	mockStore := &MockArtifactStore{
+		WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+			return []string{"web.container", "db.container"}, nil
+		},
+	}
+
+	var startOrder []string
+	mockLifecycle := &MockLifecycle{
+		ReloadFunc: func(_ context.Context) error {
+			return nil
+		},
+		StartManyFunc: func(_ context.Context, names []string) map[string]error {
+			// Capture the order services are passed
+			startOrder = names
+			result := make(map[string]error)
+			for _, name := range names {
+				result[name] = nil
+			}
+			return result
+		},
+	}
+
+	// Build app
+	cfg := &config.Settings{
+		RepositoryDir: tempDir,
+		QuadletDir:    filepath.Join(tempDir, "quadlet"),
+		Repositories: []config.Repository{
+			{Name: "test-repo", URL: "https://example.com/test.git"},
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithConfig(cfg).
+		WithComposeProcessor(mockProcessor).
+		WithRenderer(mockRenderer).
+		WithArtifactStore(mockStore).
+		WithLifecycle(mockLifecycle).
+		Build(t)
+
+	// Execute command - should start all services
+	upCmd := NewUpCommand()
+	cmd := upCmd.GetCobraCommand()
+	SetupCommandContext(cmd, app)
+
+	err := ExecuteCommand(t, cmd, []string{})
+	require.NoError(t, err)
+
+	// Verify services are started in dependency order (db before web)
+	require.Len(t, startOrder, 2)
+	assert.Equal(t, "db", startOrder[0], "db should start first")
+	assert.Equal(t, "web", startOrder[1], "web should start after db")
+}
+
+// TestUpCommand_DependencyExpansion verifies requesting a service includes its dependencies.
+func TestUpCommand_DependencyExpansion(t *testing.T) {
+	// Create temporary directory for compose files
+	tempDir := t.TempDir()
+	repoDir := filepath.Join(tempDir, "test-repo")
+	_ = os.MkdirAll(repoDir, 0750)
+
+	// Write a compose file with dependencies: web depends on db
+	composeContent := `services:
+  web:
+    image: nginx:latest
+    depends_on:
+      - db
+  db:
+    image: postgres:latest
+`
+	_ = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
+
+	// Create service specs with dependencies
+	processedSpecs := []service.Spec{
+		{
+			Name:      "web",
+			Container: service.Container{Image: "nginx:latest"},
+			DependsOn: []string{"db"},
+		},
+		{
+			Name:      "db",
+			Container: service.Container{Image: "postgres:latest"},
+			DependsOn: []string{},
+		},
+	}
+
+	mockProcessor := &MockComposeProcessor{
+		ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+			return processedSpecs, nil
+		},
+	}
+
+	mockRenderer := &MockRenderer{
+		RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+			return &platform.RenderResult{
+				Artifacts: []platform.Artifact{
+					{Path: "web.container", Content: []byte("web unit"), Hash: "abc123"},
+					{Path: "db.container", Content: []byte("db unit"), Hash: "def456"},
+				},
+				ServiceChanges: map[string]platform.ChangeStatus{
+					"web": {Changed: true, ArtifactPaths: []string{"web.container"}},
+					"db":  {Changed: true, ArtifactPaths: []string{"db.container"}},
+				},
+			}, nil
+		},
+	}
+
+	mockStore := &MockArtifactStore{
+		WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+			return []string{"web.container", "db.container"}, nil
+		},
+	}
+
+	var startOrder []string
+	mockLifecycle := &MockLifecycle{
+		ReloadFunc: func(_ context.Context) error {
+			return nil
+		},
+		StartManyFunc: func(_ context.Context, names []string) map[string]error {
+			// Capture the order services are passed
+			startOrder = names
+			result := make(map[string]error)
+			for _, name := range names {
+				result[name] = nil
+			}
+			return result
+		},
+	}
+
+	// Build app
+	cfg := &config.Settings{
+		RepositoryDir: tempDir,
+		QuadletDir:    filepath.Join(tempDir, "quadlet"),
+		Repositories: []config.Repository{
+			{Name: "test-repo", URL: "https://example.com/test.git"},
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithConfig(cfg).
+		WithComposeProcessor(mockProcessor).
+		WithRenderer(mockRenderer).
+		WithArtifactStore(mockStore).
+		WithLifecycle(mockLifecycle).
+		Build(t)
+
+	// Execute command requesting only 'web' - should auto-include 'db'
+	upCmd := NewUpCommand()
+	cmd := upCmd.GetCobraCommand()
+	SetupCommandContext(cmd, app)
+
+	err := ExecuteCommand(t, cmd, []string{"--services", "web"})
+	require.NoError(t, err)
+
+	// Verify both services are started with db first
+	require.Len(t, startOrder, 2, "requesting web should auto-include db dependency")
+	assert.Equal(t, "db", startOrder[0], "db should start first")
+	assert.Equal(t, "web", startOrder[1], "web should start after db")
+}
+
+// TestUpCommand_Help verifies help output.
+func TestUpCommand_Help(t *testing.T) {
+	cmd := NewUpCommand().GetCobraCommand()
+	output, err := ExecuteCommandWithCapture(t, cmd, []string{"--help"})
+
+	require.NoError(t, err)
+	assert.Contains(t, output, "Process Docker Compose files")
+	assert.Contains(t, output, "--services")
+	assert.Contains(t, output, "--dry-run")
+	assert.Contains(t, output, "--repo")
+	assert.Contains(t, output, "--force")
 }

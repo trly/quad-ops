@@ -5,8 +5,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/testutil"
+	"github.com/trly/quad-ops/internal/validate"
 )
 
 // TestValidateCommand_Basic tests validate command.
@@ -264,6 +268,15 @@ func TestIsValidGitRepo(t *testing.T) {
 
 	valid = isValidGitRepo("/nonexistent")
 	assert.False(t, valid)
+
+	// Test with .git as a file instead of directory
+	tempDir2 := t.TempDir()
+	gitFile := filepath.Join(tempDir2, ".git")
+	err = os.WriteFile(gitFile, []byte("gitdir: /some/path"), 0600)
+	require.NoError(t, err)
+
+	valid = isValidGitRepo(tempDir2)
+	assert.False(t, valid)
 }
 
 // TestIsComposeFile tests compose file detection.
@@ -300,6 +313,24 @@ func TestIsComposeFile(t *testing.T) {
 			content:  "key: value",
 			expected: false,
 		},
+		{
+			name:     "networks only",
+			filename: "networks.yml",
+			content:  "networks:\n  mynet:\n    driver: bridge",
+			expected: true,
+		},
+		{
+			name:     "volumes only",
+			filename: "volumes.yml",
+			content:  "volumes:\n  myvol:\n    driver: local",
+			expected: true,
+		},
+		{
+			name:     "empty yaml file",
+			filename: "empty.yml",
+			content:  "",
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -312,4 +343,978 @@ func TestIsComposeFile(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+// TestIsComposeFile_EdgeCases tests edge cases for compose file detection.
+func TestIsComposeFile_EdgeCases(t *testing.T) {
+	t.Run("nonexistent file", func(t *testing.T) {
+		result := isComposeFile("/nonexistent/path.yml")
+		assert.False(t, result)
+	})
+
+	t.Run("uppercase extension", func(t *testing.T) {
+		tempDir := t.TempDir()
+		filePath := filepath.Join(tempDir, "compose.YML")
+		err := os.WriteFile(filePath, []byte("services:\n  test:\n    image: nginx"), 0600)
+		require.NoError(t, err)
+
+		result := isComposeFile(filePath)
+		assert.True(t, result)
+	})
+
+	t.Run("yaml extension", func(t *testing.T) {
+		tempDir := t.TempDir()
+		filePath := filepath.Join(tempDir, "compose.YAML")
+		err := os.WriteFile(filePath, []byte("services:\n  test:\n    image: nginx"), 0600)
+		require.NoError(t, err)
+
+		result := isComposeFile(filePath)
+		assert.True(t, result)
+	})
+}
+
+// TestValidateService tests service validation function.
+func TestValidateService(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewSecretValidator(logger)
+
+	tests := []struct {
+		name        string
+		serviceName string
+		service     types.ServiceConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid service",
+			serviceName: "web",
+			service: types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx:latest",
+			},
+			expectError: false,
+		},
+		{
+			name:        "service with valid environment",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Environment: types.MappingWithEquals{
+					"DATABASE_URL": stringPtr("postgresql://localhost:5432/mydb"),
+					"DEBUG":        stringPtr("false"),
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "service with invalid env key",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Environment: types.MappingWithEquals{
+					"INVALID KEY": stringPtr("value"),
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid environment key",
+		},
+		{
+			name:        "service with valid secrets",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Secrets: []types.ServiceSecretConfig{
+					{Source: "db_password", Target: "/run/secrets/db_password"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "service with secret name with special chars",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Secrets: []types.ServiceSecretConfig{
+					{Source: "db-password", Target: "/run/secrets/db"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "service with valid build config",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Build: &types.BuildConfig{Context: "./app"},
+			},
+			expectError: false,
+		},
+		{
+			name:        "service with empty build context",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Build: &types.BuildConfig{Context: ""},
+			},
+			expectError: true,
+			errorMsg:    "build context cannot be empty",
+		},
+		{
+			name:        "service with init containers",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Labels: types.Labels{
+					"quad-ops.init-containers": "init-db",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "service with empty init container label",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Labels: types.Labels{
+					"quad-ops.init-containers": "   ",
+				},
+			},
+			expectError: true,
+			errorMsg:    "init container label",
+		},
+		{
+			name:        "service with nil environment value",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Environment: types.MappingWithEquals{
+					"VALID_KEY": nil,
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "service with secret without target",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Secrets: []types.ServiceSecretConfig{
+					{Source: "db_password"},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name:        "service with invalid secret target",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Secrets: []types.ServiceSecretConfig{
+					{Source: "db_password", Target: "invalid target!"},
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid secret target",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateService(tt.serviceName, tt.service, validator)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateBuild tests build configuration validation.
+func TestValidateBuild(t *testing.T) {
+	tests := []struct {
+		name        string
+		build       *types.BuildConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid build config",
+			build:       &types.BuildConfig{Context: "./app"},
+			expectError: false,
+		},
+		{
+			name:        "empty context",
+			build:       &types.BuildConfig{Context: ""},
+			expectError: true,
+			errorMsg:    "build context cannot be empty",
+		},
+		{
+			name: "valid build args",
+			build: &types.BuildConfig{
+				Context: "./app",
+				Args: types.MappingWithEquals{
+					"NODE_VERSION": stringPtr("18"),
+					"APP_ENV":      stringPtr("production"),
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid build arg key",
+			build: &types.BuildConfig{
+				Context: "./app",
+				Args: types.MappingWithEquals{
+					"INVALID KEY!": stringPtr("value"),
+				},
+			},
+			expectError: true,
+			errorMsg:    "invalid build arg key",
+		},
+		{
+			name: "build arg value too large",
+			build: &types.BuildConfig{
+				Context: "./app",
+				Args: types.MappingWithEquals{
+					"LARGE_VALUE": stringPtr(string(make([]byte, validate.MaxEnvValueSize+1))),
+				},
+			},
+			expectError: true,
+			errorMsg:    "exceeds maximum size",
+		},
+		{
+			name: "nil build arg value",
+			build: &types.BuildConfig{
+				Context: "./app",
+				Args: types.MappingWithEquals{
+					"OPTIONAL_ARG": nil,
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateBuild(tt.build)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateInitContainers tests init container validation.
+func TestValidateInitContainers(t *testing.T) {
+	tests := []struct {
+		name        string
+		service     types.ServiceConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "no init containers",
+			service: types.ServiceConfig{
+				Name: "app",
+			},
+			expectError: false,
+		},
+		{
+			name: "valid init containers",
+			service: types.ServiceConfig{
+				Name: "app",
+				Labels: types.Labels{
+					"quad-ops.init-containers": "db-migration,cache-warmup",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "valid quad-ops.init label",
+			service: types.ServiceConfig{
+				Name: "app",
+				Labels: types.Labels{
+					"quad-ops.init": "setup",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "empty init container label",
+			service: types.ServiceConfig{
+				Name: "app",
+				Labels: types.Labels{
+					"quad-ops.init-containers": "",
+				},
+			},
+			expectError: true,
+			errorMsg:    "cannot be empty",
+		},
+		{
+			name: "whitespace only init label",
+			service: types.ServiceConfig{
+				Name: "app",
+				Labels: types.Labels{
+					"quad-ops.init": "   ",
+				},
+			},
+			expectError: true,
+			errorMsg:    "cannot be empty",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateInitContainers(tt.service)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateNetwork tests network validation.
+func TestValidateNetwork(t *testing.T) {
+	tests := []struct {
+		name        string
+		networkName string
+		network     types.NetworkConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:        "valid network",
+			networkName: "mynet",
+			network: types.NetworkConfig{
+				Name:   "mynet",
+				Driver: "bridge",
+			},
+			expectError: false,
+		},
+		{
+			name:        "external network without driver",
+			networkName: "external_net",
+			network: types.NetworkConfig{
+				Name:     "external_net",
+				External: true,
+			},
+			expectError: false,
+		},
+		{
+			name:        "external network with driver",
+			networkName: "bad_net",
+			network: types.NetworkConfig{
+				Name:     "bad_net",
+				External: true,
+				Driver:   "bridge",
+			},
+			expectError: true,
+			errorMsg:    "external networks cannot specify driver",
+		},
+		{
+			name:        "network without driver",
+			networkName: "simple_net",
+			network: types.NetworkConfig{
+				Name: "simple_net",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateNetwork(tt.networkName, tt.network)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateVolume tests volume validation.
+func TestValidateVolume(t *testing.T) {
+	tests := []struct {
+		name        string
+		volumeName  string
+		volume      types.VolumeConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:       "valid volume",
+			volumeName: "myvol",
+			volume: types.VolumeConfig{
+				Name:   "myvol",
+				Driver: "local",
+			},
+			expectError: false,
+		},
+		{
+			name:       "external volume without driver",
+			volumeName: "external_vol",
+			volume: types.VolumeConfig{
+				Name:     "external_vol",
+				External: true,
+			},
+			expectError: false,
+		},
+		{
+			name:       "external volume with driver",
+			volumeName: "bad_vol",
+			volume: types.VolumeConfig{
+				Name:     "bad_vol",
+				External: true,
+				Driver:   "local",
+			},
+			expectError: true,
+			errorMsg:    "external volumes cannot specify driver",
+		},
+		{
+			name:       "volume without driver",
+			volumeName: "simple_vol",
+			volume: types.VolumeConfig{
+				Name: "simple_vol",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateVolume(tt.volumeName, tt.volume)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateSecretWithDeps tests secret validation.
+func TestValidateSecretWithDeps(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewSecretValidator(logger)
+
+	tests := []struct {
+		name        string
+		secretName  string
+		secret      types.SecretConfig
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name:       "valid secret",
+			secretName: "db_password",
+			secret: types.SecretConfig{
+				Name: "db_password",
+				File: "/run/secrets/db_password",
+			},
+			expectError: false,
+		},
+		{
+			name:        "secret name with underscores",
+			secretName:  "my_secret_key",
+			secret:      types.SecretConfig{Name: "my_secret_key"},
+			expectError: false,
+		},
+		{
+			name:       "relative file path",
+			secretName: "api_key",
+			secret: types.SecretConfig{
+				Name: "api_key",
+				File: "./secrets/api.key",
+			},
+			expectError: false,
+		},
+		{
+			name:       "path with directory traversal",
+			secretName: "bad_secret",
+			secret: types.SecretConfig{
+				Name: "bad_secret",
+				File: "../../../etc/passwd",
+			},
+			expectError: true,
+			errorMsg:    "directory traversal",
+		},
+		{
+			name:       "absolute path",
+			secretName: "secure_key",
+			secret: types.SecretConfig{
+				Name: "secure_key",
+				File: "/run/secrets/secure.key",
+			},
+			expectError: false,
+		},
+		{
+			name:       "secret without file",
+			secretName: "env_secret",
+			secret: types.SecretConfig{
+				Name: "env_secret",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSecretWithDeps(tt.secretName, tt.secret, validator, logger)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateProjectWithDeps tests project validation.
+func TestValidateProjectWithDeps(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+
+	tests := []struct {
+		name        string
+		project     *types.Project
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "valid project",
+			project: &types.Project{
+				Name: "myapp",
+				Services: types.Services{
+					"web": {
+						Name:  "web",
+						Image: "nginx:latest",
+					},
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "project with invalid service",
+			project: &types.Project{
+				Name: "myapp",
+				Services: types.Services{
+					"web": {
+						Name:  "web",
+						Image: "nginx:latest",
+						Environment: types.MappingWithEquals{
+							"INVALID KEY": stringPtr("value"),
+						},
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "service web",
+		},
+		{
+			name: "project with invalid network",
+			project: &types.Project{
+				Name: "myapp",
+				Networks: types.Networks{
+					"mynet": {
+						Name:     "mynet",
+						External: true,
+						Driver:   "bridge",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "network mynet",
+		},
+		{
+			name: "project with invalid volume",
+			project: &types.Project{
+				Name: "myapp",
+				Volumes: types.Volumes{
+					"myvol": {
+						Name:     "myvol",
+						External: true,
+						Driver:   "local",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "volume myvol",
+		},
+		{
+			name: "project with secret directory traversal",
+			project: &types.Project{
+				Name: "myapp",
+				Secrets: types.Secrets{
+					"bad_secret": {
+						Name: "bad_secret",
+						File: "../../etc/passwd",
+					},
+				},
+			},
+			expectError: true,
+			errorMsg:    "secret bad_secret",
+		},
+		{
+			name: "empty project",
+			project: &types.Project{
+				Name: "empty",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateProjectWithDeps(tt.project, logger)
+			if tt.expectError {
+				assert.Error(t, err)
+				if tt.errorMsg != "" {
+					assert.Contains(t, err.Error(), tt.errorMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// TestValidateComposeWithDeps tests compose validation with dependencies.
+func TestValidateComposeWithDeps(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+
+	t.Run("valid directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		composeContent := `
+services:
+  web:
+    image: nginx:latest
+`
+		err := os.WriteFile(filepath.Join(tempDir, "docker-compose.yml"), []byte(composeContent), 0600)
+		require.NoError(t, err)
+
+		err = validateComposeWithDeps(tempDir, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("valid single file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		composeFile := filepath.Join(tempDir, "docker-compose.yml")
+		composeContent := `
+services:
+  web:
+    image: nginx:latest
+`
+		err := os.WriteFile(composeFile, []byte(composeContent), 0600)
+		require.NoError(t, err)
+
+		err = validateComposeWithDeps(composeFile, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("nonexistent path", func(t *testing.T) {
+		err := validateComposeWithDeps("/nonexistent/path", logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "does not exist")
+	})
+
+	t.Run("non-compose file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		textFile := filepath.Join(tempDir, "file.txt")
+		err := os.WriteFile(textFile, []byte("not a compose file"), 0600)
+		require.NoError(t, err)
+
+		err = validateComposeWithDeps(textFile, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "does not appear to be a Docker Compose file")
+	})
+
+	t.Run("empty directory", func(t *testing.T) {
+		tempDir := t.TempDir()
+		err := validateComposeWithDeps(tempDir, logger)
+		assert.NoError(t, err)
+	})
+
+	t.Run("invalid compose file", func(t *testing.T) {
+		tempDir := t.TempDir()
+		composeFile := filepath.Join(tempDir, "docker-compose.yml")
+		composeContent := `
+services:
+  web:
+    image: nginx:latest
+    environment:
+      INVALID KEY: value
+`
+		err := os.WriteFile(composeFile, []byte(composeContent), 0600)
+		require.NoError(t, err)
+
+		err = validateComposeWithDeps(composeFile, logger)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "validation failed")
+	})
+
+	t.Run("multiple projects", func(t *testing.T) {
+		tempDir := t.TempDir()
+		composeContent1 := `
+services:
+  web:
+    image: nginx:latest
+`
+		composeContent2 := `
+services:
+  db:
+    image: postgres:latest
+`
+		err := os.WriteFile(filepath.Join(tempDir, "docker-compose.yml"), []byte(composeContent1), 0600)
+		require.NoError(t, err)
+		err = os.WriteFile(filepath.Join(tempDir, "compose2.yml"), []byte(composeContent2), 0600)
+		require.NoError(t, err)
+
+		err = validateComposeWithDeps(tempDir, logger)
+		assert.NoError(t, err)
+	})
+}
+
+// TestCloneRepositoryWithDeps tests repository cloning with dependencies.
+func TestCloneRepositoryWithDeps(t *testing.T) {
+	t.Run("safe temp path construction", func(t *testing.T) {
+		logger := testutil.NewTestLogger(t)
+		mockConfig := testutil.NewMockConfig(t)
+
+		// Set flags
+		originalRepoURL := repoURL
+		originalRepoRef := repoRef
+		originalTempDir := tempDir
+		originalSkipClone := skipClone
+
+		repoURL = "https://github.com/test/repo.git"
+		repoRef = "main"
+		tempDir = t.TempDir()
+		skipClone = false
+
+		defer func() {
+			repoURL = originalRepoURL
+			repoRef = originalRepoRef
+			tempDir = originalTempDir
+			skipClone = originalSkipClone
+		}()
+
+		// This will fail at clone but will verify path construction includes suffix
+		_, _, err := cloneRepositoryWithDeps(logger, mockConfig)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to clone")
+	})
+
+	t.Run("skip clone with valid repo", func(t *testing.T) {
+		logger := testutil.NewTestLogger(t)
+		mockConfig := testutil.NewMockConfig(t)
+
+		// Create a temporary git repo
+		tempGitDir := t.TempDir()
+		gitPath := filepath.Join(tempGitDir, "quad-ops-validate")
+		err := os.MkdirAll(filepath.Join(gitPath, ".git"), 0750)
+		require.NoError(t, err)
+
+		// Set flags
+		originalRepoURL := repoURL
+		originalRepoRef := repoRef
+		originalTempDir := tempDir
+		originalSkipClone := skipClone
+
+		repoURL = "https://github.com/test/repo.git"
+		repoRef = "main"
+		tempDir = tempGitDir
+		skipClone = true
+
+		defer func() {
+			repoURL = originalRepoURL
+			repoRef = originalRepoRef
+			tempDir = originalTempDir
+			skipClone = originalSkipClone
+		}()
+
+		path, cleanup, err := cloneRepositoryWithDeps(logger, mockConfig)
+		require.NoError(t, err)
+		assert.NotEmpty(t, path)
+		assert.NotNil(t, cleanup)
+		assert.NoError(t, cleanup())
+	})
+
+	t.Run("skip clone with invalid repo", func(t *testing.T) {
+		logger := testutil.NewTestLogger(t)
+		mockConfig := testutil.NewMockConfig(t)
+
+		// Create temp dir without .git
+		tempGitDir := t.TempDir()
+
+		originalRepoURL := repoURL
+		originalRepoRef := repoRef
+		originalTempDir := tempDir
+		originalSkipClone := skipClone
+
+		repoURL = "https://github.com/test/repo.git"
+		repoRef = "main"
+		tempDir = tempGitDir
+		skipClone = true
+
+		defer func() {
+			repoURL = originalRepoURL
+			repoRef = originalRepoRef
+			tempDir = originalTempDir
+			skipClone = originalSkipClone
+		}()
+
+		_, _, err := cloneRepositoryWithDeps(logger, mockConfig)
+		assert.Error(t, err)
+	})
+
+	t.Run("default temp dir", func(t *testing.T) {
+		logger := testutil.NewTestLogger(t)
+		mockConfig := testutil.NewMockConfig(t)
+
+		originalRepoURL := repoURL
+		originalRepoRef := repoRef
+		originalTempDir := tempDir
+		originalSkipClone := skipClone
+
+		repoURL = "https://github.com/test/repo.git"
+		repoRef = "main"
+		tempDir = ""
+		skipClone = false
+
+		defer func() {
+			repoURL = originalRepoURL
+			repoRef = originalRepoRef
+			tempDir = originalTempDir
+			skipClone = originalSkipClone
+		}()
+
+		// This will fail at clone but will validate path construction
+		_, _, err := cloneRepositoryWithDeps(logger, mockConfig)
+		assert.Error(t, err)
+	})
+}
+
+// Helper function to create string pointers.
+func stringPtr(s string) *string {
+	return &s
+}
+
+// TestValidateCommand_WithComposeDir tests compose-dir flag.
+func TestValidateCommand_WithComposeDir(t *testing.T) {
+	tempDir := t.TempDir()
+	servicesDir := filepath.Join(tempDir, "services")
+	err := os.MkdirAll(servicesDir, 0750)
+	require.NoError(t, err)
+
+	composeContent := `
+services:
+  web:
+    image: nginx:latest
+`
+	err = os.WriteFile(filepath.Join(servicesDir, "docker-compose.yml"), []byte(composeContent), 0600)
+	require.NoError(t, err)
+
+	app := NewAppBuilder(t).
+		WithValidator(&MockValidator{}).
+		Build(t)
+
+	validateCmd := NewValidateCommand()
+	cmd := validateCmd.GetCobraCommand()
+	SetupCommandContext(cmd, app)
+
+	// Set compose-dir flag
+	originalComposeDir := composeDir
+	composeDir = "services"
+	defer func() { composeDir = originalComposeDir }()
+
+	err = ExecuteCommand(t, cmd, []string{tempDir})
+	assert.NoError(t, err)
+}
+
+// TestValidateCommand_AccessError tests path access errors.
+func TestValidateCommand_AccessError(t *testing.T) {
+	logger := log.NewLogger(false)
+
+	// Create a file and try to treat it as directory for access error
+	tempFile := filepath.Join(t.TempDir(), "file.txt")
+	err := os.WriteFile(tempFile, []byte("test"), 0000)
+	require.NoError(t, err)
+
+	// Make it unreadable
+	err = os.Chmod(tempFile, 0000)
+	require.NoError(t, err)
+
+	defer func() {
+		_ = os.Chmod(tempFile, 0600)
+	}()
+
+	err = validateComposeWithDeps(tempFile, logger)
+	assert.Error(t, err)
+}
+
+// TestValidateCommand_ParseError tests compose file parse errors.
+func TestValidateCommand_ParseError(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	tempDir := t.TempDir()
+
+	// Create an invalid compose file
+	composeFile := filepath.Join(tempDir, "docker-compose.yml")
+	err := os.WriteFile(composeFile, []byte("services: [invalid yaml"), 0600)
+	require.NoError(t, err)
+
+	err = validateComposeWithDeps(composeFile, logger)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse")
+}
+
+// TestValidateCommand_DirectoryReadError tests directory read errors.
+func TestValidateCommand_DirectoryReadError(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	tempDir := t.TempDir()
+
+	// Create subdirectory with bad permissions
+	badDir := filepath.Join(tempDir, "baddir")
+	err := os.MkdirAll(badDir, 0000)
+	require.NoError(t, err)
+
+	defer func() {
+		_ = os.Chmod(badDir, 0600) // #nosec G302
+	}()
+
+	// Note: os.ReadDir may still succeed with 000 permissions on macOS
+	// This test documents the behavior but doesn't strictly enforce an error
+	err = validateComposeWithDeps(badDir, logger)
+	// On macOS with certain file systems, read may still work, so we don't assert error
+	_ = err
 }

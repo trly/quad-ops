@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/coreos/go-systemd/v22/dbus"
+	godbus "github.com/godbus/dbus/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -228,6 +229,14 @@ func TestDefaultFactory(t *testing.T) {
 }
 
 // Helper function to create a test unit manager with mocked connection.
+// createMockProperty creates a mock dbus property for testing.
+func createMockProperty(value string) *dbus.Property {
+	return &dbus.Property{
+		Name:  "ActiveState",
+		Value: godbus.MakeVariant(value),
+	}
+}
+
 func createTestUnitManager(mockConn Connection) UnitManager {
 	mockFactory := &MockConnectionFactory{
 		Connection: mockConn,

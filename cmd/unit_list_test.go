@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/platform"
 )
 
 func TestListCommand_ValidationFailure(t *testing.T) {
@@ -28,46 +27,30 @@ func TestListCommand_ValidationFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "systemd not found")
 }
 
-func TestListCommand_InvalidUnitType(t *testing.T) {
-	app := NewAppBuilder(t).Build(t)
-
-	cmd := NewListCommand().GetCobraCommand()
-	SetupCommandContext(cmd, app)
-
-	err := ExecuteCommand(t, cmd, []string{"--type", "invalid"})
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "invalid unit type")
-}
-
 func TestListCommand_Success(t *testing.T) {
-	units := []repository.Unit{
+	artifacts := []platform.Artifact{
 		{
-			ID:        1,
-			Name:      "web-service",
-			Type:      "container",
-			SHA1Hash:  []byte{0x12, 0x34, 0x56},
-			UpdatedAt: time.Now(),
+			Path:    "web-service.container",
+			Content: []byte("[Container]\nImage=nginx\n"),
+			Mode:    0644,
+			Hash:    "abc123def456",
 		},
 		{
-			ID:        2,
-			Name:      "database",
-			Type:      "container",
-			SHA1Hash:  []byte{0x78, 0x9a, 0xbc},
-			UpdatedAt: time.Now(),
+			Path:    "database.container",
+			Content: []byte("[Container]\nImage=postgres\n"),
+			Mode:    0644,
+			Hash:    "789xyz123abc",
 		},
 	}
 
-	unitRepo := &MockUnitRepo{
-		FindByUnitTypeFunc: func(_ string) ([]repository.Unit, error) {
-			return units, nil
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return artifacts, nil
 		},
 	}
-
-	unitManager := &MockUnitManager{}
 
 	app := NewAppBuilder(t).
-		WithUnitRepo(unitRepo).
-		WithUnitManager(unitManager).
+		WithArtifactStore(artifactStore).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
@@ -77,53 +60,71 @@ func TestListCommand_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestListCommand_AllUnits(t *testing.T) {
-	units := []repository.Unit{
+func TestListCommand_WithStatus(t *testing.T) {
+	artifacts := []platform.Artifact{
 		{
-			ID:        1,
-			Name:      "web-service",
-			Type:      "container",
-			SHA1Hash:  []byte{0x12, 0x34, 0x56},
-			UpdatedAt: time.Now(),
-		},
-		{
-			ID:        2,
-			Name:      "data-volume",
-			Type:      "volume",
-			SHA1Hash:  []byte{0x78, 0x9a, 0xbc},
-			UpdatedAt: time.Now(),
+			Path:    "web-service.container",
+			Content: []byte("[Container]\nImage=nginx\n"),
+			Mode:    0644,
+			Hash:    "abc123def456",
 		},
 	}
 
-	unitRepo := &MockUnitRepo{
-		FindAllFunc: func() ([]repository.Unit, error) {
-			return units, nil
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return artifacts, nil
 		},
 	}
 
-	unitManager := &MockUnitManager{}
+	lifecycle := &MockLifecycle{
+		StatusFunc: func(_ context.Context, _ string) (*platform.ServiceStatus, error) {
+			return &platform.ServiceStatus{
+				Name:   "web-service",
+				Active: true,
+				State:  "running",
+			}, nil
+		},
+	}
 
 	app := NewAppBuilder(t).
-		WithUnitRepo(unitRepo).
-		WithUnitManager(unitManager).
+		WithArtifactStore(artifactStore).
+		WithLifecycle(lifecycle).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
 	SetupCommandContext(cmd, app)
 
-	err := ExecuteCommand(t, cmd, []string{"--type", "all"})
+	err := ExecuteCommand(t, cmd, []string{"--status"})
 	assert.NoError(t, err)
 }
 
-func TestListCommand_RepositoryError(t *testing.T) {
-	unitRepo := &MockUnitRepo{
-		FindByUnitTypeFunc: func(_ string) ([]repository.Unit, error) {
-			return nil, errors.New("database connection failed")
+func TestListCommand_EmptyList(t *testing.T) {
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return []platform.Artifact{}, nil
 		},
 	}
 
 	app := NewAppBuilder(t).
-		WithUnitRepo(unitRepo).
+		WithArtifactStore(artifactStore).
+		Build(t)
+
+	cmd := NewListCommand().GetCobraCommand()
+	SetupCommandContext(cmd, app)
+
+	err := ExecuteCommand(t, cmd, []string{})
+	assert.NoError(t, err)
+}
+
+func TestListCommand_ArtifactStoreError(t *testing.T) {
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return nil, errors.New("storage error")
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithArtifactStore(artifactStore).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
@@ -131,8 +132,8 @@ func TestListCommand_RepositoryError(t *testing.T) {
 
 	err := ExecuteCommand(t, cmd, []string{})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "error finding units")
-	assert.Contains(t, err.Error(), "database connection failed")
+	assert.Contains(t, err.Error(), "failed to list artifacts")
+	assert.Contains(t, err.Error(), "storage error")
 }
 
 func TestListCommand_Help(t *testing.T) {
@@ -140,65 +141,369 @@ func TestListCommand_Help(t *testing.T) {
 	output, err := ExecuteCommandWithCapture(t, cmd, []string{"--help"})
 
 	require.NoError(t, err)
-	assert.Contains(t, output, "Lists units currently managed by quad-ops")
-	assert.Contains(t, output, "--type")
+	assert.Contains(t, output, "Lists artifacts currently managed by quad-ops")
+	assert.Contains(t, output, "--status")
 }
 
 func TestListCommand_Run(t *testing.T) {
-	units := []repository.Unit{
+	artifacts := []platform.Artifact{
 		{
-			ID:        1,
-			Name:      "test-unit",
-			Type:      "container",
-			SHA1Hash:  []byte{0x12, 0x34, 0x56},
-			UpdatedAt: time.Now(),
+			Path:    "test-service.container",
+			Content: []byte("[Container]\nImage=test\n"),
+			Mode:    0644,
+			Hash:    "test123hash456",
 		},
 	}
 
-	unitRepo := &MockUnitRepo{
-		FindByUnitTypeFunc: func(_ string) ([]repository.Unit, error) {
-			return units, nil
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return artifacts, nil
 		},
 	}
-
-	unitManager := &MockUnitManager{}
 
 	app := NewAppBuilder(t).
-		WithUnitRepo(unitRepo).
-		WithUnitManager(unitManager).
+		WithArtifactStore(artifactStore).
 		Build(t)
 
 	listCommand := NewListCommand()
-	opts := ListOptions{UnitType: "container"}
-	deps := ListDeps{CommonDeps: NewCommonDeps(app.Logger)}
+	opts := ListOptions{Status: false}
+	deps := ListDeps{
+		CommonDeps:    NewCommonDeps(app.Logger),
+		ArtifactStore: artifactStore,
+	}
 
 	err := listCommand.Run(context.Background(), app, opts, deps)
 	assert.NoError(t, err)
 }
 
-func TestValidateUnitType(t *testing.T) {
+func TestParseServiceNameFromArtifact(t *testing.T) {
 	tests := []struct {
-		name      string
-		unitType  string
-		wantError bool
+		name     string
+		path     string
+		expected string
 	}{
-		{"valid container", "container", false},
-		{"valid volume", "volume", false},
-		{"valid network", "network", false},
-		{"valid image", "image", false},
-		{"valid all", "all", false},
-		{"invalid type", "invalid", true},
-		{"empty string", "", false},
+		{"systemd container unit", "web-service.container", "web-service"},
+		{"systemd with -container suffix", "web-service-container.container", "web-service"},
+		{"systemd with -network suffix", "web-service-network.network", "web-service"},
+		{"systemd with -volume suffix", "web-service-volume.volume", "web-service"},
+		{"systemd with -build suffix", "web-service-build.build", "web-service"},
+		{"systemd volume named", "data-volume.volume", "data"},
+		{"systemd network named", "app-network-network.network", "app-network"},
+		{"systemd build named", "builder-build.build", "builder"},
+		{"launchd plist", "com.example.web-service.plist", "web-service"},
+		{"launchd simple", "io.quadops.api.plist", "api"},
+		{"launchd no prefix", "simple.plist", "simple"},
+		{"nested path systemd", "subdir/my-service-container.container", "my-service"},
+		{"nested path launchd", "path/to/com.example.svc.plist", "svc"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateUnitType(tt.unitType)
-			if tt.wantError {
-				assert.Error(t, err)
+			result := parseServiceNameFromArtifact(tt.path)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestExtractArtifactType(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected string
+	}{
+		{"container", "web-service.container", "container"},
+		{"volume", "data-volume.volume", "volume"},
+		{"network", "app-network.network", "network"},
+		{"build", "builder.build", "build"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractArtifactType(tt.path)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestListCommand_Run_TableDriven(t *testing.T) {
+	tests := []struct {
+		name           string
+		artifacts      []platform.Artifact
+		opts           ListOptions
+		setupLifecycle func() *MockLifecycle
+		setupStore     func(artifacts []platform.Artifact) *MockArtifactStore
+		expectError    bool
+		errorContains  string
+	}{
+		{
+			name: "list artifacts without status",
+			artifacts: []platform.Artifact{
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
+				{Path: "dev.trly.quad-ops.api.container", Hash: "def456", Mode: 0644},
+			},
+			opts: ListOptions{Status: false},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:      "empty artifact list",
+			artifacts: []platform.Artifact{},
+			opts:      ListOptions{Status: false},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name:      "artifact store error",
+			artifacts: nil,
+			opts:      ListOptions{Status: false},
+			setupStore: func(_ []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return nil, errors.New("database connection failed")
+					},
+				}
+			},
+			expectError:   true,
+			errorContains: "failed to list artifacts",
+		},
+		{
+			name: "list with status - active service",
+			artifacts: []platform.Artifact{
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
+			},
+			opts: ListOptions{Status: true},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			setupLifecycle: func() *MockLifecycle {
+				return &MockLifecycle{
+					StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+						return &platform.ServiceStatus{
+							Name:   name,
+							Active: true,
+							State:  "running",
+						}, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "list with status - inactive service",
+			artifacts: []platform.Artifact{
+				{Path: "dev.trly.quad-ops.db.container", Hash: "xyz789", Mode: 0644},
+			},
+			opts: ListOptions{Status: true},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			setupLifecycle: func() *MockLifecycle {
+				return &MockLifecycle{
+					StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+						return &platform.ServiceStatus{
+							Name:   name,
+							Active: false,
+							State:  "stopped",
+						}, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "list with status - status error",
+			artifacts: []platform.Artifact{
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
+			},
+			opts: ListOptions{Status: true},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			setupLifecycle: func() *MockLifecycle {
+				return &MockLifecycle{
+					StatusFunc: func(_ context.Context, _ string) (*platform.ServiceStatus, error) {
+						return nil, errors.New("service not found")
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "filter out non-prefix artifacts",
+			artifacts: []platform.Artifact{
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
+				{Path: "other-service.container", Hash: "xyz789", Mode: 0644},
+			},
+			opts: ListOptions{Status: false},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "long hash truncation",
+			artifacts: []platform.Artifact{
+				{Path: "dev.trly.quad-ops.web.container", Hash: "abcdef1234567890abcdef1234567890", Mode: 0644},
+			},
+			opts: ListOptions{Status: false},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+		{
+			name: "non-service artifact with status flag",
+			artifacts: []platform.Artifact{
+				{Path: "dev.trly.quad-ops.config.volume", Hash: "vol123", Mode: 0644},
+			},
+			opts: ListOptions{Status: true},
+			setupStore: func(artifacts []platform.Artifact) *MockArtifactStore {
+				return &MockArtifactStore{
+					ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+						return artifacts, nil
+					},
+				}
+			},
+			setupLifecycle: func() *MockLifecycle {
+				return &MockLifecycle{
+					StatusFunc: func(_ context.Context, _ string) (*platform.ServiceStatus, error) {
+						t.Fatal("StatusFunc should not be called for non-service artifacts")
+						return nil, nil
+					},
+				}
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := tt.setupStore(tt.artifacts)
+
+			appBuilder := NewAppBuilder(t).WithArtifactStore(store)
+
+			if tt.setupLifecycle != nil {
+				lifecycle := tt.setupLifecycle()
+				appBuilder = appBuilder.WithLifecycle(lifecycle)
+			}
+
+			app := appBuilder.Build(t)
+
+			listCommand := NewListCommand()
+			deps := ListDeps{
+				CommonDeps:    NewCommonDeps(app.Logger),
+				ArtifactStore: store,
+			}
+
+			err := listCommand.Run(context.Background(), app, tt.opts, deps)
+
+			if tt.expectError {
+				require.Error(t, err)
+				if tt.errorContains != "" {
+					assert.Contains(t, err.Error(), tt.errorContains)
+				}
 			} else {
 				assert.NoError(t, err)
 			}
 		})
 	}
+}
+
+func TestListCommand_GetLifecycleError(t *testing.T) {
+	artifacts := []platform.Artifact{
+		{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
+	}
+
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return artifacts, nil
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithArtifactStore(artifactStore).
+		WithOS("unsupported-platform").
+		Build(t)
+
+	listCommand := NewListCommand()
+	opts := ListOptions{Status: true}
+	deps := ListDeps{
+		CommonDeps:    NewCommonDeps(app.Logger),
+		ArtifactStore: artifactStore,
+	}
+
+	err := listCommand.Run(context.Background(), app, opts, deps)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get lifecycle")
+}
+
+func TestListCommand_MixedArtifactTypes(t *testing.T) {
+	artifacts := []platform.Artifact{
+		{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
+		{Path: "dev.trly.quad-ops.data.volume", Hash: "vol456", Mode: 0644},
+		{Path: "dev.trly.quad-ops.app-network.network", Hash: "net789", Mode: 0644},
+	}
+
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return artifacts, nil
+		},
+	}
+
+	lifecycle := &MockLifecycle{
+		StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+			return &platform.ServiceStatus{
+				Name:   name,
+				Active: true,
+				State:  "running",
+			}, nil
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithArtifactStore(artifactStore).
+		WithLifecycle(lifecycle).
+		Build(t)
+
+	listCommand := NewListCommand()
+	opts := ListOptions{Status: true}
+	deps := ListDeps{
+		CommonDeps:    NewCommonDeps(app.Logger),
+		ArtifactStore: artifactStore,
+	}
+
+	err := listCommand.Run(context.Background(), app, opts, deps)
+	assert.NoError(t, err)
 }

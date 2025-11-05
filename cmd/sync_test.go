@@ -5,13 +5,17 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/benbjohnson/clock"
+	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/git"
+	"github.com/trly/quad-ops/internal/platform"
+	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/service"
 	"github.com/trly/quad-ops/internal/testutil"
 )
 
@@ -34,6 +38,29 @@ func TestSyncCommand_ValidationFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "systemd not found")
 }
 
+// TestSyncCommand_UnsupportedPlatform tests handling of unsupported platform.
+func TestSyncCommand_UnsupportedPlatform(t *testing.T) {
+	deps := SyncDeps{
+		CommonDeps: CommonDeps{
+			Clock: clock.NewMock(),
+			FileSystem: &FileSystemOps{
+				MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+			},
+			Logger: testutil.NewTestLogger(t),
+		},
+	}
+
+	// Build app with unsupported platform (e.g., windows)
+	app := NewAppBuilder(t).WithOS("windows").Build(t)
+
+	syncCmd := NewSyncCommand()
+	opts := SyncOptions{}
+
+	err := syncCmd.Run(context.Background(), app, opts, deps)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "platform not supported")
+}
+
 // TestSyncCommand_DirectoryCreationFailure tests quadlet directory creation failure.
 func TestSyncCommand_DirectoryCreationFailure(t *testing.T) {
 	deps := SyncDeps{
@@ -48,20 +75,16 @@ func TestSyncCommand_DirectoryCreationFailure(t *testing.T) {
 		},
 	}
 
-	app := NewAppBuilder(t).Build(t)
+	app := NewAppBuilder(t).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
+		Build(t)
 	syncCmd := NewSyncCommand()
 	opts := SyncOptions{}
 
 	err := syncCmd.Run(context.Background(), app, opts, deps)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "permission denied")
-}
-
-// TestSyncCommand_Success tests successful sync operation.
-func TestSyncCommand_Success(t *testing.T) {
-	t.Skip("Skipping test that requires full git.Repository initialization - test basic path instead")
-	// Testing non-dry-run path requires complex git.Repository setup
-	// Coverage is better provided by integration tests or simpler unit tests
 }
 
 // TestSyncCommand_DryRun tests dry run mode.
@@ -76,10 +99,16 @@ func TestSyncCommand_DryRun(t *testing.T) {
 			},
 			Logger: testutil.NewTestLogger(t),
 		},
-		NewGitRepository: func(_ config.Repository, _ config.Provider) *git.Repository {
-			gitSyncCalled = true
-			return &git.Repository{}
+		GitSyncer: &MockGitSyncer{
+			SyncAllFunc: func(_ context.Context, _ []config.Repository) ([]repository.SyncResult, error) {
+				gitSyncCalled = true
+				return []repository.SyncResult{}, nil
+			},
 		},
+		ComposeProcessor: &MockComposeProcessor{},
+		Renderer:         &MockRenderer{},
+		ArtifactStore:    &MockArtifactStore{},
+		Lifecycle:        &MockLifecycle{},
 	}
 
 	app := NewAppBuilder(t).
@@ -88,26 +117,18 @@ func TestSyncCommand_DryRun(t *testing.T) {
 				{Name: "test-repo"},
 			},
 		}).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
 		Build(t)
 
 	syncCmd := NewSyncCommand()
 	opts := SyncOptions{
-		DryRun: true, // Dry run mode
+		DryRun: true,
 	}
 
 	err := syncCmd.Run(context.Background(), app, opts, deps)
 	assert.NoError(t, err)
 	assert.False(t, gitSyncCalled, "Git sync should not be called in dry run mode")
-}
-
-// TestSyncCommand_NoChanges tests behavior when repository has no changes.
-func TestSyncCommand_NoChanges(t *testing.T) {
-	t.Skip("Skipping test that requires git.Repository - change detection not yet implemented in sync.go")
-}
-
-// TestSyncCommand_RepoFilter tests repository filtering.
-func TestSyncCommand_RepoFilter(t *testing.T) {
-	t.Skip("Skipping test that requires full git.Repository initialization")
 }
 
 // TestSyncCommand_Help tests help output.
@@ -142,38 +163,79 @@ func TestSyncCommand_Flags(t *testing.T) {
 	assert.Equal(t, "false", forceFlag.DefValue)
 }
 
-// TestSyncCommand_ProcessorCodePath verifies the processor code path exists and isn't skipped.
+// TestSyncCommand_ProcessesComposeProjects verifies compose processor is invoked.
 // This is a regression test for GitHub issue #47 where v0.21.0 created a processor
-// but never called ProcessProjects(), only logging "Would process projects" count=2.
-// The bug was introduced in commit c76faf2 where processor was assigned to _ unused variable.
-func TestSyncCommand_ProcessorCodePath(t *testing.T) {
-	// This test verifies the code no longer contains the bug pattern:
-	// ❌ processor := deps.NewDefaultProcessor(opts.Force)
-	// ❌ _ = processor // Bug: processor created but discarded!
-	// ❌ deps.Logger.Info("Would process projects", "count", len(projects))
-	//
-	// Instead it should call:
-	// ✅ processor.ProcessProjects(projects, isLastRepo)
+// but never called Process(), resulting in no actual processing.
+func TestSyncCommand_ProcessesComposeProjects(t *testing.T) {
+	processCalls := 0
+	var processedProjects []string
 
-	// Read the sync.go file to verify the bug pattern doesn't exist
-	sourceCode, err := os.ReadFile("sync.go")
-	require.NoError(t, err, "Should be able to read sync.go")
+	deps := SyncDeps{
+		CommonDeps: CommonDeps{
+			Clock: clock.NewMock(),
+			FileSystem: &FileSystemOps{
+				MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+			},
+			Logger: testutil.NewTestLogger(t),
+		},
+		GitSyncer: &MockGitSyncer{
+			SyncAllFunc: func(_ context.Context, _ []config.Repository) ([]repository.SyncResult, error) {
+				return []repository.SyncResult{
+					{Repository: config.Repository{Name: "test-repo"}, Success: true, Changed: true},
+				}, nil
+			},
+		},
+		ComposeProcessor: &MockComposeProcessor{
+			ProcessFunc: func(_ context.Context, project *types.Project) ([]service.Spec, error) {
+				processCalls++
+				processedProjects = append(processedProjects, project.Name)
+				return []service.Spec{}, nil
+			},
+		},
+		Renderer: &MockRenderer{
+			RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+				return &platform.RenderResult{Artifacts: []platform.Artifact{}, ServiceChanges: map[string]platform.ChangeStatus{}}, nil
+			},
+		},
+		ArtifactStore: &MockArtifactStore{
+			WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+				return []string{}, nil
+			},
+		},
+		Lifecycle: &MockLifecycle{
+			ReloadFunc: func(_ context.Context) error { return nil },
+		},
+	}
 
-	code := string(sourceCode)
+	tmpDir := t.TempDir()
 
-	// Verify we don't have the bug pattern: processor assigned to underscore
-	assert.NotContains(t, code, "_ = processor",
-		"Processor should not be discarded with _ assignment (GitHub issue #47)")
+	// Create a minimal compose file in the repository directory
+	repoDir := filepath.Join(tmpDir, "test-repo")
+	err := os.MkdirAll(repoDir, 0750)
+	require.NoError(t, err)
 
-	// Verify we don't have the old "Would process projects" log that indicated the bug
-	assert.NotContains(t, code, `"Would process projects"`,
-		"Should not have 'Would process projects' log line (indicates bug from issue #47)")
+	composeContent := []byte(`services:
+  web:
+    image: nginx:latest
+`)
+	err = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), composeContent, 0600)
+	require.NoError(t, err)
 
-	// Verify we have the actual ProcessProjects call
-	assert.Contains(t, code, "processor.ProcessProjects",
-		"Code should call processor.ProcessProjects to actually process the projects")
+	app := NewAppBuilder(t).
+		WithConfig(&config.Settings{
+			RepositoryDir: tmpDir,
+			Repositories: []config.Repository{
+				{Name: "test-repo"},
+			},
+		}).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
+		Build(t)
 
-	// Verify we have the WithExistingProcessedUnits call for proper state tracking
-	assert.Contains(t, code, "WithExistingProcessedUnits",
-		"Code should track processed units across repositories")
+	syncCmd := NewSyncCommand()
+	opts := SyncOptions{}
+
+	runErr := syncCmd.Run(context.Background(), app, opts, deps)
+	require.NoError(t, runErr)
+	assert.Greater(t, processCalls, 0, "ComposeProcessor.Process should be called at least once")
 }

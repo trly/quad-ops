@@ -81,11 +81,6 @@ func TestPullCommand_Flags(t *testing.T) {
 	assert.Equal(t, 0, flags.NFlag(), "Pull command should not have specific flags")
 }
 
-// TestPullCommand_Run_WithRepositories is skipped - requires actual git repository setup.
-func TestPullCommand_Run_WithRepositories(t *testing.T) {
-	t.Skip("Requires complex repository setup with compose files - covered by integration tests")
-}
-
 func TestPullCommand_PullImage_Verbose(t *testing.T) {
 	app := NewAppBuilder(t).
 		WithConfig(&config.Settings{
@@ -384,9 +379,4 @@ func TestPullCommand_Run_WithArgs(t *testing.T) {
 	err := pullCmd.Run(ctx, app, PullOptions{}, deps, []string{"nginx:latest"})
 
 	assert.NoError(t, err)
-}
-
-// TestPullCommand_PullImage_CancelSupport is skipped - testing Cancel requires CommandContext.
-func TestPullCommand_PullImage_CancelSupport(t *testing.T) {
-	t.Skip("Cancel support requires complex CommandContext setup - covered by integration tests")
 }

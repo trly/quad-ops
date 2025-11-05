@@ -1,14 +1,17 @@
 package cmd
 
 import (
+	"context"
 	"testing"
 
+	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/execx"
 	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
+	"github.com/trly/quad-ops/internal/platform"
 	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/systemd"
+	"github.com/trly/quad-ops/internal/service"
 	"github.com/trly/quad-ops/internal/testutil"
 )
 
@@ -24,127 +27,190 @@ func (m *MockValidator) SystemRequirements() error {
 	return nil
 }
 
-// MockUnitRepo implements repository.Repository for testing.
-type MockUnitRepo struct {
-	FindAllFunc        func() ([]repository.Unit, error)
-	FindByUnitTypeFunc func(string) ([]repository.Unit, error)
+// MockRenderer implements RendererInterface for testing.
+type MockRenderer struct {
+	NameFunc   func() string
+	RenderFunc func(context.Context, []service.Spec) (*platform.RenderResult, error)
 }
 
-func (m *MockUnitRepo) FindAll() ([]repository.Unit, error) {
-	if m.FindAllFunc != nil {
-		return m.FindAllFunc()
+func (m *MockRenderer) Name() string {
+	if m.NameFunc != nil {
+		return m.NameFunc()
 	}
-	return []repository.Unit{}, nil
+	return "mock"
 }
 
-func (m *MockUnitRepo) FindByUnitType(unitType string) ([]repository.Unit, error) {
-	if m.FindByUnitTypeFunc != nil {
-		return m.FindByUnitTypeFunc(unitType)
+func (m *MockRenderer) Render(ctx context.Context, specs []service.Spec) (*platform.RenderResult, error) {
+	if m.RenderFunc != nil {
+		return m.RenderFunc(ctx, specs)
 	}
-	return []repository.Unit{}, nil
-}
-func (m *MockUnitRepo) FindByID(int64) (repository.Unit, error) { return repository.Unit{}, nil }
-func (m *MockUnitRepo) Create(*repository.Unit) (int64, error)  { return 0, nil }
-func (m *MockUnitRepo) Delete(int64) error                      { return nil }
-
-// MockUnitManager implements systemd.UnitManager for testing.
-type MockUnitManager struct {
-	StartFunc        func(string, string) error
-	StopFunc         func(string, string) error
-	ResetFailedFunc  func(string, string) error
-	ShowFunc         func(string, string) error
-	StartCalls       []StartCall
-	StopCalls        []StopCall
-	ResetFailedCalls []ResetFailedCall
-	ShowCalls        []ShowCall
+	return &platform.RenderResult{
+		Artifacts:      []platform.Artifact{},
+		ServiceChanges: map[string]platform.ChangeStatus{},
+	}, nil
 }
 
-type StartCall struct {
-	Name, UnitType string
+// MockLifecycle implements LifecycleInterface for testing.
+type MockLifecycle struct {
+	NameFunc        func() string
+	ReloadFunc      func(context.Context) error
+	StartFunc       func(context.Context, string) error
+	StopFunc        func(context.Context, string) error
+	RestartFunc     func(context.Context, string) error
+	StatusFunc      func(context.Context, string) (*platform.ServiceStatus, error)
+	StartManyFunc   func(context.Context, []string) map[string]error
+	StopManyFunc    func(context.Context, []string) map[string]error
+	RestartManyFunc func(context.Context, []string) map[string]error
 }
 
-type StopCall struct {
-	Name, UnitType string
+func (m *MockLifecycle) Name() string {
+	if m.NameFunc != nil {
+		return m.NameFunc()
+	}
+	return "mock"
 }
 
-type ResetFailedCall struct {
-	Name, UnitType string
+func (m *MockLifecycle) Reload(_ context.Context) error {
+	if m.ReloadFunc != nil {
+		return m.ReloadFunc(context.Background())
+	}
+	return nil
 }
 
-type ShowCall struct {
-	Name, UnitType string
-}
-
-func (m *MockUnitManager) Start(name, unitType string) error {
-	m.StartCalls = append(m.StartCalls, StartCall{Name: name, UnitType: unitType})
+func (m *MockLifecycle) Start(_ context.Context, name string) error {
 	if m.StartFunc != nil {
-		return m.StartFunc(name, unitType)
+		return m.StartFunc(context.Background(), name)
 	}
 	return nil
 }
 
-func (m *MockUnitManager) Stop(name, unitType string) error {
-	m.StopCalls = append(m.StopCalls, StopCall{Name: name, UnitType: unitType})
+func (m *MockLifecycle) Stop(_ context.Context, name string) error {
 	if m.StopFunc != nil {
-		return m.StopFunc(name, unitType)
+		return m.StopFunc(context.Background(), name)
 	}
 	return nil
 }
 
-func (m *MockUnitManager) ResetFailed(name, unitType string) error {
-	m.ResetFailedCalls = append(m.ResetFailedCalls, ResetFailedCall{Name: name, UnitType: unitType})
-	if m.ResetFailedFunc != nil {
-		return m.ResetFailedFunc(name, unitType)
+func (m *MockLifecycle) Restart(_ context.Context, name string) error {
+	if m.RestartFunc != nil {
+		return m.RestartFunc(context.Background(), name)
 	}
 	return nil
 }
 
-func (m *MockUnitManager) Show(name, unitType string) error {
-	m.ShowCalls = append(m.ShowCalls, ShowCall{Name: name, UnitType: unitType})
-	if m.ShowFunc != nil {
-		return m.ShowFunc(name, unitType)
+func (m *MockLifecycle) Status(_ context.Context, name string) (*platform.ServiceStatus, error) {
+	if m.StatusFunc != nil {
+		return m.StatusFunc(context.Background(), name)
+	}
+	return &platform.ServiceStatus{Name: name}, nil
+}
+
+func (m *MockLifecycle) StartMany(_ context.Context, names []string) map[string]error {
+	if m.StartManyFunc != nil {
+		return m.StartManyFunc(context.Background(), names)
+	}
+	return make(map[string]error)
+}
+
+func (m *MockLifecycle) StopMany(_ context.Context, names []string) map[string]error {
+	if m.StopManyFunc != nil {
+		return m.StopManyFunc(context.Background(), names)
+	}
+	return make(map[string]error)
+}
+
+func (m *MockLifecycle) RestartMany(_ context.Context, names []string) map[string]error {
+	if m.RestartManyFunc != nil {
+		return m.RestartManyFunc(context.Background(), names)
+	}
+	return make(map[string]error)
+}
+
+// MockComposeProcessor implements ComposeProcessorInterface for testing.
+type MockComposeProcessor struct {
+	ProcessFunc func(context.Context, *types.Project) ([]service.Spec, error)
+}
+
+func (m *MockComposeProcessor) Process(ctx context.Context, project *types.Project) ([]service.Spec, error) {
+	if m.ProcessFunc != nil {
+		return m.ProcessFunc(ctx, project)
+	}
+	return []service.Spec{}, nil
+}
+
+// MockArtifactStore implements repository.ArtifactStore for testing.
+type MockArtifactStore struct {
+	WriteFunc  func(context.Context, []platform.Artifact) ([]string, error)
+	ListFunc   func(context.Context) ([]platform.Artifact, error)
+	DeleteFunc func(context.Context, []string) error
+}
+
+func (m *MockArtifactStore) Write(ctx context.Context, artifacts []platform.Artifact) ([]string, error) {
+	if m.WriteFunc != nil {
+		return m.WriteFunc(ctx, artifacts)
+	}
+	return []string{}, nil
+}
+
+func (m *MockArtifactStore) List(ctx context.Context) ([]platform.Artifact, error) {
+	if m.ListFunc != nil {
+		return m.ListFunc(ctx)
+	}
+	return []platform.Artifact{}, nil
+}
+
+func (m *MockArtifactStore) Delete(ctx context.Context, paths []string) error {
+	if m.DeleteFunc != nil {
+		return m.DeleteFunc(ctx, paths)
 	}
 	return nil
 }
 
-func (m *MockUnitManager) GetUnit(string, string) systemd.Unit      { return nil }
-func (m *MockUnitManager) GetStatus(string, string) (string, error) { return "", nil }
-func (m *MockUnitManager) Restart(string, string) error             { return nil }
-func (m *MockUnitManager) ReloadSystemd() error                     { return nil }
-func (m *MockUnitManager) GetUnitFailureDetails(string) string      { return "" }
+// MockGitSyncer implements GitSyncerInterface for testing.
+type MockGitSyncer struct {
+	SyncAllFunc  func(context.Context, []config.Repository) ([]repository.SyncResult, error)
+	SyncRepoFunc func(context.Context, config.Repository) repository.SyncResult
+}
+
+func (m *MockGitSyncer) SyncAll(ctx context.Context, repos []config.Repository) ([]repository.SyncResult, error) {
+	if m.SyncAllFunc != nil {
+		return m.SyncAllFunc(ctx, repos)
+	}
+	return []repository.SyncResult{}, nil
+}
+
+func (m *MockGitSyncer) SyncRepo(ctx context.Context, repo config.Repository) repository.SyncResult {
+	if m.SyncRepoFunc != nil {
+		return m.SyncRepoFunc(ctx, repo)
+	}
+	return repository.SyncResult{Repository: repo, Success: true}
+}
 
 // AppBuilder provides a fluent interface for building test Apps.
 type AppBuilder struct {
-	logger      log.Logger
-	config      *config.Settings
-	validator   SystemValidator
-	unitRepo    repository.Repository
-	unitManager systemd.UnitManager
+	logger           log.Logger
+	config           *config.Settings
+	validator        SystemValidator
+	renderer         RendererInterface
+	lifecycle        LifecycleInterface
+	artifactStore    repository.ArtifactStore
+	composeProcessor ComposeProcessorInterface
+	os               string
 }
 
 // NewAppBuilder creates a new AppBuilder with sensible defaults.
+// Defaults to Linux platform to avoid platform initialization unless explicitly testing platform features.
 func NewAppBuilder(t *testing.T) *AppBuilder {
 	return &AppBuilder{
-		logger:      testutil.NewTestLogger(t),
-		config:      &config.Settings{Verbose: false},
-		validator:   &MockValidator{},
-		unitRepo:    &MockUnitRepo{},
-		unitManager: &MockUnitManager{},
+		logger:    testutil.NewTestLogger(t),
+		config:    &config.Settings{Verbose: false},
+		validator: &MockValidator{},
+		os:        "linux", // Default to linux to avoid platform-specific initialization
 	}
 }
 
 func (b *AppBuilder) WithValidator(v SystemValidator) *AppBuilder {
 	b.validator = v
-	return b
-}
-
-func (b *AppBuilder) WithUnitRepo(r repository.Repository) *AppBuilder {
-	b.unitRepo = r
-	return b
-}
-
-func (b *AppBuilder) WithUnitManager(m systemd.UnitManager) *AppBuilder {
-	b.unitManager = m
 	return b
 }
 
@@ -158,15 +224,43 @@ func (b *AppBuilder) WithVerbose(verbose bool) *AppBuilder {
 	return b
 }
 
+func (b *AppBuilder) WithRenderer(r RendererInterface) *AppBuilder {
+	b.renderer = r
+	return b
+}
+
+func (b *AppBuilder) WithLifecycle(l LifecycleInterface) *AppBuilder {
+	b.lifecycle = l
+	return b
+}
+
+func (b *AppBuilder) WithOS(os string) *AppBuilder {
+	b.os = os
+	return b
+}
+
+func (b *AppBuilder) WithArtifactStore(a repository.ArtifactStore) *AppBuilder {
+	b.artifactStore = a
+	return b
+}
+
+func (b *AppBuilder) WithComposeProcessor(cp ComposeProcessorInterface) *AppBuilder {
+	b.composeProcessor = cp
+	return b
+}
+
 func (b *AppBuilder) Build(t *testing.T) *App {
 	return &App{
-		Logger:         b.logger,
-		Config:         b.config,
-		ConfigProvider: testutil.NewMockConfig(t),
-		Runner:         &execx.RealRunner{},
-		FSService:      &fs.Service{},
-		UnitRepo:       b.unitRepo,
-		UnitManager:    b.unitManager,
-		Validator:      b.validator,
+		Logger:           b.logger,
+		Config:           b.config,
+		ConfigProvider:   testutil.NewMockConfig(t),
+		Runner:           &execx.RealRunner{},
+		FSService:        &fs.Service{},
+		Validator:        b.validator,
+		renderer:         b.renderer,
+		lifecycle:        b.lifecycle,
+		ArtifactStore:    b.artifactStore,
+		ComposeProcessor: b.composeProcessor,
+		os:               b.os,
 	}
 }

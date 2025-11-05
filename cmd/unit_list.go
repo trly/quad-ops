@@ -25,24 +25,26 @@ package cmd
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
+	"path/filepath"
+	"strings"
 
-	"github.com/SerhiiCho/timeago/v3"
 	"github.com/fatih/color"
 	"github.com/rodaine/table"
 	"github.com/spf13/cobra"
+	"github.com/trly/quad-ops/internal/platform"
 	"github.com/trly/quad-ops/internal/repository"
 )
 
 // ListOptions holds list command options.
 type ListOptions struct {
-	UnitType string
+	Status bool
 }
 
 // ListDeps holds list dependencies.
 type ListDeps struct {
 	CommonDeps
+	ArtifactStore repository.ArtifactStore
 }
 
 // ListCommand represents the unit list command.
@@ -58,23 +60,16 @@ func (c *ListCommand) getApp(cmd *cobra.Command) *App {
 	return cmd.Context().Value(appContextKey).(*App)
 }
 
-var (
-	allowedUnitTypes = []string{"container", "volume", "network", "image", "all"}
-)
-
 // GetCobraCommand returns the cobra command for listing units.
 func (c *ListCommand) GetCobraCommand() *cobra.Command {
 	var opts ListOptions
 
 	unitListCmd := &cobra.Command{
 		Use:   "list",
-		Short: "Lists units currently managed by quad-ops",
+		Short: "Lists artifacts currently managed by quad-ops",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
-			if err := app.Validator.SystemRequirements(); err != nil {
-				return err
-			}
-			return validateUnitType(opts.UnitType)
+			return app.Validator.SystemRequirements()
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
@@ -85,75 +80,101 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 		SilenceErrors: true,
 	}
 
-	unitListCmd.Flags().StringVarP(&opts.UnitType, "type", "t", "container", "Type of unit to manage (container, volume, network, image, all)")
-	err := unitListCmd.RegisterFlagCompletionFunc("type", func(_ *cobra.Command, _ []string, _ string) ([]string, cobra.ShellCompDirective) {
-		return allowedUnitTypes, cobra.ShellCompDirectiveNoFileComp
-	})
-	if err != nil {
-		return unitListCmd
-	}
+	unitListCmd.Flags().BoolVarP(&opts.Status, "status", "s", false, "Include service status information")
 
 	return unitListCmd
 }
 
 // Run executes the list command with injected dependencies.
-func (c *ListCommand) Run(_ context.Context, app *App, opts ListOptions, deps ListDeps) error {
+func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps ListDeps) error {
+	// Fetch artifacts from ArtifactStore
+	artifacts, err := deps.ArtifactStore.List(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list artifacts: %w", err)
+	}
+
+	// Filter artifacts to only show quad-ops managed services
+	filteredArtifacts := make([]platform.Artifact, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		base := filepath.Base(artifact.Path)
+		// Match dev.trly.quad-ops prefix
+		if strings.Contains(base, "dev.trly.quad-ops") {
+			filteredArtifacts = append(filteredArtifacts, artifact)
+		}
+	}
+	artifacts = filteredArtifacts
+
+	if len(artifacts) == 0 {
+		deps.Logger.Info("No artifacts found")
+		return nil
+	}
+
+	// Get lifecycle if status is requested
+	var lifecycle platform.Lifecycle
+	if opts.Status {
+		lc, err := app.GetLifecycle(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get lifecycle: %w", err)
+		}
+		lifecycle = lc
+	}
+
+	// Setup table with appropriate columns
 	headerFmt := color.New(color.FgGreen, color.Underline).SprintfFunc()
 	columnFmt := color.New(color.FgYellow).SprintfFunc()
-	tbl := table.New("ID", "Name", "Type", "Unit State", "SHA1", "Updated")
+
+	var tbl table.Table
+	if opts.Status {
+		tbl = table.New("Path", "Type", "Hash", "Active", "State")
+	} else {
+		tbl = table.New("Path", "Type", "Hash")
+	}
 	tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
-	return c.findAndDisplayUnits(app, tbl, opts.UnitType, deps)
-}
-
-// buildDeps creates production dependencies for the list command.
-func (c *ListCommand) buildDeps(app *App) ListDeps {
-	return ListDeps{
-		CommonDeps: NewRootDeps(app),
-	}
-}
-
-func (c *ListCommand) findAndDisplayUnits(app *App, tbl table.Table, unitType string, deps ListDeps) error {
-	var units []repository.Unit
-	var err error
-
-	switch unitType {
-	case "", "all":
-		units, err = app.UnitRepo.FindAll()
-	default:
-		units, err = app.UnitRepo.FindByUnitType(unitType)
-	}
-
-	if err != nil {
-		return fmt.Errorf("error finding units: %w", err)
-	}
-
-	for _, u := range units {
-		unitStatus, err := app.UnitManager.GetStatus(u.Name, u.Type)
-		if err != nil {
-			deps.Logger.Debug("Error getting unit status", "error", err)
-			unitStatus = "UNKNOWN"
+	// Display artifacts
+	for _, artifact := range artifacts {
+		hashStr := artifact.Hash
+		if len(hashStr) > 12 {
+			hashStr = hashStr[:12] // First 12 chars
 		}
-		updateAtString, err := timeago.Parse(u.UpdatedAt)
-		if err != nil {
-			deps.Logger.Debug("Error parsing update at time", "error", err)
-			updateAtString = "UNKNOWN"
+
+		artifactType := extractArtifactType(artifact.Path)
+
+		if opts.Status && isServiceArtifact(artifact.Path) {
+			// Fetch status for service artifacts (.container on systemd, .plist on launchd)
+			serviceName := parseServiceNameFromArtifact(artifact.Path)
+			status, err := lifecycle.Status(ctx, serviceName)
+			if err != nil {
+				deps.Logger.Debug("Error getting service status", "service", serviceName, "error", err)
+				tbl.AddRow(artifact.Path, artifactType, hashStr, "UNKNOWN", "-")
+			} else {
+				activeState := "inactive"
+				if status.Active {
+					activeState = "active"
+				}
+				tbl.AddRow(artifact.Path, artifactType, hashStr, activeState, status.State)
+			}
+		} else {
+			tbl.AddRow(artifact.Path, artifactType, hashStr)
 		}
-		tbl.AddRow(u.ID, u.Name, u.Type, unitStatus, hex.EncodeToString(u.SHA1Hash), updateAtString)
 	}
+
 	tbl.Print()
 	return nil
 }
 
-func validateUnitType(unitType string) error {
-	// Allow empty string as it defaults to container behavior
-	if unitType == "" {
-		return nil
+// buildDeps creates production dependencies for the list command.
+// Note: Lifecycle is obtained via lazy getter in Run() when status is requested.
+func (c *ListCommand) buildDeps(app *App) ListDeps {
+	return ListDeps{
+		CommonDeps:    NewRootDeps(app),
+		ArtifactStore: app.ArtifactStore,
 	}
-	for _, allowedType := range allowedUnitTypes {
-		if unitType == allowedType {
-			return nil
-		}
-	}
-	return fmt.Errorf("invalid unit type: %s, allowed types are: %v", unitType, allowedUnitTypes)
+}
+
+// extractArtifactType extracts the type from an artifact path.
+// E.g., "myservice.container" -> "container", "com.example.svc.plist" -> "plist".
+func extractArtifactType(path string) string {
+	ext := filepath.Ext(path)
+	return strings.TrimPrefix(ext, ".")
 }

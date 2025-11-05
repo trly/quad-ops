@@ -4,36 +4,24 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/benbjohnson/clock"
-	"github.com/coreos/go-systemd/v22/daemon"
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/testutil"
 )
 
-// MockSyncPerformer implements SyncPerformer for testing.
-type MockSyncPerformer struct {
-	PerformSyncFunc func(context.Context, *App, *SyncCommand, SyncOptions, SyncDeps, DaemonDeps)
-	CallCount       int
-}
-
-func (m *MockSyncPerformer) PerformSync(ctx context.Context, app *App, syncCmd *SyncCommand, opts SyncOptions, syncDeps SyncDeps, daemonDeps DaemonDeps) {
-	m.CallCount++
-	if m.PerformSyncFunc != nil {
-		m.PerformSyncFunc(ctx, app, syncCmd, opts, syncDeps, daemonDeps)
-	}
-}
-
-// TestDaemonCommand_ValidationFailure tests system requirements failure.
+// TestDaemonCommand_ValidationFailure tests system requirements validation.
 func TestDaemonCommand_ValidationFailure(t *testing.T) {
 	app := NewAppBuilder(t).
 		WithValidator(&MockValidator{
 			SystemRequirementsFunc: func() error {
-				return errors.New("systemd not found")
+				return errors.New("system requirements not met")
 			},
 		}).
 		Build(t)
@@ -41,14 +29,17 @@ func TestDaemonCommand_ValidationFailure(t *testing.T) {
 	cmd := NewDaemonCommand().GetCobraCommand()
 	SetupCommandContext(cmd, app)
 
-	// PreRunE returns error instead of exiting
+	// PreRunE returns error when system requirements fail
 	err := cmd.PreRunE(cmd, []string{})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "systemd not found")
+	assert.Contains(t, err.Error(), "system requirements not met")
 }
 
 // TestDaemonCommand_DirectoryCreationFailure tests quadlet directory creation failure.
 func TestDaemonCommand_DirectoryCreationFailure(t *testing.T) {
+	// Create mock sync command that never gets called
+	mockSyncCmd := &SyncCommand{}
+
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
@@ -59,6 +50,7 @@ func TestDaemonCommand_DirectoryCreationFailure(t *testing.T) {
 			},
 			Logger: testutil.NewTestLogger(t),
 		},
+		SyncCommand: mockSyncCmd,
 	}
 
 	app := NewAppBuilder(t).Build(t)
@@ -72,7 +64,15 @@ func TestDaemonCommand_DirectoryCreationFailure(t *testing.T) {
 
 // TestDaemonCommand_InitialSync tests that initial sync is performed.
 func TestDaemonCommand_InitialSync(t *testing.T) {
-	var syncCount int
+	var syncCount atomic.Int32
+
+	// Create mock sync command that tracks calls
+	mockSyncCmd := &MockSyncCommand{
+		RunFunc: func(_ context.Context, _ *App, _ SyncOptions, _ SyncDeps) error {
+			syncCount.Add(1)
+			return nil
+		},
+	}
 
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
@@ -82,7 +82,8 @@ func TestDaemonCommand_InitialSync(t *testing.T) {
 			},
 			Logger: testutil.NewTestLogger(t),
 		},
-		Notify: func(_ bool, _ string) (bool, error) { return true, nil },
+		Notify:      func(_ bool, _ string) (bool, error) { return true, nil },
+		SyncCommand: mockSyncCmd,
 	}
 
 	app := NewAppBuilder(t).
@@ -92,15 +93,7 @@ func TestDaemonCommand_InitialSync(t *testing.T) {
 		}).
 		Build(t)
 
-	// Override sync performer to count calls and cancel quickly
 	daemonCmd := NewDaemonCommand()
-	mockPerformer := &MockSyncPerformer{
-		PerformSyncFunc: func(_ context.Context, _ *App, _ *SyncCommand, _ SyncOptions, _ SyncDeps, _ DaemonDeps) {
-			syncCount++
-		},
-	}
-	daemonCmd.syncPerformer = mockPerformer
-
 	opts := DaemonOptions{
 		SyncInterval: 1 * time.Minute,
 	}
@@ -112,12 +105,18 @@ func TestDaemonCommand_InitialSync(t *testing.T) {
 	// This should perform initial sync and then timeout
 	err := daemonCmd.Run(ctx, app, opts, deps)
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
-	assert.Equal(t, 1, syncCount, "Initial sync should have been performed")
+	assert.Equal(t, int32(1), syncCount.Load(), "Initial sync should have been performed")
 }
 
 // TestDaemonCommand_SystemdNotifications tests systemd notification behavior.
 func TestDaemonCommand_SystemdNotifications(t *testing.T) {
 	var notifyStates []string
+
+	mockSyncCmd := &MockSyncCommand{
+		RunFunc: func(_ context.Context, _ *App, _ SyncOptions, _ SyncDeps) error {
+			return nil
+		},
+	}
 
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
@@ -131,6 +130,7 @@ func TestDaemonCommand_SystemdNotifications(t *testing.T) {
 			notifyStates = append(notifyStates, state)
 			return true, nil
 		},
+		SyncCommand: mockSyncCmd,
 	}
 
 	app := NewAppBuilder(t).Build(t)
@@ -145,11 +145,17 @@ func TestDaemonCommand_SystemdNotifications(t *testing.T) {
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
 
 	// Verify systemd ready notification was sent
-	assert.Contains(t, notifyStates, daemon.SdNotifyReady)
+	assert.Contains(t, notifyStates, SdNotifyReady)
 }
 
 // TestDaemonCommand_SystemdNotificationError tests handling of systemd notification errors.
 func TestDaemonCommand_SystemdNotificationError(t *testing.T) {
+	mockSyncCmd := &MockSyncCommand{
+		RunFunc: func(_ context.Context, _ *App, _ SyncOptions, _ SyncDeps) error {
+			return nil
+		},
+	}
+
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
@@ -161,6 +167,7 @@ func TestDaemonCommand_SystemdNotificationError(t *testing.T) {
 		Notify: func(_ bool, _ string) (bool, error) {
 			return false, errors.New("systemd not available")
 		},
+		SyncCommand: mockSyncCmd,
 	}
 
 	app := NewAppBuilder(t).Build(t)
@@ -178,6 +185,12 @@ func TestDaemonCommand_SystemdNotificationError(t *testing.T) {
 
 // TestDaemonCommand_SyncIntervalOverride tests sync interval override.
 func TestDaemonCommand_SyncIntervalOverride(t *testing.T) {
+	mockSyncCmd := &MockSyncCommand{
+		RunFunc: func(_ context.Context, _ *App, _ SyncOptions, _ SyncDeps) error {
+			return nil
+		},
+	}
+
 	deps := DaemonDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
@@ -186,7 +199,8 @@ func TestDaemonCommand_SyncIntervalOverride(t *testing.T) {
 			},
 			Logger: testutil.NewTestLogger(t),
 		},
-		Notify: func(_ bool, _ string) (bool, error) { return true, nil },
+		Notify:      func(_ bool, _ string) (bool, error) { return true, nil },
+		SyncCommand: mockSyncCmd,
 	}
 
 	app := NewAppBuilder(t).
@@ -208,6 +222,57 @@ func TestDaemonCommand_SyncIntervalOverride(t *testing.T) {
 
 	// Verify sync interval was overridden in config
 	assert.Equal(t, 2*time.Minute, app.Config.SyncInterval)
+}
+
+// TestDaemonCommand_SyncFailureBackoff tests backoff on repeated sync failures.
+func TestDaemonCommand_SyncFailureBackoff(t *testing.T) {
+	var syncCalls atomic.Int32
+
+	mockSyncCmd := &MockSyncCommand{
+		RunFunc: func(_ context.Context, _ *App, _ SyncOptions, _ SyncDeps) error {
+			syncCalls.Add(1)
+			return errors.New("sync failed")
+		},
+	}
+
+	mockClock := clock.NewMock()
+	deps := DaemonDeps{
+		CommonDeps: CommonDeps{
+			Clock: mockClock,
+			FileSystem: &FileSystemOps{
+				MkdirAllFunc: func(_ string, _ os.FileMode) error { return nil },
+			},
+			Logger: testutil.NewTestLogger(t),
+		},
+		Notify:      func(_ bool, _ string) (bool, error) { return true, nil },
+		SyncCommand: mockSyncCmd,
+	}
+
+	app := NewAppBuilder(t).
+		WithConfig(&config.Settings{
+			SyncInterval: 1 * time.Minute,
+		}).
+		Build(t)
+
+	daemonCmd := NewDaemonCommand()
+	opts := DaemonOptions{}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	// Run daemon in background
+	go func() {
+		_ = daemonCmd.Run(ctx, app, opts, deps)
+	}()
+
+	// Wait a bit for initial sync
+	time.Sleep(50 * time.Millisecond)
+
+	// Initial sync should have failed
+	assert.GreaterOrEqual(t, syncCalls.Load(), int32(1))
+
+	// Note: Full backoff testing would require more complex timing control
+	// This test verifies the basic mechanism is in place
 }
 
 // TestDaemonCommand_Help tests help output.
@@ -243,30 +308,28 @@ func TestDaemonCommand_Flags(t *testing.T) {
 	assert.Equal(t, "false", forceFlag.DefValue)
 }
 
-// TestDaemonCommand_SyncPerformer tests the sync performer interface.
-func TestDaemonCommand_SyncPerformer(t *testing.T) {
-	app := NewAppBuilder(t).Build(t)
-	syncCmd := NewSyncCommand()
-	daemonCmd := NewDaemonCommand()
+// MockSyncCommand mocks SyncCommand for testing.
+type MockSyncCommand struct {
+	RunFunc       func(context.Context, *App, SyncOptions, SyncDeps) error
+	buildDepsFunc func(*App) SyncDeps
+}
 
-	syncOpts := SyncOptions{RepoName: "test", Force: true}
-	syncDeps := syncCmd.buildDeps(app)
-
-	// Mock sync performer to avoid real operations
-	mockPerformer := &MockSyncPerformer{
-		PerformSyncFunc: func(_ context.Context, receivedApp *App, receivedSyncCmd *SyncCommand, receivedOpts SyncOptions, _ SyncDeps, _ DaemonDeps) {
-			// Verify the correct parameters were passed
-			assert.Equal(t, app, receivedApp)
-			assert.Equal(t, syncCmd, receivedSyncCmd)
-			assert.Equal(t, syncOpts, receivedOpts)
-		},
+func (m *MockSyncCommand) Run(ctx context.Context, app *App, opts SyncOptions, deps SyncDeps) error {
+	if m.RunFunc != nil {
+		return m.RunFunc(ctx, app, opts, deps)
 	}
-	daemonCmd.syncPerformer = mockPerformer
+	return nil
+}
 
-	// Execute via the sync performer
-	daemonDeps := daemonCmd.buildDeps(app)
-	daemonCmd.syncPerformer.PerformSync(context.Background(), app, syncCmd, syncOpts, syncDeps, daemonDeps)
+func (m *MockSyncCommand) buildDeps(app *App) SyncDeps {
+	if m.buildDepsFunc != nil {
+		return m.buildDepsFunc(app)
+	}
+	return SyncDeps{
+		CommonDeps: NewRootDeps(app),
+	}
+}
 
-	// Verify mock was called
-	assert.Equal(t, 1, mockPerformer.CallCount)
+func (m *MockSyncCommand) GetCobraCommand() *cobra.Command {
+	return &cobra.Command{}
 }

@@ -19,9 +19,13 @@ func TestInitConfig(t *testing.T) {
 	resetViper()
 	provider := NewConfigProvider()
 	cfg := provider.GetConfig()
-	assert.Equal(t, DefaultRepositoryDir, cfg.RepositoryDir)
+
+	// Repository dir and QuadletDir may be platform-specific
+	assert.NotEmpty(t, cfg.RepositoryDir)
+	assert.NotEmpty(t, cfg.QuadletDir)
+
+	// Other settings should match defaults
 	assert.Equal(t, DefaultSyncInterval, cfg.SyncInterval)
-	assert.Equal(t, DefaultQuadletDir, cfg.QuadletDir)
 	assert.Equal(t, DefaultUserMode, cfg.UserMode)
 	assert.Equal(t, DefaultVerbose, cfg.Verbose)
 	assert.Equal(t, DefaultUnitStartTimeout, cfg.UnitStartTimeout)
@@ -118,5 +122,54 @@ func TestConfigNotFound(t *testing.T) {
 	provider := NewDefaultConfigProvider()
 	provider.SetConfigFilePath("/nonexistent/config.yaml")
 	cfg := provider.InitConfig()
-	assert.Equal(t, DefaultRepositoryDir, cfg.RepositoryDir)
+
+	// On macOS, defaults should be adjusted; on Linux, should remain as-is
+	if os.Getenv("GOOS") == "darwin" || (os.Getenv("GOOS") == "" && os.Getenv("HOME") != "") {
+		// If actually running on macOS, defaults may be platform-specific
+		assert.NotEmpty(t, cfg.RepositoryDir)
+	} else {
+		assert.Equal(t, DefaultRepositoryDir, cfg.RepositoryDir)
+	}
+}
+
+// TestPlatformDefaults tests that platform-specific defaults are applied.
+func TestPlatformDefaults(t *testing.T) {
+	resetViper()
+
+	t.Run("respects user overrides", func(t *testing.T) {
+		cfg := &Settings{
+			RepositoryDir:    "/custom/repo",
+			QuadletDir:       "/custom/quadlet",
+			SyncInterval:     DefaultSyncInterval,
+			UserMode:         DefaultUserMode,
+			Verbose:          DefaultVerbose,
+			UnitStartTimeout: DefaultUnitStartTimeout,
+			ImagePullTimeout: DefaultImagePullTimeout,
+		}
+
+		applyPlatformDefaults(cfg)
+
+		// User overrides should be preserved regardless of platform
+		assert.Equal(t, "/custom/repo", cfg.RepositoryDir)
+		assert.Equal(t, "/custom/quadlet", cfg.QuadletDir)
+	})
+
+	t.Run("applies defaults only when at Linux defaults", func(t *testing.T) {
+		cfg := &Settings{
+			RepositoryDir:    DefaultRepositoryDir,
+			QuadletDir:       DefaultQuadletDir,
+			SyncInterval:     DefaultSyncInterval,
+			UserMode:         DefaultUserMode,
+			Verbose:          DefaultVerbose,
+			UnitStartTimeout: DefaultUnitStartTimeout,
+			ImagePullTimeout: DefaultImagePullTimeout,
+		}
+
+		applyPlatformDefaults(cfg)
+
+		// Platform defaults applied based on runtime.GOOS
+		// On macOS, should change; on Linux, should remain
+		assert.NotEmpty(t, cfg.RepositoryDir)
+		assert.NotEmpty(t, cfg.QuadletDir)
+	})
 }

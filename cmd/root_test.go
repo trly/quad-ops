@@ -102,7 +102,7 @@ func TestRootCommand_PersistentPreRun_Success(t *testing.T) {
 	}
 
 	cmd := rootCmd.GetCobraCommand()
-	cmd.SetContext(context.Background()) // Set a valid context
+	cmd.SetContext(context.Background())
 	err := rootCmd.persistentPreRun(cmd, opts, deps)
 	assert.NoError(t, err)
 }
