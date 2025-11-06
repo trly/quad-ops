@@ -183,6 +183,15 @@ type Volume struct {
 	Options  map[string]string // Driver options
 	Labels   map[string]string // Volume labels
 	External bool              // External volume (not managed)
+	Quadlet  *QuadletVolume    `json:"quadlet,omitempty"` // Quadlet-specific options (systemd/Linux only)
+}
+
+// QuadletVolume contains systemd Quadlet-specific volume options.
+// These fields are only used when rendering to systemd Quadlet units and are ignored by other platforms.
+type QuadletVolume struct {
+	ContainersConfModule []string // Additional .conf modules to load
+	GlobalArgs           []string // Global Podman arguments for volume creation
+	PodmanArgs           []string // Additional Podman arguments for volume creation
 }
 
 // Network represents a network definition.
@@ -195,6 +204,18 @@ type Network struct {
 	Internal bool              // Internal network (no external access)
 	IPv6     bool              // Enable IPv6
 	External bool              // External network (not managed)
+	Quadlet  *QuadletNetwork   `json:"quadlet,omitempty"` // Quadlet-specific options (systemd/Linux only)
+}
+
+// QuadletNetwork contains systemd Quadlet-specific network options.
+// These fields are only used when rendering to systemd Quadlet units and are ignored by other platforms.
+type QuadletNetwork struct {
+	ContainersConfModule []string          // Additional .conf modules to load
+	GlobalArgs           []string          // Global Podman arguments for network creation
+	PodmanArgs           []string          // Additional Podman arguments for network creation
+	DisableDNS           bool              // Disable DNS for this network
+	DNS                  []string          // DNS servers for this network
+	Options              map[string]string // Advanced network options (in addition to base Options)
 }
 
 // IPAM represents IP address management configuration.

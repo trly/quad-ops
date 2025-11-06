@@ -189,6 +189,18 @@ func (a *App) GetLifecycle(_ context.Context) (LifecycleInterface, error) {
 	if a.platformErr != nil {
 		return nil, a.platformErr
 	}
+
+	// Validate that we got the expected platform implementation
+	targetOS := a.os
+	if targetOS == "" {
+		targetOS = runtime.GOOS
+	}
+	if targetOS == "linux" {
+		if _, ok := a.lifecycle.(*platsystemd.Lifecycle); !ok {
+			a.Logger.Warn("Expected systemd lifecycle on Linux", "got", fmt.Sprintf("%T", a.lifecycle))
+		}
+	}
+
 	return a.lifecycle, nil
 }
 

@@ -32,8 +32,8 @@ import (
 // in a platform-neutral way.
 //
 // For systemd/quadlet artifacts (.container, .network, .volume, .build):
-//   - "web-service-container.container" -> "web-service"
-//   - "web-service-network.network" -> "web-service"
+//   - "myapp-web.container" -> "myapp-web"
+//   - "myapp-db-volume.volume" -> "myapp-db-volume" (preserves '-volume' in name)
 //   - "api.container" -> "api"
 //
 // For launchd artifacts (.plist):
@@ -55,14 +55,9 @@ func parseServiceNameFromArtifact(path string) string {
 		return name
 	}
 
-	// For systemd/quadlet, strip common suffixes
-	suffixes := []string{"-container", "-network", "-volume", "-build"}
-	for _, suffix := range suffixes {
-		if strings.HasSuffix(name, suffix) {
-			return strings.TrimSuffix(name, suffix)
-		}
-	}
-
+	// For systemd/quadlet, the base name (without extension) IS the unit name
+	// Do NOT strip type suffixes - they may be part of the actual unit name
+	// e.g., "myapp-db-volume.volume" has unit name "myapp-db-volume"
 	return name
 }
 

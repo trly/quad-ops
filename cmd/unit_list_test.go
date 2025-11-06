@@ -132,7 +132,7 @@ func TestListCommand_ArtifactStoreError(t *testing.T) {
 
 	err := ExecuteCommand(t, cmd, []string{})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to list artifacts")
+	assert.Contains(t, err.Error(), "failed to list")
 	assert.Contains(t, err.Error(), "storage error")
 }
 
@@ -161,8 +161,15 @@ func TestListCommand_Run(t *testing.T) {
 		},
 	}
 
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return []platform.Artifact{}, nil // Empty filesystem by default
+		},
+	}
+
 	app := NewAppBuilder(t).
 		WithRepoArtifactStore(repoArtifactStore).
+		WithArtifactStore(artifactStore).
 		Build(t)
 
 	listCommand := NewListCommand()
@@ -170,6 +177,7 @@ func TestListCommand_Run(t *testing.T) {
 	deps := ListDeps{
 		CommonDeps:        NewCommonDeps(app.Logger),
 		RepoArtifactStore: repoArtifactStore,
+		ArtifactStore:     artifactStore,
 	}
 
 	err := listCommand.Run(context.Background(), app, opts, deps)
@@ -182,18 +190,23 @@ func TestParseServiceNameFromArtifact(t *testing.T) {
 		path     string
 		expected string
 	}{
+		// Systemd artifacts: base name (without extension) is the unit name
 		{"systemd container unit", "web-service.container", "web-service"},
-		{"systemd with -container suffix", "web-service-container.container", "web-service"},
-		{"systemd with -network suffix", "web-service-network.network", "web-service"},
-		{"systemd with -volume suffix", "web-service-volume.volume", "web-service"},
-		{"systemd with -build suffix", "web-service-build.build", "web-service"},
-		{"systemd volume named", "data-volume.volume", "data"},
-		{"systemd network named", "app-network-network.network", "app-network"},
-		{"systemd build named", "builder-build.build", "builder"},
+		{"systemd with -container suffix", "web-service-container.container", "web-service-container"},
+		{"systemd with -network suffix", "web-service-network.network", "web-service-network"},
+		{"systemd with -volume suffix", "web-service-volume.volume", "web-service-volume"},
+		{"systemd with -build suffix", "web-service-build.build", "web-service-build"},
+		{"systemd volume named", "data-volume.volume", "data-volume"},
+		{"systemd network named", "app-network-network.network", "app-network-network"},
+		{"systemd build named", "builder-build.build", "builder-build"},
+
+		// Launchd artifacts: extract service name after last dot in label
 		{"launchd plist", "com.example.web-service.plist", "web-service"},
 		{"launchd simple", "io.quadops.api.plist", "api"},
 		{"launchd no prefix", "simple.plist", "simple"},
-		{"nested path systemd", "subdir/my-service-container.container", "my-service"},
+
+		// Nested paths
+		{"nested path systemd", "subdir/my-service-container.container", "my-service-container"},
 		{"nested path launchd", "path/to/com.example.svc.plist", "svc"},
 	}
 
@@ -201,6 +214,54 @@ func TestParseServiceNameFromArtifact(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := parseServiceNameFromArtifact(tt.path)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestParseServiceNameFromArtifact_TypeSuffixPreserved tests REGRESSION R5.
+// Verifies that systemd artifact names ending with type suffixes preserve those suffixes.
+// Expected to FAIL until Step 2 fix is applied.
+func TestParseServiceNameFromArtifact_TypeSuffixPreserved(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		expected string
+		note     string
+	}{
+		{
+			name:     "volume literally named 'db-volume'",
+			path:     "myapp-db-volume.volume",
+			expected: "myapp-db-volume",
+			note:     "Should preserve '-volume' in service name",
+		},
+		{
+			name:     "network literally named 'backend-network'",
+			path:     "myapp-backend-network.network",
+			expected: "myapp-backend-network",
+			note:     "Should preserve '-network' in service name",
+		},
+		{
+			name:     "build literally named 'app-build'",
+			path:     "myapp-app-build.build",
+			expected: "myapp-app-build",
+			note:     "Should preserve '-build' in service name",
+		},
+		{
+			name:     "container with -container in actual name",
+			path:     "worker-container.container",
+			expected: "worker-container",
+			note:     "Edge case: service literally named 'worker-container'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := parseServiceNameFromArtifact(tt.path)
+			if result != tt.expected {
+				t.Logf("REGRESSION R5: %s", tt.note)
+				t.Logf("Got '%s', want '%s'", result, tt.expected)
+			}
+			assert.Equal(t, tt.expected, result, tt.note)
 		})
 	}
 }
@@ -276,7 +337,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 				}
 			},
 			expectError:   true,
-			errorContains: "failed to list artifacts",
+			errorContains: "failed to list",
 		},
 		{
 			name: "list with status - active service",
@@ -412,7 +473,16 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := tt.setupStore(tt.artifacts)
 
-			appBuilder := NewAppBuilder(t).WithRepoArtifactStore(store)
+			// Mock filesystem artifact store
+			fsStore := &MockArtifactStore{
+				ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+					return []platform.Artifact{}, nil
+				},
+			}
+
+			appBuilder := NewAppBuilder(t).
+				WithRepoArtifactStore(store).
+				WithArtifactStore(fsStore)
 
 			if tt.setupLifecycle != nil {
 				lifecycle := tt.setupLifecycle()
@@ -425,6 +495,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 			deps := ListDeps{
 				CommonDeps:        NewCommonDeps(app.Logger),
 				RepoArtifactStore: store,
+				ArtifactStore:     fsStore,
 			}
 
 			err := listCommand.Run(context.Background(), app, tt.opts, deps)
@@ -452,8 +523,15 @@ func TestListCommand_GetLifecycleError(t *testing.T) {
 		},
 	}
 
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return []platform.Artifact{}, nil
+		},
+	}
+
 	app := NewAppBuilder(t).
 		WithRepoArtifactStore(repoArtifactStore).
+		WithArtifactStore(artifactStore).
 		WithOS("unsupported-platform").
 		Build(t)
 
@@ -462,6 +540,7 @@ func TestListCommand_GetLifecycleError(t *testing.T) {
 	deps := ListDeps{
 		CommonDeps:        NewCommonDeps(app.Logger),
 		RepoArtifactStore: repoArtifactStore,
+		ArtifactStore:     artifactStore,
 	}
 
 	err := listCommand.Run(context.Background(), app, opts, deps)
@@ -492,8 +571,15 @@ func TestListCommand_MixedArtifactTypes(t *testing.T) {
 		},
 	}
 
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return []platform.Artifact{}, nil
+		},
+	}
+
 	app := NewAppBuilder(t).
 		WithRepoArtifactStore(repoArtifactStore).
+		WithArtifactStore(artifactStore).
 		WithLifecycle(lifecycle).
 		Build(t)
 
@@ -502,6 +588,7 @@ func TestListCommand_MixedArtifactTypes(t *testing.T) {
 	deps := ListDeps{
 		CommonDeps:        NewCommonDeps(app.Logger),
 		RepoArtifactStore: repoArtifactStore,
+		ArtifactStore:     artifactStore,
 	}
 
 	err := listCommand.Run(context.Background(), app, opts, deps)

@@ -41,8 +41,8 @@ func TestDownCommand_StopUnitsSuccess(t *testing.T) {
 	artifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return []platform.Artifact{
-				{Path: "/path/to/web-container.container"},
-				{Path: "/path/to/api-container.container"},
+				{Path: "/path/to/web.container"},
+				{Path: "/path/to/api.container"},
 			}, nil
 		},
 	}
@@ -82,7 +82,7 @@ func TestDownCommand_WithOutput(t *testing.T) {
 	artifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return []platform.Artifact{
-				{Path: "/path/to/web-container.container"},
+				{Path: "/path/to/web.container"},
 			}, nil
 		},
 	}
@@ -144,8 +144,8 @@ func TestDownCommand_StopErrors(t *testing.T) {
 	artifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return []platform.Artifact{
-				{Path: "/path/to/web-container.container"},
-				{Path: "/path/to/api-container.container"},
+				{Path: "/path/to/web.container"},
+				{Path: "/path/to/api.container"},
 			}, nil
 		},
 	}
@@ -224,8 +224,8 @@ func TestDownCommand_PurgeSuccess(t *testing.T) {
 	artifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return []platform.Artifact{
-				{Path: "/path/to/web-container.container"},
-				{Path: "/path/to/web-volume.volume"},
+				{Path: "/path/to/web.container"},
+				{Path: "/path/to/web-data.volume"},
 			}, nil
 		},
 		DeleteFunc: func(_ context.Context, paths []string) error {
@@ -265,8 +265,9 @@ func TestDownCommand_PurgeSpecificServices(t *testing.T) {
 	artifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return []platform.Artifact{
-				{Path: "/path/to/web-container.container"},
-				{Path: "/path/to/api-container.container"},
+				// Artifact paths use the actual unit names (base name without extension)
+				{Path: "/path/to/web.container"},
+				{Path: "/path/to/api.container"},
 			}, nil
 		},
 		DeleteFunc: func(_ context.Context, paths []string) error {
@@ -305,7 +306,7 @@ func TestDownCommand_PurgeDeleteError(t *testing.T) {
 	artifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return []platform.Artifact{
-				{Path: "/path/to/web-container.container"},
+				{Path: "/path/to/web.container"},
 			}, nil
 		},
 		DeleteFunc: func(_ context.Context, _ []string) error {
@@ -339,7 +340,7 @@ func TestDownCommand_PurgeReloadError(t *testing.T) {
 	artifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return []platform.Artifact{
-				{Path: "/path/to/web-container.container"},
+				{Path: "/path/to/web.container"},
 			}, nil
 		},
 		DeleteFunc: func(_ context.Context, _ []string) error {
@@ -379,7 +380,7 @@ func TestDownCommand_PurgeListError(t *testing.T) {
 			callCount++
 			if callCount == 1 {
 				return []platform.Artifact{
-					{Path: "/path/to/web-container.container"},
+					{Path: "/path/to/web.container"},
 				}, nil
 			}
 			return nil, errors.New("failed to list artifacts for purge")

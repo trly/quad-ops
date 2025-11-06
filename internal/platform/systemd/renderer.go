@@ -522,6 +522,36 @@ func (r *Renderer) renderVolume(vol service.Volume) string {
 		}
 	}
 
+	// Add Quadlet-specific extensions if present
+	if vol.Quadlet != nil {
+		if len(vol.Quadlet.ContainersConfModule) > 0 {
+			sorted := make([]string, len(vol.Quadlet.ContainersConfModule))
+			copy(sorted, vol.Quadlet.ContainersConfModule)
+			sort.Strings(sorted)
+			for _, module := range sorted {
+				builder.WriteString(formatKeyValue("ContainersConfModule", module))
+			}
+		}
+
+		if len(vol.Quadlet.GlobalArgs) > 0 {
+			sorted := make([]string, len(vol.Quadlet.GlobalArgs))
+			copy(sorted, vol.Quadlet.GlobalArgs)
+			sort.Strings(sorted)
+			for _, arg := range sorted {
+				builder.WriteString(formatKeyValue("GlobalArgs", arg))
+			}
+		}
+
+		if len(vol.Quadlet.PodmanArgs) > 0 {
+			sorted := make([]string, len(vol.Quadlet.PodmanArgs))
+			copy(sorted, vol.Quadlet.PodmanArgs)
+			sort.Strings(sorted)
+			for _, arg := range sorted {
+				builder.WriteString(formatKeyValue("PodmanArgs", arg))
+			}
+		}
+	}
+
 	return builder.String()
 }
 
@@ -575,6 +605,56 @@ func (r *Renderer) renderNetwork(net service.Network) string {
 		keys := sorting.GetSortedMapKeys(net.Labels)
 		for _, k := range keys {
 			builder.WriteString(formatKeyValue("Label", fmt.Sprintf("%s=%s", k, net.Labels[k])))
+		}
+	}
+
+	// Add Quadlet-specific extensions if present
+	if net.Quadlet != nil {
+		if net.Quadlet.DisableDNS {
+			builder.WriteString(formatKeyValue("DisableDNS", "yes"))
+		}
+
+		if len(net.Quadlet.DNS) > 0 {
+			sorted := make([]string, len(net.Quadlet.DNS))
+			copy(sorted, net.Quadlet.DNS)
+			sort.Strings(sorted)
+			for _, dns := range sorted {
+				builder.WriteString(formatKeyValue("DNS", dns))
+			}
+		}
+
+		if len(net.Quadlet.Options) > 0 {
+			keys := sorting.GetSortedMapKeys(net.Quadlet.Options)
+			for _, k := range keys {
+				builder.WriteString(formatKeyValue("Options", fmt.Sprintf("%s=%s", k, net.Quadlet.Options[k])))
+			}
+		}
+
+		if len(net.Quadlet.ContainersConfModule) > 0 {
+			sorted := make([]string, len(net.Quadlet.ContainersConfModule))
+			copy(sorted, net.Quadlet.ContainersConfModule)
+			sort.Strings(sorted)
+			for _, module := range sorted {
+				builder.WriteString(formatKeyValue("ContainersConfModule", module))
+			}
+		}
+
+		if len(net.Quadlet.GlobalArgs) > 0 {
+			sorted := make([]string, len(net.Quadlet.GlobalArgs))
+			copy(sorted, net.Quadlet.GlobalArgs)
+			sort.Strings(sorted)
+			for _, arg := range sorted {
+				builder.WriteString(formatKeyValue("GlobalArgs", arg))
+			}
+		}
+
+		if len(net.Quadlet.PodmanArgs) > 0 {
+			sorted := make([]string, len(net.Quadlet.PodmanArgs))
+			copy(sorted, net.Quadlet.PodmanArgs)
+			sort.Strings(sorted)
+			for _, arg := range sorted {
+				builder.WriteString(formatKeyValue("PodmanArgs", arg))
+			}
 		}
 	}
 

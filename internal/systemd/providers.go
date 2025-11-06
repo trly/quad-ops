@@ -307,9 +307,10 @@ func (o *DefaultOrchestrator) RestartChangedUnits(changedUnits []UnitChange, pro
 	// Wait for one-shot services to complete
 	time.Sleep(1 * time.Second)
 
-	// Phase 1: Initiate all container restarts asynchronously
-	o.logger.Debug("Initiating async restarts for container units")
-	containerUnits := make([]UnitChange, 0, len(changedUnits))
+	// Phase 1: Restart container units with dependency awareness
+	// On Linux (systemd), use synchronous restarts for proper dependency tracking
+	// This ensures the 'restarted' map is updated before checking dependencies
+	o.logger.Debug("Restarting container units with dependency awareness")
 	restarted := make(map[string]bool)
 
 	for _, unit := range changedUnits {
@@ -327,14 +328,13 @@ func (o *DefaultOrchestrator) RestartChangedUnits(changedUnits []UnitChange, pro
 				o.logger.Error("Failed to restart non-container unit",
 					"name", unit.Name, "type", unit.Type, "error", err)
 				restartFailures[unitKey] = err
+			} else {
+				restarted[unitKey] = true
 			}
 			continue
 		}
 
-		// For container units, initiate restart without waiting
-		containerUnits = append(containerUnits, unit)
-
-		// Check if we need dependency-aware restart
+		// For container units, check dependency graph before restarting
 		parts := splitUnitName(unit.Name)
 		if len(parts) == 2 {
 			projectName := parts[0]
@@ -349,39 +349,17 @@ func (o *DefaultOrchestrator) RestartChangedUnits(changedUnits []UnitChange, pro
 			}
 		}
 
-		// Initiate the restart asynchronously using systemd's async restart
-		o.logger.Debug("Initiating async restart", "name", unit.Name)
-		err := o.initiateAsyncRestart(unit.Name, unit.Type)
+		// Restart container synchronously to ensure dependency tracking works correctly
+		// Systemd's D-Bus RestartUnit is inherently synchronous and blocks until completion
+		o.logger.Debug("Restarting container synchronously", "name", unit.Name)
+		err := o.unitManager.Restart(unit.Name, unit.Type)
 		if err != nil {
-			o.logger.Error("Failed to initiate restart",
+			o.logger.Error("Failed to restart container",
 				"name", unit.Name, "error", err)
 			restartFailures[unitKey] = err
-		}
-	}
-
-	// Phase 2: Wait for all restarts to complete and check status
-	if len(containerUnits) > 0 {
-		o.logger.Info("Waiting for container units to complete restart", "count", len(containerUnits))
-		time.Sleep(5 * time.Second) // Initial wait for restarts to begin
-
-		// Check each container unit's final status
-		for _, unit := range containerUnits {
-			unitKey := fmt.Sprintf("%s.%s", unit.Name, unit.Type)
-
-			// Skip if we already marked this as failed during initiation
-			if _, failed := restartFailures[unitKey]; failed {
-				continue
-			}
-
-			// Check final status with activating state handling
-			err := o.checkUnitFinalStatus(unit.Name, unit.Type)
-			if err != nil {
-				o.logger.Error("Unit failed to reach active state",
-					"name", unit.Name, "error", err)
-				restartFailures[unitKey] = err
-			} else {
-				o.logger.Debug("Unit successfully restarted", "name", unit.Name)
-			}
+		} else {
+			o.logger.Debug("Unit successfully restarted", "name", unit.Name)
+			restarted[unitKey] = true
 		}
 	}
 
@@ -409,7 +387,9 @@ func (o *DefaultOrchestrator) RestartChangedUnits(changedUnits []UnitChange, pro
 }
 
 // initiateAsyncRestart starts a unit restart without waiting for completion.
-func (o *DefaultOrchestrator) initiateAsyncRestart(unitName, _ string) error {
+// NOTE: Currently unused - kept for potential future async restart needs (e.g., macOS compatibility layer).
+// Linux systemd operations use synchronous RestartUnit for proper dependency tracking.
+func (o *DefaultOrchestrator) initiateAsyncRestart(unitName, _ string) error { //nolint:unused // Kept for potential future async restart needs
 	conn, err := o.connectionFactory.NewConnection(context.Background(), o.configProvider.GetConfig().UserMode)
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)
@@ -447,7 +427,9 @@ func (o *DefaultOrchestrator) initiateAsyncRestart(unitName, _ string) error {
 }
 
 // checkUnitFinalStatus checks if a unit has reached active state, with handling for activating states.
-func (o *DefaultOrchestrator) checkUnitFinalStatus(unitName, _ string) error {
+// NOTE: Currently unused - kept for potential future async restart needs (e.g., macOS compatibility layer).
+// Linux systemd operations use synchronous RestartUnit which blocks until completion.
+func (o *DefaultOrchestrator) checkUnitFinalStatus(unitName, _ string) error { //nolint:unused // Kept for potential future async restart needs
 	conn, err := o.connectionFactory.NewConnection(context.Background(), o.configProvider.GetConfig().UserMode)
 	if err != nil {
 		return fmt.Errorf("error connecting to systemd: %w", err)

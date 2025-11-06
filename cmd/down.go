@@ -132,12 +132,15 @@ func (c *DownCommand) Run(ctx context.Context, app *App, opts DownOptions, deps 
 			return nil
 		}
 
-		// Extract service names from artifacts using platform-neutral helper
+		// Extract service names from service artifacts only (.container, .plist)
 		serviceSet := make(map[string]bool)
 		for _, artifact := range artifacts {
-			serviceName := parseServiceNameFromArtifact(artifact.Path)
-			if serviceName != "" {
-				serviceSet[serviceName] = true
+			// Only parse service artifacts - volumes and networks cannot be stopped
+			if isServiceArtifact(artifact.Path) {
+				serviceName := parseServiceNameFromArtifact(artifact.Path)
+				if serviceName != "" {
+					serviceSet[serviceName] = true
+				}
 			}
 		}
 
@@ -183,12 +186,16 @@ func (c *DownCommand) Run(ctx context.Context, app *App, opts DownOptions, deps 
 		for _, artifact := range artifacts {
 			// If --services specified, only delete artifacts for those services
 			if len(opts.Services) > 0 {
-				serviceName := parseServiceNameFromArtifact(artifact.Path)
-				if c.shouldDeleteService(serviceName, opts.Services) {
-					pathsToDelete = append(pathsToDelete, artifact.Path)
+				// Only match service artifacts against the services list
+				// Volumes and networks are standalone resources
+				if isServiceArtifact(artifact.Path) {
+					serviceName := parseServiceNameFromArtifact(artifact.Path)
+					if c.shouldDeleteService(serviceName, opts.Services) {
+						pathsToDelete = append(pathsToDelete, artifact.Path)
+					}
 				}
 			} else {
-				// Delete all artifacts
+				// Delete all artifacts (services, volumes, networks)
 				pathsToDelete = append(pathsToDelete, artifact.Path)
 			}
 		}

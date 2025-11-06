@@ -372,3 +372,86 @@ func TestRenderer_HashConsistency(t *testing.T) {
 	assert.Equal(t, result1.Artifacts[0].Hash, result2.Artifacts[0].Hash)
 	assert.Equal(t, result1.ServiceChanges["test"].ContentHash, result2.ServiceChanges["test"].ContentHash)
 }
+
+func TestRenderer_QuadletVolumeExtensions(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name: "app",
+		Volumes: []service.Volume{
+			{
+				Name:   "data",
+				Driver: "local",
+				Quadlet: &service.QuadletVolume{
+					ContainersConfModule: []string{"/etc/containers/storage.conf"},
+					GlobalArgs:           []string{"--log-level=debug"},
+					PodmanArgs:           []string{"--opt=type=tmpfs"},
+				},
+			},
+		},
+		Container: service.Container{
+			Image: "alpine:latest",
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	var volumeContent string
+	for _, a := range result.Artifacts {
+		if a.Path == "data.volume" {
+			volumeContent = string(a.Content)
+			break
+		}
+	}
+
+	require.NotEmpty(t, volumeContent)
+	assert.Contains(t, volumeContent, "ContainersConfModule=/etc/containers/storage.conf")
+	assert.Contains(t, volumeContent, "GlobalArgs=--log-level=debug")
+	assert.Contains(t, volumeContent, "PodmanArgs=--opt=type=tmpfs")
+}
+
+func TestRenderer_QuadletNetworkExtensions(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name: "app",
+		Networks: []service.Network{
+			{
+				Name:   "backend",
+				Driver: "bridge",
+				Quadlet: &service.QuadletNetwork{
+					DisableDNS:           true,
+					DNS:                  []string{"8.8.8.8", "8.8.4.4"},
+					ContainersConfModule: []string{"/etc/containers/network.conf"},
+					PodmanArgs:           []string{"--dns-search=example.com"},
+				},
+			},
+		},
+		Container: service.Container{
+			Image: "alpine:latest",
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	var networkContent string
+	for _, a := range result.Artifacts {
+		if a.Path == "backend.network" {
+			networkContent = string(a.Content)
+			break
+		}
+	}
+
+	require.NotEmpty(t, networkContent)
+	assert.Contains(t, networkContent, "DisableDNS=yes")
+	assert.Contains(t, networkContent, "DNS=8.8.4.4")
+	assert.Contains(t, networkContent, "DNS=8.8.8.8")
+	assert.Contains(t, networkContent, "ContainersConfModule=/etc/containers/network.conf")
+	assert.Contains(t, networkContent, "PodmanArgs=--dns-search=example.com")
+}
