@@ -41,9 +41,10 @@ type App struct {
 	FSService      *fs.Service
 
 	// Phase 6: New architecture components (non-platform)
-	ArtifactStore    repository.ArtifactStore  // Stores platform artifacts
-	GitSyncer        repository.GitSyncer      // Syncs git repositories
-	ComposeProcessor ComposeProcessorInterface // Processes compose to service specs
+	ArtifactStore     repository.ArtifactStore  // Stores deployed platform artifacts
+	RepoArtifactStore repository.ArtifactStore  // Stores managed artifacts in repository
+	GitSyncer         repository.GitSyncer      // Syncs git repositories
+	ComposeProcessor  ComposeProcessorInterface // Processes compose to service specs
 
 	// Platform-specific components (lazy initialization)
 	platformOnce sync.Once
@@ -64,9 +65,12 @@ func NewApp(logger log.Logger, configProv config.Provider) (*App, error) {
 	fsService := fs.NewServiceWithLogger(configProv, logger)
 
 	// New architecture components (platform-independent)
-	// Use QuadletDir as artifact base - it's already platform-specific from config
-	artifactBaseDir := cfg.QuadletDir
-	artifactStore := repository.NewArtifactStore(fsService, logger, artifactBaseDir)
+	// ArtifactStore for deployed artifacts
+	deployedBaseDir := cfg.QuadletDir
+	artifactStore := repository.NewArtifactStore(fsService, logger, deployedBaseDir)
+	// RepoArtifactStore for managed artifacts in repository
+	repoBaseDir := cfg.RepositoryDir
+	repoArtifactStore := repository.NewArtifactStore(fsService, logger, repoBaseDir)
 	gitSyncer := repository.NewGitSyncer(configProv, logger)
 	composeProcessor := newComposeProcessor(cfg)
 
@@ -81,9 +85,10 @@ func NewApp(logger log.Logger, configProv config.Provider) (*App, error) {
 		FSService:      fsService,
 
 		// New architecture components (platform-independent)
-		ArtifactStore:    artifactStore,
-		GitSyncer:        gitSyncer,
-		ComposeProcessor: composeProcessor,
+		ArtifactStore:     artifactStore,
+		RepoArtifactStore: repoArtifactStore,
+		GitSyncer:         gitSyncer,
+		ComposeProcessor:  composeProcessor,
 
 		// Platform components initialized lazily
 		os: runtime.GOOS,

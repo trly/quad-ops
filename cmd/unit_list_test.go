@@ -50,7 +50,7 @@ func TestListCommand_Success(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithArtifactStore(artifactStore).
+		WithRepoArtifactStore(artifactStore).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
@@ -87,7 +87,7 @@ func TestListCommand_WithStatus(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithArtifactStore(artifactStore).
+		WithRepoArtifactStore(artifactStore).
 		WithLifecycle(lifecycle).
 		Build(t)
 
@@ -106,7 +106,7 @@ func TestListCommand_EmptyList(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithArtifactStore(artifactStore).
+		WithRepoArtifactStore(artifactStore).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
@@ -124,7 +124,7 @@ func TestListCommand_ArtifactStoreError(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithArtifactStore(artifactStore).
+		WithRepoArtifactStore(artifactStore).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
@@ -141,7 +141,7 @@ func TestListCommand_Help(t *testing.T) {
 	output, err := ExecuteCommandWithCapture(t, cmd, []string{"--help"})
 
 	require.NoError(t, err)
-	assert.Contains(t, output, "Lists artifacts currently managed by quad-ops")
+	assert.Contains(t, output, "Lists deployed artifacts currently managed by quad-ops")
 	assert.Contains(t, output, "--status")
 }
 
@@ -155,21 +155,21 @@ func TestListCommand_Run(t *testing.T) {
 		},
 	}
 
-	artifactStore := &MockArtifactStore{
+	repoArtifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return artifacts, nil
 		},
 	}
 
 	app := NewAppBuilder(t).
-		WithArtifactStore(artifactStore).
+		WithRepoArtifactStore(repoArtifactStore).
 		Build(t)
 
 	listCommand := NewListCommand()
 	opts := ListOptions{Status: false}
 	deps := ListDeps{
-		CommonDeps:    NewCommonDeps(app.Logger),
-		ArtifactStore: artifactStore,
+		CommonDeps:        NewCommonDeps(app.Logger),
+		RepoArtifactStore: repoArtifactStore,
 	}
 
 	err := listCommand.Run(context.Background(), app, opts, deps)
@@ -412,7 +412,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := tt.setupStore(tt.artifacts)
 
-			appBuilder := NewAppBuilder(t).WithArtifactStore(store)
+			appBuilder := NewAppBuilder(t).WithRepoArtifactStore(store)
 
 			if tt.setupLifecycle != nil {
 				lifecycle := tt.setupLifecycle()
@@ -423,8 +423,8 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 
 			listCommand := NewListCommand()
 			deps := ListDeps{
-				CommonDeps:    NewCommonDeps(app.Logger),
-				ArtifactStore: store,
+				CommonDeps:        NewCommonDeps(app.Logger),
+				RepoArtifactStore: store,
 			}
 
 			err := listCommand.Run(context.Background(), app, tt.opts, deps)
@@ -446,22 +446,22 @@ func TestListCommand_GetLifecycleError(t *testing.T) {
 		{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
 	}
 
-	artifactStore := &MockArtifactStore{
+	repoArtifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return artifacts, nil
 		},
 	}
 
 	app := NewAppBuilder(t).
-		WithArtifactStore(artifactStore).
+		WithRepoArtifactStore(repoArtifactStore).
 		WithOS("unsupported-platform").
 		Build(t)
 
 	listCommand := NewListCommand()
 	opts := ListOptions{Status: true}
 	deps := ListDeps{
-		CommonDeps:    NewCommonDeps(app.Logger),
-		ArtifactStore: artifactStore,
+		CommonDeps:        NewCommonDeps(app.Logger),
+		RepoArtifactStore: repoArtifactStore,
 	}
 
 	err := listCommand.Run(context.Background(), app, opts, deps)
@@ -476,7 +476,7 @@ func TestListCommand_MixedArtifactTypes(t *testing.T) {
 		{Path: "dev.trly.quad-ops.app-network.network", Hash: "net789", Mode: 0644},
 	}
 
-	artifactStore := &MockArtifactStore{
+	repoArtifactStore := &MockArtifactStore{
 		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
 			return artifacts, nil
 		},
@@ -493,15 +493,15 @@ func TestListCommand_MixedArtifactTypes(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithArtifactStore(artifactStore).
+		WithRepoArtifactStore(repoArtifactStore).
 		WithLifecycle(lifecycle).
 		Build(t)
 
 	listCommand := NewListCommand()
 	opts := ListOptions{Status: true}
 	deps := ListDeps{
-		CommonDeps:    NewCommonDeps(app.Logger),
-		ArtifactStore: artifactStore,
+		CommonDeps:        NewCommonDeps(app.Logger),
+		RepoArtifactStore: repoArtifactStore,
 	}
 
 	err := listCommand.Run(context.Background(), app, opts, deps)

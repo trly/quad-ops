@@ -44,7 +44,7 @@ type ListOptions struct {
 // ListDeps holds list dependencies.
 type ListDeps struct {
 	CommonDeps
-	ArtifactStore repository.ArtifactStore
+	RepoArtifactStore repository.ArtifactStore
 }
 
 // ListCommand represents the unit list command.
@@ -66,7 +66,7 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 
 	unitListCmd := &cobra.Command{
 		Use:   "list",
-		Short: "Lists artifacts currently managed by quad-ops",
+		Short: "Lists deployed artifacts currently managed by quad-ops",
 		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			app := c.getApp(cmd)
 			return app.Validator.SystemRequirements()
@@ -87,15 +87,19 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 
 // Run executes the list command with injected dependencies.
 func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps ListDeps) error {
-	// Fetch artifacts from ArtifactStore
-	artifacts, err := deps.ArtifactStore.List(ctx)
+	// Fetch artifacts from RepoArtifactStore
+	artifacts, err := deps.RepoArtifactStore.List(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list artifacts: %w", err)
 	}
 
-	if len(artifacts) == 0 {
-		deps.Logger.Info("No artifacts found")
-		return nil
+	// Filter to only artifacts that are deployed (exist in QuadletDir)
+	var deployedArtifacts []platform.Artifact
+	for _, artifact := range artifacts {
+		deployedPath := filepath.Join(app.Config.QuadletDir, artifact.Path)
+		if _, err := deps.FileSystem.Stat(deployedPath); err == nil {
+			deployedArtifacts = append(deployedArtifacts, artifact)
+		}
 	}
 
 	// Get lifecycle if status is requested
@@ -106,6 +110,11 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 			return fmt.Errorf("failed to get lifecycle: %w", err)
 		}
 		lifecycle = lc
+	}
+
+	if len(deployedArtifacts) == 0 {
+		deps.Logger.Info("No deployed artifacts found")
+		return nil
 	}
 
 	// Setup table with appropriate columns
@@ -121,7 +130,7 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 	tbl.WithHeaderFormatter(headerFmt).WithFirstColumnFormatter(columnFmt)
 
 	// Display artifacts
-	for _, artifact := range artifacts {
+	for _, artifact := range deployedArtifacts {
 		hashStr := artifact.Hash
 		if len(hashStr) > 12 {
 			hashStr = hashStr[:12] // First 12 chars
@@ -156,8 +165,8 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 // Note: Lifecycle is obtained via lazy getter in Run() when status is requested.
 func (c *ListCommand) buildDeps(app *App) ListDeps {
 	return ListDeps{
-		CommonDeps:    NewRootDeps(app),
-		ArtifactStore: app.ArtifactStore,
+		CommonDeps:        NewRootDeps(app),
+		RepoArtifactStore: app.RepoArtifactStore,
 	}
 }
 

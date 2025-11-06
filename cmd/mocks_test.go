@@ -188,14 +188,15 @@ func (m *MockGitSyncer) SyncRepo(ctx context.Context, repo config.Repository) re
 
 // AppBuilder provides a fluent interface for building test Apps.
 type AppBuilder struct {
-	logger           log.Logger
-	config           *config.Settings
-	validator        SystemValidator
-	renderer         RendererInterface
-	lifecycle        LifecycleInterface
-	artifactStore    repository.ArtifactStore
-	composeProcessor ComposeProcessorInterface
-	os               string
+	logger            log.Logger
+	config            *config.Settings
+	validator         SystemValidator
+	renderer          RendererInterface
+	lifecycle         LifecycleInterface
+	artifactStore     repository.ArtifactStore
+	repoArtifactStore repository.ArtifactStore
+	composeProcessor  ComposeProcessorInterface
+	os                string
 }
 
 // NewAppBuilder creates a new AppBuilder with sensible defaults.
@@ -244,6 +245,11 @@ func (b *AppBuilder) WithArtifactStore(a repository.ArtifactStore) *AppBuilder {
 	return b
 }
 
+func (b *AppBuilder) WithRepoArtifactStore(a repository.ArtifactStore) *AppBuilder {
+	b.repoArtifactStore = a
+	return b
+}
+
 func (b *AppBuilder) WithComposeProcessor(cp ComposeProcessorInterface) *AppBuilder {
 	b.composeProcessor = cp
 	return b
@@ -251,16 +257,17 @@ func (b *AppBuilder) WithComposeProcessor(cp ComposeProcessorInterface) *AppBuil
 
 func (b *AppBuilder) Build(t *testing.T) *App {
 	return &App{
-		Logger:           b.logger,
-		Config:           b.config,
-		ConfigProvider:   testutil.NewMockConfig(t),
-		Runner:           &execx.RealRunner{},
-		FSService:        &fs.Service{},
-		Validator:        b.validator,
-		renderer:         b.renderer,
-		lifecycle:        b.lifecycle,
-		ArtifactStore:    b.artifactStore,
-		ComposeProcessor: b.composeProcessor,
-		os:               b.os,
+		Logger:            b.logger,
+		Config:            b.config,
+		ConfigProvider:    testutil.NewMockConfig(t),
+		Runner:            &execx.RealRunner{},
+		FSService:         &fs.Service{},
+		Validator:         b.validator,
+		renderer:          b.renderer,
+		lifecycle:         b.lifecycle,
+		ArtifactStore:     b.artifactStore,
+		RepoArtifactStore: b.repoArtifactStore,
+		ComposeProcessor:  b.composeProcessor,
+		os:                b.os,
 	}
 }
