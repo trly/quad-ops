@@ -215,6 +215,9 @@ func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncO
 	}
 
 	repoPath := filepath.Join(app.Config.RepositoryDir, result.Repository.Name)
+	if result.Repository.ComposeDir != "" {
+		repoPath = filepath.Join(repoPath, result.Repository.ComposeDir)
+	}
 	projects, err := compose.ReadProjects(repoPath)
 	if err != nil {
 		return fmt.Errorf("failed to read compose projects: %w", err)

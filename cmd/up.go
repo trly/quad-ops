@@ -250,6 +250,9 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		deps.Logger.Debug("Processing repository", "repo", repo.Name)
 
 		repoPath := filepath.Join(app.Config.RepositoryDir, repo.Name)
+		if repo.ComposeDir != "" {
+			repoPath = filepath.Join(repoPath, repo.ComposeDir)
+		}
 
 		// Read compose files from repository
 		projects, err := compose.ReadProjects(repoPath)
