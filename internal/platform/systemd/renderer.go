@@ -141,6 +141,26 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 		}
 	}
 
+	// Add dependencies for volumes
+	if len(spec.Volumes) > 0 {
+		for _, vol := range spec.Volumes {
+			if !vol.External {
+				builder.WriteString(fmt.Sprintf("After=%s.service\n", vol.Name))
+				builder.WriteString(fmt.Sprintf("Requires=%s.service\n", vol.Name))
+			}
+		}
+	}
+
+	// Add dependencies for networks
+	if len(spec.Networks) > 0 {
+		for _, net := range spec.Networks {
+			if !net.External {
+				builder.WriteString(fmt.Sprintf("After=%s.service\n", net.Name))
+				builder.WriteString(fmt.Sprintf("Requires=%s.service\n", net.Name))
+			}
+		}
+	}
+
 	builder.WriteString("\n[Container]\n")
 	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
@@ -159,7 +179,7 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addEnvironment(&builder, spec.Container)
 	r.addPorts(&builder, spec.Container)
 	r.addMounts(&builder, spec.Container)
-	r.addNetworks(&builder, spec.Container)
+	r.addNetworks(&builder, spec.Container, spec)
 	r.addExecution(&builder, spec.Container)
 	r.addHealthcheck(&builder, spec.Container)
 	r.addResources(&builder, spec.Container)
@@ -231,7 +251,12 @@ func (r *Renderer) addMounts(builder *strings.Builder, c service.Container) {
 
 	mounts := make([]string, 0, len(c.Mounts))
 	for _, m := range c.Mounts {
-		mountStr := fmt.Sprintf("%s:%s", m.Source, m.Target)
+		source := m.Source
+		// Append .volume suffix for named volumes to enable automatic Quadlet dependencies
+		if m.Type == service.MountTypeVolume {
+			source = source + ".volume"
+		}
+		mountStr := fmt.Sprintf("%s:%s", source, m.Target)
 		if m.ReadOnly {
 			mountStr += ":ro"
 		}
@@ -254,7 +279,7 @@ func (r *Renderer) addMounts(builder *strings.Builder, c service.Container) {
 }
 
 // addNetworks adds network configuration.
-func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container) {
+func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container, spec service.Spec) {
 	if c.Network.Mode != "" && c.Network.Mode != "bridge" {
 		builder.WriteString(formatKeyValue("Network", c.Network.Mode))
 	}
@@ -265,6 +290,13 @@ func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container) {
 		sort.Strings(sorted)
 		for _, alias := range sorted {
 			builder.WriteString(formatKeyValue("NetworkAlias", alias))
+		}
+	}
+
+	// Add Network directives for named networks with .network suffix to enable automatic Quadlet dependencies
+	for _, net := range spec.Networks {
+		if !net.External {
+			builder.WriteString(formatKeyValue("Network", net.Name+".network"))
 		}
 	}
 }
