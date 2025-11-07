@@ -12,7 +12,7 @@ services:
     secrets:
     - db-password
     x-podman-env-secrets:
-    db-password: WORDPRESS_DB_PASSWORD  # Available as $WORDPRESS_DB_PASSWORD
+      db-password: WORDPRESS_DB_PASSWORD  # Available as $WORDPRESS_DB_PASSWORD
     depends_on:
       - db
     restart: always
@@ -30,7 +30,7 @@ services:
     secrets:
     - db-password
     x-podman-env-secrets:
-    db-password: MYSQL_PASSWORD  # Available as $MYSQL_PASSWORD
+      db-password: MYSQL_PASSWORD  # Available as $MYSQL_PASSWORD
     restart: always
     networks:
       - app-network
@@ -43,5 +43,5 @@ networks:
   app-network:
 
 secrets:
-db-password:
-external: true # create this secret in podman
+  db-password:
+    external: true # create this secret in podman

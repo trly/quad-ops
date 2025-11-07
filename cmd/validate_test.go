@@ -548,8 +548,10 @@ func TestValidateService(t *testing.T) {
 			service: types.ServiceConfig{
 				Name:  "app",
 				Image: "myapp:latest",
-				Labels: types.Labels{
-					"x-podman-env-secrets": "non_existent_secret",
+				Extensions: map[string]interface{}{
+					"x-podman-env-secrets": map[string]interface{}{
+						"non_existent_secret": "SOME_ENV",
+					},
 				},
 			},
 			expectError: true,

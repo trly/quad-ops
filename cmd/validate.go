@@ -423,19 +423,30 @@ func validateService(_ string, service types.ServiceConfig, _ *types.Project, va
 		return fmt.Errorf("init containers: %w", err)
 	}
 
-	// Validate x-podman-env-secrets label
-	if envSecretsLabel, exists := service.Labels["x-podman-env-secrets"]; exists {
-		secretNames := strings.Split(envSecretsLabel, ",")
-		for _, secretName := range secretNames {
-			secretName = strings.TrimSpace(secretName)
-			if secretName == "" {
-				continue
+	// Validate x-podman-env-secrets extension
+	if ext, exists := service.Extensions["x-podman-env-secrets"]; exists {
+		if envSecretsMap, ok := ext.(map[string]interface{}); ok {
+			for secretName, envVar := range envSecretsMap {
+				if envVarStr, ok := envVar.(string); ok {
+					// Validate secret name
+					if err := validator.SecretValidator.ValidateSecretName(secretName); err != nil {
+						return fmt.Errorf("invalid secret name '%s' in x-podman-env-secrets: %w", secretName, err)
+					}
+					// Validate env var name
+					if err := validate.EnvKey(envVarStr); err != nil {
+						return fmt.Errorf("invalid environment variable name '%s' in x-podman-env-secrets: %w", envVarStr, err)
+					}
+					// Check if secret exists in podman
+					ctx := context.Background()
+					if err := validator.ValidatePodmanSecretExists(ctx, secretName); err != nil {
+						return fmt.Errorf("podman secret '%s' referenced in x-podman-env-secrets does not exist: %w", secretName, err)
+					}
+				} else {
+					return fmt.Errorf("invalid value for secret '%s' in x-podman-env-secrets, expected string", secretName)
+				}
 			}
-			// Check if secret exists in podman
-			ctx := context.Background()
-			if err := validator.ValidatePodmanSecretExists(ctx, secretName); err != nil {
-				return fmt.Errorf("podman secret '%s' referenced in x-podman-env-secrets does not exist: %w", secretName, err)
-			}
+		} else {
+			return fmt.Errorf("x-podman-env-secrets must be a mapping of secret names to environment variable names")
 		}
 	}
 
