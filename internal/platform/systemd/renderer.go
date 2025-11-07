@@ -440,7 +440,7 @@ func (r *Renderer) addLogging(builder *strings.Builder, c service.Container) {
 
 // addSecrets adds secrets configuration.
 func (r *Renderer) addSecrets(builder *strings.Builder, c service.Container) {
-	if len(c.Secrets) == 0 {
+	if len(c.Secrets) == 0 && len(c.EnvSecrets) == 0 {
 		return
 	}
 
@@ -467,6 +467,14 @@ func (r *Renderer) addSecrets(builder *strings.Builder, c service.Container) {
 		if s.Mode != "" {
 			secretStr += ",mode=" + s.Mode
 		}
+		builder.WriteString(formatKeyValue("Secret", secretStr))
+	}
+
+	// Add environment secrets
+	envSecretKeys := sorting.GetSortedMapKeys(c.EnvSecrets)
+	for _, secretName := range envSecretKeys {
+		envVarName := c.EnvSecrets[secretName]
+		secretStr := fmt.Sprintf("%s,type=env,target=%s", secretName, envVarName)
 		builder.WriteString(formatKeyValue("Secret", secretStr))
 	}
 }

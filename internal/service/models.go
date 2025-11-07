@@ -43,6 +43,7 @@ type Container struct {
 	ReadOnly      bool              // Read-only root filesystem
 	Logging       Logging           // Logging configuration
 	Secrets       []Secret          // Secrets to mount
+	EnvSecrets    map[string]string // Secrets to expose as environment variables (secret_name -> env_var_name)
 	Network       NetworkMode       // Network mode configuration
 	Tmpfs         []string          // Tmpfs mounts
 	Ulimits       []Ulimit          // Ulimit settings
@@ -50,6 +51,13 @@ type Container struct {
 	UserNS        string            // User namespace mode
 	PodmanArgs    []string          // Additional Podman arguments
 	PidsLimit     int64             // Maximum PIDs
+}
+
+// InitContainer represents an init container configuration.
+// Init containers run before the main service and must complete successfully.
+type InitContainer struct {
+	Image   string   // Container image (required)
+	Command []string // Command to run (required)
 }
 
 // Port represents a port mapping.

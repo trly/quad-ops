@@ -4,6 +4,7 @@ package compose
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -31,39 +32,60 @@ func NewSpecConverter(workingDir string) *SpecConverter {
 func (sc *SpecConverter) ConvertProject(project *types.Project) ([]service.Spec, error) {
 	specs := make([]service.Spec, 0, len(project.Services))
 
-	// Convert each service to a Spec
+	// Convert each service to one or more Specs
 	for serviceName, composeService := range project.Services {
-		spec, err := sc.convertService(serviceName, composeService, project)
+		serviceSpecs, err := sc.convertService(serviceName, composeService, project)
 		if err != nil {
 			return nil, fmt.Errorf("failed to convert service %s: %w", serviceName, err)
 		}
-		specs = append(specs, spec)
+		specs = append(specs, serviceSpecs...)
 	}
 
 	return specs, nil
 }
 
-// convertService converts a single Docker Compose service to a service.Spec.
-func (sc *SpecConverter) convertService(serviceName string, composeService types.ServiceConfig, project *types.Project) (service.Spec, error) {
+// convertService converts a single Docker Compose service to one or more service.Spec instances.
+// Init containers are converted to separate specs with dependencies on the main service.
+func (sc *SpecConverter) convertService(serviceName string, composeService types.ServiceConfig, project *types.Project) ([]service.Spec, error) {
 	// Create sanitized service name
 	sanitizedName := service.SanitizeName(Prefix(project.Name, serviceName))
 
+	// Convert extensions
+	initContainers := sc.convertInitContainers(serviceName, composeService, project)
+	envSecrets := sc.convertEnvSecrets(composeService)
+
+	container := sc.convertContainer(composeService, serviceName, project)
+	container.EnvSecrets = envSecrets
+
+	// Create main service spec
 	spec := service.Spec{
 		Name:        sanitizedName,
 		Description: fmt.Sprintf("Service %s from project %s", serviceName, project.Name),
-		Container:   sc.convertContainer(composeService, serviceName, project),
+		Container:   container,
 		Volumes:     sc.convertProjectVolumes(project),
 		Networks:    sc.convertProjectNetworks(project),
 		DependsOn:   sc.convertDependencies(composeService.DependsOn, project.Name),
 		Annotations: sc.convertLabels(composeService.Labels),
 	}
 
-	// Validate the spec
-	if err := spec.Validate(); err != nil {
-		return service.Spec{}, fmt.Errorf("validation failed for service %s: %w", serviceName, err)
+	// Add dependencies on init containers
+	if len(initContainers) > 0 {
+		initDeps := make([]string, len(initContainers))
+		for i, initSpec := range initContainers {
+			initDeps[i] = initSpec.Name
+		}
+		spec.DependsOn = append(spec.DependsOn, initDeps...)
 	}
 
-	return spec, nil
+	// Validate the main spec
+	if err := spec.Validate(); err != nil {
+		return nil, fmt.Errorf("validation failed for service %s: %w", serviceName, err)
+	}
+
+	// Combine specs: init containers first, then main service
+	specs := append(initContainers, spec)
+
+	return specs, nil
 }
 
 // convertContainer converts Docker Compose service config to service.Container.
@@ -626,4 +648,106 @@ func (sc *SpecConverter) convertIPAM(ipam *types.IPAMConfig) *service.IPAM {
 	}
 
 	return result
+}
+
+// convertInitContainers converts x-quad-ops-init extension to init container specs.
+// Init containers are only supported on Linux due to systemd dependency requirements.
+func (sc *SpecConverter) convertInitContainers(serviceName string, composeService types.ServiceConfig, project *types.Project) []service.Spec {
+	// Init containers require systemd dependencies, so only implement on Linux
+	if runtime.GOOS != "linux" {
+		return nil
+	}
+
+	extension, exists := composeService.Extensions["x-quad-ops-init"]
+	if !exists {
+		return nil
+	}
+
+	initList, ok := extension.([]interface{})
+	if !ok {
+		return nil
+	}
+
+	specs := make([]service.Spec, 0, len(initList))
+	baseName := service.SanitizeName(Prefix(project.Name, serviceName))
+
+	for i, item := range initList {
+		initMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		initSpec := service.Spec{
+			Name:        fmt.Sprintf("%s-init-%d", baseName, i),
+			Description: fmt.Sprintf("Init container %d for service %s", i, serviceName),
+			Container: service.Container{
+				Image:   sc.getStringFromMap(initMap, "image"),
+				Command: sc.getStringSliceFromMap(initMap, "command"),
+			},
+			// Init containers don't need volumes/networks from project, only what's specified
+			DependsOn: []string{}, // No dependencies for init containers themselves
+		}
+
+		// Validate init container spec
+		if err := initSpec.Validate(); err != nil {
+			// Skip invalid init containers but don't fail the whole conversion
+			continue
+		}
+
+		specs = append(specs, initSpec)
+	}
+
+	return specs
+}
+
+// convertEnvSecrets converts x-podman-env-secrets extension to env secrets map.
+func (sc *SpecConverter) convertEnvSecrets(composeService types.ServiceConfig) map[string]string {
+	extension, exists := composeService.Extensions["x-podman-env-secrets"]
+	if !exists {
+		return nil
+	}
+
+	envSecrets, ok := extension.(map[string]interface{})
+	if !ok {
+		return nil
+	}
+
+	result := make(map[string]string)
+	for secretName, envVar := range envSecrets {
+		if envVarStr, ok := envVar.(string); ok {
+			result[secretName] = envVarStr
+		}
+	}
+
+	return result
+}
+
+// getStringFromMap extracts a string value from a map.
+func (sc *SpecConverter) getStringFromMap(m map[string]interface{}, key string) string {
+	if val, exists := m[key]; exists {
+		if str, ok := val.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+// getStringSliceFromMap extracts a string slice from a map.
+func (sc *SpecConverter) getStringSliceFromMap(m map[string]interface{}, key string) []string {
+	if val, exists := m[key]; exists {
+		if slice, ok := val.([]interface{}); ok {
+			result := make([]string, len(slice))
+			for i, item := range slice {
+				if str, ok := item.(string); ok {
+					result[i] = str
+				}
+			}
+			return result
+		}
+		if str, ok := val.(string); ok {
+			// Single string, convert to slice
+			return []string{str}
+		}
+	}
+	return nil
 }

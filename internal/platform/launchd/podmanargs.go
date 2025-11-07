@@ -121,6 +121,12 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 		args = append(args, "--secret", secretArg)
 	}
 
+	// Environment secrets (Podman-specific feature)
+	for secretName, envVarName := range spec.Container.EnvSecrets {
+		secretArg := fmt.Sprintf("%s,type=env,target=%s", secretName, envVarName)
+		args = append(args, "--secret", secretArg)
+	}
+
 	// Healthcheck
 	args = appendHealthcheckArgs(args, spec.Container.Healthcheck)
 

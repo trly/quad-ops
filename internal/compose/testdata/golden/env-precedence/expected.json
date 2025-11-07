@@ -59,6 +59,7 @@
           "Options": null
         },
         "Secrets": null,
+        "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
           "Aliases": null

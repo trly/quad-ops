@@ -80,7 +80,7 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 		serviceName    string
 		composeService types.ServiceConfig
 		project        *types.Project
-		validate       func(t *testing.T, spec service.Spec)
+		validate       func(t *testing.T, specs []service.Spec)
 		wantErr        bool
 	}{
 		{
@@ -94,7 +94,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.Equal(t, "test-web", spec.Name)
 				assert.Equal(t, "nginx:latest", spec.Container.Image)
 			},
@@ -116,7 +118,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.Len(t, spec.Container.Env, 4)
 				assert.Equal(t, "true", spec.Container.Env["DEBUG"])
 				assert.Equal(t, "8080", spec.Container.Env["PORT"])
@@ -148,7 +152,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.Len(t, spec.Container.Ports, 2)
 				assert.Equal(t, uint16(8080), spec.Container.Ports[0].HostPort)
 				assert.Equal(t, uint16(80), spec.Container.Ports[0].Container)
@@ -185,7 +191,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.Len(t, spec.Container.Mounts, 3)
 				assert.Equal(t, service.MountTypeBind, spec.Container.Mounts[0].Type)
 				assert.Equal(t, "/host/path", spec.Container.Mounts[0].Source)
@@ -212,7 +220,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				require.NotNil(t, spec.Container.Healthcheck)
 				assert.Equal(t, []string{"CMD", "curl", "-f", "http://localhost"}, spec.Container.Healthcheck.Test)
 				assert.Equal(t, 30*time.Second, spec.Container.Healthcheck.Interval)
@@ -234,7 +244,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.Equal(t, service.RestartPolicyUnlessStopped, spec.Container.RestartPolicy)
 			},
 		},
@@ -258,7 +270,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				require.NotNil(t, spec.Container.Build)
 				assert.Contains(t, spec.Container.Build.Context, "/test/app")
 				assert.Equal(t, "Dockerfile.prod", spec.Container.Build.Dockerfile)
@@ -282,7 +296,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.Len(t, spec.DependsOn, 2)
 				// Dependencies should be sorted
 				assert.Contains(t, spec.DependsOn, "test-db")
@@ -312,7 +328,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.Equal(t, "512m", spec.Container.Resources.Memory)
 				assert.Equal(t, "256m", spec.Container.Resources.MemoryReservation)
 				assert.Equal(t, int64(50000), spec.Container.Resources.CPUQuota)
@@ -340,7 +358,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.True(t, spec.Container.Security.Privileged)
 				assert.Equal(t, []string{"NET_ADMIN", "SYS_TIME"}, spec.Container.Security.CapAdd)
 				assert.Equal(t, []string{"ALL"}, spec.Container.Security.CapDrop)
@@ -364,7 +384,9 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 			},
-			validate: func(t *testing.T, spec service.Spec) {
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
 				assert.Equal(t, "1000", spec.Container.User)
 				assert.Equal(t, "1000", spec.Container.Group)
 				assert.Equal(t, "/app", spec.Container.WorkingDir)
@@ -376,7 +398,7 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			converter := NewSpecConverter(tt.project.WorkingDir)
-			spec, err := converter.convertService(tt.serviceName, tt.composeService, tt.project)
+			specs, err := converter.convertService(tt.serviceName, tt.composeService, tt.project)
 
 			if tt.wantErr {
 				require.Error(t, err)
@@ -384,10 +406,12 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.NoError(t, spec.Validate())
+			for _, spec := range specs {
+				assert.NoError(t, spec.Validate())
+			}
 
 			if tt.validate != nil {
-				tt.validate(t, spec)
+				tt.validate(t, specs)
 			}
 		})
 	}
