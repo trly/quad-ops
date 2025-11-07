@@ -2,6 +2,9 @@
 
 GitOps framework for Podman containers on Linux and macOS.
 
+## Issue tracking
+use bd (beads) for issue tracking instead of Markdown TODOs or external tools.
+
 ## Commands
 
 - **Build**: `task build` (fmt, lint, test, compile)
