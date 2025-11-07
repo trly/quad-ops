@@ -9,8 +9,8 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 )
 
-// TestConfigCommand_DisplayConfig tests config command.
-func TestConfigCommand_DisplayConfig(t *testing.T) {
+// TestConfigShowCommand_DisplayConfig tests config show command.
+func TestConfigShowCommand_DisplayConfig(t *testing.T) {
 	app := NewAppBuilder(t).
 		WithConfig(&config.Settings{
 			QuadletDir:    "/test/quadlet",
@@ -20,8 +20,8 @@ func TestConfigCommand_DisplayConfig(t *testing.T) {
 		}).
 		Build(t)
 
-	configCmd := NewConfigCommand()
-	cmd := configCmd.GetCobraCommand()
+	configShowCmd := NewConfigShowCommand()
+	cmd := configShowCmd.GetCobraCommand()
 	SetupCommandContext(cmd, app)
 
 	output, err := ExecuteCommandWithCapture(t, cmd, []string{})

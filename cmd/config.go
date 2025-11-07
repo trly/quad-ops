@@ -23,12 +23,7 @@ THE SOFTWARE.
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
-
-	"github.com/trly/quad-ops/internal/config"
 )
 
 // ConfigCommand represents the config command for quad-ops CLI.
@@ -39,32 +34,18 @@ func NewConfigCommand() *ConfigCommand {
 	return &ConfigCommand{}
 }
 
-// getApp retrieves the App from the command context.
-func (c *ConfigCommand) getApp(cmd *cobra.Command) *App {
-	return cmd.Context().Value(appContextKey).(*App)
-}
-
 // GetCobraCommand returns the cobra command for config operations.
 func (c *ConfigCommand) GetCobraCommand() *cobra.Command {
-	return &cobra.Command{
+	configCmd := &cobra.Command{
 		Use:   "config",
-		Short: "Display current configuration",
-		Long:  "Display the current configuration including defaults and overrides",
-		Run: func(cmd *cobra.Command, _ []string) {
-			// Try to get config from app context first, fall back to global cfg
-			var config *config.Settings
-			if app := c.getApp(cmd); app != nil {
-				config = app.Config
-			} else {
-				config = cfg
-			}
-
-			output, err := yaml.Marshal(config)
-			if err != nil {
-				fmt.Printf("Error marshalling config: %v\n", err)
-				return
-			}
-			fmt.Println(string(output))
-		},
+		Short: "Manage configuration",
+		Long:  "Display and manage quad-ops configuration",
 	}
+
+	configCmd.AddCommand(
+		NewConfigShowCommand().GetCobraCommand(),
+		NewInitCommand().GetCobraCommand(),
+	)
+
+	return configCmd
 }
