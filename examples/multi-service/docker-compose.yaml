@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   webapp:
     image: docker.io/library/wordpress:latest
@@ -12,9 +10,9 @@ services:
       - WORDPRESS_DB_NAME=wordpress
       - WORDPRESS_DB_USER=wp_user
     secrets:
-      - db_password
+    - db-password
     x-podman-env-secrets:
-      db_password: WORDPRESS_DB_PASSWORD  # Available as $WORDPRESS_DB_PASSWORD
+    db-password: WORDPRESS_DB_PASSWORD  # Available as $WORDPRESS_DB_PASSWORD
     depends_on:
       - db
     restart: always
@@ -30,9 +28,9 @@ services:
       - MYSQL_USER=wp_user
       - MYSQL_ROOT_PASSWORD=root_password
     secrets:
-      - db_password
+    - db-password
     x-podman-env-secrets:
-      db_password: MYSQL_PASSWORD  # Available as $MYSQL_PASSWORD
+    db-password: MYSQL_PASSWORD  # Available as $MYSQL_PASSWORD
     restart: always
     networks:
       - app-network
@@ -45,5 +43,5 @@ networks:
   app-network:
 
 secrets:
-  db_password:
-    external: true # create this secret in podman
+db-password:
+external: true # create this secret in podman

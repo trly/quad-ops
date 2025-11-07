@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   web:
     image: nginx:alpine
@@ -18,7 +16,7 @@ services:
     environment:
       POSTGRES_DB: myapp
       POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: securepassword
     x-quad-ops-init:
       - image: postgres:15-alpine
         command: ["sh", "-c", "echo 'Running database migration...' && sleep 3"]
