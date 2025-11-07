@@ -104,12 +104,15 @@ func TestRenderer_RenderVolume(t *testing.T) {
 
 	assert.Len(t, result.Artifacts, 2)
 
-	var volumeArtifact *string
+	var volumeArtifact, containerArtifact *string
 	for _, a := range result.Artifacts {
-		if a.Path == "data.volume" {
+		switch a.Path {
+		case "data.volume":
 			content := string(a.Content)
 			volumeArtifact = &content
-			break
+		case "app.container":
+			content := string(a.Content)
+			containerArtifact = &content
 		}
 	}
 
@@ -120,6 +123,12 @@ func TestRenderer_RenderVolume(t *testing.T) {
 	assert.Contains(t, *volumeArtifact, "Options=device=tmpfs")
 	assert.Contains(t, *volumeArtifact, "Options=type=tmpfs")
 	assert.Contains(t, *volumeArtifact, "Label=env=test")
+	assert.Contains(t, *volumeArtifact, "[Install]")
+	assert.Contains(t, *volumeArtifact, "WantedBy=default.target")
+
+	require.NotNil(t, containerArtifact)
+	assert.Contains(t, *containerArtifact, "After=data-volume.service")
+	assert.Contains(t, *containerArtifact, "Requires=data-volume.service")
 }
 
 func TestRenderer_RenderNetwork(t *testing.T) {
@@ -156,12 +165,15 @@ func TestRenderer_RenderNetwork(t *testing.T) {
 
 	assert.Len(t, result.Artifacts, 2)
 
-	var networkArtifact *string
+	var networkArtifact, containerArtifact *string
 	for _, a := range result.Artifacts {
-		if a.Path == "backend.network" {
+		switch a.Path {
+		case "backend.network":
 			content := string(a.Content)
 			networkArtifact = &content
-			break
+		case "app.container":
+			content := string(a.Content)
+			containerArtifact = &content
 		}
 	}
 
@@ -173,6 +185,12 @@ func TestRenderer_RenderNetwork(t *testing.T) {
 	assert.Contains(t, *networkArtifact, "Gateway=172.20.0.1")
 	assert.Contains(t, *networkArtifact, "IPv6=yes")
 	assert.Contains(t, *networkArtifact, "Internal=yes")
+	assert.Contains(t, *networkArtifact, "[Install]")
+	assert.Contains(t, *networkArtifact, "WantedBy=default.target")
+
+	require.NotNil(t, containerArtifact)
+	assert.Contains(t, *containerArtifact, "After=backend-network.service")
+	assert.Contains(t, *containerArtifact, "Requires=backend-network.service")
 }
 
 func TestRenderer_RenderBuild(t *testing.T) {
