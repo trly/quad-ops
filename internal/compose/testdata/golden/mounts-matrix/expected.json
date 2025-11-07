@@ -47,7 +47,7 @@
             "BindOptions": null
           },
           {
-            "Source": "app-data",
+            "Source": "mounts-matrix_app-data",
             "Target": "/app/storage",
             "Type": "volume",
             "ReadOnly": false,
@@ -55,7 +55,7 @@
             "BindOptions": null
           },
           {
-            "Source": "cache",
+            "Source": "mounts-matrix_cache",
             "Target": "/tmp/cache",
             "Type": "volume",
             "ReadOnly": false,
@@ -110,14 +110,14 @@
       },
       "Volumes": [
         {
-          "Name": "mounts-matrix-mounts-matrix_app-data",
+          "Name": "mounts-matrix_app-data",
           "Driver": "local",
           "Options": null,
           "Labels": null,
           "External": false
         },
         {
-          "Name": "mounts-matrix-mounts-matrix_cache",
+          "Name": "mounts-matrix_cache",
           "Driver": "local",
           "Options": null,
           "Labels": null,
@@ -126,7 +126,7 @@
       ],
       "Networks": [
         {
-          "Name": "mounts-matrix-mounts-matrix_default",
+          "Name": "mounts-matrix_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -142,14 +142,14 @@
   ],
   "volumes": [
     {
-      "Name": "mounts-matrix-mounts-matrix_app-data",
+      "Name": "mounts-matrix_app-data",
       "Driver": "local",
       "Options": null,
       "Labels": null,
       "External": false
     },
     {
-      "Name": "mounts-matrix-mounts-matrix_cache",
+      "Name": "mounts-matrix_cache",
       "Driver": "local",
       "Options": null,
       "Labels": null,
@@ -158,7 +158,7 @@
   ],
   "networks": [
     {
-      "Name": "mounts-matrix-mounts-matrix_default",
+      "Name": "mounts-matrix_default",
       "Driver": "",
       "Options": null,
       "Labels": null,

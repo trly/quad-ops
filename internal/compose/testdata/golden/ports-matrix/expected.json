@@ -117,7 +117,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "ports-matrix-ports-matrix_default",
+          "Name": "ports-matrix_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -134,7 +134,7 @@
   "volumes": null,
   "networks": [
     {
-      "Name": "ports-matrix-ports-matrix_default",
+      "Name": "ports-matrix_default",
       "Driver": "",
       "Options": null,
       "Labels": null,

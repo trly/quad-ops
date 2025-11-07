@@ -71,7 +71,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "security-and-user-security-and-user_default",
+          "Name": "security-and-user_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -88,7 +88,7 @@
   "volumes": null,
   "networks": [
     {
-      "Name": "security-and-user-security-and-user_default",
+      "Name": "security-and-user_default",
       "Driver": "",
       "Options": null,
       "Labels": null,

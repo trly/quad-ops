@@ -76,7 +76,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "resources-limits-resources-limits_default",
+          "Name": "resources-limits_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -93,7 +93,7 @@
   "volumes": null,
   "networks": [
     {
-      "Name": "resources-limits-resources-limits_default",
+      "Name": "resources-limits_default",
       "Driver": "",
       "Options": null,
       "Labels": null,

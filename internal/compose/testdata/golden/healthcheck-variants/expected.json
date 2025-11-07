@@ -72,7 +72,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "healthcheck-variants-healthcheck-variants_default",
+          "Name": "healthcheck-variants_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -147,7 +147,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "healthcheck-variants-healthcheck-variants_default",
+          "Name": "healthcheck-variants_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -234,7 +234,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "healthcheck-variants-healthcheck-variants_default",
+          "Name": "healthcheck-variants_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -251,7 +251,7 @@
   "volumes": null,
   "networks": [
     {
-      "Name": "healthcheck-variants-healthcheck-variants_default",
+      "Name": "healthcheck-variants_default",
       "Driver": "",
       "Options": null,
       "Labels": null,
