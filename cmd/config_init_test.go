@@ -98,7 +98,7 @@ func TestInitCommand_Run(t *testing.T) {
 
 			// Create app (minimal)
 			app := &App{
-				Config: &config.Settings{},
+				Config: &config.Settings{UserMode: true},
 			}
 
 			// Create command

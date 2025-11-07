@@ -61,15 +61,18 @@ func (c *InitCommand) GetCobraCommand() *cobra.Command {
 }
 
 // Run executes the init command with injected dependencies.
-func (c *InitCommand) Run(_ *App, opts InitOptions, deps InitDeps) error {
-	// Get user home directory
-	homeDir, err := deps.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
+func (c *InitCommand) Run(app *App, opts InitOptions, deps InitDeps) error {
+	var configDir string
+	if app.Config.UserMode {
+		// Get user home directory
+		homeDir, err := deps.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		configDir = filepath.Join(homeDir, ".config", "quad-ops")
+	} else {
+		configDir = "/etc/quad-ops"
 	}
-
-	// Determine config directory
-	configDir := filepath.Join(homeDir, ".config", "quad-ops")
 	configFile := filepath.Join(configDir, "config.yaml")
 
 	// Check if config file already exists
