@@ -223,16 +223,15 @@ func (l *Lifecycle) cleanupOrphanedRootlessportProcesses(ctx context.Context) er
 	if err != nil {
 		// pgrep returns exit code 1 when no processes found, which is not an error for us
 		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
-			l.logger.Debug("No orphaned rootlessport processes found")
+			l.logger.Debug("No orphaned rootlessport processes found (pgrep exit code 1)")
 			return nil
 		}
-		l.logger.Debug("Failed to check for rootlessport processes", "error", err)
+		l.logger.Warn("Failed to check for rootlessport processes", "error", err)
 		return nil // Don't fail the operation if we can't check
 	}
 
 	pids := strings.Fields(string(output))
 	if len(pids) == 0 {
-		l.logger.Debug("No rootlessport processes found")
 		return nil
 	}
 
@@ -291,16 +290,28 @@ func (l *Lifecycle) StartMany(ctx context.Context, names []string) map[string]er
 	wg.Wait()
 
 	successCount := 0
+	failedCount := 0
 	for _, err := range results {
 		if err == nil {
 			successCount++
+		} else {
+			failedCount++
+		}
+	}
+
+	// If any services failed, run cleanup again to remove orphaned rootlessport processes
+	// that may have been left behind by the failed service starts
+	if failedCount > 0 {
+		l.logger.Debug("Services failed, running cleanup for orphaned processes")
+		if err := l.cleanupOrphanedRootlessportProcesses(ctx); err != nil {
+			l.logger.Warn("Failed to cleanup orphaned rootlessport processes after failures", "error", err)
 		}
 	}
 
 	l.logger.Debug("Completed starting services",
 		"total", len(names),
 		"success", successCount,
-		"failed", len(names)-successCount)
+		"failed", failedCount)
 
 	return results
 }
@@ -385,16 +396,28 @@ func (l *Lifecycle) RestartMany(ctx context.Context, names []string) map[string]
 	wg.Wait()
 
 	successCount := 0
+	failedCount := 0
 	for _, err := range results {
 		if err == nil {
 			successCount++
+		} else {
+			failedCount++
+		}
+	}
+
+	// If any services failed, run cleanup again to remove orphaned rootlessport processes
+	// that may have been left behind by the failed service restarts
+	if failedCount > 0 {
+		l.logger.Debug("Services failed, running cleanup for orphaned processes")
+		if err := l.cleanupOrphanedRootlessportProcesses(ctx); err != nil {
+			l.logger.Warn("Failed to cleanup orphaned rootlessport processes after failures", "error", err)
 		}
 	}
 
 	l.logger.Debug("Completed restarting services",
 		"total", len(names),
 		"success", successCount,
-		"failed", len(names)-successCount)
+		"failed", failedCount)
 
 	return results
 }
@@ -416,9 +439,15 @@ func (l *Lifecycle) waitForActivation(ctx context.Context, conn systemd.Connecti
 		props, err := conn.GetUnitProperties(ctx, serviceName)
 		if err == nil {
 			if result, ok := props["Result"].(string); ok && result != "success" {
-				return fmt.Errorf("state=%s, result=%s", state, result)
+				errMsg := fmt.Sprintf("state=%s, result=%s", state, result)
+				if exitCode, ok := props["ExecMainStatus"].(int32); ok && exitCode != 0 {
+					errMsg += fmt.Sprintf(", exit_code=%d", exitCode)
+				}
+				l.logger.Error("Service failed to start", "name", serviceName, "error_details", errMsg)
+				return fmt.Errorf("%s", errMsg)
 			}
 		}
+		l.logger.Error("Service in unexpected state", "name", serviceName, "state", state)
 		return fmt.Errorf("unexpected state: %s", state)
 	}
 
@@ -462,12 +491,14 @@ func (l *Lifecycle) waitForActivation(ctx context.Context, conn systemd.Connecti
 			if result, ok := props["Result"].(string); ok && result != "success" {
 				errMsg := fmt.Sprintf("state=%s, result=%s", finalStateStr, result)
 				if exitCode, ok := props["ExecMainStatus"].(int32); ok && exitCode != 0 {
-					errMsg += fmt.Sprintf(", exit_code=%s", strconv.Itoa(int(exitCode)))
+					errMsg += fmt.Sprintf(", exit_code=%d", exitCode)
 				}
+				l.logger.Error("Service activation timeout", "name", serviceName, "error_details", errMsg)
 				return fmt.Errorf("%s", errMsg)
 			}
 		}
 
+		l.logger.Error("Service activation timeout", "name", serviceName, "final_state", finalStateStr)
 		return fmt.Errorf("failed to activate: state=%s", finalStateStr)
 
 	case <-ctx.Done():
