@@ -153,7 +153,7 @@ Note: Use either a local path OR the --repo flag, but not both.`,
 			}
 
 			// Validate the path
-			return validateComposeWithDeps(targetPath, logger)
+			return validateComposeWithDeps(targetPath, app.Validator.(*validate.Validator), logger)
 		},
 	}
 
@@ -275,7 +275,7 @@ func isComposeFile(path string) bool {
 }
 
 // validateComposeWithDeps validates Docker Compose files in the given path (file or directory).
-func validateComposeWithDeps(path string, logger log.Logger) error {
+func validateComposeWithDeps(path string, validator *validate.Validator, logger log.Logger) error {
 	logger.Info("Validating Docker Compose files", "path", path)
 
 	// Check if path exists
@@ -323,7 +323,7 @@ func validateComposeWithDeps(path string, logger log.Logger) error {
 	for _, project := range projects {
 		logger.Info("Validating project", "name", project.Name, "services", len(project.Services), "networks", len(project.Networks), "volumes", len(project.Volumes))
 
-		if err := validateProjectWithDeps(project, logger); err != nil {
+		if err := validateProjectWithDeps(project, validator, logger); err != nil {
 			validationErrors = append(validationErrors, fmt.Sprintf("Project %s: %v", project.Name, err))
 			logger.Error("Project validation failed", "project", project.Name, "error", err)
 		} else {
@@ -351,12 +351,10 @@ func validateComposeWithDeps(path string, logger log.Logger) error {
 }
 
 // validateProjectWithDeps validates a single Docker Compose project for quad-ops compatibility.
-func validateProjectWithDeps(project *types.Project, logger log.Logger) error {
-	validator := validate.NewSecretValidator(logger)
-
+func validateProjectWithDeps(project *types.Project, validator *validate.Validator, logger log.Logger) error {
 	// Validate services
 	for serviceName, service := range project.Services {
-		if err := validateService(serviceName, service, validator); err != nil {
+		if err := validateService(serviceName, service, project, validator, logger); err != nil {
 			return fmt.Errorf("service %s: %w", serviceName, err)
 		}
 	}
@@ -386,7 +384,7 @@ func validateProjectWithDeps(project *types.Project, logger log.Logger) error {
 }
 
 // validateService validates a Docker Compose service configuration.
-func validateService(_ string, service types.ServiceConfig, validator *validate.SecretValidator) error {
+func validateService(_ string, service types.ServiceConfig, _ *types.Project, validator *validate.Validator, _ log.Logger) error {
 	// Validate environment variables
 	for key, value := range service.Environment {
 		if err := validate.EnvKey(key); err != nil {
@@ -394,7 +392,7 @@ func validateService(_ string, service types.ServiceConfig, validator *validate.
 		}
 
 		if value != nil {
-			if err := validator.ValidateEnvValue(key, *value); err != nil {
+			if err := validator.SecretValidator.ValidateEnvValue(key, *value); err != nil {
 				return fmt.Errorf("invalid environment value for %s: %w", key, err)
 			}
 		}
@@ -402,12 +400,12 @@ func validateService(_ string, service types.ServiceConfig, validator *validate.
 
 	// Validate secrets
 	for _, secretRef := range service.Secrets {
-		if err := validator.ValidateSecretName(secretRef.Source); err != nil {
+		if err := validator.SecretValidator.ValidateSecretName(secretRef.Source); err != nil {
 			return fmt.Errorf("invalid secret reference %s: %w", secretRef.Source, err)
 		}
 
 		if secretRef.Target != "" {
-			if err := validator.ValidateSecretTarget(secretRef.Target); err != nil {
+			if err := validator.SecretValidator.ValidateSecretTarget(secretRef.Target); err != nil {
 				return fmt.Errorf("invalid secret target %s: %w", secretRef.Target, err)
 			}
 		}
@@ -423,6 +421,22 @@ func validateService(_ string, service types.ServiceConfig, validator *validate.
 	// Validate init containers (quad-ops extension)
 	if err := validateInitContainers(service); err != nil {
 		return fmt.Errorf("init containers: %w", err)
+	}
+
+	// Validate x-podman-env-secrets label
+	if envSecretsLabel, exists := service.Labels["x-podman-env-secrets"]; exists {
+		secretNames := strings.Split(envSecretsLabel, ",")
+		for _, secretName := range secretNames {
+			secretName = strings.TrimSpace(secretName)
+			if secretName == "" {
+				continue
+			}
+			// Check if secret exists in podman
+			ctx := context.Background()
+			if err := validator.ValidatePodmanSecretExists(ctx, secretName); err != nil {
+				return fmt.Errorf("podman secret '%s' referenced in x-podman-env-secrets does not exist: %w", secretName, err)
+			}
+		}
 	}
 
 	return nil
@@ -490,8 +504,8 @@ func validateVolume(_ string, volume types.VolumeConfig) error {
 }
 
 // validateSecretWithDeps validates Docker Compose secret configuration.
-func validateSecretWithDeps(secretName string, secret types.SecretConfig, validator *validate.SecretValidator, logger log.Logger) error {
-	if err := validator.ValidateSecretName(secretName); err != nil {
+func validateSecretWithDeps(secretName string, secret types.SecretConfig, validator *validate.Validator, logger log.Logger) error {
+	if err := validator.SecretValidator.ValidateSecretName(secretName); err != nil {
 		return fmt.Errorf("invalid secret name: %w", err)
 	}
 

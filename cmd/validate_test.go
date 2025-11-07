@@ -15,8 +15,10 @@ import (
 
 // TestValidateCommand_Basic tests validate command.
 func TestValidateCommand_Basic(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -79,8 +81,10 @@ services:
 	err := os.WriteFile(filepath.Join(tempDir, "docker-compose.yml"), []byte(composeContent), 0600)
 	require.NoError(t, err)
 
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -105,8 +109,10 @@ services:
 	err := os.WriteFile(composeFile, []byte(composeContent), 0600)
 	require.NoError(t, err)
 
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -125,8 +131,10 @@ func TestValidateCommand_InvalidComposeFile(t *testing.T) {
 	err := os.WriteFile(composeFile, []byte("invalid: yaml: content:"), 0600)
 	require.NoError(t, err)
 
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -139,8 +147,10 @@ func TestValidateCommand_InvalidComposeFile(t *testing.T) {
 
 // TestValidateCommand_NonExistentPath tests non-existent path.
 func TestValidateCommand_NonExistentPath(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -160,8 +170,10 @@ func TestValidateCommand_NonYAMLFile(t *testing.T) {
 	err := os.WriteFile(textFile, []byte("not a compose file"), 0600)
 	require.NoError(t, err)
 
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -177,8 +189,10 @@ func TestValidateCommand_NonYAMLFile(t *testing.T) {
 func TestValidateCommand_EmptyDirectory(t *testing.T) {
 	tempDir := t.TempDir()
 
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -243,8 +257,10 @@ services:
 	err := os.WriteFile(filepath.Join(tempDir, "docker-compose.yml"), []byte(composeContent), 0600)
 	require.NoError(t, err)
 
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -376,7 +392,8 @@ func TestIsComposeFile_EdgeCases(t *testing.T) {
 // TestValidateService tests service validation function.
 func TestValidateService(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
-	validator := validate.NewSecretValidator(logger)
+	validator := validate.NewValidatorWithDefaults(logger)
+	project := &types.Project{}
 
 	tests := []struct {
 		name        string
@@ -525,11 +542,24 @@ func TestValidateService(t *testing.T) {
 			expectError: true,
 			errorMsg:    "invalid secret target",
 		},
+		{
+			name:        "service with x-podman-env-secrets referencing non-existent secret",
+			serviceName: "app",
+			service: types.ServiceConfig{
+				Name:  "app",
+				Image: "myapp:latest",
+				Labels: types.Labels{
+					"x-podman-env-secrets": "non_existent_secret",
+				},
+			},
+			expectError: true,
+			errorMsg:    "podman secret 'non_existent_secret' referenced in x-podman-env-secrets does not exist",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateService(tt.serviceName, tt.service, validator)
+			err := validateService(tt.serviceName, tt.service, project, validator, logger)
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
@@ -824,7 +854,7 @@ func TestValidateVolume(t *testing.T) {
 // TestValidateSecretWithDeps tests secret validation.
 func TestValidateSecretWithDeps(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
-	validator := validate.NewSecretValidator(logger)
+	validator := validate.NewValidatorWithDefaults(logger)
 
 	tests := []struct {
 		name        string
@@ -904,6 +934,7 @@ func TestValidateSecretWithDeps(t *testing.T) {
 // TestValidateProjectWithDeps tests project validation.
 func TestValidateProjectWithDeps(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 
 	tests := []struct {
 		name        string
@@ -996,7 +1027,7 @@ func TestValidateProjectWithDeps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateProjectWithDeps(tt.project, logger)
+			err := validateProjectWithDeps(tt.project, validator, logger)
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
@@ -1012,6 +1043,7 @@ func TestValidateProjectWithDeps(t *testing.T) {
 // TestValidateComposeWithDeps tests compose validation with dependencies.
 func TestValidateComposeWithDeps(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 
 	t.Run("valid directory", func(t *testing.T) {
 		tempDir := t.TempDir()
@@ -1023,7 +1055,7 @@ services:
 		err := os.WriteFile(filepath.Join(tempDir, "docker-compose.yml"), []byte(composeContent), 0600)
 		require.NoError(t, err)
 
-		err = validateComposeWithDeps(tempDir, logger)
+		err = validateComposeWithDeps(tempDir, validator, logger)
 		assert.NoError(t, err)
 	})
 
@@ -1038,12 +1070,12 @@ services:
 		err := os.WriteFile(composeFile, []byte(composeContent), 0600)
 		require.NoError(t, err)
 
-		err = validateComposeWithDeps(composeFile, logger)
+		err = validateComposeWithDeps(composeFile, validator, logger)
 		assert.NoError(t, err)
 	})
 
 	t.Run("nonexistent path", func(t *testing.T) {
-		err := validateComposeWithDeps("/nonexistent/path", logger)
+		err := validateComposeWithDeps("/nonexistent/path", validator, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "does not exist")
 	})
@@ -1054,14 +1086,14 @@ services:
 		err := os.WriteFile(textFile, []byte("not a compose file"), 0600)
 		require.NoError(t, err)
 
-		err = validateComposeWithDeps(textFile, logger)
+		err = validateComposeWithDeps(textFile, validator, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "does not appear to be a Docker Compose file")
 	})
 
 	t.Run("empty directory", func(t *testing.T) {
 		tempDir := t.TempDir()
-		err := validateComposeWithDeps(tempDir, logger)
+		err := validateComposeWithDeps(tempDir, validator, logger)
 		assert.NoError(t, err)
 	})
 
@@ -1078,7 +1110,7 @@ services:
 		err := os.WriteFile(composeFile, []byte(composeContent), 0600)
 		require.NoError(t, err)
 
-		err = validateComposeWithDeps(composeFile, logger)
+		err = validateComposeWithDeps(composeFile, validator, logger)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "validation failed")
 	})
@@ -1100,7 +1132,7 @@ services:
 		err = os.WriteFile(filepath.Join(tempDir, "compose2.yml"), []byte(composeContent2), 0600)
 		require.NoError(t, err)
 
-		err = validateComposeWithDeps(tempDir, logger)
+		err = validateComposeWithDeps(tempDir, validator, logger)
 		assert.NoError(t, err)
 	})
 }
@@ -1245,8 +1277,10 @@ services:
 	err = os.WriteFile(filepath.Join(servicesDir, "docker-compose.yml"), []byte(composeContent), 0600)
 	require.NoError(t, err)
 
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	app := NewAppBuilder(t).
-		WithValidator(&MockValidator{}).
+		WithValidator(validator).
 		Build(t)
 
 	validateCmd := NewValidateCommand()
@@ -1265,6 +1299,7 @@ services:
 // TestValidateCommand_AccessError tests path access errors.
 func TestValidateCommand_AccessError(t *testing.T) {
 	logger := log.NewLogger(false)
+	validator := validate.NewValidatorWithDefaults(logger)
 
 	// Create a file and try to treat it as directory for access error
 	tempFile := filepath.Join(t.TempDir(), "file.txt")
@@ -1279,13 +1314,14 @@ func TestValidateCommand_AccessError(t *testing.T) {
 		_ = os.Chmod(tempFile, 0600)
 	}()
 
-	err = validateComposeWithDeps(tempFile, logger)
+	err = validateComposeWithDeps(tempFile, validator, logger)
 	assert.Error(t, err)
 }
 
 // TestValidateCommand_ParseError tests compose file parse errors.
 func TestValidateCommand_ParseError(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	tempDir := t.TempDir()
 
 	// Create an invalid compose file
@@ -1293,7 +1329,7 @@ func TestValidateCommand_ParseError(t *testing.T) {
 	err := os.WriteFile(composeFile, []byte("services: [invalid yaml"), 0600)
 	require.NoError(t, err)
 
-	err = validateComposeWithDeps(composeFile, logger)
+	err = validateComposeWithDeps(composeFile, validator, logger)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to parse")
 }
@@ -1301,6 +1337,7 @@ func TestValidateCommand_ParseError(t *testing.T) {
 // TestValidateCommand_DirectoryReadError tests directory read errors.
 func TestValidateCommand_DirectoryReadError(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
 	tempDir := t.TempDir()
 
 	// Create subdirectory with bad permissions
@@ -1314,7 +1351,7 @@ func TestValidateCommand_DirectoryReadError(t *testing.T) {
 
 	// Note: os.ReadDir may still succeed with 000 permissions on macOS
 	// This test documents the behavior but doesn't strictly enforce an error
-	err = validateComposeWithDeps(badDir, logger)
+	err = validateComposeWithDeps(badDir, validator, logger)
 	// On macOS with certain file systems, read may still work, so we don't assert error
 	_ = err
 }

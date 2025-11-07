@@ -13,17 +13,19 @@ import (
 
 // Validator provides system requirements validation with dependency injection.
 type Validator struct {
-	logger   log.Logger
-	runner   execx.Runner
-	osGetter func() string // For testing, defaults to runtime.GOOS
+	logger          log.Logger
+	runner          execx.Runner
+	osGetter        func() string // For testing, defaults to runtime.GOOS
+	SecretValidator *SecretValidator
 }
 
 // NewValidator creates a new Validator with the provided logger and command runner.
 func NewValidator(logger log.Logger, runner execx.Runner) *Validator {
 	return &Validator{
-		logger:   logger,
-		runner:   runner,
-		osGetter: func() string { return runtime.GOOS },
+		logger:          logger,
+		runner:          runner,
+		osGetter:        func() string { return runtime.GOOS },
+		SecretValidator: NewSecretValidator(logger),
 	}
 }
 
@@ -36,9 +38,10 @@ func (v *Validator) WithOSGetter(osGetter func() string) *Validator {
 // NewValidatorWithDefaults creates a new Validator with default dependencies.
 func NewValidatorWithDefaults(logger log.Logger) *Validator {
 	return &Validator{
-		logger:   logger,
-		runner:   execx.NewRealRunner(),
-		osGetter: func() string { return runtime.GOOS },
+		logger:          logger,
+		runner:          execx.NewRealRunner(),
+		osGetter:        func() string { return runtime.GOOS },
+		SecretValidator: NewSecretValidator(logger),
 	}
 }
 
@@ -105,6 +108,24 @@ func (v *Validator) validateDarwin(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// ValidatePodmanSecretExists checks if a podman secret exists on the system.
+func (v *Validator) ValidatePodmanSecretExists(ctx context.Context, secretName string) error {
+	output, err := v.runner.CombinedOutput(ctx, "podman", "secret", "ls", "--format", "table {{.Name}}")
+	if err != nil {
+		return fmt.Errorf("failed to list podman secrets: %w", err)
+	}
+
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == secretName || strings.HasSuffix(line, " "+secretName) {
+			return nil // Secret exists
+		}
+	}
+
+	return fmt.Errorf("podman secret '%s' does not exist", secretName)
 }
 
 // SystemRequirements checks if all required system tools are installed.
