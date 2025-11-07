@@ -98,7 +98,7 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		WorkingDir:    composeService.WorkingDir,
 		User:          composeService.User,
 		Ports:         sc.convertPorts(composeService.Ports),
-		Mounts:        sc.convertVolumeMounts(composeService.Volumes),
+		Mounts:        sc.convertVolumeMounts(composeService.Volumes, project),
 		Resources:     sc.convertResources(composeService.Deploy),
 		RestartPolicy: sc.convertRestartPolicy(composeService.Restart),
 		Healthcheck:   sc.convertHealthcheck(composeService.HealthCheck),
@@ -205,7 +205,7 @@ func (sc *SpecConverter) convertPorts(ports []types.ServicePortConfig) []service
 }
 
 // convertVolumeMounts converts compose volume configs to service.Mount.
-func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig) []service.Mount {
+func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig, project *types.Project) []service.Mount {
 	if len(volumes) == 0 {
 		return nil
 	}
@@ -230,6 +230,10 @@ func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig
 			}
 		case "volume":
 			mount.Type = service.MountTypeVolume
+			// Prefix named volume sources to match volume names
+			if v.Source != "" {
+				mount.Source = fmt.Sprintf("%s_%s", project.Name, v.Source)
+			}
 		case "tmpfs":
 			mount.Type = service.MountTypeTmpfs
 		default:
@@ -238,6 +242,10 @@ func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig
 				mount.Type = service.MountTypeBind
 			} else {
 				mount.Type = service.MountTypeVolume
+				// Prefix named volume sources to match volume names
+				if v.Source != "" {
+					mount.Source = fmt.Sprintf("%s_%s", project.Name, v.Source)
+				}
 			}
 		}
 
@@ -568,7 +576,11 @@ func (sc *SpecConverter) convertProjectVolumes(project *types.Project) []service
 	for name, vol := range project.Volumes {
 		// Resolve volume name
 		volumeName := NameResolver(vol.Name, name)
-		sanitizedName := service.SanitizeName(Prefix(project.Name, volumeName))
+		// Apply prefix only if not already prefixed
+		sanitizedName := service.SanitizeName(volumeName)
+		if !strings.Contains(volumeName, project.Name) {
+			sanitizedName = service.SanitizeName(Prefix(project.Name, volumeName))
+		}
 
 		// Skip external volumes
 		if IsExternal(vol.External) {
@@ -598,7 +610,11 @@ func (sc *SpecConverter) convertProjectNetworks(project *types.Project) []servic
 	for name, net := range project.Networks {
 		// Resolve network name
 		networkName := NameResolver(net.Name, name)
-		sanitizedName := service.SanitizeName(Prefix(project.Name, networkName))
+		// Apply prefix only if not already prefixed
+		sanitizedName := service.SanitizeName(networkName)
+		if !strings.Contains(networkName, project.Name) {
+			sanitizedName = service.SanitizeName(Prefix(project.Name, networkName))
+		}
 
 		// Skip external networks
 		if IsExternal(net.External) {
