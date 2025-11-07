@@ -19,12 +19,12 @@ linters:
     - gocyclo      # Checks cyclomatic complexity
     - prealloc     # Find slice declarations that could be preallocated
 
-linters-settings:
-  gosec:
-    excludes:
-      - G301  # Directory permissions (acceptable in tests)
-      - G304  # Potential file inclusion via variable (safe in tests)
-      - G306  # File permissions (acceptable in tests)
+  settings:
+    gosec:
+      excludes:
+        - G301  # Directory permissions (acceptable in tests)
+        - G304  # Potential file inclusion via variable (safe in tests)
+        - G306  # File permissions (acceptable in tests)
 
 formatters:
   enable:
