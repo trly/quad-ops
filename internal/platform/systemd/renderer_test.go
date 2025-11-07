@@ -81,8 +81,8 @@ func TestRenderer_RenderInitContainer(t *testing.T) {
 		Name:        "web-init-0",
 		Description: "Init container 0 for service web",
 		Container: service.Container{
-			Image:        "busybox:latest",
-			Command:      []string{"sh", "-c", "echo 'init'"},
+			Image:         "busybox:latest",
+			Command:       []string{"sh", "-c", "echo 'init'"},
 			RestartPolicy: service.RestartPolicyNo,
 		},
 	}

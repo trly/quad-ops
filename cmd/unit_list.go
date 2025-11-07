@@ -38,9 +38,8 @@ import (
 
 // ListOptions holds list command options.
 type ListOptions struct {
-	Status         bool
-	UseFilesystem  bool // If true, use filesystem artifacts instead of repo artifacts
-	ShowDivergence bool // If true, show warnings when filesystem diverges from repo
+	Status        bool
+	UseFilesystem bool // If true, use filesystem artifacts instead of repo artifacts
 }
 
 // ListDeps holds list dependencies.
@@ -85,7 +84,6 @@ func (c *ListCommand) GetCobraCommand() *cobra.Command {
 
 	unitListCmd.Flags().BoolVarP(&opts.Status, "status", "s", false, "Include service status information")
 	unitListCmd.Flags().BoolVar(&opts.UseFilesystem, "use-fs-artifacts", false, "Use filesystem artifacts instead of git-managed artifacts (Linux only)")
-	unitListCmd.Flags().BoolVar(&opts.ShowDivergence, "show-divergence", true, "Show warnings when filesystem diverges from git repository")
 
 	return unitListCmd
 }
@@ -112,11 +110,6 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 			return fmt.Errorf("failed to list repository artifacts: %w", err)
 		}
 		artifacts = filterArtifactsForPlatform(artifacts, app.Config)
-	}
-
-	// Check for divergence between repo and filesystem if requested
-	if opts.ShowDivergence && !opts.UseFilesystem {
-		c.checkDivergence(ctx, deps, artifacts, app)
 	}
 
 	// For repo artifacts, filter to only those that are actually deployed
@@ -199,75 +192,6 @@ func (c *ListCommand) buildDeps(app *App) ListDeps {
 		CommonDeps:        NewRootDeps(app),
 		RepoArtifactStore: app.RepoArtifactStore,
 		ArtifactStore:     app.ArtifactStore,
-	}
-}
-
-// checkDivergence compares repository artifacts with filesystem artifacts and warns about differences.
-func (c *ListCommand) checkDivergence(ctx context.Context, deps ListDeps, repoArtifacts []platform.Artifact, app *App) {
-	// Skip divergence check if ArtifactStore is not available
-	if deps.ArtifactStore == nil {
-		return
-	}
-
-	// Get filesystem artifacts
-	fsArtifacts, err := deps.ArtifactStore.List(ctx)
-	if err != nil {
-		deps.Logger.Debug("Could not check divergence - failed to list filesystem artifacts", "error", err)
-		return
-	}
-	fsArtifacts = filterArtifactsForPlatform(fsArtifacts, app.Config)
-
-	// Build maps for easy comparison
-	repoMap := make(map[string]platform.Artifact)
-	for _, a := range repoArtifacts {
-		repoMap[a.Path] = a
-	}
-
-	fsMap := make(map[string]platform.Artifact)
-	for _, a := range fsArtifacts {
-		fsMap[a.Path] = a
-	}
-
-	// Find artifacts in filesystem but not in repo
-	var onlyInFS []string
-	for path := range fsMap {
-		if _, inRepo := repoMap[path]; !inRepo {
-			onlyInFS = append(onlyInFS, path)
-		}
-	}
-
-	// Find artifacts in repo but not in filesystem
-	var onlyInRepo []string
-	for path := range repoMap {
-		if _, inFS := fsMap[path]; !inFS {
-			onlyInRepo = append(onlyInRepo, path)
-		}
-	}
-
-	// Find artifacts with different content (hash mismatch)
-	var contentDiverged []string
-	for path, repoArtifact := range repoMap {
-		if fsArtifact, inFS := fsMap[path]; inFS {
-			if repoArtifact.Hash != fsArtifact.Hash {
-				contentDiverged = append(contentDiverged, path)
-			}
-		}
-	}
-
-	// Report divergence if found
-	hasDivergence := len(onlyInFS) > 0 || len(onlyInRepo) > 0 || len(contentDiverged) > 0
-	if hasDivergence {
-		deps.Logger.Warn("Divergence detected between repository and filesystem artifacts")
-		if len(onlyInFS) > 0 {
-			deps.Logger.Warn("Artifacts in filesystem but not in repository", "count", len(onlyInFS), "paths", onlyInFS)
-		}
-		if len(onlyInRepo) > 0 {
-			deps.Logger.Warn("Artifacts in repository but not deployed", "count", len(onlyInRepo), "paths", onlyInRepo)
-		}
-		if len(contentDiverged) > 0 {
-			deps.Logger.Warn("Artifacts with content differences", "count", len(contentDiverged), "paths", contentDiverged)
-		}
-		deps.Logger.Info("Use --use-fs-artifacts to show filesystem artifacts instead")
 	}
 }
 
