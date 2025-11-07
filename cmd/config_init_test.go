@@ -32,7 +32,7 @@ func TestInitCommand_Run(t *testing.T) {
 				configFile := filepath.Join(tempDir, ".config", "quad-ops", "config.yaml")
 				assert.FileExists(t, configFile)
 
-				data, err := os.ReadFile(configFile)
+				data, err := os.ReadFile(configFile) // #nosec G304
 				require.NoError(t, err)
 
 				var cfg config.Settings
@@ -52,15 +52,15 @@ func TestInitCommand_Run(t *testing.T) {
 			opts: InitOptions{Force: false},
 			setup: func(_ *testing.T, tempDir string) {
 				configDir := filepath.Join(tempDir, ".config", "quad-ops")
-				require.NoError(t, os.MkdirAll(configDir, 0755))
+				require.NoError(t, os.MkdirAll(configDir, 0700))
 				configFile := filepath.Join(configDir, "config.yaml")
-				require.NoError(t, os.WriteFile(configFile, []byte("existing"), 0644))
+				require.NoError(t, os.WriteFile(configFile, []byte("existing"), 0600))
 			},
 			expectError: true,
 			errorMsg:    "configuration file already exists",
 			validate: func(t *testing.T, tempDir string) {
 				configFile := filepath.Join(tempDir, ".config", "quad-ops", "config.yaml")
-				data, err := os.ReadFile(configFile)
+				data, err := os.ReadFile(configFile) // #nosec G304
 				require.NoError(t, err)
 				assert.Equal(t, "existing", string(data))
 			},
@@ -70,16 +70,16 @@ func TestInitCommand_Run(t *testing.T) {
 			opts: InitOptions{Force: true},
 			setup: func(_ *testing.T, tempDir string) {
 				configDir := filepath.Join(tempDir, ".config", "quad-ops")
-				require.NoError(t, os.MkdirAll(configDir, 0755))
+				require.NoError(t, os.MkdirAll(configDir, 0700))
 				configFile := filepath.Join(configDir, "config.yaml")
-				require.NoError(t, os.WriteFile(configFile, []byte("existing"), 0644))
+				require.NoError(t, os.WriteFile(configFile, []byte("existing"), 0600))
 			},
 			expectError: false,
 			validate: func(t *testing.T, tempDir string) {
 				configFile := filepath.Join(tempDir, ".config", "quad-ops", "config.yaml")
 				assert.FileExists(t, configFile)
 
-				data, err := os.ReadFile(configFile)
+				data, err := os.ReadFile(configFile) // #nosec G304
 				require.NoError(t, err)
 
 				assert.NotEqual(t, "existing", string(data))
