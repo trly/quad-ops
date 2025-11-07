@@ -103,6 +103,7 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 		if err != nil {
 			return fmt.Errorf("failed to list filesystem artifacts: %w", err)
 		}
+		artifacts = filterArtifactsForPlatform(artifacts, app.Config)
 	} else {
 		// Default: use git-managed artifacts from repository
 		deps.Logger.Debug("Listing artifacts from repository")
@@ -110,11 +111,12 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 		if err != nil {
 			return fmt.Errorf("failed to list repository artifacts: %w", err)
 		}
+		artifacts = filterArtifactsForPlatform(artifacts, app.Config)
 	}
 
 	// Check for divergence between repo and filesystem if requested
 	if opts.ShowDivergence && !opts.UseFilesystem {
-		c.checkDivergence(ctx, deps, artifacts)
+		c.checkDivergence(ctx, deps, artifacts, app)
 	}
 
 	// For repo artifacts, filter to only those that are actually deployed
@@ -201,7 +203,7 @@ func (c *ListCommand) buildDeps(app *App) ListDeps {
 }
 
 // checkDivergence compares repository artifacts with filesystem artifacts and warns about differences.
-func (c *ListCommand) checkDivergence(ctx context.Context, deps ListDeps, repoArtifacts []platform.Artifact) {
+func (c *ListCommand) checkDivergence(ctx context.Context, deps ListDeps, repoArtifacts []platform.Artifact, app *App) {
 	// Skip divergence check if ArtifactStore is not available
 	if deps.ArtifactStore == nil {
 		return
@@ -213,6 +215,7 @@ func (c *ListCommand) checkDivergence(ctx context.Context, deps ListDeps, repoAr
 		deps.Logger.Debug("Could not check divergence - failed to list filesystem artifacts", "error", err)
 		return
 	}
+	fsArtifacts = filterArtifactsForPlatform(fsArtifacts, app.Config)
 
 	// Build maps for easy comparison
 	repoMap := make(map[string]platform.Artifact)

@@ -25,7 +25,12 @@ package cmd
 
 import (
 	"path/filepath"
+	"runtime"
 	"strings"
+
+	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/platform"
+	"github.com/trly/quad-ops/internal/platform/launchd"
 )
 
 // parseServiceNameFromArtifact extracts the service name from an artifact path
@@ -96,4 +101,57 @@ func matchesServiceName(artifactPath, serviceName string) bool {
 	}
 
 	return false
+}
+
+// allowedQuadletExt defines the set of valid quadlet artifact extensions.
+var allowedQuadletExt = map[string]struct{}{
+	".container": {},
+	".service":   {},
+	".network":   {},
+	".volume":    {},
+	".target":    {},
+	".timer":     {},
+	".build":     {},
+}
+
+// filterArtifactsForPlatform filters artifacts based on platform-specific rules.
+// On macOS, it filters launchd plists to only include those with the configured label prefix.
+// On Linux, it filters to only include valid quadlet unit file extensions.
+func filterArtifactsForPlatform(artifacts []platform.Artifact, cfg *config.Settings) []platform.Artifact {
+	if runtime.GOOS == "darwin" {
+		opts := launchd.OptionsFromSettings(cfg.RepositoryDir, cfg.QuadletDir, cfg.UserMode)
+		return filterLaunchdArtifacts(artifacts, opts.LabelPrefix)
+	}
+	return filterQuadletArtifacts(artifacts)
+}
+
+// filterLaunchdArtifacts filters artifacts to only include .plist files with the given label prefix.
+func filterLaunchdArtifacts(artifacts []platform.Artifact, labelPrefix string) []platform.Artifact {
+	var filtered []platform.Artifact
+	for _, artifact := range artifacts {
+		ext := filepath.Ext(artifact.Path)
+		if ext != ".plist" {
+			continue
+		}
+
+		base := filepath.Base(artifact.Path)
+		name := strings.TrimSuffix(base, ext)
+
+		if strings.HasPrefix(name, labelPrefix) {
+			filtered = append(filtered, artifact)
+		}
+	}
+	return filtered
+}
+
+// filterQuadletArtifacts filters artifacts to only include valid quadlet unit file extensions.
+func filterQuadletArtifacts(artifacts []platform.Artifact) []platform.Artifact {
+	var filtered []platform.Artifact
+	for _, artifact := range artifacts {
+		ext := filepath.Ext(artifact.Path)
+		if _, ok := allowedQuadletExt[ext]; ok {
+			filtered = append(filtered, artifact)
+		}
+	}
+	return filtered
 }

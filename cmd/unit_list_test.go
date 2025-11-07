@@ -594,3 +594,40 @@ func TestListCommand_MixedArtifactTypes(t *testing.T) {
 	err := listCommand.Run(context.Background(), app, opts, deps)
 	assert.NoError(t, err)
 }
+
+func TestListCommand_FiltersNonQuadletArtifacts(t *testing.T) {
+	artifacts := []platform.Artifact{
+		{Path: "web.container", Hash: "abc123", Mode: 0644},
+		{Path: ".git/config", Hash: "git123", Mode: 0644},
+		{Path: "docker-compose.yml", Hash: "yml456", Mode: 0644},
+		{Path: "README.md", Hash: "md789", Mode: 0644},
+	}
+
+	repoArtifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return artifacts, nil
+		},
+	}
+
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			return []platform.Artifact{}, nil
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithRepoArtifactStore(repoArtifactStore).
+		WithArtifactStore(artifactStore).
+		Build(t)
+
+	listCommand := NewListCommand()
+	opts := ListOptions{Status: false}
+	deps := ListDeps{
+		CommonDeps:        NewCommonDeps(app.Logger),
+		RepoArtifactStore: repoArtifactStore,
+		ArtifactStore:     artifactStore,
+	}
+
+	err := listCommand.Run(context.Background(), app, opts, deps)
+	assert.NoError(t, err)
+}

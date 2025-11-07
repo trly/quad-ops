@@ -79,12 +79,13 @@ func (c *ShowCommand) GetCobraCommand() *cobra.Command {
 }
 
 // Run executes the show command with injected dependencies.
-func (c *ShowCommand) Run(ctx context.Context, _ *App, _ ShowOptions, deps ShowDeps, serviceName string) error {
+func (c *ShowCommand) Run(ctx context.Context, app *App, _ ShowOptions, deps ShowDeps, serviceName string) error {
 	// List all artifacts to find matching service
 	artifacts, err := deps.ArtifactStore.List(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list artifacts: %w", err)
 	}
+	artifacts = filterArtifactsForPlatform(artifacts, app.Config)
 
 	// Find artifacts matching the service name
 	var matchingArtifacts []struct {
