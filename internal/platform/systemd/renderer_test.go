@@ -223,17 +223,20 @@ func TestRenderer_RenderBuild(t *testing.T) {
 	result, err := r.Render(ctx, []service.Spec{spec})
 	require.NoError(t, err)
 
-	var buildArtifact *string
+	var buildArtifact, containerArtifact *string
 	for _, a := range result.Artifacts {
 		if strings.HasSuffix(a.Path, ".build") {
 			content := string(a.Content)
 			buildArtifact = &content
-			break
+		} else if strings.HasSuffix(a.Path, ".container") {
+			content := string(a.Content)
+			containerArtifact = &content
 		}
 	}
 
 	require.NotNil(t, buildArtifact)
 	assert.Contains(t, *buildArtifact, "[Unit]")
+	assert.Contains(t, *buildArtifact, "WorkingDirectory=./app")
 	assert.Contains(t, *buildArtifact, "[Build]")
 	assert.Contains(t, *buildArtifact, "ImageTag=myapp:latest")
 	assert.Contains(t, *buildArtifact, "ImageTag=myapp:v1.0")
@@ -243,6 +246,10 @@ func TestRenderer_RenderBuild(t *testing.T) {
 	assert.Contains(t, *buildArtifact, "SetWorkingDirectory=/build")
 	assert.Contains(t, *buildArtifact, "Environment=VERSION=1.0")
 	assert.Contains(t, *buildArtifact, "Label=version=1.0")
+
+	require.NotNil(t, containerArtifact)
+	assert.Contains(t, *containerArtifact, "After=builder-build.service")
+	assert.Contains(t, *containerArtifact, "Requires=builder-build.service")
 }
 
 func TestRenderer_RenderHealthcheck(t *testing.T) {

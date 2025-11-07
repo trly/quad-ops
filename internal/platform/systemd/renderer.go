@@ -161,6 +161,12 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 		}
 	}
 
+	// Add dependencies for build
+	if spec.Container.Build != nil {
+		builder.WriteString(fmt.Sprintf("After=%s-build.service\n", spec.Name))
+		builder.WriteString(fmt.Sprintf("Requires=%s-build.service\n", spec.Name))
+	}
+
 	builder.WriteString("\n[Container]\n")
 	builder.WriteString(formatKeyValue("Label", "managed-by=quad-ops"))
 
@@ -686,12 +692,17 @@ func (r *Renderer) renderBuild(name, description string, build service.Build, de
 		builder.WriteString(formatKeyValue("Description", fmt.Sprintf("Build %s", name)))
 	}
 
+	if build.Context != "" {
+		builder.WriteString(formatKeyValue("WorkingDirectory", build.Context))
+	}
+
 	if len(dependsOn) > 0 {
 		deps := make([]string, len(dependsOn))
 		copy(deps, dependsOn)
 		sort.Strings(deps)
 		for _, dep := range deps {
 			builder.WriteString(fmt.Sprintf("After=%s.service\n", dep))
+			builder.WriteString(fmt.Sprintf("Requires=%s.service\n", dep))
 		}
 	}
 
@@ -770,6 +781,15 @@ func (r *Renderer) renderBuild(name, description string, build service.Build, de
 		sort.Strings(sorted)
 		for _, s := range sorted {
 			builder.WriteString(formatKeyValue("Secret", s))
+		}
+	}
+
+	if len(build.CacheFrom) > 0 {
+		sorted := make([]string, len(build.CacheFrom))
+		copy(sorted, build.CacheFrom)
+		sort.Strings(sorted)
+		for _, cache := range sorted {
+			builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--cache-from=%s", cache)))
 		}
 	}
 
