@@ -20,7 +20,9 @@ type Renderer struct{}
 type Lifecycle struct{}
 
 // Options is a stub for non-Darwin platforms.
-type Options struct{}
+type Options struct {
+	LabelPrefix string
+}
 
 // OptionsFromSettings is a stub for non-Darwin platforms.
 func OptionsFromSettings(_, _ string, _ bool) Options {
