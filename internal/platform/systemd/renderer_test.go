@@ -73,6 +73,43 @@ func TestRenderer_RenderContainer(t *testing.T) {
 	assert.Equal(t, []string{"web.container"}, result.ServiceChanges["web"].ArtifactPaths)
 }
 
+func TestRenderer_RenderInitContainer(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name:        "web-init-0",
+		Description: "Init container 0 for service web",
+		Container: service.Container{
+			Image:        "busybox:latest",
+			Command:      []string{"sh", "-c", "echo 'init'"},
+			RestartPolicy: service.RestartPolicyNo,
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Len(t, result.Artifacts, 1)
+	assert.Equal(t, "web-init-0.container", result.Artifacts[0].Path)
+	assert.NotEmpty(t, result.Artifacts[0].Hash)
+
+	content := string(result.Artifacts[0].Content)
+	assert.Contains(t, content, "[Unit]")
+	assert.Contains(t, content, "Description=Init container 0 for service web")
+	assert.Contains(t, content, "[Container]")
+	assert.Contains(t, content, "Image=busybox:latest")
+	assert.Contains(t, content, "Exec=sh -c echo 'init'")
+	assert.Contains(t, content, "[Service]")
+	assert.Contains(t, content, "Type=oneshot")
+	assert.Contains(t, content, "RemainAfterExit=yes")
+	assert.Contains(t, content, "Restart=no")
+	assert.Contains(t, content, "[Install]")
+	assert.Contains(t, content, "WantedBy=default.target")
+}
+
 func TestRenderer_RenderVolume(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
 	r := NewRenderer(logger)

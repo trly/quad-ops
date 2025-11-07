@@ -195,6 +195,13 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addAdvanced(&builder, spec.Container)
 
 	builder.WriteString("\n[Service]\n")
+
+	// Configure init containers as oneshot services
+	if strings.Contains(spec.Name, "-init-") {
+		builder.WriteString(formatKeyValue("Type", "oneshot"))
+		builder.WriteString(formatKeyValue("RemainAfterExit", "yes"))
+	}
+
 	restart := r.mapRestartPolicy(spec.Container.RestartPolicy)
 	builder.WriteString(formatKeyValue("Restart", restart))
 
