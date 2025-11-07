@@ -4,7 +4,9 @@ package systemd
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -212,9 +214,59 @@ func (l *Lifecycle) Status(ctx context.Context, name string) (*platform.ServiceS
 	return status, nil
 }
 
+// cleanupOrphanedRootlessportProcesses kills any orphaned rootlessport processes
+// that may be holding port bindings from failed podman containers.
+func (l *Lifecycle) cleanupOrphanedRootlessportProcesses(ctx context.Context) error {
+	// Find rootlessport processes owned by current user
+	cmd := exec.CommandContext(ctx, "pgrep", "-f", "rootlessport")
+	output, err := cmd.Output()
+	if err != nil {
+		// pgrep returns exit code 1 when no processes found, which is not an error for us
+		if exitErr, ok := err.(*exec.ExitError); ok && exitErr.ExitCode() == 1 {
+			l.logger.Debug("No orphaned rootlessport processes found")
+			return nil
+		}
+		l.logger.Debug("Failed to check for rootlessport processes", "error", err)
+		return nil // Don't fail the operation if we can't check
+	}
+
+	pids := strings.Fields(string(output))
+	if len(pids) == 0 {
+		l.logger.Debug("No rootlessport processes found")
+		return nil
+	}
+
+	l.logger.Info("Found orphaned rootlessport processes, cleaning up", "count", len(pids))
+
+	// Kill the processes
+	for _, pidStr := range pids {
+		// Validate and convert PID to avoid command injection
+		pid, err := strconv.Atoi(pidStr)
+		if err != nil || pid <= 0 {
+			l.logger.Warn("Invalid PID format, skipping", "pid", pidStr)
+			continue
+		}
+
+		killCmd := exec.CommandContext(ctx, "kill", strconv.Itoa(pid)) // #nosec G204 - PID is validated as integer from pgrep output
+		if err := killCmd.Run(); err != nil {
+			l.logger.Warn("Failed to kill rootlessport process", "pid", pid, "error", err)
+		} else {
+			l.logger.Debug("Killed orphaned rootlessport process", "pid", pid)
+		}
+	}
+
+	return nil
+}
+
 // StartMany starts multiple services in dependency order.
 func (l *Lifecycle) StartMany(ctx context.Context, names []string) map[string]error {
 	l.logger.Debug("Starting multiple services", "count", len(names))
+
+	// Clean up any orphaned rootlessport processes before starting services
+	if err := l.cleanupOrphanedRootlessportProcesses(ctx); err != nil {
+		l.logger.Warn("Failed to cleanup orphaned rootlessport processes", "error", err)
+		// Don't fail the operation, just log the warning
+	}
 
 	results := make(map[string]error)
 	var mu sync.Mutex
@@ -303,6 +355,12 @@ func (l *Lifecycle) StopMany(ctx context.Context, names []string) map[string]err
 // RestartMany restarts multiple services in dependency order.
 func (l *Lifecycle) RestartMany(ctx context.Context, names []string) map[string]error {
 	l.logger.Debug("Restarting multiple services", "count", len(names))
+
+	// Clean up any orphaned rootlessport processes before restarting services
+	if err := l.cleanupOrphanedRootlessportProcesses(ctx); err != nil {
+		l.logger.Warn("Failed to cleanup orphaned rootlessport processes", "error", err)
+		// Don't fail the operation, just log the warning
+	}
 
 	results := make(map[string]error)
 	var mu sync.Mutex
