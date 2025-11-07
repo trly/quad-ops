@@ -161,14 +161,170 @@ func TestDependencyGraphCycleDetection(t *testing.T) {
 	// No cycles yet
 	assert.False(t, graph.HasCycles())
 
+	// Check topological order works
+	order, err := graph.GetTopologicalOrder()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"a", "b", "c"}, order)
+
 	// Try to add c -> a, which would create a cycle: a -> b -> c -> a
-	// The graph uses graph.Acyclic() which should prevent this
 	err = graph.AddDependency("a", "c")
-	if err == nil {
-		// If the edge was added successfully, the HasCycles should detect it
-		assert.True(t, graph.HasCycles(), "Cycle should be detected after adding cyclic dependency")
-	} else {
-		// If the edge addition failed (which is expected with Acyclic), that's also fine
-		assert.Error(t, err, "Graph correctly rejected cyclic dependency")
+	require.NoError(t, err) // AddDependency doesn't prevent cycles
+
+	// Now should have cycles
+	assert.True(t, graph.HasCycles())
+
+	// Check topological order fails with improved error message
+	_, err = graph.GetTopologicalOrder()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "dependency graph contains a cycle involving services:")
+	assert.Contains(t, err.Error(), "a")
+	assert.Contains(t, err.Error(), "b")
+	assert.Contains(t, err.Error(), "c")
+}
+
+func TestGetTransitiveDependencies(t *testing.T) {
+	// Create a mock project with a dependency tree
+	// db <- webapp <- proxy
+	project := &types.Project{
+		Name: "test-project",
+		Services: types.Services{
+			"db": types.ServiceConfig{
+				Name:  "db",
+				Image: "mariadb:latest",
+			},
+			"webapp": types.ServiceConfig{
+				Name:  "webapp",
+				Image: "wordpress:latest",
+				DependsOn: types.DependsOnConfig{
+					"db": types.ServiceDependency{},
+				},
+			},
+			"proxy": types.ServiceConfig{
+				Name:  "proxy",
+				Image: "nginx:latest",
+				DependsOn: types.DependsOnConfig{
+					"webapp": types.ServiceDependency{},
+				},
+			},
+		},
 	}
+
+	// Build the dependency graph
+	graph, err := BuildServiceDependencyGraph(project)
+	require.NoError(t, err)
+
+	// Test transitive dependencies
+	deps, err := graph.GetTransitiveDependencies("db")
+	require.NoError(t, err)
+	assert.Empty(t, deps)
+
+	deps, err = graph.GetTransitiveDependencies("webapp")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"db"}, deps)
+
+	deps, err = graph.GetTransitiveDependencies("proxy")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"db", "webapp"}, deps)
+
+	// Test unknown service
+	_, err = graph.GetTransitiveDependencies("unknown")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown service")
+}
+
+func TestGetTransitiveDependents(t *testing.T) {
+	// Create a mock project with a dependency tree
+	// db <- webapp <- proxy
+	project := &types.Project{
+		Name: "test-project",
+		Services: types.Services{
+			"db": types.ServiceConfig{
+				Name:  "db",
+				Image: "mariadb:latest",
+			},
+			"webapp": types.ServiceConfig{
+				Name:  "webapp",
+				Image: "wordpress:latest",
+				DependsOn: types.DependsOnConfig{
+					"db": types.ServiceDependency{},
+				},
+			},
+			"proxy": types.ServiceConfig{
+				Name:  "proxy",
+				Image: "nginx:latest",
+				DependsOn: types.DependsOnConfig{
+					"webapp": types.ServiceDependency{},
+				},
+			},
+		},
+	}
+
+	// Build the dependency graph
+	graph, err := BuildServiceDependencyGraph(project)
+	require.NoError(t, err)
+
+	// Test transitive dependents
+	deps, err := graph.GetTransitiveDependents("db")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"proxy", "webapp"}, deps)
+
+	deps, err = graph.GetTransitiveDependents("webapp")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"proxy"}, deps)
+
+	deps, err = graph.GetTransitiveDependents("proxy")
+	require.NoError(t, err)
+	assert.Empty(t, deps)
+
+	// Test unknown service
+	_, err = graph.GetTransitiveDependents("unknown")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown service")
+}
+
+func TestCanAddDependency(t *testing.T) {
+	graph := NewServiceDependencyGraph()
+
+	// Add services
+	err := graph.AddService("a")
+	require.NoError(t, err)
+	err = graph.AddService("b")
+	require.NoError(t, err)
+	err = graph.AddService("c")
+	require.NoError(t, err)
+
+	// Add valid dependencies: a -> b -> c
+	err = graph.AddDependency("b", "a")
+	require.NoError(t, err)
+	err = graph.AddDependency("c", "b")
+	require.NoError(t, err)
+
+	// Can add existing dependency
+	can, err := graph.CanAddDependency("b", "a")
+	require.NoError(t, err)
+	assert.True(t, can)
+
+	// Can add new valid dependency
+	can, err = graph.CanAddDependency("c", "a")
+	require.NoError(t, err)
+	assert.True(t, can)
+
+	// Cannot add self-dependency
+	_, err = graph.CanAddDependency("a", "a")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "self-dependency is not allowed")
+
+	// Cannot add cycle
+	can, err = graph.CanAddDependency("a", "c")
+	require.NoError(t, err)
+	assert.False(t, can)
+
+	// Unknown service
+	_, err = graph.CanAddDependency("unknown", "a")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown dependent service")
+
+	_, err = graph.CanAddDependency("a", "unknown")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown dependency service")
 }

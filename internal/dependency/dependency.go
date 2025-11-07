@@ -2,7 +2,6 @@
 package dependency
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -79,6 +78,92 @@ func (sdg *ServiceDependencyGraph) AddDependency(dependent, dependency string) e
 	return nil
 }
 
+// CanAddDependency checks if adding a dependency would create a cycle.
+// Returns true if the dependency can be added without creating a cycle, false otherwise.
+// If false, the dependency would create a cycle.
+func (sdg *ServiceDependencyGraph) CanAddDependency(dependent, dependency string) (bool, error) {
+	if dependent == "" || dependency == "" {
+		return false, fmt.Errorf("dependent and dependency must be non-empty")
+	}
+	if dependent == dependency {
+		return false, fmt.Errorf("self-dependency is not allowed: %s", dependent)
+	}
+
+	sdg.mu.Lock()
+	defer sdg.mu.Unlock()
+
+	// Check if service exists
+	if _, ok := sdg.pred[dependent]; !ok {
+		return false, fmt.Errorf("unknown dependent service: %s", dependent)
+	}
+	if _, ok := sdg.succ[dependency]; !ok {
+		return false, fmt.Errorf("unknown dependency service: %s", dependency)
+	}
+
+	// Check if already exists
+	if _, ok := sdg.pred[dependent][dependency]; ok {
+		return true, nil
+	}
+
+	// Temporarily add the edge
+	sdg.succ[dependency][dependent] = struct{}{}
+	sdg.pred[dependent][dependency] = struct{}{}
+
+	// Check for cycles
+	hasCycle := sdg.hasCyclesUnlocked()
+
+	// Remove the edge
+	delete(sdg.succ[dependency], dependent)
+	delete(sdg.pred[dependent], dependency)
+
+	return !hasCycle, nil
+}
+
+// hasCyclesUnlocked checks for cycles without acquiring locks (assumes lock is held).
+func (sdg *ServiceDependencyGraph) hasCyclesUnlocked() bool {
+	// Build indegree map
+	indeg := make(map[string]int, len(sdg.pred))
+	for v := range sdg.pred {
+		indeg[v] = len(sdg.pred[v])
+	}
+
+	// Copy successor relationships
+	succCopy := make(map[string]map[string]struct{}, len(sdg.succ))
+	for v, succs := range sdg.succ {
+		succCopy[v] = make(map[string]struct{}, len(succs))
+		for w := range succs {
+			succCopy[v][w] = struct{}{}
+		}
+	}
+
+	// Initialize zero-indegree set
+	zero := make([]string, 0)
+	for v, d := range indeg {
+		if d == 0 {
+			zero = append(zero, v)
+		}
+	}
+	sort.Strings(zero)
+
+	order := make([]string, 0, len(indeg))
+
+	for len(zero) > 0 {
+		v := zero[0]
+		zero = zero[1:]
+		order = append(order, v)
+
+		for w := range succCopy[v] {
+			indeg[w]--
+			if indeg[w] == 0 {
+				zero = append(zero, w)
+			}
+		}
+		sort.Strings(zero)
+	}
+
+	return len(order) != len(indeg)
+}
+
 // GetDependencies returns the services that the given service depends on.
 func (sdg *ServiceDependencyGraph) GetDependencies(serviceName string) ([]string, error) {
 	sdg.mu.RLock()
@@ -107,6 +192,72 @@ func (sdg *ServiceDependencyGraph) GetDependents(serviceName string) ([]string, 
 	}
 	deps := make([]string, 0, len(succs))
 	for dep := range succs {
+		deps = append(deps, dep)
+	}
+	sort.Strings(deps)
+	return deps, nil
+}
+
+// GetTransitiveDependencies returns all transitive dependencies of the given service.
+func (sdg *ServiceDependencyGraph) GetTransitiveDependencies(serviceName string) ([]string, error) {
+	sdg.mu.RLock()
+	defer sdg.mu.RUnlock()
+
+	if _, ok := sdg.pred[serviceName]; !ok {
+		return nil, fmt.Errorf("unknown service: %s", serviceName)
+	}
+
+	visited := make(map[string]bool)
+	var collect func(string)
+	collect = func(s string) {
+		if visited[s] {
+			return
+		}
+		visited[s] = true
+		for dep := range sdg.pred[s] {
+			collect(dep)
+		}
+	}
+	collect(serviceName)
+
+	// Remove the service itself
+	delete(visited, serviceName)
+
+	deps := make([]string, 0, len(visited))
+	for dep := range visited {
+		deps = append(deps, dep)
+	}
+	sort.Strings(deps)
+	return deps, nil
+}
+
+// GetTransitiveDependents returns all transitive dependents of the given service.
+func (sdg *ServiceDependencyGraph) GetTransitiveDependents(serviceName string) ([]string, error) {
+	sdg.mu.RLock()
+	defer sdg.mu.RUnlock()
+
+	if _, ok := sdg.succ[serviceName]; !ok {
+		return nil, fmt.Errorf("unknown service: %s", serviceName)
+	}
+
+	visited := make(map[string]bool)
+	var collect func(string)
+	collect = func(s string) {
+		if visited[s] {
+			return
+		}
+		visited[s] = true
+		for dep := range sdg.succ[s] {
+			collect(dep)
+		}
+	}
+	collect(serviceName)
+
+	// Remove the service itself
+	delete(visited, serviceName)
+
+	deps := make([]string, 0, len(visited))
+	for dep := range visited {
 		deps = append(deps, dep)
 	}
 	sort.Strings(deps)
@@ -164,7 +315,14 @@ func (sdg *ServiceDependencyGraph) GetTopologicalOrder() ([]string, error) {
 	}
 
 	if len(order) != len(indeg) {
-		return nil, errors.New("dependency graph contains a cycle")
+		remaining := make([]string, 0)
+		for v, d := range indeg {
+			if d > 0 {
+				remaining = append(remaining, v)
+			}
+		}
+		sort.Strings(remaining)
+		return nil, fmt.Errorf("dependency graph contains a cycle involving services: %v", remaining)
 	}
 	return order, nil
 }
