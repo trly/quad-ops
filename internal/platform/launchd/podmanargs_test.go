@@ -1020,12 +1020,13 @@ func TestBuildPodmanArgs_NetworkOrdering(t *testing.T) {
 		},
 	}
 
-	// Call multiple times and verify consistent ordering
-	args1 := BuildPodmanArgs(spec, "test-1")
-	args2 := BuildPodmanArgs(spec, "test-2")
-	args3 := BuildPodmanArgs(spec, "test-3")
+	// Call multiple times with the same container name and verify consistent ordering
+	containerName := "test-container"
+	args1 := BuildPodmanArgs(spec, containerName)
+	args2 := BuildPodmanArgs(spec, containerName)
+	args3 := BuildPodmanArgs(spec, containerName)
 
-	// All should be identical except container name
+	// All should be identical (same input, same output)
 	assert.Equal(t, args1, args2, "multiple calls should produce identical network ordering")
 	assert.Equal(t, args2, args3, "multiple calls should produce identical network ordering")
 
