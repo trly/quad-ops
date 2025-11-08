@@ -433,3 +433,60 @@ func TestRenderer_NetworkOrderingConsistency(t *testing.T) {
 	assert.True(t, appleIdx < monkeyIdx, "apple should come before monkey")
 	assert.True(t, monkeyIdx < zebraIdx, "monkey should come before zebra")
 }
+
+func TestRenderer_ServiceDependencies(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	renderer, err := NewRenderer(testOptions(), logger)
+	require.NoError(t, err)
+
+	// Test: Service with dependencies
+	spec := service.Spec{
+		Name:        "web-app",
+		Description: "Web app that depends on database and cache",
+		DependsOn:   []string{"db", "redis"},
+		Container: service.Container{
+			Image:         "docker.io/library/nginx:latest",
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	result, err := renderer.Render(context.Background(), []service.Spec{spec})
+	require.NoError(t, err)
+	require.Len(t, result.Artifacts, 1)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Verify DependsOn array is present in plist
+	assert.Contains(t, content, "<key>DependsOn</key>")
+	assert.Contains(t, content, "<array>")
+
+	// Verify dependencies are converted to launchd labels
+	// Dependencies should be prefixed with the label prefix
+	assert.Contains(t, content, "<string>dev.trly.quad-ops.db</string>")
+	assert.Contains(t, content, "<string>dev.trly.quad-ops.redis</string>")
+}
+
+func TestRenderer_NoDependencies(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	renderer, err := NewRenderer(testOptions(), logger)
+	require.NoError(t, err)
+
+	// Test: Service without dependencies should not have DependsOn key
+	spec := service.Spec{
+		Name:        "standalone-app",
+		Description: "Standalone app with no dependencies",
+		Container: service.Container{
+			Image:         "docker.io/library/nginx:latest",
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	result, err := renderer.Render(context.Background(), []service.Spec{spec})
+	require.NoError(t, err)
+	require.Len(t, result.Artifacts, 1)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Verify DependsOn array is not present
+	assert.NotContains(t, content, "<key>DependsOn</key>")
+}

@@ -91,6 +91,16 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 	// Determine restart policy mapping
 	keepAlive := r.mapRestartPolicy(spec.Container.RestartPolicy)
 
+	// Map service dependencies to launchd labels
+	var dependsOn []string
+	if len(spec.DependsOn) > 0 {
+		dependsOn = make([]string, len(spec.DependsOn))
+		for i, depName := range spec.DependsOn {
+			depLabel := r.buildLabel(depName)
+			dependsOn[i] = depLabel
+		}
+	}
+
 	// Build plist
 	plist := &Plist{
 		Label:               label,
@@ -102,6 +112,7 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 		ProcessType:         "Background",
 		StandardOutPath:     filepath.Join(r.opts.LogsDir, fmt.Sprintf("%s.out.log", label)),
 		StandardErrorPath:   filepath.Join(r.opts.LogsDir, fmt.Sprintf("%s.err.log", label)),
+		DependsOn:           dependsOn,
 	}
 
 	// Add working directory if specified
