@@ -228,6 +228,122 @@ func TestRenderer_RenderNetwork(t *testing.T) {
 	require.NotNil(t, containerArtifact)
 	assert.Contains(t, *containerArtifact, "After=backend-network.service")
 	assert.Contains(t, *containerArtifact, "Requires=backend-network.service")
+	assert.Contains(t, *containerArtifact, "Network=backend.network")
+}
+
+func TestRenderer_MultipleNetworks(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	// Test case: service with multiple networks (like immich example)
+	spec := service.Spec{
+		Name:        "immich-server",
+		Description: "Immich server with multiple networks",
+		Networks: []service.Network{
+			{
+				Name:     "default",
+				Driver:   "bridge",
+				External: false,
+			},
+			{
+				Name:     "infrastructure-proxy",
+				Driver:   "bridge",
+				External: false,
+			},
+		},
+		Container: service.Container{
+			Image: "immich-server:latest",
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	assert.Len(t, result.Artifacts, 3) // 2 network units + 1 container unit
+
+	var containerArtifact *string
+	networkPaths := []string{}
+
+	for _, a := range result.Artifacts {
+		switch {
+		case strings.HasSuffix(a.Path, ".container"):
+			content := string(a.Content)
+			containerArtifact = &content
+		case strings.HasSuffix(a.Path, ".network"):
+			networkPaths = append(networkPaths, a.Path)
+		}
+	}
+
+	require.NotNil(t, containerArtifact)
+
+	// Verify container depends on both networks
+	assert.Contains(t, *containerArtifact, "After=default-network.service")
+	assert.Contains(t, *containerArtifact, "After=infrastructure-proxy-network.service")
+	assert.Contains(t, *containerArtifact, "Requires=default-network.service")
+	assert.Contains(t, *containerArtifact, "Requires=infrastructure-proxy-network.service")
+
+	// Verify container joins both networks
+	assert.Contains(t, *containerArtifact, "Network=default.network")
+	assert.Contains(t, *containerArtifact, "Network=infrastructure-proxy.network")
+
+	// Verify both network units were created
+	assert.Len(t, networkPaths, 2)
+	assert.Contains(t, networkPaths, "default.network")
+	assert.Contains(t, networkPaths, "infrastructure-proxy.network")
+}
+
+func TestRenderer_ExternalNetworks(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name:        "app-external",
+		Description: "App using external network",
+		Networks: []service.Network{
+			{
+				Name:     "local-net",
+				Driver:   "bridge",
+				External: false,
+			},
+			{
+				Name:     "external-net",
+				Driver:   "bridge",
+				External: true, // External network should not create unit file or add to container
+			},
+		},
+		Container: service.Container{
+			Image: "myapp:latest",
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	// Should only have 1 network unit (external is skipped) + 1 container unit
+	assert.Len(t, result.Artifacts, 2)
+
+	var containerArtifact *string
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			content := string(a.Content)
+			containerArtifact = &content
+		}
+		// Verify no external network unit was created
+		assert.NotEqual(t, "external-net.network", a.Path)
+	}
+
+	require.NotNil(t, containerArtifact)
+
+	// Container should depend on and join only the local network
+	assert.Contains(t, *containerArtifact, "After=local-net-network.service")
+	assert.Contains(t, *containerArtifact, "Requires=local-net-network.service")
+	assert.Contains(t, *containerArtifact, "Network=local-net.network")
+
+	// Should NOT have external network directives
+	assert.NotContains(t, *containerArtifact, "After=external-net-network.service")
+	assert.NotContains(t, *containerArtifact, "Network=external-net.network")
 }
 
 func TestRenderer_RenderBuild(t *testing.T) {

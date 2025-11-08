@@ -1146,6 +1146,52 @@ func TestBuildPodmanArgsIntegration(t *testing.T) {
 				assert.True(t, foundSecret, "should contain formatted secret with all options")
 			},
 		},
+		{
+			name: "service with multiple networks",
+			spec: service.Spec{
+				Name: "multi-network-service",
+				Networks: []service.Network{
+					{Name: "backend", External: false},
+					{Name: "frontend", External: false},
+				},
+				Container: service.Container{
+					Image: "myapp:latest",
+				},
+			},
+			containerName: "multi-net-app",
+			checkArgs: func(t *testing.T, args []string) {
+				assert.Contains(t, args, "--network")
+				assert.Contains(t, args, "backend")
+				assert.Contains(t, args, "frontend")
+			},
+		},
+		{
+			name: "service with external network (should be skipped)",
+			spec: service.Spec{
+				Name: "external-net-service",
+				Networks: []service.Network{
+					{Name: "backend", External: false},
+					{Name: "external-net", External: true},
+				},
+				Container: service.Container{
+					Image: "myapp:latest",
+				},
+			},
+			containerName: "ext-net-app",
+			checkArgs: func(t *testing.T, args []string) {
+				assert.Contains(t, args, "--network")
+				assert.Contains(t, args, "backend")
+				// External network should not be added
+				hasExternalNet := false
+				for _, arg := range args {
+					if arg == "external-net" {
+						hasExternalNet = true
+						break
+					}
+				}
+				assert.False(t, hasExternalNet, "external networks should not be in podman args")
+			},
+		},
 	}
 
 	for _, tt := range tests {

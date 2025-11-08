@@ -78,9 +78,16 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 		args = append(args, "--tmpfs", tmpfs)
 	}
 
-	// Network mode
+	// Network mode (primary network, typically bridge)
 	if spec.Container.Network.Mode != "" {
 		args = append(args, "--network", spec.Container.Network.Mode)
+	}
+
+	// Service-level networks (additional networks the service joins)
+	for _, net := range spec.Networks {
+		if !net.External {
+			args = append(args, "--network", net.Name)
+		}
 	}
 
 	// Container labels
