@@ -664,6 +664,142 @@ func TestSpecConverter_NameSanitization(t *testing.T) {
 	}
 }
 
+func TestSpecConverter_ServiceNetworks(t *testing.T) {
+	tests := []struct {
+		name            string
+		serviceName     string
+		composeService  types.ServiceConfig
+		projectNetworks types.Networks
+		projectName     string
+		validate        func(t *testing.T, spec service.Spec)
+	}{
+		{
+			name:        "service with no networks specified",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:     "web",
+				Image:    "nginx:latest",
+				Networks: nil,
+			},
+			projectNetworks: types.Networks{},
+			projectName:     "test",
+			validate: func(t *testing.T, spec service.Spec) {
+				// Should have project networks only (none in this case)
+				assert.Len(t, spec.Networks, 0)
+			},
+		},
+		{
+			name:        "service with single service-level network",
+			serviceName: "api",
+			composeService: types.ServiceConfig{
+				Name:  "api",
+				Image: "api:1.0",
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"backend": {
+						Aliases: []string{"api-service"},
+					},
+				},
+			},
+			projectNetworks: types.Networks{
+				"backend": {
+					Name:   "backend",
+					Driver: "bridge",
+				},
+			},
+			projectName: "myapp",
+			validate: func(t *testing.T, spec service.Spec) {
+				// Should have the service-level network
+				assert.Len(t, spec.Networks, 1)
+				assert.Equal(t, service.SanitizeName("myapp-backend"), spec.Networks[0].Name)
+				assert.Equal(t, "bridge", spec.Networks[0].Driver)
+			},
+		},
+		{
+			name:        "service with multiple service-level networks",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx:latest",
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"frontend": {},
+					"backend":  {},
+				},
+			},
+			projectNetworks: types.Networks{
+				"frontend": {
+					Name:   "frontend",
+					Driver: "bridge",
+				},
+				"backend": {
+					Name:   "backend",
+					Driver: "bridge",
+				},
+			},
+			projectName: "test",
+			validate: func(t *testing.T, spec service.Spec) {
+				// Should have both service-level networks
+				assert.Len(t, spec.Networks, 2)
+				networkNames := make(map[string]bool)
+				for _, net := range spec.Networks {
+					networkNames[net.Name] = true
+				}
+				assert.True(t, networkNames[service.SanitizeName("test-frontend")])
+				assert.True(t, networkNames[service.SanitizeName("test-backend")])
+			},
+		},
+		{
+			name:        "service with external networks",
+			serviceName: "app",
+			composeService: types.ServiceConfig{
+				Name:  "app",
+				Image: "app:1.0",
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"external-net": {},
+				},
+			},
+			projectNetworks: types.Networks{
+				"external-net": {
+					Name:     "external-net",
+					Driver:   "bridge",
+					External: true,
+				},
+			},
+			projectName: "test",
+			validate: func(t *testing.T, spec service.Spec) {
+				// Should still include external networks
+				assert.Len(t, spec.Networks, 1)
+				assert.Equal(t, service.SanitizeName("test-external-net"), spec.Networks[0].Name)
+				assert.True(t, spec.Networks[0].External)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := NewSpecConverter("/test")
+			project := &types.Project{
+				Name:       tt.projectName,
+				WorkingDir: "/test",
+				Networks:   tt.projectNetworks,
+				Services: types.Services{
+					tt.serviceName: tt.composeService,
+				},
+			}
+
+			specs, err := converter.ConvertProject(project)
+			require.NoError(t, err)
+			require.Len(t, specs, 1)
+
+			spec := specs[0]
+			assert.NoError(t, spec.Validate())
+
+			if tt.validate != nil {
+				tt.validate(t, spec)
+			}
+		})
+	}
+}
+
 // Helper functions.
 
 func strPtr(s string) *string {

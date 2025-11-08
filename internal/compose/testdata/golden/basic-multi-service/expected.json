@@ -210,16 +210,6 @@
           "Internal": false,
           "IPv6": false,
           "External": false
-        },
-        {
-          "Name": "basic-multi-service_frontend",
-          "Driver": "bridge",
-          "Options": null,
-          "Labels": null,
-          "IPAM": null,
-          "Internal": false,
-          "IPv6": false,
-          "External": false
         }
       ],
       "DependsOn": null,
@@ -308,16 +298,6 @@
         }
       ],
       "Networks": [
-        {
-          "Name": "basic-multi-service_backend",
-          "Driver": "bridge",
-          "Options": null,
-          "Labels": null,
-          "IPAM": null,
-          "Internal": false,
-          "IPv6": false,
-          "External": false
-        },
         {
           "Name": "basic-multi-service_frontend",
           "Driver": "bridge",

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -63,7 +64,7 @@ func (sc *SpecConverter) convertService(serviceName string, composeService types
 		Description: fmt.Sprintf("Service %s from project %s", serviceName, project.Name),
 		Container:   container,
 		Volumes:     sc.convertProjectVolumes(project),
-		Networks:    sc.convertProjectNetworks(project),
+		Networks:    sc.convertServiceNetworks(composeService, project),
 		DependsOn:   sc.convertDependencies(composeService.DependsOn, project.Name),
 		Annotations: sc.convertLabels(composeService.Labels),
 	}
@@ -597,6 +598,79 @@ func (sc *SpecConverter) convertProjectVolumes(project *types.Project) []service
 
 		result = append(result, volume)
 	}
+	return result
+}
+
+// convertServiceNetworks converts service-level network declarations to service.Network.
+// If a service declares specific networks, it should be connected to those networks.
+// If no networks are declared, falls back to project-level networks.
+func (sc *SpecConverter) convertServiceNetworks(composeService types.ServiceConfig, project *types.Project) []service.Network {
+	// If service declares specific networks, use those
+	if len(composeService.Networks) > 0 {
+		return sc.convertServiceNetworksList(composeService.Networks, project)
+	}
+
+	// Fall back to project-level networks
+	return sc.convertProjectNetworks(project)
+}
+
+// convertServiceNetworksList converts a service's network declarations to service.Network.
+func (sc *SpecConverter) convertServiceNetworksList(networks map[string]*types.ServiceNetworkConfig, project *types.Project) []service.Network {
+	if len(networks) == 0 {
+		return nil
+	}
+
+	result := make([]service.Network, 0, len(networks))
+
+	for networkName := range networks {
+		projectNet, exists := project.Networks[networkName]
+		if !exists {
+			// Network declared by service but not in project networks
+			// This can happen with external networks
+			resolvedName := service.SanitizeName(networkName)
+			if !strings.Contains(networkName, project.Name) {
+				resolvedName = service.SanitizeName(Prefix(project.Name, networkName))
+			}
+
+			network := service.Network{
+				Name: resolvedName,
+				// Default driver for undefined networks
+				Driver: "bridge",
+			}
+			result = append(result, network)
+			continue
+		}
+
+		// Resolve network name from project definition
+		resolvedName := NameResolver(projectNet.Name, networkName)
+		sanitizedName := service.SanitizeName(resolvedName)
+		if !strings.Contains(resolvedName, project.Name) {
+			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+		}
+
+		network := service.Network{
+			Name:     sanitizedName,
+			Driver:   projectNet.Driver,
+			Options:  projectNet.DriverOpts,
+			Labels:   sc.convertLabels(projectNet.Labels),
+			Internal: projectNet.Internal,
+			IPv6:     projectNet.EnableIPv6 != nil && *projectNet.EnableIPv6,
+			External: IsExternal(projectNet.External),
+		}
+
+		// Convert IPAM if present
+		if projectNet.Ipam.Driver != "" || len(projectNet.Ipam.Config) > 0 {
+			network.IPAM = sc.convertIPAM(&projectNet.Ipam)
+		}
+
+		result = append(result, network)
+	}
+
+	// Sort for determinism
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+
 	return result
 }
 
