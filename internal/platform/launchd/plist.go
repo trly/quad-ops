@@ -26,6 +26,7 @@ type Plist struct {
 	AbandonProcessGroup  bool
 	ProcessType          string
 	SessionCreate        bool
+	DependsOn            []string // Service dependencies (service labels)
 }
 
 // EncodePlist encodes a Plist to XML format.
@@ -100,6 +101,10 @@ func EncodePlist(p *Plist) ([]byte, error) {
 
 	if p.SessionCreate {
 		writeDictBoolEntry(buf, "SessionCreate", p.SessionCreate)
+	}
+
+	if len(p.DependsOn) > 0 {
+		writeDictArrayEntry(buf, "DependsOn", p.DependsOn)
 	}
 
 	// Close plist

@@ -163,6 +163,39 @@ func TestEncodePlist(t *testing.T) {
 			assert.Contains(t, result, "foo&amp;bar", "ampersand not escaped")
 		}
 	})
+
+	t.Run("plist with service dependencies", func(t *testing.T) {
+		p := &Plist{
+			Label:            "com.example.service",
+			ProgramArguments: []string{"/usr/bin/service"},
+			DependsOn: []string{
+				"com.example.database",
+				"com.example.cache",
+			},
+		}
+
+		data, err := EncodePlist(p)
+		require.NoError(t, err)
+
+		result := string(data)
+		assert.Contains(t, result, "<key>DependsOn</key>", "missing DependsOn key")
+		assert.Contains(t, result, "<string>com.example.database</string>", "missing database dependency")
+		assert.Contains(t, result, "<string>com.example.cache</string>", "missing cache dependency")
+	})
+
+	t.Run("plist with empty dependencies", func(t *testing.T) {
+		p := &Plist{
+			Label:            "com.example.test",
+			ProgramArguments: []string{"/usr/bin/test"},
+			DependsOn:        []string{},
+		}
+
+		data, err := EncodePlist(p)
+		require.NoError(t, err)
+
+		result := string(data)
+		assert.NotContains(t, result, "<key>DependsOn</key>", "DependsOn should not be present for empty list")
+	})
 }
 
 func TestSanitizeLabel(t *testing.T) {
