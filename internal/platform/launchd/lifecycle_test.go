@@ -318,9 +318,11 @@ func TestLifecycle_StartMany_Sequential(t *testing.T) {
 			plistPath := fmt.Sprintf("/Users/test/Library/LaunchAgents/dev.trly.quad-ops.%s.plist", svc)
 
 			if svc == "app" {
-				// Make this one fail
+				// Make this one fail on all attempts
 				mock.SetError("launchctl", []string{"print", domainTarget}, errors.New("Could not find service"))
 				mock.SetError("launchctl", []string{"bootstrap", "gui/501", plistPath}, errors.New("failed to bootstrap"))
+				// Also fail the legacy fallback
+				mock.SetError("launchctl", []string{"load", "-w", plistPath}, errors.New("failed to load"))
 			} else {
 				// Others succeed
 				mock.SetError("launchctl", []string{"print", domainTarget}, errors.New("Could not find service"))
