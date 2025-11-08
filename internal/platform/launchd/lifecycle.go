@@ -247,30 +247,116 @@ func (l *Lifecycle) Status(ctx context.Context, name string) (*platform.ServiceS
 	return status, nil
 }
 
-// StartMany starts multiple services (no dependency ordering).
+// StartMany starts multiple services in dependency order (sequential processing).
 func (l *Lifecycle) StartMany(ctx context.Context, names []string) map[string]error {
+	l.logger.Debug("Starting multiple services in dependency order", "count", len(names), "services", names)
+
 	results := make(map[string]error)
+
+	// Process services sequentially in the provided order to respect dependencies.
+	// Services are pre-ordered by the caller based on dependency graph.
 	for _, name := range names {
-		results[name] = l.Start(ctx, name)
+		err := l.Start(ctx, name)
+		results[name] = err
+
+		if err != nil {
+			l.logger.Error("Failed to start service", "name", name, "error", err)
+		} else {
+			l.logger.Debug("Service started successfully, continuing to next", "name", name)
+		}
 	}
+
+	successCount := 0
+	failedCount := 0
+	for _, err := range results {
+		if err == nil {
+			successCount++
+		} else {
+			failedCount++
+		}
+	}
+
+	l.logger.Debug("Completed starting services",
+		"total", len(names),
+		"success", successCount,
+		"failed", failedCount)
+
 	return results
 }
 
-// StopMany stops multiple services (no dependency ordering).
+// StopMany stops multiple services in reverse dependency order.
 func (l *Lifecycle) StopMany(ctx context.Context, names []string) map[string]error {
+	l.logger.Debug("Stopping multiple services in reverse dependency order", "count", len(names), "services", names)
+
 	results := make(map[string]error)
-	for _, name := range names {
-		results[name] = l.Stop(ctx, name)
+
+	// Stop in reverse order to respect dependencies (dependents before dependencies).
+	reversed := make([]string, len(names))
+	for i, name := range names {
+		reversed[len(names)-1-i] = name
 	}
+
+	// Process services sequentially in reverse order.
+	for _, name := range reversed {
+		err := l.Stop(ctx, name)
+		results[name] = err
+
+		if err != nil {
+			l.logger.Error("Failed to stop service", "name", name, "error", err)
+		} else {
+			l.logger.Debug("Service stopped successfully, continuing to next", "name", name)
+		}
+	}
+
+	successCount := 0
+	for _, err := range results {
+		if err == nil {
+			successCount++
+		}
+	}
+
+	l.logger.Debug("Completed stopping services",
+		"total", len(names),
+		"success", successCount,
+		"failed", len(names)-successCount)
+
 	return results
 }
 
-// RestartMany restarts multiple services (no dependency ordering).
+// RestartMany restarts multiple services in dependency order (sequential processing).
 func (l *Lifecycle) RestartMany(ctx context.Context, names []string) map[string]error {
+	l.logger.Debug("Restarting multiple services in dependency order", "count", len(names), "services", names)
+
 	results := make(map[string]error)
+
+	// Process services sequentially in the provided order to respect dependencies.
+	// Services are pre-ordered by the caller based on dependency graph.
 	for _, name := range names {
-		results[name] = l.Restart(ctx, name)
+		err := l.Restart(ctx, name)
+		results[name] = err
+
+		if err != nil {
+			l.logger.Error("Failed to restart service", "name", name, "error", err)
+		} else {
+			l.logger.Debug("Service restarted successfully, continuing to next", "name", name)
+		}
 	}
+
+	successCount := 0
+	failedCount := 0
+	for _, err := range results {
+		if err == nil {
+			successCount++
+		} else {
+			failedCount++
+		}
+	}
+
+	l.logger.Debug("Completed restarting services",
+		"total", len(names),
+		"success", successCount,
+		"failed", failedCount)
+
 	return results
 }
 
