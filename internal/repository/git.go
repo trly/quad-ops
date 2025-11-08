@@ -124,9 +124,10 @@ func (s *DefaultGitSyncer) SyncRepo(ctx context.Context, repo config.Repository)
 }
 
 // getCurrentCommit gets the current commit hash from a git repository.
-func (s *DefaultGitSyncer) getCurrentCommit(_ *git.Repository) (string, error) {
-	// This is a helper that would extract the current commit from the git.Repository
-	// For now, we'll return empty string to indicate initial state
-	// In a full implementation, this would use git.Repository methods to get HEAD
-	return "", nil
+func (s *DefaultGitSyncer) getCurrentCommit(repo *git.Repository) (string, error) {
+	if repo == nil {
+ return "", nil
+}
+
+return repo.GetCurrentCommitHash()
 }
