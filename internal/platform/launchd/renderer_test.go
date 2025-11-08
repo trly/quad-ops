@@ -233,3 +233,203 @@ func TestBuildLabel(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderer_ServiceNetworks(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	renderer, err := NewRenderer(testOptions(), logger)
+	require.NoError(t, err)
+
+	// Test: Service with single service-level network
+	spec := service.Spec{
+		Name:        "web-app",
+		Description: "Web app with single network",
+		Networks: []service.Network{
+			{
+				Name:     "backend",
+				Driver:   "bridge",
+				External: false,
+			},
+		},
+		Container: service.Container{
+			Image:         "docker.io/library/nginx:latest",
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	result, err := renderer.Render(context.Background(), []service.Spec{spec})
+	require.NoError(t, err)
+	require.Len(t, result.Artifacts, 1)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Verify --network flag is present for service-level network
+	assert.Contains(t, content, "<string>--network</string>")
+	assert.Contains(t, content, "<string>backend</string>")
+}
+
+func TestRenderer_MultipleServiceNetworks(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	renderer, err := NewRenderer(testOptions(), logger)
+	require.NoError(t, err)
+
+	// Test: Service with multiple service-level networks (like immich example)
+	spec := service.Spec{
+		Name:        "immich-server",
+		Description: "Immich server with multiple networks",
+		Networks: []service.Network{
+			{
+				Name:     "default",
+				Driver:   "bridge",
+				External: false,
+			},
+			{
+				Name:     "infrastructure-proxy",
+				Driver:   "bridge",
+				External: false,
+			},
+		},
+		Container: service.Container{
+			Image:         "docker.io/immich:latest",
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	result, err := renderer.Render(context.Background(), []service.Spec{spec})
+	require.NoError(t, err)
+	require.Len(t, result.Artifacts, 1)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Verify --network flags are present for all service-level networks
+	assert.Contains(t, content, "<string>--network</string>")
+
+	// Both networks should be in the ProgramArguments
+	assert.Contains(t, content, "<string>default</string>")
+	assert.Contains(t, content, "<string>infrastructure-proxy</string>")
+
+	// Verify network ordering is consistent (networks should be in sorted order)
+	defaultIdx := strings.Index(content, "<string>default</string>")
+	proxyIdx := strings.Index(content, "<string>infrastructure-proxy</string>")
+	assert.True(t, defaultIdx < proxyIdx, "Networks should be in sorted order for determinism")
+}
+
+func TestRenderer_ExternalNetworksSkipped(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	renderer, err := NewRenderer(testOptions(), logger)
+	require.NoError(t, err)
+
+	// Test: Service with mix of internal and external networks
+	spec := service.Spec{
+		Name:        "app-external",
+		Description: "App using mixed networks",
+		Networks: []service.Network{
+			{
+				Name:     "local-net",
+				Driver:   "bridge",
+				External: false,
+			},
+			{
+				Name:     "external-net",
+				Driver:   "bridge",
+				External: true, // Should be skipped
+			},
+		},
+		Container: service.Container{
+			Image:         "docker.io/library/myapp:latest",
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	result, err := renderer.Render(context.Background(), []service.Spec{spec})
+	require.NoError(t, err)
+	require.Len(t, result.Artifacts, 1)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Verify local network is present
+	assert.Contains(t, content, "<string>local-net</string>")
+
+	// Verify external network is NOT added to the plist
+	assert.NotContains(t, content, "<string>external-net</string>")
+}
+
+func TestRenderer_NoNetworks(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	renderer, err := NewRenderer(testOptions(), logger)
+	require.NoError(t, err)
+
+	// Test: Service with no service-level networks
+	spec := service.Spec{
+		Name:        "simple-service",
+		Description: "Simple service without networks",
+		Container: service.Container{
+			Image:         "docker.io/library/nginx:latest",
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	result, err := renderer.Render(context.Background(), []service.Spec{spec})
+	require.NoError(t, err)
+	require.Len(t, result.Artifacts, 1)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Should still have valid plist structure
+	assert.Contains(t, content, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
+	assert.Contains(t, content, "<plist version=\"1.0\">")
+	assert.Contains(t, content, "</plist>")
+}
+
+func TestRenderer_NetworkOrderingConsistency(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	renderer, err := NewRenderer(testOptions(), logger)
+	require.NoError(t, err)
+
+	// Test: Multiple renders of the same spec should have consistent network ordering
+	spec := service.Spec{
+		Name:        "consistent-app",
+		Description: "App to test network ordering consistency",
+		Networks: []service.Network{
+			{
+				Name:     "zebra",
+				Driver:   "bridge",
+				External: false,
+			},
+			{
+				Name:     "apple",
+				Driver:   "bridge",
+				External: false,
+			},
+			{
+				Name:     "monkey",
+				Driver:   "bridge",
+				External: false,
+			},
+		},
+		Container: service.Container{
+			Image:         "docker.io/library/alpine:latest",
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	// Render multiple times and verify consistent ordering
+	var results [3]string
+	for i := 0; i < 3; i++ {
+		result, err := renderer.Render(context.Background(), []service.Spec{spec})
+		require.NoError(t, err)
+		require.Len(t, result.Artifacts, 1)
+		results[i] = string(result.Artifacts[0].Content)
+	}
+
+	// All three renders should be identical
+	assert.Equal(t, results[0], results[1], "First and second render should be identical")
+	assert.Equal(t, results[1], results[2], "Second and third render should be identical")
+
+	// Verify networks appear in alphabetical order in the content
+	appleIdx := strings.Index(results[0], "<string>apple</string>")
+	monkeyIdx := strings.Index(results[0], "<string>monkey</string>")
+	zebraIdx := strings.Index(results[0], "<string>zebra</string>")
+
+	assert.True(t, appleIdx < monkeyIdx, "apple should come before monkey")
+	assert.True(t, monkeyIdx < zebraIdx, "monkey should come before zebra")
+}

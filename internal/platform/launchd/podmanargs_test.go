@@ -1006,6 +1006,55 @@ func TestAppendHealthcheckArgs(t *testing.T) {
 	}
 }
 
+func TestBuildPodmanArgs_NetworkOrdering(t *testing.T) {
+	// Test that networks are sorted consistently for deterministic output
+	spec := service.Spec{
+		Name: "ordering-test",
+		Networks: []service.Network{
+			{Name: "zebra-net", External: false},
+			{Name: "apple-net", External: false},
+			{Name: "monkey-net", External: false},
+		},
+		Container: service.Container{
+			Image: "test:latest",
+		},
+	}
+
+	// Call multiple times and verify consistent ordering
+	args1 := BuildPodmanArgs(spec, "test-1")
+	args2 := BuildPodmanArgs(spec, "test-2")
+	args3 := BuildPodmanArgs(spec, "test-3")
+
+	// All should be identical except container name
+	assert.Equal(t, args1, args2, "multiple calls should produce identical network ordering")
+	assert.Equal(t, args2, args3, "multiple calls should produce identical network ordering")
+
+	// Verify networks appear in sorted order
+	appleIdx := -1
+	monkeyIdx := -1
+	zebraIdx := -1
+
+	for i, arg := range args1 {
+		if arg == "apple-net" {
+			appleIdx = i
+		}
+		if arg == "monkey-net" {
+			monkeyIdx = i
+		}
+		if arg == "zebra-net" {
+			zebraIdx = i
+		}
+	}
+
+	assert.Greater(t, appleIdx, -1, "apple-net should be in args")
+	assert.Greater(t, monkeyIdx, -1, "monkey-net should be in args")
+	assert.Greater(t, zebraIdx, -1, "zebra-net should be in args")
+
+	// Verify alphabetical ordering
+	assert.True(t, appleIdx < monkeyIdx, "apple should come before monkey")
+	assert.True(t, monkeyIdx < zebraIdx, "monkey should come before zebra")
+}
+
 func TestBuildPodmanArgsIntegration(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -1163,6 +1212,18 @@ func TestBuildPodmanArgsIntegration(t *testing.T) {
 				assert.Contains(t, args, "--network")
 				assert.Contains(t, args, "backend")
 				assert.Contains(t, args, "frontend")
+				// Verify ordering is deterministic (sorted)
+				backendIdx := -1
+				frontendIdx := -1
+				for i, arg := range args {
+					if arg == "backend" {
+						backendIdx = i
+					}
+					if arg == "frontend" {
+						frontendIdx = i
+					}
+				}
+				assert.True(t, backendIdx < frontendIdx, "networks should be sorted alphabetically for determinism")
 			},
 		},
 		{

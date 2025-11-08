@@ -4,6 +4,7 @@ package launchd
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/trly/quad-ops/internal/service"
@@ -84,10 +85,16 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 	}
 
 	// Service-level networks (additional networks the service joins)
+	// Sort networks for deterministic ordering
+	networks := make([]string, 0, len(spec.Networks))
 	for _, net := range spec.Networks {
 		if !net.External {
-			args = append(args, "--network", net.Name)
+			networks = append(networks, net.Name)
 		}
+	}
+	sort.Strings(networks)
+	for _, net := range networks {
+		args = append(args, "--network", net)
 	}
 
 	// Container labels
