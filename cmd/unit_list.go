@@ -103,28 +103,20 @@ func (c *ListCommand) Run(ctx context.Context, app *App, opts ListOptions, deps 
 		}
 		artifacts = filterArtifactsForPlatform(artifacts, app.Config)
 	} else {
-		// Default: use git-managed artifacts from repository
-		deps.Logger.Debug("Listing artifacts from repository")
-		artifacts, err = deps.RepoArtifactStore.List(ctx)
+		// Default: use deployed artifacts from filesystem (QuadletDir)
+		// These are the rendered platform-specific files (.container, .network, .volume)
+		// that are actively managed by quad-ops, not the raw git repository files
+		deps.Logger.Debug("Listing artifacts from deployed directory")
+		artifacts, err = deps.ArtifactStore.List(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to list repository artifacts: %w", err)
+			return fmt.Errorf("failed to list deployed artifacts: %w", err)
 		}
 		artifacts = filterArtifactsForPlatform(artifacts, app.Config)
 	}
 
-	// For repo artifacts, filter to only those that are actually deployed
-	var deployedArtifacts []platform.Artifact
-	if !opts.UseFilesystem {
-		for _, artifact := range artifacts {
-			deployedPath := filepath.Join(app.Config.QuadletDir, artifact.Path)
-			if _, err := deps.FileSystem.Stat(deployedPath); err == nil {
-				deployedArtifacts = append(deployedArtifacts, artifact)
-			}
-		}
-	} else {
-		// Filesystem artifacts are already deployed by definition
-		deployedArtifacts = artifacts
-	}
+	// Deployed artifacts are already deployed by definition
+	// (no need for additional filesystem checks)
+	deployedArtifacts := artifacts
 
 	// Get lifecycle if status is requested
 	var lifecycle platform.Lifecycle

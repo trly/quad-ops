@@ -76,9 +76,9 @@ func TestSyncCommand_DirectoryCreationFailure(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-	WithRenderer(&MockRenderer{}).
-	WithLifecycle(&MockLifecycle{}).
-	Build(t)
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
+		Build(t)
 	syncCmd := NewSyncCommand()
 	opts := SyncOptions{}
 
@@ -243,76 +243,76 @@ func TestSyncCommand_ProcessesComposeProjects(t *testing.T) {
 // TestSyncCommand_SkipsUnchangedRepos verifies that repositories that haven't changed
 // are skipped unless force flag is used.
 func TestSyncCommand_SkipsUnchangedRepos(t *testing.T) {
-t.Run("skips when changed is false", func(t *testing.T) {
+	t.Run("skips when changed is false", func(t *testing.T) {
 		var processCalls int
 
-tmpDir := t.TempDir()
+		tmpDir := t.TempDir()
 		repoDir := filepath.Join(tmpDir, "test-repo")
-err := os.MkdirAll(repoDir, 0755)
-require.NoError(t, err)
+		err := os.MkdirAll(repoDir, 0755)
+		require.NoError(t, err)
 
-deps := SyncDeps{
+		deps := SyncDeps{
 			CommonDeps: CommonDeps{
-  Clock: clock.NewMock(),
- FileSystem: &FileSystemOps{
- MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
-},
-Logger: testutil.NewTestLogger(t),
-},
-GitSyncer: &MockGitSyncer{
- SyncAllFunc: func(_ context.Context, _ []config.Repository) ([]repository.SyncResult, error) {
-  return []repository.SyncResult{
-  {Repository: config.Repository{Name: "test-repo"}, Success: true, Changed: false},
-}, nil
-},
-},
-ComposeProcessor: &MockComposeProcessor{
- ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
-  processCalls++
- return []service.Spec{}, nil
-},
-},
-Renderer: &MockRenderer{
- RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
-  return &platform.RenderResult{Artifacts: []platform.Artifact{}, ServiceChanges: map[string]platform.ChangeStatus{}}, nil
-},
-},
-ArtifactStore: &MockArtifactStore{
- WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
-  return []string{}, nil
-},
-},
-Lifecycle: &MockLifecycle{
- ReloadFunc: func(_ context.Context) error { return nil },
-},
-}
+				Clock: clock.NewMock(),
+				FileSystem: &FileSystemOps{
+					MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+				},
+				Logger: testutil.NewTestLogger(t),
+			},
+			GitSyncer: &MockGitSyncer{
+				SyncAllFunc: func(_ context.Context, _ []config.Repository) ([]repository.SyncResult, error) {
+					return []repository.SyncResult{
+						{Repository: config.Repository{Name: "test-repo"}, Success: true, Changed: false},
+					}, nil
+				},
+			},
+			ComposeProcessor: &MockComposeProcessor{
+				ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+					processCalls++
+					return []service.Spec{}, nil
+				},
+			},
+			Renderer: &MockRenderer{
+				RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+					return &platform.RenderResult{Artifacts: []platform.Artifact{}, ServiceChanges: map[string]platform.ChangeStatus{}}, nil
+				},
+			},
+			ArtifactStore: &MockArtifactStore{
+				WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+					return []string{}, nil
+				},
+			},
+			Lifecycle: &MockLifecycle{
+				ReloadFunc: func(_ context.Context) error { return nil },
+			},
+		}
 
-app := NewAppBuilder(t).
+		app := NewAppBuilder(t).
 			WithConfig(&config.Settings{
-  RepositoryDir: tmpDir,
- Repositories: []config.Repository{
- {Name: "test-repo"},
-},
-}).
-WithRenderer(&MockRenderer{}).
-WithLifecycle(&MockLifecycle{}).
-Build(t)
+				RepositoryDir: tmpDir,
+				Repositories: []config.Repository{
+					{Name: "test-repo"},
+				},
+			}).
+			WithRenderer(&MockRenderer{}).
+			WithLifecycle(&MockLifecycle{}).
+			Build(t)
 
-syncCmd := NewSyncCommand()
+		syncCmd := NewSyncCommand()
 		opts := SyncOptions{}
 
-err = syncCmd.Run(context.Background(), app, opts, deps)
+		err = syncCmd.Run(context.Background(), app, opts, deps)
 		assert.NoError(t, err)
-assert.Equal(t, 0, processCalls, "ComposeProcessor.Process should not be called when repo unchanged")
-})
+		assert.Equal(t, 0, processCalls, "ComposeProcessor.Process should not be called when repo unchanged")
+	})
 
-t.Run("processes when force is true", func(t *testing.T) {
-var processCalls int
+	t.Run("processes when force is true", func(t *testing.T) {
+		var processCalls int
 
-tmpDir := t.TempDir()
-repoDir := filepath.Join(tmpDir, "test-repo")
-err := os.MkdirAll(repoDir, 0755)
-require.NoError(t, err)
+		tmpDir := t.TempDir()
+		repoDir := filepath.Join(tmpDir, "test-repo")
+		err := os.MkdirAll(repoDir, 0755)
+		require.NoError(t, err)
 
 		// Create a basic docker-compose.yml file
 		composeContent := `services:
@@ -322,51 +322,51 @@ require.NoError(t, err)
 		err = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
 		require.NoError(t, err)
 
-deps := SyncDeps{
-CommonDeps: CommonDeps{
-Clock: clock.NewMock(),
-FileSystem: &FileSystemOps{
-  MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
- },
-Logger: testutil.NewTestLogger(t),
-},
-GitSyncer: &MockGitSyncer{
-SyncAllFunc: func(_ context.Context, _ []config.Repository) ([]repository.SyncResult, error) {
- return []repository.SyncResult{
-   {Repository: config.Repository{Name: "test-repo"}, Success: true, Changed: false},
-  }, nil
-},
-},
-ComposeProcessor: &MockComposeProcessor{
-ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
-  processCalls++
-  return []service.Spec{}, nil
-},
-},
-Renderer: &MockRenderer{
- RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
-  return &platform.RenderResult{Artifacts: []platform.Artifact{}, ServiceChanges: map[string]platform.ChangeStatus{}}, nil
-},
-},
-ArtifactStore: &MockArtifactStore{
- WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
-  return []string{}, nil
-},
-},
- Lifecycle: &MockLifecycle{
+		deps := SyncDeps{
+			CommonDeps: CommonDeps{
+				Clock: clock.NewMock(),
+				FileSystem: &FileSystemOps{
+					MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+				},
+				Logger: testutil.NewTestLogger(t),
+			},
+			GitSyncer: &MockGitSyncer{
+				SyncAllFunc: func(_ context.Context, _ []config.Repository) ([]repository.SyncResult, error) {
+					return []repository.SyncResult{
+						{Repository: config.Repository{Name: "test-repo"}, Success: true, Changed: false},
+					}, nil
+				},
+			},
+			ComposeProcessor: &MockComposeProcessor{
+				ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+					processCalls++
+					return []service.Spec{}, nil
+				},
+			},
+			Renderer: &MockRenderer{
+				RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+					return &platform.RenderResult{Artifacts: []platform.Artifact{}, ServiceChanges: map[string]platform.ChangeStatus{}}, nil
+				},
+			},
+			ArtifactStore: &MockArtifactStore{
+				WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+					return []string{}, nil
+				},
+			},
+			Lifecycle: &MockLifecycle{
 				ReloadFunc: func(_ context.Context) error { return nil },
- },
-}
+			},
+		}
 
-app := NewAppBuilder(t).
+		app := NewAppBuilder(t).
 			WithConfig(&config.Settings{
-  RepositoryDir: tmpDir,
-  Repositories: []config.Repository{
+				RepositoryDir: tmpDir,
+				Repositories: []config.Repository{
 					{Name: "test-repo"},
-  },
- }).
- WithRenderer(&MockRenderer{}).
-  WithLifecycle(&MockLifecycle{}).
+				},
+			}).
+			WithRenderer(&MockRenderer{}).
+			WithLifecycle(&MockLifecycle{}).
 			Build(t)
 
 		syncCmd := NewSyncCommand()

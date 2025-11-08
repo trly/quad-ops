@@ -126,8 +126,8 @@ func (s *DefaultGitSyncer) SyncRepo(ctx context.Context, repo config.Repository)
 // getCurrentCommit gets the current commit hash from a git repository.
 func (s *DefaultGitSyncer) getCurrentCommit(repo *git.Repository) (string, error) {
 	if repo == nil {
- return "", nil
-}
+		return "", nil
+	}
 
-return repo.GetCurrentCommitHash()
+	return repo.GetCurrentCommitHash()
 }

@@ -50,7 +50,7 @@ func TestListCommand_Success(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithRepoArtifactStore(artifactStore).
+		WithArtifactStore(artifactStore).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
@@ -87,7 +87,7 @@ func TestListCommand_WithStatus(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithRepoArtifactStore(artifactStore).
+		WithArtifactStore(artifactStore).
 		WithLifecycle(lifecycle).
 		Build(t)
 
@@ -106,7 +106,7 @@ func TestListCommand_EmptyList(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithRepoArtifactStore(artifactStore).
+		WithArtifactStore(artifactStore).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
@@ -124,7 +124,7 @@ func TestListCommand_ArtifactStoreError(t *testing.T) {
 	}
 
 	app := NewAppBuilder(t).
-		WithRepoArtifactStore(artifactStore).
+		WithArtifactStore(artifactStore).
 		Build(t)
 
 	cmd := NewListCommand().GetCobraCommand()
@@ -473,16 +473,11 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := tt.setupStore(tt.artifacts)
 
-			// Mock filesystem artifact store
-			fsStore := &MockArtifactStore{
-				ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
-					return []platform.Artifact{}, nil
-				},
-			}
-
+			// Use the same store for both repo and deployed artifacts
+			// (tests use a single mock store that behaves consistently)
 			appBuilder := NewAppBuilder(t).
 				WithRepoArtifactStore(store).
-				WithArtifactStore(fsStore)
+				WithArtifactStore(store)
 
 			if tt.setupLifecycle != nil {
 				lifecycle := tt.setupLifecycle()
@@ -495,7 +490,7 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 			deps := ListDeps{
 				CommonDeps:        NewCommonDeps(app.Logger),
 				RepoArtifactStore: store,
-				ArtifactStore:     fsStore,
+				ArtifactStore:     store,
 			}
 
 			err := listCommand.Run(context.Background(), app, tt.opts, deps)
@@ -630,4 +625,61 @@ func TestListCommand_FiltersNonQuadletArtifacts(t *testing.T) {
 
 	err := listCommand.Run(context.Background(), app, opts, deps)
 	assert.NoError(t, err)
+}
+
+// TestListCommand_DefaultUsesDeployedArtifacts tests that unit list defaults to using
+// ArtifactStore (deployed directory) instead of RepoArtifactStore (git repo directory).
+// This fixes the bug where unit list reported "No deployed artifacts found" even when
+// containers were actively running and managed by quad-ops.
+// The deployed directory (/etc/containers/systemd/) contains rendered .container, .network, .volume files.
+// The repository directory (/var/lib/quad-ops/) contains raw Docker Compose files that don't match platform filters.
+func TestListCommand_DefaultUsesDeployedArtifacts(t *testing.T) {
+	deployedArtifacts := []platform.Artifact{
+		{Path: "infrastructure-reverse-proxy.container", Hash: "c5805a40", Mode: 0644},
+		{Path: "infrastructure-unifi-db.container", Hash: "20c60942", Mode: 0644},
+		{Path: "infrastructure-unifi-network-application.container", Hash: "a82e7390", Mode: 0644},
+	}
+
+	// Track which store was actually called
+	var storeUsed string
+
+	// Simulate what the repository directory would return (raw files that don't match platform filters)
+	repoArtifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			storeUsed = "repo"
+			// Return non-platform artifacts that would be filtered out
+			return []platform.Artifact{
+				{Path: "quad-ops-deploy/docker-compose.yml", Hash: "comp123", Mode: 0644},
+				{Path: "quad-ops-deploy/.git/config", Hash: "gitcfg", Mode: 0644},
+			}, nil
+		},
+	}
+
+	// Simulate what the deployed directory would return (rendered platform-specific files)
+	artifactStore := &MockArtifactStore{
+		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
+			storeUsed = "deployed"
+			return deployedArtifacts, nil
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithRepoArtifactStore(repoArtifactStore).
+		WithArtifactStore(artifactStore).
+		Build(t)
+
+	listCommand := NewListCommand()
+	opts := ListOptions{Status: false, UseFilesystem: false} // Default behavior, no flag
+	deps := ListDeps{
+		CommonDeps:        NewCommonDeps(app.Logger),
+		RepoArtifactStore: repoArtifactStore,
+		ArtifactStore:     artifactStore,
+	}
+
+	// After the fix, the default (without --use-fs-artifacts flag) should use ArtifactStore
+	// and find the deployed artifacts
+	err := listCommand.Run(context.Background(), app, opts, deps)
+	assert.NoError(t, err)
+	// This assertion will fail before the fix is applied
+	assert.Equal(t, "deployed", storeUsed, "Expected to use deployed artifact store by default, but used %s", storeUsed)
 }

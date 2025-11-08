@@ -2,13 +2,13 @@
 package git
 
 import (
-"fmt"
-"os"
+	"fmt"
+	"os"
 	"path/filepath"
 
-"github.com/go-git/go-git/v5"
-"github.com/go-git/go-git/v5/plumbing"
-"github.com/trly/quad-ops/internal/config"
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
 )
 
@@ -111,21 +111,21 @@ func (r *Repository) checkoutTarget() error {
 // It returns an error if any Git operations fail, except when the repository
 // is already up to date.
 func (r *Repository) pullLatest() error {
-r.logger.Debug("Pulling latest changes from origin")
+	r.logger.Debug("Pulling latest changes from origin")
 
-worktree, err := r.repo.Worktree()
-if err != nil {
-return err
-}
+	worktree, err := r.repo.Worktree()
+	if err != nil {
+		return err
+	}
 
-err = worktree.Pull(&git.PullOptions{RemoteName: "origin"})
-if err != nil && err != git.NoErrAlreadyUpToDate {
-return err
-}
-if err == git.NoErrAlreadyUpToDate {
-r.logger.Debug("Repository is already up to date")
-}
-return nil
+	err = worktree.Pull(&git.PullOptions{RemoteName: "origin"})
+	if err != nil && err != git.NoErrAlreadyUpToDate {
+		return err
+	}
+	if err == git.NoErrAlreadyUpToDate {
+		r.logger.Debug("Repository is already up to date")
+	}
+	return nil
 }
 
 // GetCurrentCommitHash returns the current HEAD commit hash.
