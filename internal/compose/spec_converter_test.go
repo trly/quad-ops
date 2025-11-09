@@ -1001,6 +1001,192 @@ func TestSpecConverter_ConvertDependencies(t *testing.T) {
 	}
 }
 
+func TestSpecConverter_ConvertExtraHosts(t *testing.T) {
+	tests := []struct {
+		name           string
+		serviceName    string
+		composeService types.ServiceConfig
+		project        *types.Project
+		validate       func(t *testing.T, specs []service.Spec)
+		wantErr        bool
+	}{
+		{
+			name:        "service with single extra_host",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx:latest",
+				ExtraHosts: types.HostsList{
+					"database": []string{"192.168.1.10"},
+				},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.ExtraHosts, 1)
+				assert.Contains(t, spec.Container.ExtraHosts, "database:192.168.1.10")
+			},
+		},
+		{
+			name:        "service with multiple extra_hosts",
+			serviceName: "app",
+			composeService: types.ServiceConfig{
+				Name:  "app",
+				Image: "app:1.0",
+				ExtraHosts: types.HostsList{
+					"database":  []string{"192.168.1.10"},
+					"cache":     []string{"192.168.1.20"},
+					"api":       []string{"10.0.0.5"},
+					"localhost": []string{"127.0.0.1"},
+				},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.ExtraHosts, 4)
+				assert.Contains(t, spec.Container.ExtraHosts, "database:192.168.1.10")
+				assert.Contains(t, spec.Container.ExtraHosts, "cache:192.168.1.20")
+				assert.Contains(t, spec.Container.ExtraHosts, "api:10.0.0.5")
+				assert.Contains(t, spec.Container.ExtraHosts, "localhost:127.0.0.1")
+			},
+		},
+		{
+			name:        "service with ipv6 extra_host",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx:latest",
+				ExtraHosts: types.HostsList{
+					"ipv6host":  []string{"::1"},
+					"ipv6host2": []string{"2001:db8::1"},
+				},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.ExtraHosts, 2)
+				assert.Contains(t, spec.Container.ExtraHosts, "ipv6host:::1")
+				assert.Contains(t, spec.Container.ExtraHosts, "ipv6host2:2001:db8::1")
+			},
+		},
+		{
+			name:        "service with hostname having multiple IPs",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx:latest",
+				ExtraHosts: types.HostsList{
+					"multihost": []string{"192.168.1.10", "192.168.1.11", "192.168.1.12"},
+				},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				// Should generate one entry per IP
+				assert.Len(t, spec.Container.ExtraHosts, 3)
+				assert.Contains(t, spec.Container.ExtraHosts, "multihost:192.168.1.10")
+				assert.Contains(t, spec.Container.ExtraHosts, "multihost:192.168.1.11")
+				assert.Contains(t, spec.Container.ExtraHosts, "multihost:192.168.1.12")
+			},
+		},
+		{
+			name:        "service with empty extra_hosts",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:       "web",
+				Image:      "nginx:latest",
+				ExtraHosts: types.HostsList{},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.ExtraHosts, 0)
+			},
+		},
+		{
+			name:        "service with nil extra_hosts",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:       "web",
+				Image:      "nginx:latest",
+				ExtraHosts: nil,
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Nil(t, spec.Container.ExtraHosts)
+			},
+		},
+		{
+			name:        "extra_hosts with special characters in hostname",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx:latest",
+				ExtraHosts: types.HostsList{
+					"host-with-dash": []string{"192.168.1.10"},
+					"host.with.dots": []string{"192.168.1.20"},
+				},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.ExtraHosts, 2)
+				assert.Contains(t, spec.Container.ExtraHosts, "host-with-dash:192.168.1.10")
+				assert.Contains(t, spec.Container.ExtraHosts, "host.with.dots:192.168.1.20")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := NewSpecConverter(tt.project.WorkingDir)
+			specs, err := converter.convertService(tt.serviceName, tt.composeService, tt.project)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			tt.validate(t, specs)
+
+			// Validate all specs
+			for _, spec := range specs {
+				assert.NoError(t, spec.Validate())
+			}
+		})
+	}
+}
+
 // Helper functions.
 
 func strPtr(s string) *string {

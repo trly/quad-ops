@@ -118,6 +118,7 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		Ulimits:       sc.convertUlimits(composeService.Ulimits),
 		Sysctls:       composeService.Sysctls,
 		UserNS:        composeService.UserNSMode,
+		ExtraHosts:    sc.convertExtraHosts(composeService.ExtraHosts),
 	}
 
 	// Handle user/group parsing
@@ -567,6 +568,24 @@ func (sc *SpecConverter) convertTmpfs(tmpfs types.StringList) []string {
 		return nil
 	}
 	return []string(tmpfs)
+}
+
+// convertExtraHosts converts compose extra_hosts to "hostname:ip" string slice.
+// Docker Compose HostsList is a map[string][]string where key is hostname and value is list of IPs.
+// We convert this to Quadlet's AddHost format which expects "hostname:ip" strings.
+// If a hostname has multiple IPs, we generate one entry per IP.
+func (sc *SpecConverter) convertExtraHosts(extraHosts types.HostsList) []string {
+	if len(extraHosts) == 0 {
+		return nil
+	}
+
+	// Use HostsList.AsList() to convert to "hostname:ip" format
+	// The ":" separator matches Quadlet's AddHost directive format
+	result := extraHosts.AsList(":")
+
+	// Sort for determinism
+	sorting.SortStringSlice(result)
+	return result
 }
 
 // convertUlimits converts compose ulimits to service.Ulimit.

@@ -1246,3 +1246,151 @@ func TestRenderer_TimeoutStartSecDefault(t *testing.T) {
 	assert.Greater(t, timeoutIdx, serviceIdx, "TimeoutStartSec should be in [Service] section")
 	assert.Less(t, timeoutIdx, installIdx, "TimeoutStartSec should be before [Install] section")
 }
+
+func TestRenderer_RenderExtraHosts(t *testing.T) {
+	tests := []struct {
+		name           string
+		extraHosts     []string
+		expectContains []string
+	}{
+		{
+			name:       "single extra host",
+			extraHosts: []string{"database:192.168.1.10"},
+			expectContains: []string{
+				"AddHost=database:192.168.1.10",
+			},
+		},
+		{
+			name: "multiple extra hosts",
+			extraHosts: []string{
+				"api:10.0.0.5",
+				"cache:192.168.1.20",
+				"database:192.168.1.10",
+				"localhost:127.0.0.1",
+			},
+			expectContains: []string{
+				"AddHost=api:10.0.0.5",
+				"AddHost=cache:192.168.1.20",
+				"AddHost=database:192.168.1.10",
+				"AddHost=localhost:127.0.0.1",
+			},
+		},
+		{
+			name: "ipv6 extra hosts",
+			extraHosts: []string{
+				"ipv6host2:2001:db8::1",
+				"ipv6host:::1",
+			},
+			expectContains: []string{
+				"AddHost=ipv6host2:2001:db8::1",
+				"AddHost=ipv6host:::1",
+			},
+		},
+		{
+			name: "hostname with multiple IPs",
+			extraHosts: []string{
+				"multihost:192.168.1.10",
+				"multihost:192.168.1.11",
+				"multihost:192.168.1.12",
+			},
+			expectContains: []string{
+				"AddHost=multihost:192.168.1.10",
+				"AddHost=multihost:192.168.1.11",
+				"AddHost=multihost:192.168.1.12",
+			},
+		},
+		{
+			name: "special characters in hostname",
+			extraHosts: []string{
+				"host-with-dash:192.168.1.10",
+				"host.with.dots:192.168.1.20",
+			},
+			expectContains: []string{
+				"AddHost=host-with-dash:192.168.1.10",
+				"AddHost=host.with.dots:192.168.1.20",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := testutil.NewTestLogger(t)
+			r := NewRenderer(logger)
+
+			spec := service.Spec{
+				Name: "web",
+				Container: service.Container{
+					Image:      "nginx:latest",
+					ExtraHosts: tt.extraHosts,
+				},
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+
+			// Verify all expected AddHost directives are present
+			for _, expected := range tt.expectContains {
+				assert.Contains(t, content, expected)
+			}
+
+			// Verify AddHost directives are in [Container] section
+			containerIdx := strings.Index(content, "[Container]")
+			serviceIdx := strings.Index(content, "[Service]")
+			assert.Greater(t, containerIdx, -1)
+			assert.Greater(t, serviceIdx, -1)
+
+			for _, expected := range tt.expectContains {
+				idx := strings.Index(content, expected)
+				assert.Greater(t, idx, containerIdx, "%s should be in [Container] section", expected)
+				assert.Less(t, idx, serviceIdx, "%s should be before [Service] section", expected)
+			}
+		})
+	}
+}
+
+func TestRenderer_NoExtraHosts(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name: "web",
+		Container: service.Container{
+			Image:      "nginx:latest",
+			ExtraHosts: nil,
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Verify no AddHost directives are present
+	assert.NotContains(t, content, "AddHost=")
+}
+
+func TestRenderer_EmptyExtraHosts(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name: "web",
+		Container: service.Container{
+			Image:      "nginx:latest",
+			ExtraHosts: []string{},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Verify no AddHost directives are present
+	assert.NotContains(t, content, "AddHost=")
+}

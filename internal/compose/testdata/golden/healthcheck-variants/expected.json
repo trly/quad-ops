@@ -70,7 +70,8 @@
         "Sysctls": null,
         "UserNS": "",
         "PodmanArgs": null,
-        "PidsLimit": 0
+        "PidsLimit": 0,
+        "ExtraHosts": null
       },
       "Volumes": null,
       "Networks": [
@@ -148,7 +149,8 @@
         "Sysctls": null,
         "UserNS": "",
         "PodmanArgs": null,
-        "PidsLimit": 0
+        "PidsLimit": 0,
+        "ExtraHosts": null
       },
       "Volumes": null,
       "Networks": [
@@ -238,7 +240,8 @@
         "Sysctls": null,
         "UserNS": "",
         "PodmanArgs": null,
-        "PidsLimit": 0
+        "PidsLimit": 0,
+        "ExtraHosts": null
       },
       "Volumes": null,
       "Networks": [

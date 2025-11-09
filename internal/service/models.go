@@ -51,6 +51,7 @@ type Container struct {
 	UserNS        string            // User namespace mode
 	PodmanArgs    []string          // Additional Podman arguments
 	PidsLimit     int64             // Maximum PIDs
+	ExtraHosts    []string          // Extra host-to-IP mappings in "hostname:ip" format
 }
 
 // InitContainer represents an init container configuration.

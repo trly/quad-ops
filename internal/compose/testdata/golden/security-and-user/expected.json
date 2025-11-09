@@ -69,7 +69,11 @@
         "Sysctls": null,
         "UserNS": "",
         "PodmanArgs": null,
-        "PidsLimit": 0
+        "PidsLimit": 0,
+        "ExtraHosts": [
+          "custom.local:192.168.1.100",
+          "host.docker.internal:host-gateway"
+        ]
       },
       "Volumes": null,
       "Networks": [

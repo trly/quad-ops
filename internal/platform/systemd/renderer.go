@@ -228,6 +228,7 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addSecurity(&builder, spec.Container)
 	r.addLogging(&builder, spec.Container)
 	r.addSecrets(&builder, spec.Container)
+	r.addExtraHosts(&builder, spec.Container)
 	r.addAdvanced(&builder, spec.Container)
 
 	builder.WriteString("\n[Service]\n")
@@ -561,6 +562,23 @@ func (r *Renderer) addSecrets(builder *strings.Builder, c service.Container) {
 		envVarName := c.EnvSecrets[secretName]
 		secretStr := fmt.Sprintf("%s,type=env,target=%s", secretName, envVarName)
 		builder.WriteString(formatKeyValue("Secret", secretStr))
+	}
+}
+
+// addExtraHosts adds extra host-to-IP mappings.
+func (r *Renderer) addExtraHosts(builder *strings.Builder, c service.Container) {
+	if len(c.ExtraHosts) == 0 {
+		return
+	}
+
+	// ExtraHosts is already in "hostname:ip" format from converter
+	// Sort for determinism (should already be sorted, but ensure it)
+	sorted := make([]string, len(c.ExtraHosts))
+	copy(sorted, c.ExtraHosts)
+	sort.Strings(sorted)
+
+	for _, host := range sorted {
+		builder.WriteString(formatKeyValue("AddHost", host))
 	}
 }
 
