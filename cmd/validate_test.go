@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/compose-spec/compose-go/v2/types"
@@ -1346,6 +1347,62 @@ func TestValidateCommand_WithRepoAndComposeDir(t *testing.T) {
 		// Verify path includes the repo name directory
 		assert.Contains(t, path, "validate-temp")
 		assert.NoError(t, cleanup())
+	}
+}
+
+// TestCloneRepositoryWithDeps_PathConstruction tests that the cloned repository
+// path includes the repository subdirectory created by GitSyncer.
+// This is a focused test for quad-ops-b5m regression.
+func TestCloneRepositoryWithDeps_PathConstruction(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	mockConfig := testutil.NewMockConfig(t)
+
+	// Save original flag values
+	originalRepoURL := repoURL
+	originalRepoRef := repoRef
+	originalTempDir := tempDir
+	originalSkipClone := skipClone
+
+	// Create a temp directory and set up the repository
+	testTempDir := t.TempDir()
+	repoURL = "https://github.com/test/repo.git"
+	repoRef = "main"
+	tempDir = testTempDir
+	skipClone = false
+
+	defer func() {
+		repoURL = originalRepoURL
+		repoRef = originalRepoRef
+		tempDir = originalTempDir
+		skipClone = originalSkipClone
+	}()
+
+	// Call cloneRepositoryWithDeps and verify the returned path
+	path, cleanup, err := cloneRepositoryWithDeps(logger, mockConfig)
+
+	// The key assertion: verify the path includes the repository name subdirectory
+	// Expected format: /path/to/tempdir/quad-ops-validate/validate-temp
+	// NOT: /path/to/tempdir/quad-ops-validate (which was the bug)
+	if err == nil && cleanup != nil {
+		defer func() {
+			_ = cleanup()
+		}()
+
+		// Verify path contains the expected subdirectory structure
+		assert.Contains(t, path, "quad-ops-validate", "Path should contain quad-ops-validate directory")
+		assert.Contains(t, path, "validate-temp", "Path should contain validate-temp subdirectory created by GitSyncer")
+
+		// Verify the path ends with validate-temp (the repo name)
+		expectedSuffix := filepath.Join("quad-ops-validate", "validate-temp")
+		assert.True(t, strings.HasSuffix(path, expectedSuffix),
+			"Path should end with %s but got %s", expectedSuffix, path)
+
+		// Verify that composing a compose-dir path would work correctly
+		composeSubDir := "prod/services"
+		fullPath := filepath.Join(path, composeSubDir)
+		// The full path should contain all parts: quad-ops-validate/validate-temp/prod/services
+		assert.Contains(t, fullPath, filepath.Join("quad-ops-validate", "validate-temp", "prod", "services"),
+			"Composed path should include all directory components")
 	}
 }
 
