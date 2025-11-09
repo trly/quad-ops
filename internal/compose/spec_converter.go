@@ -507,10 +507,8 @@ func (sc *SpecConverter) convertNetworkMode(networkMode string, networks map[str
 		projectNet, exists := project.Networks[networkName]
 		if !exists {
 			// External or undefined network - use as-is with sanitization
+			// Don't apply current project prefix to external networks
 			resolvedName := service.SanitizeName(networkName)
-			if !strings.Contains(networkName, project.Name) {
-				resolvedName = service.SanitizeName(Prefix(project.Name, networkName))
-			}
 			mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
 			continue
 		}
@@ -650,11 +648,9 @@ func (sc *SpecConverter) convertServiceNetworksList(networks map[string]*types.S
 		projectNet, exists := project.Networks[networkName]
 		if !exists {
 			// Network declared by service but not in project networks
-			// This can happen with external networks
+			// This can happen with external networks (from other projects)
+			// Use network name as-is without applying current project prefix
 			resolvedName := service.SanitizeName(networkName)
-			if !strings.Contains(networkName, project.Name) {
-				resolvedName = service.SanitizeName(Prefix(project.Name, networkName))
-			}
 
 			network := service.Network{
 				Name: resolvedName,

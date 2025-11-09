@@ -772,6 +772,25 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 				assert.True(t, spec.Networks[0].External)
 			},
 		},
+		{
+			name:        "service with external network from different project (not in project.Networks)",
+			serviceName: "llm-app",
+			composeService: types.ServiceConfig{
+				Name:  "llm-app",
+				Image: "app:1.0",
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"infrastructure-proxy": {},
+				},
+			},
+			projectNetworks: types.Networks{},
+			projectName:     "llm",
+			validate: func(t *testing.T, spec service.Spec) {
+				// Should NOT prefix with current project name
+				// The external network is from another project and should be used as-is
+				assert.Len(t, spec.Networks, 1)
+				assert.Equal(t, service.SanitizeName("infrastructure-proxy"), spec.Networks[0].Name)
+			},
+		},
 	}
 
 	for _, tt := range tests {
