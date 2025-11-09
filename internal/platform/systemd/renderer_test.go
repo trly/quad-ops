@@ -770,3 +770,256 @@ func TestRenderer_ContainerNetworksDependOnExplicitNetworks(t *testing.T) {
 	assert.NotContains(t, containerContent, "After=media_cache.network")
 	assert.NotContains(t, containerContent, "Requires=media_cache.network")
 }
+
+func TestRenderer_RenderMemoryConstraints(t *testing.T) {
+	tests := []struct {
+		name            string
+		resources       service.Resources
+		expectMemory    string // substring to check for, empty means not present
+		expectMemSwap   string
+		expectMemReserv string
+	}{
+		{
+			name:         "memory only",
+			resources:    service.Resources{Memory: "512m"},
+			expectMemory: "Memory=512m",
+		},
+		{
+			name:            "memory and reservation",
+			resources:       service.Resources{Memory: "1g", MemoryReservation: "512m"},
+			expectMemory:    "Memory=1g",
+			expectMemReserv: "MemoryReservation=512m",
+		},
+		{
+			name:          "memory and swap",
+			resources:     service.Resources{Memory: "1g", MemorySwap: "2g"},
+			expectMemory:  "Memory=1g",
+			expectMemSwap: "MemorySwap=2g",
+		},
+		{
+			name:            "all memory constraints",
+			resources:       service.Resources{Memory: "1g", MemoryReservation: "512m", MemorySwap: "2g"},
+			expectMemory:    "Memory=1g",
+			expectMemReserv: "MemoryReservation=512m",
+			expectMemSwap:   "MemorySwap=2g",
+		},
+		{
+			name:      "empty values not rendered",
+			resources: service.Resources{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := testutil.NewTestLogger(t)
+			r := NewRenderer(logger)
+
+			spec := service.Spec{
+				Name: "app",
+				Container: service.Container{
+					Image:     "alpine:latest",
+					Resources: tt.resources,
+				},
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+
+			if tt.expectMemory != "" {
+				assert.Contains(t, content, tt.expectMemory, "expected Memory directive")
+			} else if tt.resources.Memory != "" {
+				assert.NotContains(t, content, "Memory=", "Memory should not be rendered when empty")
+			}
+
+			if tt.expectMemReserv != "" {
+				assert.Contains(t, content, tt.expectMemReserv, "expected MemoryReservation directive")
+			}
+
+			if tt.expectMemSwap != "" {
+				assert.Contains(t, content, tt.expectMemSwap, "expected MemorySwap directive")
+			}
+		})
+	}
+}
+
+func TestRenderer_RenderCPUConstraints(t *testing.T) {
+	tests := []struct {
+		name          string
+		resources     service.Resources
+		expectCPUArgs []string // substrings to check for in PodmanArgs
+	}{
+		{
+			name:          "cpu shares only",
+			resources:     service.Resources{CPUShares: 1024},
+			expectCPUArgs: []string{"PodmanArgs=--cpu-shares 1024"},
+		},
+		{
+			name:          "cpu quota only",
+			resources:     service.Resources{CPUQuota: 100000},
+			expectCPUArgs: []string{"PodmanArgs=--cpu-quota 100000"},
+		},
+		{
+			name:          "cpu period only",
+			resources:     service.Resources{CPUPeriod: 100000},
+			expectCPUArgs: []string{"PodmanArgs=--cpu-period 100000"},
+		},
+		{
+			name: "all cpu constraints",
+			resources: service.Resources{
+				CPUShares: 1024,
+				CPUQuota:  100000,
+				CPUPeriod: 100000,
+			},
+			expectCPUArgs: []string{
+				"PodmanArgs=--cpu-period 100000",
+				"PodmanArgs=--cpu-quota 100000",
+				"PodmanArgs=--cpu-shares 1024",
+			},
+		},
+		{
+			name:          "zero cpu constraints not rendered",
+			resources:     service.Resources{},
+			expectCPUArgs: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := testutil.NewTestLogger(t)
+			r := NewRenderer(logger)
+
+			spec := service.Spec{
+				Name: "app",
+				Container: service.Container{
+					Image:     "alpine:latest",
+					Resources: tt.resources,
+				},
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+
+			for _, expectArg := range tt.expectCPUArgs {
+				assert.Contains(t, content, expectArg, "expected CPU constraint PodmanArgs")
+			}
+		})
+	}
+}
+
+func TestRenderer_RenderMixedConstraints(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name: "app",
+		Container: service.Container{
+			Image: "alpine:latest",
+			Resources: service.Resources{
+				Memory:            "2g",
+				MemoryReservation: "1g",
+				MemorySwap:        "4g",
+				CPUShares:         2048,
+				CPUQuota:          200000,
+				CPUPeriod:         100000,
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Memory constraints
+	assert.Contains(t, content, "Memory=2g")
+	assert.Contains(t, content, "MemoryReservation=1g")
+	assert.Contains(t, content, "MemorySwap=4g")
+
+	// CPU constraints via PodmanArgs
+	assert.Contains(t, content, "PodmanArgs=--cpu-period 100000")
+	assert.Contains(t, content, "PodmanArgs=--cpu-quota 200000")
+	assert.Contains(t, content, "PodmanArgs=--cpu-shares 2048")
+}
+
+func TestRenderer_ZeroValuesNotRendered(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name: "app",
+		Container: service.Container{
+			Image: "alpine:latest",
+			Resources: service.Resources{
+				Memory:            "", // empty string
+				MemoryReservation: "", // empty string
+				MemorySwap:        "", // empty string
+				CPUShares:         0,  // zero
+				CPUQuota:          0,  // zero
+				CPUPeriod:         0,  // zero
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Ensure no memory directives are present
+	assert.NotContains(t, content, "Memory=")
+	assert.NotContains(t, content, "MemoryReservation=")
+	assert.NotContains(t, content, "MemorySwap=")
+
+	// Ensure no CPU directives are present
+	assert.NotContains(t, content, "--cpu-shares")
+	assert.NotContains(t, content, "--cpu-quota")
+	assert.NotContains(t, content, "--cpu-period")
+}
+
+func TestRenderer_ResourcesWithPidsLimitAndUlimits(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name: "app",
+		Container: service.Container{
+			Image: "alpine:latest",
+			Resources: service.Resources{
+				Memory:    "1g",
+				CPUShares: 1024,
+				PidsLimit: 512,
+			},
+			Ulimits: []service.Ulimit{
+				{Name: "nofile", Soft: 1024, Hard: 2048},
+				{Name: "nproc", Soft: 256, Hard: 256},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Memory constraint
+	assert.Contains(t, content, "Memory=1g")
+
+	// CPU constraint via PodmanArgs
+	assert.Contains(t, content, "PodmanArgs=--cpu-shares 1024")
+
+	// PidsLimit
+	assert.Contains(t, content, "PidsLimit=512")
+
+	// Ulimits
+	assert.Contains(t, content, "Ulimit=nofile=1024:2048")
+	assert.Contains(t, content, "Ulimit=nproc=256")
+}

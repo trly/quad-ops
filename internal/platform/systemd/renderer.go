@@ -408,6 +408,32 @@ func (r *Renderer) addHealthcheck(builder *strings.Builder, c service.Container)
 
 // addResources adds resource constraints.
 func (r *Renderer) addResources(builder *strings.Builder, c service.Container) {
+	// Memory constraints (Quadlet native directives)
+	if c.Resources.Memory != "" {
+		builder.WriteString(formatKeyValue("Memory", c.Resources.Memory))
+	}
+
+	if c.Resources.MemoryReservation != "" {
+		builder.WriteString(formatKeyValue("MemoryReservation", c.Resources.MemoryReservation))
+	}
+
+	if c.Resources.MemorySwap != "" {
+		builder.WriteString(formatKeyValue("MemorySwap", c.Resources.MemorySwap))
+	}
+
+	// CPU constraints (rendered as PodmanArgs)
+	if c.Resources.CPUShares > 0 {
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--cpu-shares %d", c.Resources.CPUShares)))
+	}
+
+	if c.Resources.CPUQuota > 0 {
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--cpu-quota %d", c.Resources.CPUQuota)))
+	}
+
+	if c.Resources.CPUPeriod > 0 {
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--cpu-period %d", c.Resources.CPUPeriod)))
+	}
+
 	if c.Resources.PidsLimit > 0 {
 		fmt.Fprintf(builder, "PidsLimit=%d\n", c.Resources.PidsLimit)
 	}
