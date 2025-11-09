@@ -12,85 +12,91 @@ import (
 
 // BuildPodmanArgs converts a service.Spec into podman run command arguments.
 func BuildPodmanArgs(spec service.Spec, containerName string) []string {
-	args := []string{"run"}
+	args := []string{"run", "--rm", "--name", containerName}
 
-	// Always use --rm to avoid name collisions on restart
-	args = append(args, "--rm")
+	args = appendBasicContainerArgs(args, spec.Container)
+	args = appendEnvironmentArgs(args, spec.Container)
+	args = appendPortArgs(args, spec.Container.Ports)
+	args = appendMountArgs(args, spec.Container)
+	args = appendNetworkArgs(args, &spec.Container.Network, spec.Networks)
+	args = appendLabelArgs(args, spec.Container.Labels)
+	args = appendResourceArgs(args, spec.Container.Resources)
+	args = appendSecurityArgs(args, spec.Container.Security)
+	args = appendLimitsArgs(args, spec.Container)
+	args = appendNamespaceArgs(args, spec.Container)
+	args = appendDeviceArgs(args, spec.Container)
+	args = appendSecretArgs(args, spec.Container)
+	args = appendHealthcheckArgs(args, spec.Container.Healthcheck)
+	args = append(args, spec.Container.PodmanArgs...)
+	args = appendImageAndCommand(args, spec.Container)
 
-	// Container name
-	args = append(args, "--name", containerName)
+	return args
+}
 
-	// Detach is not used - launchd manages the process lifecycle
-	// Do NOT use -d/--detach
-
-	// Working directory
-	if spec.Container.WorkingDir != "" {
-		args = append(args, "-w", spec.Container.WorkingDir)
+// appendBasicContainerArgs appends basic container configuration arguments.
+func appendBasicContainerArgs(args []string, c service.Container) []string {
+	if c.WorkingDir != "" {
+		args = append(args, "-w", c.WorkingDir)
 	}
-
-	// User and group
-	if spec.Container.User != "" {
-		userArg := spec.Container.User
-		if spec.Container.Group != "" {
-			userArg = fmt.Sprintf("%s:%s", spec.Container.User, spec.Container.Group)
+	if c.User != "" {
+		userArg := c.User
+		if c.Group != "" {
+			userArg = fmt.Sprintf("%s:%s", c.User, c.Group)
 		}
 		args = append(args, "-u", userArg)
 	}
-
-	// Hostname
-	if spec.Container.Hostname != "" {
-		args = append(args, "--hostname", spec.Container.Hostname)
+	if c.Hostname != "" {
+		args = append(args, "--hostname", c.Hostname)
 	}
-
-	// Read-only root filesystem
-	if spec.Container.ReadOnly {
+	if c.ReadOnly {
 		args = append(args, "--read-only")
 	}
-
-	// Init
-	if spec.Container.Init {
+	if c.Init {
 		args = append(args, "--init")
 	}
+	return args
+}
 
-	// Environment files
-	for _, envFile := range spec.Container.EnvFiles {
+// appendEnvironmentArgs appends environment-related arguments.
+func appendEnvironmentArgs(args []string, c service.Container) []string {
+	for _, envFile := range c.EnvFiles {
 		args = append(args, "--env-file", envFile)
 	}
-
-	// Environment variables
-	for k, v := range spec.Container.Env {
+	for k, v := range c.Env {
 		args = append(args, "-e", fmt.Sprintf("%s=%s", k, v))
 	}
+	return args
+}
 
-	// Port mappings
-	for _, port := range spec.Container.Ports {
-		portArg := buildPortArg(port)
-		args = append(args, "-p", portArg)
+// appendPortArgs appends port mapping arguments.
+func appendPortArgs(args []string, ports []service.Port) []string {
+	for _, port := range ports {
+		args = append(args, "-p", buildPortArg(port))
 	}
+	return args
+}
 
-	// Mounts
-	for _, mount := range spec.Container.Mounts {
-		volumeArg := buildVolumeArg(mount)
-		args = append(args, "-v", volumeArg)
+// appendMountArgs appends mount and tmpfs arguments.
+func appendMountArgs(args []string, c service.Container) []string {
+	for _, mount := range c.Mounts {
+		args = append(args, "-v", buildVolumeArg(mount))
 	}
-
-	// Tmpfs mounts
-	for _, tmpfs := range spec.Container.Tmpfs {
+	for _, tmpfs := range c.Tmpfs {
 		args = append(args, "--tmpfs", tmpfs)
 	}
+	return args
+}
 
-	// Network mode (primary network, typically bridge)
-	if spec.Container.Network.Mode != "" {
-		args = append(args, "--network", spec.Container.Network.Mode)
+// appendNetworkArgs appends network configuration arguments.
+func appendNetworkArgs(args []string, network *service.NetworkMode, projectNetworks []service.Network) []string {
+	if network.Mode != "" {
+		args = append(args, "--network", network.Mode)
 	}
 
-	// Service-level networks (additional networks the service joins for DNS resolution)
-	// Sort networks for deterministic ordering
-	networks := spec.Container.Network.ServiceNetworks
+	networks := network.ServiceNetworks
 	if len(networks) == 0 {
-		// Fallback to project-level networks for backward compatibility
-		networks = make([]string, 0, len(spec.Networks))
-		for _, net := range spec.Networks {
+		networks = make([]string, 0, len(projectNetworks))
+		for _, net := range projectNetworks {
 			if !net.External {
 				networks = append(networks, net.Name)
 			}
@@ -100,95 +106,81 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 	for _, net := range networks {
 		args = append(args, "--network", net)
 	}
+	return args
+}
 
-	// Container labels
-	for k, v := range spec.Container.Labels {
+// appendLabelArgs appends container label arguments.
+func appendLabelArgs(args []string, labels map[string]string) []string {
+	for k, v := range labels {
 		args = append(args, "--label", fmt.Sprintf("%s=%s", k, v))
 	}
+	return args
+}
 
-	// Resources
-	args = appendResourceArgs(args, spec.Container.Resources)
-
-	// Security
-	args = appendSecurityArgs(args, spec.Container.Security)
-
-	// Ulimits
-	for _, ulimit := range spec.Container.Ulimits {
-		ulimitArg := fmt.Sprintf("%s=%d:%d", ulimit.Name, ulimit.Soft, ulimit.Hard)
-		args = append(args, "--ulimit", ulimitArg)
+// appendLimitsArgs appends ulimit and sysctl arguments.
+func appendLimitsArgs(args []string, c service.Container) []string {
+	for _, ulimit := range c.Ulimits {
+		args = append(args, "--ulimit", fmt.Sprintf("%s=%d:%d", ulimit.Name, ulimit.Soft, ulimit.Hard))
 	}
-
-	// Sysctls
-	for k, v := range spec.Container.Sysctls {
+	for k, v := range c.Sysctls {
 		args = append(args, "--sysctl", fmt.Sprintf("%s=%s", k, v))
 	}
+	return args
+}
 
-	// User namespace
-	if spec.Container.UserNS != "" {
-		args = append(args, "--userns", spec.Container.UserNS)
+// appendNamespaceArgs appends namespace mode arguments.
+func appendNamespaceArgs(args []string, c service.Container) []string {
+	if c.UserNS != "" {
+		args = append(args, "--userns", c.UserNS)
 	}
+	if c.PidMode != "" {
+		args = append(args, "--pid", c.PidMode)
+	}
+	if c.IpcMode != "" {
+		args = append(args, "--ipc", c.IpcMode)
+	}
+	if c.CgroupMode != "" {
+		args = append(args, "--cgroupns", c.CgroupMode)
+	}
+	if c.PidsLimit > 0 {
+		args = append(args, "--pids-limit", fmt.Sprintf("%d", c.PidsLimit))
+	}
+	return args
+}
 
-	// Namespace modes
-	if spec.Container.PidMode != "" {
-		args = append(args, "--pid", spec.Container.PidMode)
-	}
-	if spec.Container.IpcMode != "" {
-		args = append(args, "--ipc", spec.Container.IpcMode)
-	}
-	if spec.Container.CgroupMode != "" {
-		args = append(args, "--cgroupns", spec.Container.CgroupMode)
-	}
-
-	// PIDs limit
-	if spec.Container.PidsLimit > 0 {
-		args = append(args, "--pids-limit", fmt.Sprintf("%d", spec.Container.PidsLimit))
-	}
-
-	// Devices
-	for _, device := range spec.Container.Devices {
+// appendDeviceArgs appends device and device cgroup rule arguments.
+func appendDeviceArgs(args []string, c service.Container) []string {
+	for _, device := range c.Devices {
 		args = append(args, "--device", device)
 	}
-
-	// Device cgroup rules
-	for _, rule := range spec.Container.DeviceCgroupRules {
+	for _, rule := range c.DeviceCgroupRules {
 		args = append(args, "--device-cgroup-rule", rule)
 	}
+	return args
+}
 
-	// Secrets (Podman-specific feature)
-	for _, secret := range spec.Container.Secrets {
-		secretArg := buildSecretArg(secret)
-		args = append(args, "--secret", secretArg)
+// appendSecretArgs appends secret arguments.
+func appendSecretArgs(args []string, c service.Container) []string {
+	for _, secret := range c.Secrets {
+		args = append(args, "--secret", buildSecretArg(secret))
 	}
-
-	// Environment secrets (Podman-specific feature)
-	for secretName, envVarName := range spec.Container.EnvSecrets {
-		secretArg := fmt.Sprintf("%s,type=env,target=%s", secretName, envVarName)
-		args = append(args, "--secret", secretArg)
+	for secretName, envVarName := range c.EnvSecrets {
+		args = append(args, "--secret", fmt.Sprintf("%s,type=env,target=%s", secretName, envVarName))
 	}
+	return args
+}
 
-	// Healthcheck
-	args = appendHealthcheckArgs(args, spec.Container.Healthcheck)
-
-	// Additional Podman arguments
-	args = append(args, spec.Container.PodmanArgs...)
-
-	// Image
-	args = append(args, spec.Container.Image)
-
-	// Entrypoint override
-	if len(spec.Container.Entrypoint) > 0 {
-		args = append(args, "--entrypoint", spec.Container.Entrypoint[0])
-		if len(spec.Container.Entrypoint) > 1 {
-			args = append(args, spec.Container.Entrypoint[1:]...)
+// appendImageAndCommand appends the image, entrypoint, command, and args.
+func appendImageAndCommand(args []string, c service.Container) []string {
+	args = append(args, c.Image)
+	if len(c.Entrypoint) > 0 {
+		args = append(args, "--entrypoint", c.Entrypoint[0])
+		if len(c.Entrypoint) > 1 {
+			args = append(args, c.Entrypoint[1:]...)
 		}
 	}
-
-	// Command
-	args = append(args, spec.Container.Command...)
-
-	// Additional arguments
-	args = append(args, spec.Container.Args...)
-
+	args = append(args, c.Command...)
+	args = append(args, c.Args...)
 	return args
 }
 
