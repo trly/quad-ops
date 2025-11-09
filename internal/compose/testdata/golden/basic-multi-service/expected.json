@@ -23,7 +23,8 @@
             "Type": "volume",
             "ReadOnly": false,
             "Options": {},
-            "BindOptions": null
+            "BindOptions": null,
+            "TmpfsOptions": null
           }
         ],
         "Resources": {
@@ -138,7 +139,8 @@
             "Type": "volume",
             "ReadOnly": false,
             "Options": {},
-            "BindOptions": null
+            "BindOptions": null,
+            "TmpfsOptions": null
           }
         ],
         "Resources": {

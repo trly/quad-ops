@@ -306,7 +306,37 @@ func (r *Renderer) addMounts(builder *strings.Builder, c service.Container) {
 	}
 
 	mounts := make([]string, 0, len(c.Mounts))
+	tmpfsMounts := make([]string, 0)
 	for _, m := range c.Mounts {
+		if m.Type == service.MountTypeTmpfs {
+			tmpfsStr := m.Target
+			var options []string
+			if m.ReadOnly {
+				options = append(options, "ro")
+			} else {
+				options = append(options, "rw")
+			}
+			if m.TmpfsOptions != nil {
+				if m.TmpfsOptions.Size != "" {
+					options = append(options, "size="+m.TmpfsOptions.Size)
+				}
+				if m.TmpfsOptions.Mode != 0 {
+					options = append(options, fmt.Sprintf("mode=%d", m.TmpfsOptions.Mode))
+				}
+				if m.TmpfsOptions.UID != 0 {
+					options = append(options, fmt.Sprintf("uid=%d", m.TmpfsOptions.UID))
+				}
+				if m.TmpfsOptions.GID != 0 {
+					options = append(options, fmt.Sprintf("gid=%d", m.TmpfsOptions.GID))
+				}
+			}
+			if len(options) > 0 {
+				tmpfsStr += ":" + strings.Join(options, ",")
+			}
+			tmpfsMounts = append(tmpfsMounts, tmpfsStr)
+			continue
+		}
+
 		source := m.Source
 		// Note: Do NOT append .volume suffix. Quadlet resolves named volumes automatically.
 		// The .volume suffix is only needed in Unit file dependencies (After=, Requires=),
@@ -330,6 +360,13 @@ func (r *Renderer) addMounts(builder *strings.Builder, c service.Container) {
 	sort.Strings(mounts)
 	for _, m := range mounts {
 		builder.WriteString(formatKeyValue("Volume", m))
+	}
+
+	if len(tmpfsMounts) > 0 {
+		sort.Strings(tmpfsMounts)
+		for _, t := range tmpfsMounts {
+			builder.WriteString(formatKeyValue("Tmpfs", t))
+		}
 	}
 
 	if len(c.Tmpfs) > 0 {

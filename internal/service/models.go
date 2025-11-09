@@ -78,12 +78,13 @@ type Port struct {
 
 // Mount represents a filesystem mount.
 type Mount struct {
-	Source      string            // Source path or volume name
-	Target      string            // Container path
-	Type        MountType         // "bind", "volume", "tmpfs"
-	ReadOnly    bool              // Read-only mount
-	Options     map[string]string // Mount options
-	BindOptions *BindOptions      // Bind-specific options
+	Source       string            // Source path or volume name
+	Target       string            // Container path
+	Type         MountType         // "bind", "volume", "tmpfs"
+	ReadOnly     bool              // Read-only mount
+	Options      map[string]string // Mount options
+	BindOptions  *BindOptions      // Bind-specific options
+	TmpfsOptions *TmpfsOptions     // Tmpfs-specific options
 }
 
 // MountType represents the type of mount.
@@ -100,6 +101,14 @@ const (
 type BindOptions struct {
 	Propagation string // "private", "shared", "slave", "rshared", "rslave"
 	SELinux     string // "z" (shared) or "Z" (private) for SELinux relabeling
+}
+
+// TmpfsOptions represents tmpfs mount options.
+type TmpfsOptions struct {
+	Size string // Size limit (e.g., "64m", "1g")
+	Mode uint32 // File mode (e.g., 1777, 0755)
+	UID  int    // Owner UID
+	GID  int    // Owner GID
 }
 
 // Resources represents resource constraints.

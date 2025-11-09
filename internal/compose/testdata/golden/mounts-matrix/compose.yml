@@ -26,6 +26,7 @@ services:
         target: /tmp/scratch
         tmpfs:
           size: 100000000
+          mode: 1777
 
 volumes:
   app-data:

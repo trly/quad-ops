@@ -20,7 +20,8 @@
             "Type": "bind",
             "ReadOnly": false,
             "Options": {},
-            "BindOptions": null
+            "BindOptions": null,
+            "TmpfsOptions": null
           },
           {
             "Source": "data",
@@ -28,7 +29,8 @@
             "Type": "bind",
             "ReadOnly": false,
             "Options": {},
-            "BindOptions": null
+            "BindOptions": null,
+            "TmpfsOptions": null
           },
           {
             "Source": "/private/data",
@@ -39,7 +41,8 @@
             "BindOptions": {
               "Propagation": "",
               "SELinux": "Z"
-            }
+            },
+            "TmpfsOptions": null
           },
           {
             "Source": "/readonly",
@@ -47,7 +50,8 @@
             "Type": "bind",
             "ReadOnly": true,
             "Options": {},
-            "BindOptions": null
+            "BindOptions": null,
+            "TmpfsOptions": null
           },
           {
             "Source": "/shared/data",
@@ -58,7 +62,8 @@
             "BindOptions": {
               "Propagation": "",
               "SELinux": "z"
-            }
+            },
+            "TmpfsOptions": null
           },
           {
             "Source": "",
@@ -66,7 +71,13 @@
             "Type": "tmpfs",
             "ReadOnly": false,
             "Options": {},
-            "BindOptions": null
+            "BindOptions": null,
+            "TmpfsOptions": {
+              "Size": "95m",
+              "Mode": 1777,
+              "UID": 0,
+              "GID": 0
+            }
           },
           {
             "Source": "mounts-matrix-app-data",
@@ -74,7 +85,8 @@
             "Type": "volume",
             "ReadOnly": false,
             "Options": {},
-            "BindOptions": null
+            "BindOptions": null,
+            "TmpfsOptions": null
           },
           {
             "Source": "mounts-matrix-cache",
@@ -82,7 +94,8 @@
             "Type": "volume",
             "ReadOnly": false,
             "Options": {},
-            "BindOptions": null
+            "BindOptions": null,
+            "TmpfsOptions": null
           }
         ],
         "Resources": {

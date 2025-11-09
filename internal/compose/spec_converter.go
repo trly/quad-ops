@@ -249,6 +249,16 @@ func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig
 			}
 		case "tmpfs":
 			mount.Type = service.MountTypeTmpfs
+			if v.Tmpfs != nil {
+				tmpfsOpts := &service.TmpfsOptions{}
+				if v.Tmpfs.Size > 0 {
+					tmpfsOpts.Size = sc.formatBytes(v.Tmpfs.Size)
+				}
+				if v.Tmpfs.Mode != 0 {
+					tmpfsOpts.Mode = v.Tmpfs.Mode
+				}
+				mount.TmpfsOptions = tmpfsOpts
+			}
 		default:
 			// Auto-detect: if source is absolute path or starts with ./, it's a bind mount
 			if v.Source != "" && (filepath.IsAbs(v.Source) || strings.HasPrefix(v.Source, "./") || strings.HasPrefix(v.Source, "../")) {
