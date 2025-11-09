@@ -190,7 +190,7 @@ func TestLifecycle_RestartMany_UnitAvailableForRestart(t *testing.T) {
 	// This test verifies that after waitForUnitGeneration succeeds,
 	// RestartUnit operations also succeed immediately (not flaky)
 	logger := testutil.NewTestLogger(t)
-	
+
 	mockFactory := &MockConnectionFactory{}
 	mockConn := &MockConnection{
 		factory:  mockFactory,

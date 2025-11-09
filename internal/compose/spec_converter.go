@@ -513,6 +513,14 @@ func (sc *SpecConverter) convertNetworkMode(networkMode string, networks map[str
 			continue
 		}
 
+		// Check if it's an external network
+		if IsExternal(projectNet.External) {
+			// External network from another project - use as-is
+			resolvedName := service.SanitizeName(networkName)
+			mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
+			continue
+		}
+
 		// Resolve network name from project definition
 		resolvedName := NameResolver(projectNet.Name, networkName)
 		sanitizedName := service.SanitizeName(resolvedName)

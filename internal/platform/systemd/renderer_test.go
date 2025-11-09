@@ -304,6 +304,126 @@ func TestRenderer_MultipleNetworks(t *testing.T) {
 	assert.Contains(t, networkPaths, "infrastructure-proxy.network")
 }
 
+func TestRenderer_ServiceDependencyWithUnitTypeSuffixes(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	tests := []struct {
+		name        string
+		depName     string
+		expectedDep string
+		notExpected string
+	}{
+		{
+			name:        "dependency with .network suffix",
+			depName:     "devops-infrastructure-proxy.network",
+			expectedDep: "After=devops-infrastructure-proxy.network",
+			notExpected: ".network.service",
+		},
+		{
+			name:        "dependency with .volume suffix",
+			depName:     "data.volume",
+			expectedDep: "After=data.volume",
+			notExpected: ".volume.service",
+		},
+		{
+			name:        "dependency with .pod suffix",
+			depName:     "my-pod.pod",
+			expectedDep: "After=my-pod.pod",
+			notExpected: ".pod.service",
+		},
+		{
+			name:        "dependency with .service suffix",
+			depName:     "db.service",
+			expectedDep: "After=db.service",
+			notExpected: ".service.service",
+		},
+		{
+			name:        "normal service dependency (no suffix)",
+			depName:     "db",
+			expectedDep: "After=db.service",
+			notExpected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := service.Spec{
+				Name:        "web",
+				Description: "Test service",
+				Container: service.Container{
+					Image: "test:latest",
+				},
+				DependsOn: []string{tt.depName},
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+			assert.Contains(t, content, tt.expectedDep, "should contain expected dependency directive")
+
+			if tt.notExpected != "" {
+				assert.NotContains(t, content, tt.notExpected, "should not contain malformed suffix")
+			}
+		})
+	}
+}
+
+func TestRenderer_NetworkWithNetworkSuffix(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	// Test case: external network name that contains .network suffix
+	// This reproduces the issue where names like "devops-infrastructure-proxy.network"
+	// are used as network names (e.g., from external Docker Compose projects)
+	spec := service.Spec{
+		Name:        "web",
+		Description: "Web service using external network with .network suffix",
+		Networks: []service.Network{
+			{
+				Name:     "devops-infrastructure-proxy.network",
+				Driver:   "bridge",
+				External: true,
+			},
+		},
+		Container: service.Container{
+			Image: "nginx:latest",
+			Network: service.NetworkMode{
+				Mode:            "bridge",
+				ServiceNetworks: []string{"devops-infrastructure-proxy.network"},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	assert.Len(t, result.Artifacts, 1) // Only container unit (external network should not create a unit)
+
+	var containerArtifact *string
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			content := string(a.Content)
+			containerArtifact = &content
+		}
+	}
+
+	require.NotNil(t, containerArtifact)
+
+	// The dependency should be After=devops-infrastructure-proxy.network (not .network.service)
+	assert.Contains(t, *containerArtifact, "After=devops-infrastructure-proxy.network")
+	assert.Contains(t, *containerArtifact, "Requires=devops-infrastructure-proxy.network")
+
+	// The Network directive should also use the correct name
+	assert.Contains(t, *containerArtifact, "Network=devops-infrastructure-proxy.network")
+
+	// Should NOT contain the malformed .network.service suffix
+	assert.NotContains(t, *containerArtifact, ".network.service")
+}
+
 func TestRenderer_ExternalNetworks(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
 	r := NewRenderer(logger)

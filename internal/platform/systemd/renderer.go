@@ -136,8 +136,11 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 		copy(deps, spec.DependsOn)
 		sort.Strings(deps)
 		for _, dep := range deps {
-			builder.WriteString(fmt.Sprintf("After=%s.service\n", dep))
-			builder.WriteString(fmt.Sprintf("Requires=%s.service\n", dep))
+			// If dependency already has a unit type suffix, use as-is
+			// Otherwise, append .service for service-to-service dependencies
+			depUnit := r.formatDependency(dep)
+			builder.WriteString(fmt.Sprintf("After=%s\n", depUnit))
+			builder.WriteString(fmt.Sprintf("Requires=%s\n", depUnit))
 		}
 	}
 
@@ -761,8 +764,11 @@ func (r *Renderer) renderBuild(name, description string, build service.Build, de
 		copy(deps, dependsOn)
 		sort.Strings(deps)
 		for _, dep := range deps {
-			builder.WriteString(fmt.Sprintf("After=%s.service\n", dep))
-			builder.WriteString(fmt.Sprintf("Requires=%s.service\n", dep))
+			// If dependency already has a unit type suffix, use as-is
+			// Otherwise, append .service for service-to-service dependencies
+			depUnit := r.formatDependency(dep)
+			builder.WriteString(fmt.Sprintf("After=%s\n", depUnit))
+			builder.WriteString(fmt.Sprintf("Requires=%s\n", depUnit))
 		}
 	}
 
@@ -866,6 +872,32 @@ func (r *Renderer) renderBuild(name, description string, build service.Build, de
 	builder.WriteString("WantedBy=default.target\n")
 
 	return builder.String()
+}
+
+// formatDependency formats a dependency name for use in unit file directives.
+// If the dependency already has a unit type suffix (.network, .volume, etc.),
+// it returns as-is. Otherwise, appends .service for service-to-service deps.
+func (r *Renderer) formatDependency(dep string) string {
+	// List of known Quadlet unit type suffixes
+	suffixes := []string{
+		".network",
+		".volume",
+		".pod",
+		".kube",
+		".build",
+		".image",
+		".artifact",
+		".service", // Already has service suffix
+	}
+
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(dep, suffix) {
+			return dep
+		}
+	}
+
+	// No unit type suffix found, default to .service
+	return dep + ".service"
 }
 
 // mapRestartPolicy maps service.RestartPolicy to systemd restart value.
