@@ -39,6 +39,7 @@ type SyncOptions struct {
 	DryRun   bool
 	RepoName string
 	Force    bool
+	PullOnly bool
 }
 
 // SyncDeps holds sync dependencies.
@@ -99,6 +100,7 @@ repositories:
 	syncCmd.Flags().BoolVarP(&opts.DryRun, "dry-run", "d", false, "Perform a dry run without making any changes.")
 	syncCmd.Flags().StringVarP(&opts.RepoName, "repo", "r", "", "Synchronize a single, named, repository.")
 	syncCmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "Force synchronization even if the repository has not changed.")
+	syncCmd.Flags().BoolVarP(&opts.PullOnly, "pull-only", "p", false, "Pull latest changes from git without rendering or restarting services.")
 
 	return syncCmd
 }
@@ -137,6 +139,28 @@ func (c *SyncCommand) Run(ctx context.Context, app *App, opts SyncOptions, deps 
 
 	if opts.DryRun {
 		deps.Logger.Info("Dry-run mode enabled - no changes will be made")
+		return nil
+	}
+
+	if opts.PullOnly {
+		deps.Logger.Info("Pull-only mode enabled - fetching latest changes without rendering")
+		reposToSync, err := c.filterRepositories(app.Config.Repositories, opts)
+		if err != nil {
+			return err
+		}
+		results, err := deps.GitSyncer.SyncAll(ctx, reposToSync)
+		if err != nil {
+			return fmt.Errorf("git sync failed: %w", err)
+		}
+		for _, result := range results {
+			if result.Error != nil {
+				deps.Logger.Error("Failed to sync repository", "repo", result.Repository.Name, "error", result.Error)
+			} else if result.Changed {
+				deps.Logger.Info("Repository updated", "repo", result.Repository.Name)
+			} else {
+				deps.Logger.Debug("Repository unchanged", "repo", result.Repository.Name)
+			}
+		}
 		return nil
 	}
 

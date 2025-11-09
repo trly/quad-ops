@@ -57,6 +57,16 @@ func ReadProjectsWithLogger(path string, logger log.Logger) ([]*types.Project, e
 			return nil
 		}
 
+		// Check if this directory contains a .git folder (indicating a nested repository clone)
+		// If so, skip it entirely to avoid processing unrelated compose files
+		if info.IsDir() {
+			gitPath := filepath.Join(filePath, ".git")
+			if gitInfo, err := os.Stat(gitPath); err == nil && gitInfo.IsDir() {
+				logger.Debug("Skipping nested repository directory", "path", filePath)
+				return filepath.SkipDir
+			}
+		}
+
 		// Add verbose logging for all files
 		logger.Debug("Examining path", "path", filePath, "isDir", info.IsDir(), "ext", filepath.Ext(filePath))
 
