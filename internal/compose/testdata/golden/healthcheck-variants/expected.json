@@ -58,7 +58,7 @@
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
+        "Secrets": [],
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
@@ -147,7 +147,7 @@
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
+        "Secrets": [],
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
@@ -248,7 +248,7 @@
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
+        "Secrets": [],
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",

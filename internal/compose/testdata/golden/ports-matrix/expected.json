@@ -103,7 +103,7 @@
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
+        "Secrets": [],
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",

@@ -3,6 +3,7 @@ package compose
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -31,6 +32,10 @@ func NewSpecConverter(workingDir string) *SpecConverter {
 // It normalizes multi-container setups into multiple Spec instances, handling
 // services, volumes, networks, and build configurations.
 func (sc *SpecConverter) ConvertProject(project *types.Project) ([]service.Spec, error) {
+	if err := sc.validateProject(project); err != nil {
+		return nil, err
+	}
+
 	specs := make([]service.Spec, 0, len(project.Services))
 
 	// Convert each service to one or more Specs
@@ -91,6 +96,16 @@ func (sc *SpecConverter) convertService(serviceName string, composeService types
 
 // convertContainer converts Docker Compose service config to service.Container.
 func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, serviceName string, project *types.Project) service.Container {
+	mounts := sc.convertVolumeMounts(composeService.Volumes, project)
+
+	if configMounts, err := sc.convertConfigMounts(composeService.Configs, project, serviceName); err == nil {
+		mounts = append(mounts, configMounts...)
+	}
+
+	if secretMounts, err := sc.convertSecretMounts(composeService.Secrets, project, serviceName); err == nil {
+		mounts = append(mounts, secretMounts...)
+	}
+
 	container := service.Container{
 		Image:             composeService.Image,
 		Command:           composeService.Command,
@@ -99,7 +114,7 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		WorkingDir:        composeService.WorkingDir,
 		User:              composeService.User,
 		Ports:             sc.convertPorts(composeService.Ports),
-		Mounts:            sc.convertVolumeMounts(composeService.Volumes, project),
+		Mounts:            mounts,
 		Resources:         sc.convertResources(composeService.Deploy, composeService),
 		RestartPolicy:     sc.convertRestartPolicy(composeService.Restart),
 		Healthcheck:       sc.convertHealthcheck(composeService.HealthCheck),
@@ -112,7 +127,7 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		Init:              composeService.Init != nil && *composeService.Init,
 		ReadOnly:          composeService.ReadOnly,
 		Logging:           sc.convertLogging(composeService.Logging),
-		Secrets:           sc.convertSecrets(composeService.Secrets),
+		Secrets:           sc.convertExternalSecrets(composeService.Secrets, project),
 		Network:           sc.convertNetworkMode(composeService.NetworkMode, composeService.Networks, project),
 		Tmpfs:             sc.convertTmpfs(composeService.Tmpfs),
 		Ulimits:           sc.convertUlimits(composeService.Ulimits),
@@ -512,32 +527,6 @@ func (sc *SpecConverter) convertLogging(logging *types.LoggingConfig) service.Lo
 		Driver:  logging.Driver,
 		Options: logging.Options,
 	}
-}
-
-// convertSecrets converts compose secrets to service.Secret.
-func (sc *SpecConverter) convertSecrets(secrets []types.ServiceSecretConfig) []service.Secret {
-	if len(secrets) == 0 {
-		return nil
-	}
-
-	result := make([]service.Secret, 0, len(secrets))
-	for _, s := range secrets {
-		secret := service.Secret{
-			Source: s.Source,
-			Target: s.Target,
-		}
-		if s.UID != "" {
-			secret.UID = s.UID
-		}
-		if s.GID != "" {
-			secret.GID = s.GID
-		}
-		if s.Mode != nil {
-			secret.Mode = fmt.Sprintf("%o", *s.Mode)
-		}
-		result = append(result, secret)
-	}
-	return result
 }
 
 // convertNetworkMode converts compose network mode to service.NetworkMode.
@@ -1212,4 +1201,227 @@ func (sc *SpecConverter) getStringSliceFromMap(m map[string]interface{}, key str
 		}
 	}
 	return nil
+}
+
+// validateProject validates project-level configs and secrets for Swarm-specific features.
+func (sc *SpecConverter) validateProject(project *types.Project) error {
+	for name, cfg := range project.Configs {
+		if cfg.Driver != "" {
+			return fmt.Errorf("config %q uses 'driver' which is Swarm-specific and not supported. Use file/content/environment sources instead", name)
+		}
+	}
+
+	for name, secret := range project.Secrets {
+		if secret.Driver != "" {
+			return fmt.Errorf("secret %q uses 'driver' which is Swarm-specific and not supported. Use file/content/environment sources instead", name)
+		}
+	}
+
+	return nil
+}
+
+// ensureProjectTempDir creates and returns a temporary directory for the project.
+func (sc *SpecConverter) ensureProjectTempDir(projectName, kind string) (string, error) {
+	tempBase := filepath.Join(os.TempDir(), "quad-ops", service.SanitizeName(projectName), kind)
+	if err := os.MkdirAll(tempBase, 0700); err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	return tempBase, nil
+}
+
+// writeTempFile writes content to a file in the given directory with the specified mode.
+func (sc *SpecConverter) writeTempFile(dir, name string, data []byte, mode os.FileMode) (string, error) {
+	filePath := filepath.Join(dir, service.SanitizeName(name))
+
+	if _, err := os.Stat(filePath); err == nil {
+		if err := os.Chmod(filePath, 0600); err != nil {
+			return "", fmt.Errorf("failed to make file writable: %w", err)
+		}
+	}
+
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
+		return "", fmt.Errorf("failed to write temp file: %w", err)
+	}
+	if err := os.Chmod(filePath, mode); err != nil {
+		return "", fmt.Errorf("failed to set file mode: %w", err)
+	}
+	return filePath, nil
+}
+
+// convertConfigMounts converts compose configs with local sources to bind mounts.
+func (sc *SpecConverter) convertConfigMounts(configs []types.ServiceConfigObjConfig, project *types.Project, serviceName string) ([]service.Mount, error) {
+	if len(configs) == 0 {
+		return nil, nil
+	}
+
+	result := make([]service.Mount, 0, len(configs))
+
+	for _, cfg := range configs {
+		projectCfg, exists := project.Configs[cfg.Source]
+		if !exists {
+			return nil, fmt.Errorf("config %q referenced by service %q not found in project configs", cfg.Source, serviceName)
+		}
+
+		if IsExternal(projectCfg.External) {
+			continue
+		}
+
+		var mode *uint32
+		if cfg.Mode != nil {
+			modeVal := *cfg.Mode
+			if modeVal > 0777 || modeVal < 0 {
+				return nil, fmt.Errorf("invalid file mode for config %q: %o", cfg.Source, modeVal)
+			}
+			m := uint32(modeVal) // #nosec G115 - validated range 0-0777
+			mode = &m
+		}
+
+		mount, err := sc.convertFileObjectToMount(types.FileObjectConfig(projectCfg), cfg.Target, mode, project.Name, "configs", cfg.Source, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert config %q: %w", cfg.Source, err)
+		}
+		if mount.Target == "" {
+			mount.Target = "/" + cfg.Source
+		}
+
+		result = append(result, mount)
+	}
+
+	return result, nil
+}
+
+// convertSecretMounts converts compose secrets with local sources to bind mounts.
+func (sc *SpecConverter) convertSecretMounts(secrets []types.ServiceSecretConfig, project *types.Project, serviceName string) ([]service.Mount, error) {
+	if len(secrets) == 0 {
+		return nil, nil
+	}
+
+	result := make([]service.Mount, 0, len(secrets))
+
+	for _, sec := range secrets {
+		projectSec, exists := project.Secrets[sec.Source]
+		if !exists {
+			return nil, fmt.Errorf("secret %q referenced by service %q not found in project secrets", sec.Source, serviceName)
+		}
+
+		if IsExternal(projectSec.External) {
+			continue
+		}
+
+		mode := uint32(0400)
+		if sec.Mode != nil {
+			modeVal := *sec.Mode
+			if modeVal > 0777 || modeVal < 0 {
+				return nil, fmt.Errorf("invalid file mode for secret %q: %o", sec.Source, modeVal)
+			}
+			mode = uint32(modeVal) // #nosec G115 - validated range 0-0777
+		}
+
+		mount, err := sc.convertFileObjectToMount(types.FileObjectConfig(projectSec), sec.Target, &mode, project.Name, "secrets", sec.Source, 0400)
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert secret %q: %w", sec.Source, err)
+		}
+		if mount.Target == "" {
+			mount.Target = "/run/secrets/" + sec.Source
+		}
+
+		result = append(result, mount)
+	}
+
+	return result, nil
+}
+
+// convertFileObjectToMount converts a FileObjectConfig to a bind mount.
+func (sc *SpecConverter) convertFileObjectToMount(obj types.FileObjectConfig, target string, mode *uint32, projectName, kind, name string, defaultMode uint32) (service.Mount, error) {
+	mount := service.Mount{
+		Type:     service.MountTypeBind,
+		Target:   target,
+		ReadOnly: true,
+		Options:  make(map[string]string),
+	}
+
+	fileMode := os.FileMode(defaultMode)
+	if mode != nil {
+		fileMode = os.FileMode(*mode)
+	}
+
+	if obj.File != "" {
+		sourcePath := obj.File
+		if !filepath.IsAbs(sourcePath) {
+			sourcePath = filepath.Join(sc.workingDir, sourcePath)
+		}
+
+		if _, err := os.Stat(sourcePath); err != nil {
+			return mount, fmt.Errorf("file source %q not found: %w", obj.File, err)
+		}
+
+		mount.Source = sourcePath
+		return mount, nil
+	}
+
+	if obj.Content != "" {
+		tempDir, err := sc.ensureProjectTempDir(projectName, kind)
+		if err != nil {
+			return mount, err
+		}
+
+		filePath, err := sc.writeTempFile(tempDir, name, []byte(obj.Content), fileMode)
+		if err != nil {
+			return mount, err
+		}
+
+		mount.Source = filePath
+		return mount, nil
+	}
+
+	if obj.Environment != "" {
+		value := os.Getenv(obj.Environment)
+		if value == "" {
+			return mount, fmt.Errorf("environment variable %q is not set or empty", obj.Environment)
+		}
+
+		tempDir, err := sc.ensureProjectTempDir(projectName, kind)
+		if err != nil {
+			return mount, err
+		}
+
+		filePath, err := sc.writeTempFile(tempDir, name, []byte(value), fileMode)
+		if err != nil {
+			return mount, err
+		}
+
+		mount.Source = filePath
+		return mount, nil
+	}
+
+	return mount, fmt.Errorf("no valid local source (file, content, or environment) provided")
+}
+
+// convertExternalSecrets converts external secrets to service.Secret for Quadlet Secret= directive.
+func (sc *SpecConverter) convertExternalSecrets(secrets []types.ServiceSecretConfig, project *types.Project) []service.Secret {
+	result := make([]service.Secret, 0, len(secrets))
+
+	for _, sec := range secrets {
+		projectSec, exists := project.Secrets[sec.Source]
+		if !exists || !IsExternal(projectSec.External) {
+			continue
+		}
+
+		secret := service.Secret{
+			Source: sec.Source,
+			Target: sec.Target,
+		}
+		if sec.UID != "" {
+			secret.UID = sec.UID
+		}
+		if sec.GID != "" {
+			secret.GID = sec.GID
+		}
+		if sec.Mode != nil {
+			secret.Mode = fmt.Sprintf("%o", *sec.Mode)
+		}
+		result = append(result, secret)
+	}
+
+	return result
 }
