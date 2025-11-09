@@ -261,6 +261,80 @@ func (o *DefaultOrchestrator) StartUnitDependencyAware(unitName, unitType string
 	return o.unitManager.Restart(unitName, unitType)
 }
 
+// waitForUnitsGenerated waits for all specified units to be generated and available in systemd.
+// It uses exponential backoff with a maximum timeout to avoid blocking forever.
+func (o *DefaultOrchestrator) waitForUnitsGenerated(ctx context.Context, unitNames []string, maxRetries int, initialBackoff time.Duration) error {
+	if len(unitNames) == 0 {
+		return nil
+	}
+
+	o.logger.Debug("Waiting for units to be generated", "count", len(unitNames), "maxRetries", maxRetries)
+
+	backoff := initialBackoff
+	lastErr := error(nil)
+	userMode := o.configProvider.GetConfig().UserMode
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		allFound := true
+		notFoundUnits := []string{}
+
+		for _, unitName := range unitNames {
+			serviceName := unitName + ".service"
+
+			// Attempt to get unit properties to verify it exists
+			// This will fail if the unit hasn't been generated yet
+			conn, err := o.connectionFactory.NewConnection(ctx, userMode)
+			if err != nil {
+				o.logger.Debug("Failed to create connection to check unit", "unit", serviceName, "attempt", attempt)
+				allFound = false
+				notFoundUnits = append(notFoundUnits, serviceName)
+				lastErr = err
+				continue
+			}
+
+			_, err = conn.GetUnitProperties(ctx, serviceName)
+			_ = conn.Close() // Always close the connection
+
+			if err != nil {
+				allFound = false
+				notFoundUnits = append(notFoundUnits, serviceName)
+				lastErr = err
+				continue
+			}
+		}
+
+		if allFound {
+			o.logger.Debug("All units are now available")
+			return nil
+		}
+
+		if attempt < maxRetries-1 {
+			o.logger.Debug("Units not yet available, retrying",
+				"attempt", attempt+1,
+				"maxRetries", maxRetries,
+				"backoff", backoff,
+				"notFound", len(notFoundUnits))
+			select {
+			case <-time.After(backoff):
+				// Apply exponential backoff (max 5 seconds per retry)
+				backoff = backoff * 2
+				if backoff > 5*time.Second {
+					backoff = 5 * time.Second
+				}
+			case <-ctx.Done():
+				return fmt.Errorf("unit wait cancelled: %w", ctx.Err())
+			}
+		}
+	}
+
+	// All retries exhausted
+	o.logger.Error("Units failed to appear after maximum retries",
+		"notFound", len(unitNames),
+		"maxRetries", maxRetries,
+		"lastError", lastErr)
+	return fmt.Errorf("units not generated after %d retries: %w", maxRetries, lastErr)
+}
+
 // RestartChangedUnits restarts all changed units in dependency-aware order.
 func (o *DefaultOrchestrator) RestartChangedUnits(changedUnits []UnitChange, projectDependencyGraphs map[string]*dependency.ServiceDependencyGraph) error {
 	o.logger.Info("Restarting changed units with dependency awareness", "count", len(changedUnits))
@@ -271,8 +345,19 @@ func (o *DefaultOrchestrator) RestartChangedUnits(changedUnits []UnitChange, pro
 		return fmt.Errorf("failed to reload systemd configuration: %w", err)
 	}
 
-	// Wait for systemd to process the changes
-	time.Sleep(2 * time.Second)
+	// Extract unit names to wait for (container units that will be restarted)
+	var containerUnitNames []string
+	for _, unit := range changedUnits {
+		if unit.Type == "container" {
+			containerUnitNames = append(containerUnitNames, unit.Name)
+		}
+	}
+
+	// Wait for units to be generated with exponential backoff
+	if err := o.waitForUnitsGenerated(context.Background(), containerUnitNames, 10, 100*time.Millisecond); err != nil {
+		o.logger.Error("Failed waiting for units to be generated", "error", err)
+		return fmt.Errorf("units not available after systemd reload: %w", err)
+	}
 
 	// Track units with restart failures
 	restartFailures := make(map[string]error)

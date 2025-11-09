@@ -2,7 +2,9 @@ package systemd
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/coreos/go-systemd/v22/dbus"
 	godbus "github.com/godbus/dbus/v5"
@@ -299,4 +301,86 @@ func createTestUnitManager(mockConn Connection) UnitManager {
 	runner := fakerunner.New()
 
 	return NewDefaultUnitManager(mockFactory, contextProvider, textCaser, configProvider, logger, runner)
+}
+
+func createTestOrchestrator(mockFactory ConnectionFactory) Orchestrator {
+	configProvider := config.NewConfigProvider()
+	logger := log.NewLogger(false)
+	unitManager := createTestUnitManager(mockFactory.(*MockConnectionFactory).Connection)
+
+	return NewDefaultOrchestrator(unitManager, mockFactory, configProvider, logger)
+}
+
+// TestWaitForUnitsGenerated tests the waitForUnitsGenerated function.
+func TestWaitForUnitsGenerated(t *testing.T) {
+	t.Run("returns nil when all units exist immediately", func(t *testing.T) {
+		mockConn := &MockConnection{
+			GetUnitPropertiesFunc: func(_ context.Context, _ string) (map[string]interface{}, error) {
+				return map[string]interface{}{}, nil
+			},
+		}
+
+		mockFactory := &MockConnectionFactory{
+			Connection: mockConn,
+		}
+
+		orchestrator := createTestOrchestrator(mockFactory).(*DefaultOrchestrator)
+		ctx := context.Background()
+		err := orchestrator.waitForUnitsGenerated(ctx, []string{"test-unit"}, 5, 10*time.Millisecond)
+		assert.NoError(t, err)
+	})
+
+	t.Run("retries when units don't exist initially", func(t *testing.T) {
+		attempts := 0
+		mockConn := &MockConnection{
+			GetUnitPropertiesFunc: func(_ context.Context, _ string) (map[string]interface{}, error) {
+				attempts++
+				if attempts < 3 {
+					return nil, fmt.Errorf("unit not found")
+				}
+				return map[string]interface{}{}, nil
+			},
+		}
+
+		mockFactory := &MockConnectionFactory{
+			Connection: mockConn,
+		}
+
+		orchestrator := createTestOrchestrator(mockFactory).(*DefaultOrchestrator)
+		ctx := context.Background()
+		err := orchestrator.waitForUnitsGenerated(ctx, []string{"test-unit"}, 5, 10*time.Millisecond)
+		assert.NoError(t, err)
+		assert.Greater(t, attempts, 1)
+	})
+
+	t.Run("fails when units don't exist after max retries", func(t *testing.T) {
+		mockConn := &MockConnection{
+			GetUnitPropertiesFunc: func(_ context.Context, _ string) (map[string]interface{}, error) {
+				return nil, fmt.Errorf("unit not found")
+			},
+		}
+
+		mockFactory := &MockConnectionFactory{
+			Connection: mockConn,
+		}
+
+		orchestrator := createTestOrchestrator(mockFactory).(*DefaultOrchestrator)
+		ctx := context.Background()
+		err := orchestrator.waitForUnitsGenerated(ctx, []string{"test-unit"}, 2, 5*time.Millisecond)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "units not generated")
+	})
+
+	t.Run("handles empty unit list gracefully", func(t *testing.T) {
+		mockConn := &MockConnection{}
+
+		mockFactory := &MockConnectionFactory{
+			Connection: mockConn,
+		}
+
+		orchestrator := createTestOrchestrator(mockFactory).(*DefaultOrchestrator)
+		ctx := context.Background()
+		err := orchestrator.waitForUnitsGenerated(ctx, []string{}, 5, 10*time.Millisecond)
+		assert.NoError(t, err)
+	})
 }
