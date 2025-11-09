@@ -662,9 +662,9 @@ func (sc *SpecConverter) convertServiceVolumes(composeService types.ServiceConfi
 	usedVolumes := make(map[string]bool)
 	for _, mount := range composeService.Volumes {
 		// Only track named volumes (not bind mounts or tmpfs)
-		if mount.Type == "volume" || (mount.Type == "" && mount.Source != "" && 
-			!filepath.IsAbs(mount.Source) && 
-			!strings.HasPrefix(mount.Source, "./") && 
+		if mount.Type == "volume" || (mount.Type == "" && mount.Source != "" &&
+			!filepath.IsAbs(mount.Source) &&
+			!strings.HasPrefix(mount.Source, "./") &&
 			!strings.HasPrefix(mount.Source, "../")) {
 			if mount.Source != "" {
 				usedVolumes[mount.Source] = true
@@ -677,7 +677,7 @@ func (sc *SpecConverter) convertServiceVolumes(composeService types.ServiceConfi
 	}
 
 	result := make([]service.Volume, 0, len(usedVolumes))
-	
+
 	// Convert each used volume
 	for volumeName := range usedVolumes {
 		projectVol, exists := project.Volumes[volumeName]
@@ -697,7 +697,7 @@ func (sc *SpecConverter) convertServiceVolumes(composeService types.ServiceConfi
 		// Resolve volume name from project definition
 		resolvedName := NameResolver(projectVol.Name, volumeName)
 		sanitizedName := service.SanitizeName(resolvedName)
-		
+
 		// Don't apply project prefix to external volumes
 		if !IsExternal(projectVol.External) && !strings.Contains(resolvedName, project.Name) {
 			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
@@ -763,7 +763,7 @@ func (sc *SpecConverter) convertServiceNetworksList(networks map[string]*types.S
 		// Resolve network name from project definition
 		resolvedName := NameResolver(projectNet.Name, networkName)
 		sanitizedName := service.SanitizeName(resolvedName)
-		
+
 		// Don't apply project prefix to external networks
 		if !IsExternal(projectNet.External) && !strings.Contains(resolvedName, project.Name) {
 			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))

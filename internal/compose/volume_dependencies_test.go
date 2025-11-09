@@ -183,7 +183,7 @@ func TestVolumeDependencies_ServiceWithBindMountsOnly(t *testing.T) {
 
 	// Bind mounts don't create volume unit dependencies
 	assert.Empty(t, spec.Volumes, "Service with only bind mounts should have no volume dependencies")
-	
+
 	// But should still have the mounts in Container.Mounts
 	assert.Len(t, spec.Container.Mounts, 2)
 	assert.Equal(t, service.MountTypeBind, spec.Container.Mounts[0].Type)
@@ -240,7 +240,7 @@ func TestVolumeDependencies_ServiceWithMixedMounts(t *testing.T) {
 	// Should only depend on named volumes, not bind mounts or tmpfs
 	assert.Len(t, spec.Volumes, 1)
 	assert.Equal(t, "myapp-data", spec.Volumes[0].Name)
-	
+
 	// All mounts should still be in Container.Mounts
 	assert.Len(t, spec.Container.Mounts, 3)
 }
@@ -290,7 +290,7 @@ func TestVolumeDependencies_ExternalVolumes(t *testing.T) {
 
 	// Should have both volumes
 	assert.Len(t, spec.Volumes, 2)
-	
+
 	// Find the external volume
 	var externalVol *service.Volume
 	var localVol *service.Volume
@@ -301,14 +301,14 @@ func TestVolumeDependencies_ExternalVolumes(t *testing.T) {
 			localVol = &spec.Volumes[i]
 		}
 	}
-	
+
 	require.NotNil(t, externalVol, "Should have external volume")
 	require.NotNil(t, localVol, "Should have local volume")
-	
+
 	// External volume should NOT be prefixed
 	assert.Equal(t, "shared-data", externalVol.Name)
 	assert.True(t, externalVol.External)
-	
+
 	// Local volume should be prefixed
 	assert.Equal(t, "myapp-local-data", localVol.Name)
 	assert.False(t, localVol.External)
@@ -440,7 +440,7 @@ func TestVolumeDependencies_AutoDetectedVolumes(t *testing.T) {
 	// Should have the named volume (data) but not the bind mount
 	assert.Len(t, spec.Volumes, 1)
 	assert.Equal(t, "myapp-data", spec.Volumes[0].Name)
-	
+
 	// Both should be in mounts
 	assert.Len(t, spec.Container.Mounts, 2)
 }
