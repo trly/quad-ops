@@ -2,6 +2,7 @@ package systemd
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -1022,4 +1023,73 @@ func TestRenderer_ResourcesWithPidsLimitAndUlimits(t *testing.T) {
 	// Ulimits
 	assert.Contains(t, content, "Ulimit=nofile=1024:2048")
 	assert.Contains(t, content, "Ulimit=nproc=256")
+}
+
+func TestRenderer_NoDuplicatePidsLimit(t *testing.T) {
+	tests := []struct {
+		name          string
+		resourcesLimit int64 // Container.Resources.PidsLimit
+		containerLimit int64 // Container.PidsLimit
+		expected      int64  // Expected rendered value
+		shouldBeOnce  bool   // Should appear only once in output
+	}{
+		{
+			name:          "only Resources.PidsLimit",
+			resourcesLimit: 512,
+			containerLimit: 0,
+			expected:       512,
+			shouldBeOnce:   true,
+		},
+		{
+			name:          "Resources.PidsLimit takes precedence",
+			resourcesLimit: 512,
+			containerLimit: 1024,
+			expected:       512,
+			shouldBeOnce:   true,
+		},
+		{
+			name:          "no PidsLimit when both zero",
+			resourcesLimit: 0,
+			containerLimit: 0,
+			expected:       0,
+			shouldBeOnce:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := testutil.NewTestLogger(t)
+			r := NewRenderer(logger)
+
+			spec := service.Spec{
+				Name: "app",
+				Container: service.Container{
+					Image: "alpine:latest",
+					Resources: service.Resources{
+						PidsLimit: tt.resourcesLimit,
+					},
+					PidsLimit: tt.containerLimit,
+				},
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+			
+			if tt.expected > 0 {
+				expectedStr := fmt.Sprintf("PidsLimit=%d", tt.expected)
+				assert.Contains(t, content, expectedStr)
+				
+				// Count occurrences of PidsLimit directive
+				count := strings.Count(content, "PidsLimit=")
+				if tt.shouldBeOnce {
+					assert.Equal(t, 1, count, "PidsLimit should appear exactly once")
+				}
+			} else {
+				assert.NotContains(t, content, "PidsLimit=")
+			}
+		})
+	}
 }

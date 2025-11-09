@@ -434,11 +434,10 @@ func (r *Renderer) addResources(builder *strings.Builder, c service.Container) {
 		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--cpu-period %d", c.Resources.CPUPeriod)))
 	}
 
+	// Use Resources.PidsLimit as canonical source; Container.PidsLimit is deprecated
 	if c.Resources.PidsLimit > 0 {
 		fmt.Fprintf(builder, "PidsLimit=%d\n", c.Resources.PidsLimit)
-	}
-
-	if c.PidsLimit > 0 {
+	} else if c.PidsLimit > 0 {
 		fmt.Fprintf(builder, "PidsLimit=%d\n", c.PidsLimit)
 	}
 
