@@ -909,20 +909,20 @@ func TestRenderer_RenderMemoryConstraints(t *testing.T) {
 			name:            "memory and reservation",
 			resources:       service.Resources{Memory: "1g", MemoryReservation: "512m"},
 			expectMemory:    "Memory=1g",
-			expectMemReserv: "MemoryReservation=512m",
+			expectMemReserv: "PodmanArgs=--memory-reservation 512m",
 		},
 		{
 			name:          "memory and swap",
 			resources:     service.Resources{Memory: "1g", MemorySwap: "2g"},
 			expectMemory:  "Memory=1g",
-			expectMemSwap: "MemorySwap=2g",
+			expectMemSwap: "PodmanArgs=--memory-swap 2g",
 		},
 		{
 			name:            "all memory constraints",
 			resources:       service.Resources{Memory: "1g", MemoryReservation: "512m", MemorySwap: "2g"},
 			expectMemory:    "Memory=1g",
-			expectMemReserv: "MemoryReservation=512m",
-			expectMemSwap:   "MemorySwap=2g",
+			expectMemReserv: "PodmanArgs=--memory-reservation 512m",
+			expectMemSwap:   "PodmanArgs=--memory-swap 2g",
 		},
 		{
 			name:      "empty values not rendered",
@@ -1060,8 +1060,8 @@ func TestRenderer_RenderMixedConstraints(t *testing.T) {
 
 	// Memory constraints
 	assert.Contains(t, content, "Memory=2g")
-	assert.Contains(t, content, "MemoryReservation=1g")
-	assert.Contains(t, content, "MemorySwap=4g")
+	assert.Contains(t, content, "PodmanArgs=--memory-reservation 1g")
+	assert.Contains(t, content, "PodmanArgs=--memory-swap 4g")
 
 	// CPU constraints via PodmanArgs
 	assert.Contains(t, content, "PodmanArgs=--cpu-period 100000")

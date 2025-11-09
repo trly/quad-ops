@@ -100,7 +100,7 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		User:          composeService.User,
 		Ports:         sc.convertPorts(composeService.Ports),
 		Mounts:        sc.convertVolumeMounts(composeService.Volumes, project),
-		Resources:     sc.convertResources(composeService.Deploy),
+		Resources:     sc.convertResources(composeService.Deploy, composeService),
 		RestartPolicy: sc.convertRestartPolicy(composeService.Restart),
 		Healthcheck:   sc.convertHealthcheck(composeService.HealthCheck),
 		Security:      sc.convertSecurity(composeService),
@@ -261,7 +261,7 @@ func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig
 }
 
 // convertResources converts compose deploy resources to service.Resources.
-func (sc *SpecConverter) convertResources(deploy *types.DeployConfig) service.Resources {
+func (sc *SpecConverter) convertResources(deploy *types.DeployConfig, svc types.ServiceConfig) service.Resources {
 	resources := service.Resources{}
 
 	if deploy == nil || deploy.Resources.Limits == nil && deploy.Resources.Reservations == nil {
@@ -288,6 +288,15 @@ func (sc *SpecConverter) convertResources(deploy *types.DeployConfig) service.Re
 		if deploy.Resources.Reservations.MemoryBytes > 0 {
 			resources.MemoryReservation = sc.formatBytes(deploy.Resources.Reservations.MemoryBytes)
 		}
+		// Derive CPUShares from reservations
+		if deploy.Resources.Reservations.NanoCPUs > 0 {
+			resources.CPUShares = sc.convertCPUShares(deploy.Resources.Reservations.NanoCPUs)
+		}
+	}
+
+	// MemSwapLimit from service-level field (not deploy.resources)
+	if svc.MemSwapLimit > 0 {
+		resources.MemorySwap = sc.formatBytes(svc.MemSwapLimit)
 	}
 
 	return resources
@@ -319,6 +328,16 @@ func (sc *SpecConverter) convertCPU(nanoCPUs types.NanoCPUs) (quota int64, perio
 	period = 100000
 	quota = int64(float64(nanoCPUs) * float64(period))
 	return quota, period
+}
+
+// convertCPUShares converts nanoCPUs to CPU shares.
+func (sc *SpecConverter) convertCPUShares(nanoCPUs types.NanoCPUs) int64 {
+	// CPU shares are relative weights (default 1024 = 1 CPU)
+	// NanoCPUs is a float32 (e.g., 0.5 means 50% of one CPU)
+	if nanoCPUs == 0 {
+		return 0
+	}
+	return int64(float64(nanoCPUs) * 1024)
 }
 
 // convertRestartPolicy converts compose restart to service.RestartPolicy.

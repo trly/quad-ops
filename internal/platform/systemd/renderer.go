@@ -439,11 +439,11 @@ func (r *Renderer) addResources(builder *strings.Builder, c service.Container) {
 	}
 
 	if c.Resources.MemoryReservation != "" {
-		builder.WriteString(formatKeyValue("MemoryReservation", c.Resources.MemoryReservation))
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--memory-reservation %s", c.Resources.MemoryReservation)))
 	}
 
 	if c.Resources.MemorySwap != "" {
-		builder.WriteString(formatKeyValue("MemorySwap", c.Resources.MemorySwap))
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--memory-swap %s", c.Resources.MemorySwap)))
 	}
 
 	// CPU constraints (rendered as PodmanArgs)

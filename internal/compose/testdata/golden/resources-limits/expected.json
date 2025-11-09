@@ -18,7 +18,7 @@
           "Memory": "512m",
           "MemoryReservation": "256m",
           "MemorySwap": "",
-          "CPUShares": 0,
+          "CPUShares": 512,
           "CPUQuota": 150000,
           "CPUPeriod": 100000,
           "PidsLimit": 100
