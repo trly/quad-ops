@@ -42,4 +42,4 @@ configs/*
 # quad-ops
 *.db
 quad-ops
-
+config.yml
