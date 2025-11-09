@@ -138,6 +138,15 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 		builder.WriteString("Wants=network-online.target\n")
 	}
 
+	// Add RequiresMountsFor directives for bind mounts
+	bindMountPaths := r.collectBindMountPaths(spec.Container)
+	if len(bindMountPaths) > 0 {
+		sort.Strings(bindMountPaths)
+		for _, path := range bindMountPaths {
+			builder.WriteString(fmt.Sprintf("RequiresMountsFor=%s\n", path))
+		}
+	}
+
 	if len(spec.DependsOn) > 0 {
 		deps := make([]string, len(spec.DependsOn))
 		copy(deps, spec.DependsOn)
@@ -974,4 +983,22 @@ func (r *Renderer) needsNetworkOnline(spec service.Spec) bool {
 	}
 
 	return false
+}
+
+// collectBindMountPaths collects source paths from bind mounts.
+// Returns a list of host paths that need RequiresMountsFor directives.
+func (r *Renderer) collectBindMountPaths(c service.Container) []string {
+	if len(c.Mounts) == 0 {
+		return nil
+	}
+
+	paths := make([]string, 0)
+	for _, mount := range c.Mounts {
+		// Only bind mounts need RequiresMountsFor
+		if mount.Type == service.MountTypeBind && mount.Source != "" {
+			paths = append(paths, mount.Source)
+		}
+	}
+
+	return paths
 }
