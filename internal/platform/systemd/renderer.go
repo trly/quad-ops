@@ -690,6 +690,17 @@ func (r *Renderer) addExtraHosts(builder *strings.Builder, c service.Container) 
 
 // addAdvanced adds advanced Podman arguments.
 func (r *Renderer) addAdvanced(builder *strings.Builder, c service.Container) {
+	// Namespace modes (no native Quadlet directives, use PodmanArgs)
+	if c.PidMode != "" {
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--pid=%s", c.PidMode)))
+	}
+	if c.IpcMode != "" {
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--ipc=%s", c.IpcMode)))
+	}
+	if c.CgroupMode != "" {
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--cgroupns=%s", c.CgroupMode)))
+	}
+
 	if len(c.PodmanArgs) > 0 {
 		sorted := make([]string, len(c.PodmanArgs))
 		copy(sorted, c.PodmanArgs)

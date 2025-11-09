@@ -3,6 +3,7 @@
 package launchd
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -1313,6 +1314,95 @@ func TestBuildPodmanArgsIntegration(t *testing.T) {
 
 			// Run test-specific checks
 			tt.checkArgs(t, args)
+		})
+	}
+}
+
+func TestBuildPodmanArgs_NamespaceModes(t *testing.T) {
+	tests := []struct {
+		name          string
+		pidMode       string
+		ipcMode       string
+		cgroupMode    string
+		expectedPairs [][]string // pairs of [flag, value]
+	}{
+		{
+			name:          "pid host",
+			pidMode:       "host",
+			expectedPairs: [][]string{{"--pid", "host"}},
+		},
+		{
+			name:          "pid service reference",
+			pidMode:       "service:db",
+			expectedPairs: [][]string{{"--pid", "service:db"}},
+		},
+		{
+			name:          "pid container reference",
+			pidMode:       "container:my-container",
+			expectedPairs: [][]string{{"--pid", "container:my-container"}},
+		},
+		{
+			name:          "ipc host",
+			ipcMode:       "host",
+			expectedPairs: [][]string{{"--ipc", "host"}},
+		},
+		{
+			name:          "ipc shareable",
+			ipcMode:       "shareable",
+			expectedPairs: [][]string{{"--ipc", "shareable"}},
+		},
+		{
+			name:          "ipc container reference",
+			ipcMode:       "container:my-container",
+			expectedPairs: [][]string{{"--ipc", "container:my-container"}},
+		},
+		{
+			name:          "cgroup host",
+			cgroupMode:    "host",
+			expectedPairs: [][]string{{"--cgroupns", "host"}},
+		},
+		{
+			name:          "cgroup private",
+			cgroupMode:    "private",
+			expectedPairs: [][]string{{"--cgroupns", "private"}},
+		},
+		{
+			name:       "all namespace modes",
+			pidMode:    "host",
+			ipcMode:    "shareable",
+			cgroupMode: "private",
+			expectedPairs: [][]string{
+				{"--pid", "host"},
+				{"--ipc", "shareable"},
+				{"--cgroupns", "private"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := service.Spec{
+				Name: "test",
+				Container: service.Container{
+					Image:      "nginx:latest",
+					PidMode:    tt.pidMode,
+					IpcMode:    tt.ipcMode,
+					CgroupMode: tt.cgroupMode,
+				},
+			}
+
+			args := BuildPodmanArgs(spec, "test-container")
+
+			// Convert args to string for easier checking
+			argsStr := strings.Join(args, " ")
+
+			// Check each expected flag-value pair
+			for _, pair := range tt.expectedPairs {
+				flag, value := pair[0], pair[1]
+				expectedPattern := flag + " " + value
+				assert.Contains(t, argsStr, expectedPattern,
+					"Expected to find '%s' in args: %v", expectedPattern, args)
+			}
 		})
 	}
 }

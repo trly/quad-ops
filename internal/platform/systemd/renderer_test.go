@@ -1605,3 +1605,91 @@ func TestRenderer_EmptyExtraHosts(t *testing.T) {
 	// Verify no AddHost directives are present
 	assert.NotContains(t, content, "AddHost=")
 }
+
+func TestRenderer_NamespaceModes(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	tests := []struct {
+		name     string
+		pidMode  string
+		ipcMode  string
+		cgroupNS string
+		expected []string
+	}{
+		{
+			name:     "pid host",
+			pidMode:  "host",
+			expected: []string{"PodmanArgs=--pid=host"},
+		},
+		{
+			name:     "pid service reference",
+			pidMode:  "service:db",
+			expected: []string{"PodmanArgs=--pid=service:db"},
+		},
+		{
+			name:     "pid container reference",
+			pidMode:  "container:my-container",
+			expected: []string{"PodmanArgs=--pid=container:my-container"},
+		},
+		{
+			name:     "ipc host",
+			ipcMode:  "host",
+			expected: []string{"PodmanArgs=--ipc=host"},
+		},
+		{
+			name:     "ipc shareable",
+			ipcMode:  "shareable",
+			expected: []string{"PodmanArgs=--ipc=shareable"},
+		},
+		{
+			name:     "ipc container reference",
+			ipcMode:  "container:my-container",
+			expected: []string{"PodmanArgs=--ipc=container:my-container"},
+		},
+		{
+			name:     "cgroup host",
+			cgroupNS: "host",
+			expected: []string{"PodmanArgs=--cgroupns=host"},
+		},
+		{
+			name:     "cgroup private",
+			cgroupNS: "private",
+			expected: []string{"PodmanArgs=--cgroupns=private"},
+		},
+		{
+			name:     "all namespace modes",
+			pidMode:  "host",
+			ipcMode:  "shareable",
+			cgroupNS: "private",
+			expected: []string{
+				"PodmanArgs=--pid=host",
+				"PodmanArgs=--ipc=shareable",
+				"PodmanArgs=--cgroupns=private",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := service.Spec{
+				Name: "web",
+				Container: service.Container{
+					Image:      "nginx:latest",
+					PidMode:    tt.pidMode,
+					IpcMode:    tt.ipcMode,
+					CgroupMode: tt.cgroupNS,
+				},
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+			for _, expected := range tt.expected {
+				assert.Contains(t, content, expected)
+			}
+		})
+	}
+}

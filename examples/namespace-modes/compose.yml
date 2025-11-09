@@ -1,0 +1,40 @@
+name: ns-test
+
+services:
+  # Service with PID host mode
+  pid-host:
+    image: alpine:latest
+    command: ["sleep", "infinity"]
+    pid: host
+    
+  # Service with IPC host mode
+  ipc-host:
+    image: alpine:latest
+    command: ["sleep", "infinity"]
+    ipc: host
+    
+  # Service with shareable IPC
+  ipc-shareable:
+    image: alpine:latest
+    command: ["sleep", "infinity"]
+    ipc: shareable
+    
+  # Service with cgroup host mode
+  cgroup-host:
+    image: alpine:latest
+    command: ["sleep", "infinity"]
+    cgroup: host
+    
+  # Service with private cgroup namespace
+  cgroup-private:
+    image: alpine:latest
+    command: ["sleep", "infinity"]
+    cgroup: private
+    
+  # Service with all namespace modes combined
+  all-modes:
+    image: alpine:latest
+    command: ["sleep", "infinity"]
+    pid: host
+    ipc: shareable
+    cgroup: private

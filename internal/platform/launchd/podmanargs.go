@@ -128,6 +128,17 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 		args = append(args, "--userns", spec.Container.UserNS)
 	}
 
+	// Namespace modes
+	if spec.Container.PidMode != "" {
+		args = append(args, "--pid", spec.Container.PidMode)
+	}
+	if spec.Container.IpcMode != "" {
+		args = append(args, "--ipc", spec.Container.IpcMode)
+	}
+	if spec.Container.CgroupMode != "" {
+		args = append(args, "--cgroupns", spec.Container.CgroupMode)
+	}
+
 	// PIDs limit
 	if spec.Container.PidsLimit > 0 {
 		args = append(args, "--pids-limit", fmt.Sprintf("%d", spec.Container.PidsLimit))
