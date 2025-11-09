@@ -60,8 +60,11 @@ type Container struct {
 // InitContainer represents an init container configuration.
 // Init containers run before the main service and must complete successfully.
 type InitContainer struct {
-	Image   string   // Container image (required)
-	Command []string // Command to run (required)
+	Image   string            // Container image (required)
+	Command []string          // Command to run (required)
+	Env     map[string]string // Environment variables (optional, can inherit from main service)
+	Mounts  []Mount           // Mounts (optional, can inherit from main service)
+	Network NetworkMode       // Network mode (optional, can inherit from main service)
 }
 
 // Port represents a port mapping.

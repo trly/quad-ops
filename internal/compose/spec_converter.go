@@ -960,20 +960,50 @@ func (sc *SpecConverter) convertInitContainers(serviceName string, composeServic
 	specs := make([]service.Spec, 0, len(initList))
 	baseName := service.SanitizeName(Prefix(project.Name, serviceName))
 
+	// Pre-convert main service resources that init containers can inherit
+	mainEnv := sc.convertEnvironment(composeService.Environment)
+	mainMounts := sc.convertVolumeMounts(composeService.Volumes, project)
+	mainNetwork := sc.convertNetworkMode(composeService.NetworkMode, composeService.Networks, project)
+	mainVolumes := sc.convertServiceVolumes(composeService, project)
+	mainNetworks := sc.convertServiceNetworks(composeService, project)
+
 	for i, item := range initList {
 		initMap, ok := item.(map[string]interface{})
 		if !ok {
 			continue
 		}
 
+		// Parse init container specific config (optional overrides)
+		initEnv := sc.getMapFromMap(initMap, "environment")
+		initVolumes := sc.getStringSliceFromMap(initMap, "volumes")
+
+		// Build init container config, inheriting from main service
+		container := service.Container{
+			Image:   sc.getStringFromMap(initMap, "image"),
+			Command: sc.getStringSliceFromMap(initMap, "command"),
+			Env:     mainEnv,     // Inherit main service env by default
+			Mounts:  mainMounts,  // Inherit main service mounts by default
+			Network: mainNetwork, // Inherit main service network mode
+		}
+
+		// Override env if init container specifies custom environment
+		if len(initEnv) > 0 {
+			container.Env = initEnv
+		}
+
+		// Override mounts if init container specifies custom volumes
+		if len(initVolumes) > 0 {
+			// Convert init-specific volumes
+			container.Mounts = sc.convertInitVolumeMounts(initVolumes, project)
+		}
+
 		initSpec := service.Spec{
 			Name:        fmt.Sprintf("%s-init-%d", baseName, i),
 			Description: fmt.Sprintf("Init container %d for service %s", i, serviceName),
-			Container: service.Container{
-				Image:   sc.getStringFromMap(initMap, "image"),
-				Command: sc.getStringSliceFromMap(initMap, "command"),
-			},
-			// Init containers don't need volumes/networks from project, only what's specified
+			Container:   container,
+			// Share main service's volumes and networks so init can access them
+			Volumes:   mainVolumes,
+			Networks:  mainNetworks,
 			DependsOn: []string{}, // No dependencies for init containers themselves
 		}
 
@@ -987,6 +1017,41 @@ func (sc *SpecConverter) convertInitContainers(serviceName string, composeServic
 	}
 
 	return specs
+}
+
+// convertInitVolumeMounts converts init container volume strings to service.Mount.
+// Format: "source:target" or "source:target:ro".
+func (sc *SpecConverter) convertInitVolumeMounts(volumes []string, project *types.Project) []service.Mount {
+	if len(volumes) == 0 {
+		return nil
+	}
+
+	result := make([]service.Mount, 0, len(volumes))
+	for _, v := range volumes {
+		parts := strings.Split(v, ":")
+		if len(parts) < 2 {
+			continue
+		}
+
+		mount := service.Mount{
+			Source:   parts[0],
+			Target:   parts[1],
+			ReadOnly: len(parts) > 2 && parts[2] == "ro",
+			Options:  make(map[string]string),
+		}
+
+		// Determine mount type
+		if filepath.IsAbs(parts[0]) || strings.HasPrefix(parts[0], "./") || strings.HasPrefix(parts[0], "../") {
+			mount.Type = service.MountTypeBind
+		} else {
+			mount.Type = service.MountTypeVolume
+			// Prefix named volume sources to match volume names
+			mount.Source = Prefix(project.Name, parts[0])
+		}
+
+		result = append(result, mount)
+	}
+	return result
 }
 
 // convertEnvSecrets converts x-podman-env-secrets extension to env secrets map.
@@ -1019,6 +1084,22 @@ func (sc *SpecConverter) getStringFromMap(m map[string]interface{}, key string) 
 		}
 	}
 	return ""
+}
+
+// getMapFromMap extracts a map[string]string from a map.
+func (sc *SpecConverter) getMapFromMap(m map[string]interface{}, key string) map[string]string {
+	if val, exists := m[key]; exists {
+		if mapVal, ok := val.(map[string]interface{}); ok {
+			result := make(map[string]string)
+			for k, v := range mapVal {
+				if strVal, ok := v.(string); ok {
+					result[k] = strVal
+				}
+			}
+			return result
+		}
+	}
+	return nil
 }
 
 // getStringSliceFromMap extracts a string slice from a map.
