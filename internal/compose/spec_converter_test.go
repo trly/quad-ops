@@ -828,8 +828,9 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 			projectName: "test",
 			validate: func(t *testing.T, spec service.Spec) {
 				// Should still include external networks
+				// External networks should NOT be prefixed even if they're in project.Networks
 				assert.Len(t, spec.Networks, 1)
-				assert.Equal(t, service.SanitizeName("test-external-net"), spec.Networks[0].Name)
+				assert.Equal(t, service.SanitizeName("external-net"), spec.Networks[0].Name)
 				assert.True(t, spec.Networks[0].External)
 			},
 		},

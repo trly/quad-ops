@@ -497,37 +497,57 @@ func (sc *SpecConverter) convertNetworkMode(networkMode string, networks map[str
 		ServiceNetworks: make([]string, 0, len(networks)),
 	}
 
-	// Collect aliases and resolve network names
-	for networkName, netConfig := range networks {
-		if netConfig != nil && len(netConfig.Aliases) > 0 {
-			mode.Aliases = append(mode.Aliases, netConfig.Aliases...)
-		}
+	// If the service doesn't explicitly declare networks, populate ServiceNetworks
+	// with the project's default networks. This ensures containers depend on the
+	// correct network units even when using implicit network assignment.
+	if len(networks) == 0 {
+		for networkName, projectNet := range project.Networks {
+			// Skip external networks - they don't have .network units
+			if IsExternal(projectNet.External) {
+				continue
+			}
 
-		// Resolve and add network name to ServiceNetworks
-		projectNet, exists := project.Networks[networkName]
-		if !exists {
-			// External or undefined network - use as-is with sanitization
-			// Don't apply current project prefix to external networks
-			resolvedName := service.SanitizeName(networkName)
-			mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
-			continue
+			// Resolve and add network name
+			resolvedName := NameResolver(projectNet.Name, networkName)
+			sanitizedName := service.SanitizeName(resolvedName)
+			if !strings.Contains(resolvedName, project.Name) {
+				sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+			}
+			mode.ServiceNetworks = append(mode.ServiceNetworks, sanitizedName)
 		}
+	} else {
+		// Collect aliases and resolve network names for explicitly declared networks
+		for networkName, netConfig := range networks {
+			if netConfig != nil && len(netConfig.Aliases) > 0 {
+				mode.Aliases = append(mode.Aliases, netConfig.Aliases...)
+			}
 
-		// Check if it's an external network
-		if IsExternal(projectNet.External) {
-			// External network from another project - use as-is
-			resolvedName := service.SanitizeName(networkName)
-			mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
-			continue
-		}
+			// Resolve and add network name to ServiceNetworks
+			projectNet, exists := project.Networks[networkName]
+			if !exists {
+				// External or undefined network - use as-is with sanitization
+				// Don't apply current project prefix to external networks
+				resolvedName := service.SanitizeName(networkName)
+				mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
+				continue
+			}
 
-		// Resolve network name from project definition
-		resolvedName := NameResolver(projectNet.Name, networkName)
-		sanitizedName := service.SanitizeName(resolvedName)
-		if !strings.Contains(resolvedName, project.Name) {
-			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+			// Check if it's an external network
+			if IsExternal(projectNet.External) {
+				// External network from another project - use as-is
+				resolvedName := service.SanitizeName(networkName)
+				mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
+				continue
+			}
+
+			// Resolve network name from project definition
+			resolvedName := NameResolver(projectNet.Name, networkName)
+			sanitizedName := service.SanitizeName(resolvedName)
+			if !strings.Contains(resolvedName, project.Name) {
+				sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+			}
+			mode.ServiceNetworks = append(mode.ServiceNetworks, sanitizedName)
 		}
-		mode.ServiceNetworks = append(mode.ServiceNetworks, sanitizedName)
 	}
 
 	// If no explicit mode, default to bridge
@@ -672,7 +692,9 @@ func (sc *SpecConverter) convertServiceNetworksList(networks map[string]*types.S
 		// Resolve network name from project definition
 		resolvedName := NameResolver(projectNet.Name, networkName)
 		sanitizedName := service.SanitizeName(resolvedName)
-		if !strings.Contains(resolvedName, project.Name) {
+		
+		// Don't apply project prefix to external networks
+		if !IsExternal(projectNet.External) && !strings.Contains(resolvedName, project.Name) {
 			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
 		}
 
