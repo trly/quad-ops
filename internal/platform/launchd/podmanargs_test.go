@@ -1485,3 +1485,521 @@ func TestBuildPodmanArgs_DeviceCgroupRules(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildPodmanArgs_ExtraHosts(t *testing.T) {
+	tests := []struct {
+		name       string
+		spec       service.Spec
+		wantHosts  []string
+	}{
+		{
+			name: "single extra host",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:      "nginx:latest",
+					ExtraHosts: []string{"example.com:192.168.1.1"},
+				},
+			},
+			wantHosts: []string{"--add-host", "example.com:192.168.1.1"},
+		},
+		{
+			name: "multiple extra hosts in unsorted order",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:      "nginx:latest",
+					ExtraHosts: []string{"zebra.com:10.0.0.1", "apple.com:10.0.0.2", "monkey.com:10.0.0.3"},
+				},
+			},
+			wantHosts: []string{
+				"--add-host", "apple.com:10.0.0.2",
+				"--add-host", "monkey.com:10.0.0.3",
+				"--add-host", "zebra.com:10.0.0.1",
+			},
+		},
+		{
+			name: "no extra hosts",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:      "nginx:latest",
+					ExtraHosts: nil,
+				},
+			},
+			wantHosts: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := BuildPodmanArgs(tt.spec, "test-container")
+
+			if tt.wantHosts == nil {
+				argsStr := strings.Join(args, " ")
+				assert.NotContains(t, argsStr, "--add-host")
+				return
+			}
+
+			// Find all add-host flags and their values
+			var foundHosts []string
+			for i := 0; i < len(args)-1; i++ {
+				if args[i] == "--add-host" {
+					foundHosts = append(foundHosts, args[i], args[i+1])
+				}
+			}
+
+			assert.Equal(t, tt.wantHosts, foundHosts)
+		})
+	}
+}
+
+func TestBuildPodmanArgs_DNS(t *testing.T) {
+	tests := []struct {
+		name       string
+		spec       service.Spec
+		wantFlags  []string
+	}{
+		{
+			name: "single DNS server",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					DNS:   []string{"8.8.8.8"},
+				},
+			},
+			wantFlags: []string{"--dns", "8.8.8.8"},
+		},
+		{
+			name: "multiple DNS servers in unsorted order",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					DNS:   []string{"8.8.8.8", "1.1.1.1", "8.8.4.4"},
+				},
+			},
+			wantFlags: []string{
+				"--dns", "1.1.1.1",
+				"--dns", "8.8.4.4",
+				"--dns", "8.8.8.8",
+			},
+		},
+		{
+			name: "no DNS servers",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					DNS:   nil,
+				},
+			},
+			wantFlags: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := BuildPodmanArgs(tt.spec, "test-container")
+
+			if tt.wantFlags == nil {
+				argsStr := strings.Join(args, " ")
+				assert.NotContains(t, argsStr, "--dns")
+				return
+			}
+
+			// Find all dns flags and their values
+			var foundDNS []string
+			for i := 0; i < len(args)-1; i++ {
+				if args[i] == "--dns" {
+					foundDNS = append(foundDNS, args[i], args[i+1])
+				}
+			}
+
+			assert.Equal(t, tt.wantFlags, foundDNS)
+		})
+	}
+}
+
+func TestBuildPodmanArgs_DNSSearch(t *testing.T) {
+	tests := []struct {
+		name       string
+		spec       service.Spec
+		wantFlags  []string
+	}{
+		{
+			name: "single DNS search domain",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:     "alpine:latest",
+					DNSSearch: []string{"example.com"},
+				},
+			},
+			wantFlags: []string{"--dns-search", "example.com"},
+		},
+		{
+			name: "multiple DNS search domains in unsorted order",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:     "alpine:latest",
+					DNSSearch: []string{"zebra.local", "apple.local", "monkey.local"},
+				},
+			},
+			wantFlags: []string{
+				"--dns-search", "apple.local",
+				"--dns-search", "monkey.local",
+				"--dns-search", "zebra.local",
+			},
+		},
+		{
+			name: "no DNS search domains",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:     "alpine:latest",
+					DNSSearch: nil,
+				},
+			},
+			wantFlags: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := BuildPodmanArgs(tt.spec, "test-container")
+
+			if tt.wantFlags == nil {
+				argsStr := strings.Join(args, " ")
+				assert.NotContains(t, argsStr, "--dns-search")
+				return
+			}
+
+			// Find all dns-search flags and their values
+			var foundDNSSearch []string
+			for i := 0; i < len(args)-1; i++ {
+				if args[i] == "--dns-search" {
+					foundDNSSearch = append(foundDNSSearch, args[i], args[i+1])
+				}
+			}
+
+			assert.Equal(t, tt.wantFlags, foundDNSSearch)
+		})
+	}
+}
+
+func TestBuildPodmanArgs_DNSOptions(t *testing.T) {
+	tests := []struct {
+		name       string
+		spec       service.Spec
+		wantFlags  []string
+	}{
+		{
+			name: "single DNS option",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:       "alpine:latest",
+					DNSOptions: []string{"ndots:2"},
+				},
+			},
+			wantFlags: []string{"--dns-opt", "ndots:2"},
+		},
+		{
+			name: "multiple DNS options in unsorted order",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:       "alpine:latest",
+					DNSOptions: []string{"timeout:3", "ndots:2", "attempts:5"},
+				},
+			},
+			wantFlags: []string{
+				"--dns-opt", "attempts:5",
+				"--dns-opt", "ndots:2",
+				"--dns-opt", "timeout:3",
+			},
+		},
+		{
+			name: "no DNS options",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:       "alpine:latest",
+					DNSOptions: nil,
+				},
+			},
+			wantFlags: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := BuildPodmanArgs(tt.spec, "test-container")
+
+			if tt.wantFlags == nil {
+				argsStr := strings.Join(args, " ")
+				assert.NotContains(t, argsStr, "--dns-opt")
+				return
+			}
+
+			// Find all dns-opt flags and their values
+			var foundDNSOpt []string
+			for i := 0; i < len(args)-1; i++ {
+				if args[i] == "--dns-opt" {
+					foundDNSOpt = append(foundDNSOpt, args[i], args[i+1])
+				}
+			}
+
+			assert.Equal(t, tt.wantFlags, foundDNSOpt)
+		})
+	}
+}
+
+func TestBuildPodmanArgs_Devices(t *testing.T) {
+	tests := []struct {
+		name        string
+		spec        service.Spec
+		wantDevices []string
+	}{
+		{
+			name: "single device",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:   "alpine:latest",
+					Devices: []string{"/dev/sda:/dev/sda"},
+				},
+			},
+			wantDevices: []string{"--device", "/dev/sda:/dev/sda"},
+		},
+		{
+			name: "multiple devices in unsorted order",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:   "alpine:latest",
+					Devices: []string{"/dev/zero:/dev/zero", "/dev/fuse", "/dev/null:/dev/null:rw"},
+				},
+			},
+			wantDevices: []string{
+				"--device", "/dev/fuse",
+				"--device", "/dev/null:/dev/null:rw",
+				"--device", "/dev/zero:/dev/zero",
+			},
+		},
+		{
+			name: "no devices",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:   "alpine:latest",
+					Devices: nil,
+				},
+			},
+			wantDevices: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := BuildPodmanArgs(tt.spec, "test-container")
+
+			if tt.wantDevices == nil {
+				argsStr := strings.Join(args, " ")
+				assert.NotContains(t, argsStr, "--device")
+				return
+			}
+
+			// Find all device flags and their values
+			var foundDevices []string
+			for i := 0; i < len(args)-1; i++ {
+				if args[i] == "--device" {
+					foundDevices = append(foundDevices, args[i], args[i+1])
+				}
+			}
+
+			assert.Equal(t, tt.wantDevices, foundDevices)
+		})
+	}
+}
+
+func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
+	tests := []struct {
+		name       string
+		spec       service.Spec
+		wantTmpfs  []string
+	}{
+		{
+			name: "tmpfs mount with size option",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					Mounts: []service.Mount{
+						{
+							Source:   "/tmp",
+							Target:   "/tmp",
+							Type:     service.MountTypeTmpfs,
+							TmpfsOptions: &service.TmpfsOptions{
+								Size: "64m",
+							},
+						},
+					},
+				},
+			},
+			wantTmpfs: []string{"--tmpfs", "/tmp:size=64m"},
+		},
+		{
+			name: "tmpfs mount with mode option",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					Mounts: []service.Mount{
+						{
+							Source:   "/run",
+							Target:   "/run",
+							Type:     service.MountTypeTmpfs,
+							TmpfsOptions: &service.TmpfsOptions{
+								Mode: 1777,
+							},
+						},
+					},
+				},
+			},
+			wantTmpfs: []string{"--tmpfs", "/run:mode=1777"},
+		},
+		{
+			name: "tmpfs mount with size and mode",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					Mounts: []service.Mount{
+						{
+							Source:   "/cache",
+							Target:   "/cache",
+							Type:     service.MountTypeTmpfs,
+							TmpfsOptions: &service.TmpfsOptions{
+								Size: "256m",
+								Mode: 0755,
+							},
+						},
+					},
+				},
+			},
+			wantTmpfs: []string{"--tmpfs", "/cache:size=256m,mode=755"},
+		},
+		{
+			name: "tmpfs mount with uid and gid",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					Mounts: []service.Mount{
+						{
+							Source:   "/data",
+							Target:   "/data",
+							Type:     service.MountTypeTmpfs,
+							TmpfsOptions: &service.TmpfsOptions{
+								Size: "512m",
+								UID:  1000,
+								GID:  1000,
+							},
+						},
+					},
+				},
+			},
+			wantTmpfs: []string{"--tmpfs", "/data:size=512m,uid=1000,gid=1000"},
+		},
+		{
+			name: "tmpfs mount with all options",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					Mounts: []service.Mount{
+						{
+							Source:   "/temp",
+							Target:   "/temp",
+							Type:     service.MountTypeTmpfs,
+							TmpfsOptions: &service.TmpfsOptions{
+								Size: "1g",
+								Mode: 1777,
+								UID:  0,
+								GID:  0,
+							},
+						},
+					},
+				},
+			},
+			wantTmpfs: []string{"--tmpfs", "/temp:size=1g,mode=1777,uid=0,gid=0"},
+		},
+		{
+			name: "multiple tmpfs mounts with options",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					Mounts: []service.Mount{
+						{
+							Source:   "/cache",
+							Target:   "/cache",
+							Type:     service.MountTypeTmpfs,
+							TmpfsOptions: &service.TmpfsOptions{Size: "256m"},
+						},
+						{
+							Source:   "/tmp",
+							Target:   "/tmp",
+							Type:     service.MountTypeTmpfs,
+							TmpfsOptions: &service.TmpfsOptions{Mode: 1777},
+						},
+					},
+				},
+			},
+			wantTmpfs: []string{
+				"--tmpfs", "/cache:size=256m",
+				"--tmpfs", "/tmp:mode=1777",
+			},
+		},
+		{
+			name: "tmpfs without options (legacy Tmpfs field)",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image: "alpine:latest",
+					Tmpfs: []string{"/run", "/tmp"},
+				},
+			},
+			wantTmpfs: []string{
+				"--tmpfs", "/run",
+				"--tmpfs", "/tmp",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := BuildPodmanArgs(tt.spec, "test-container")
+
+			if tt.wantTmpfs == nil {
+				argsStr := strings.Join(args, " ")
+				assert.NotContains(t, argsStr, "--tmpfs")
+				return
+			}
+
+			// Find all tmpfs flags and their values
+			var foundTmpfs []string
+			for i := 0; i < len(args)-1; i++ {
+				if args[i] == "--tmpfs" {
+					foundTmpfs = append(foundTmpfs, args[i], args[i+1])
+				}
+			}
+
+			assert.Equal(t, tt.wantTmpfs, foundTmpfs)
+		})
+	}
+}
