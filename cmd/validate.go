@@ -211,7 +211,7 @@ func cloneRepositoryWithDeps(logger log.Logger, configProvider config.Provider) 
 	// Override repository dir temporarily for this sync
 	cfg := configProvider.GetConfig()
 	originalRepoDir := cfg.RepositoryDir
-	cfg.RepositoryDir = filepath.Dir(tempPath)
+	cfg.RepositoryDir = tempPath
 
 	ctx := context.Background()
 	result := gitSyncer.SyncRepo(ctx, repoConfig)
