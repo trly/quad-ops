@@ -589,13 +589,27 @@ func (sc *SpecConverter) convertUlimits(ulimits map[string]*types.UlimitsConfig)
 }
 
 // convertDependencies converts compose depends_on to service name list.
+// Parses Compose v2 dependency conditions (service_started, service_healthy, service_completed_successfully).
+// All conditions map to systemd After/Requires directives (health checking cannot be enforced in systemd dependencies).
+// Missing or unknown conditions are treated as service_started.
 func (sc *SpecConverter) convertDependencies(dependsOn types.DependsOnConfig, projectName string) []string {
 	if len(dependsOn) == 0 {
 		return nil
 	}
 
 	result := make([]string, 0, len(dependsOn))
-	for serviceName := range dependsOn {
+	for serviceName, dep := range dependsOn {
+		// Parse condition to validate it's a known type
+		// Valid conditions: service_started, service_healthy, service_completed_successfully
+		// All map to After/Requires in systemd (health enforcement requires external tooling)
+		switch dep.Condition {
+		case "service_started", "service_healthy", "service_completed_successfully", "":
+			// All valid conditions and empty (default to service_started)
+		default:
+			// Unknown condition - treat as service_started but continue
+			// In future, could log warning here
+		}
+
 		// Convert to sanitized service name
 		result = append(result, service.SanitizeName(Prefix(projectName, serviceName)))
 	}

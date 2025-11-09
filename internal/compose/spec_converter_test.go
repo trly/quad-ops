@@ -916,6 +916,91 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 	}
 }
 
+func TestSpecConverter_ConvertDependencies(t *testing.T) {
+	tests := []struct {
+		name        string
+		dependsOn   types.DependsOnConfig
+		projectName string
+		want        []string
+	}{
+		{
+			name:        "empty dependencies",
+			dependsOn:   types.DependsOnConfig{},
+			projectName: "test",
+			want:        nil,
+		},
+		{
+			name: "service_started condition",
+			dependsOn: types.DependsOnConfig{
+				"redis": {Condition: "service_started"},
+			},
+			projectName: "test",
+			want:        []string{"test-redis"},
+		},
+		{
+			name: "service_healthy condition",
+			dependsOn: types.DependsOnConfig{
+				"db": {Condition: "service_healthy"},
+			},
+			projectName: "test",
+			want:        []string{"test-db"},
+		},
+		{
+			name: "service_completed_successfully condition",
+			dependsOn: types.DependsOnConfig{
+				"migration": {Condition: "service_completed_successfully"},
+			},
+			projectName: "test",
+			want:        []string{"test-migration"},
+		},
+		{
+			name: "missing condition defaults to service_started",
+			dependsOn: types.DependsOnConfig{
+				"cache": {},
+			},
+			projectName: "test",
+			want:        []string{"test-cache"},
+		},
+		{
+			name: "unknown condition treated as service_started",
+			dependsOn: types.DependsOnConfig{
+				"other": {Condition: "some_unknown_condition"},
+			},
+			projectName: "test",
+			want:        []string{"test-other"},
+		},
+		{
+			name: "multiple dependencies with mixed conditions",
+			dependsOn: types.DependsOnConfig{
+				"db":        {Condition: "service_healthy"},
+				"redis":     {Condition: "service_started"},
+				"migration": {Condition: "service_completed_successfully"},
+				"cache":     {}, // missing condition
+			},
+			projectName: "test",
+			want:        []string{"test-cache", "test-db", "test-migration", "test-redis"}, // sorted
+		},
+		{
+			name: "dependencies are sorted for determinism",
+			dependsOn: types.DependsOnConfig{
+				"zulu":  {Condition: "service_started"},
+				"alpha": {Condition: "service_healthy"},
+				"mike":  {Condition: "service_started"},
+			},
+			projectName: "test",
+			want:        []string{"test-alpha", "test-mike", "test-zulu"}, // sorted
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := NewSpecConverter("/test")
+			got := converter.convertDependencies(tt.dependsOn, tt.projectName)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 // Helper functions.
 
 func strPtr(s string) *string {
