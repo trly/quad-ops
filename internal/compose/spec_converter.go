@@ -233,7 +233,7 @@ func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig
 			mount.Type = service.MountTypeVolume
 			// Prefix named volume sources to match volume names
 			if v.Source != "" {
-				mount.Source = fmt.Sprintf("%s_%s", project.Name, v.Source)
+				mount.Source = Prefix(project.Name, v.Source)
 			}
 		case "tmpfs":
 			mount.Type = service.MountTypeTmpfs
@@ -245,7 +245,7 @@ func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig
 				mount.Type = service.MountTypeVolume
 				// Prefix named volume sources to match volume names
 				if v.Source != "" {
-					mount.Source = fmt.Sprintf("%s_%s", project.Name, v.Source)
+					mount.Source = Prefix(project.Name, v.Source)
 				}
 			}
 		}

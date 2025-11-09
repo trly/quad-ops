@@ -47,7 +47,7 @@
             "BindOptions": null
           },
           {
-            "Source": "mounts-matrix_app-data",
+            "Source": "mounts-matrix-app-data",
             "Target": "/app/storage",
             "Type": "volume",
             "ReadOnly": false,
@@ -55,7 +55,7 @@
             "BindOptions": null
           },
           {
-            "Source": "mounts-matrix_cache",
+            "Source": "mounts-matrix-cache",
             "Target": "/tmp/cache",
             "Type": "volume",
             "ReadOnly": false,

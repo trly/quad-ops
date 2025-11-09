@@ -18,7 +18,7 @@
         "Ports": null,
         "Mounts": [
           {
-            "Source": "basic-multi-service_app-data",
+            "Source": "basic-multi-service-app-data",
             "Target": "/data",
             "Type": "volume",
             "ReadOnly": false,
@@ -135,7 +135,7 @@
         "Ports": null,
         "Mounts": [
           {
-            "Source": "basic-multi-service_db-data",
+            "Source": "basic-multi-service-db-data",
             "Target": "/var/lib/postgresql/data",
             "Type": "volume",
             "ReadOnly": false,

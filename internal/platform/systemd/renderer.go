@@ -286,10 +286,9 @@ func (r *Renderer) addMounts(builder *strings.Builder, c service.Container) {
 	mounts := make([]string, 0, len(c.Mounts))
 	for _, m := range c.Mounts {
 		source := m.Source
-		// Append .volume suffix for named volumes to enable automatic Quadlet dependencies
-		if m.Type == service.MountTypeVolume {
-			source = source + ".volume"
-		}
+		// Note: Do NOT append .volume suffix. Quadlet resolves named volumes automatically.
+		// The .volume suffix is only needed in Unit file dependencies (After=, Requires=),
+		// which are handled separately in renderContainer().
 		mountStr := fmt.Sprintf("%s:%s", source, m.Target)
 		if m.ReadOnly {
 			mountStr += ":ro"
