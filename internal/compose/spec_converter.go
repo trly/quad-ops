@@ -284,39 +284,43 @@ func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig
 func (sc *SpecConverter) convertResources(deploy *types.DeployConfig, svc types.ServiceConfig) service.Resources {
 	resources := service.Resources{}
 
-	if deploy == nil || deploy.Resources.Limits == nil && deploy.Resources.Reservations == nil {
-		return resources
-	}
+	// Process deploy resources if present
+	if deploy != nil && (deploy.Resources.Limits != nil || deploy.Resources.Reservations != nil) {
+		// Limits
+		if deploy.Resources.Limits != nil {
+			if deploy.Resources.Limits.MemoryBytes > 0 {
+				resources.Memory = sc.formatBytes(deploy.Resources.Limits.MemoryBytes)
+			}
+			if deploy.Resources.Limits.NanoCPUs > 0 {
+				cpuQuota, cpuPeriod := sc.convertCPU(deploy.Resources.Limits.NanoCPUs)
+				resources.CPUQuota = cpuQuota
+				resources.CPUPeriod = cpuPeriod
+			}
+			if deploy.Resources.Limits.Pids > 0 {
+				resources.PidsLimit = deploy.Resources.Limits.Pids
+			}
+		}
 
-	// Limits
-	if deploy.Resources.Limits != nil {
-		if deploy.Resources.Limits.MemoryBytes > 0 {
-			resources.Memory = sc.formatBytes(deploy.Resources.Limits.MemoryBytes)
-		}
-		if deploy.Resources.Limits.NanoCPUs > 0 {
-			cpuQuota, cpuPeriod := sc.convertCPU(deploy.Resources.Limits.NanoCPUs)
-			resources.CPUQuota = cpuQuota
-			resources.CPUPeriod = cpuPeriod
-		}
-		if deploy.Resources.Limits.Pids > 0 {
-			resources.PidsLimit = deploy.Resources.Limits.Pids
-		}
-	}
-
-	// Reservations
-	if deploy.Resources.Reservations != nil {
-		if deploy.Resources.Reservations.MemoryBytes > 0 {
-			resources.MemoryReservation = sc.formatBytes(deploy.Resources.Reservations.MemoryBytes)
-		}
-		// Derive CPUShares from reservations
-		if deploy.Resources.Reservations.NanoCPUs > 0 {
-			resources.CPUShares = sc.convertCPUShares(deploy.Resources.Reservations.NanoCPUs)
+		// Reservations
+		if deploy.Resources.Reservations != nil {
+			if deploy.Resources.Reservations.MemoryBytes > 0 {
+				resources.MemoryReservation = sc.formatBytes(deploy.Resources.Reservations.MemoryBytes)
+			}
+			// Derive CPUShares from reservations
+			if deploy.Resources.Reservations.NanoCPUs > 0 {
+				resources.CPUShares = sc.convertCPUShares(deploy.Resources.Reservations.NanoCPUs)
+			}
 		}
 	}
 
 	// MemSwapLimit from service-level field (not deploy.resources)
 	if svc.MemSwapLimit > 0 {
 		resources.MemorySwap = sc.formatBytes(svc.MemSwapLimit)
+	}
+
+	// ShmSize from service-level field
+	if svc.ShmSize > 0 {
+		resources.ShmSize = sc.formatBytes(svc.ShmSize)
 	}
 
 	return resources

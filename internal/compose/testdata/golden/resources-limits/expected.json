@@ -21,7 +21,8 @@
           "CPUShares": 512,
           "CPUQuota": 150000,
           "CPUPeriod": 100000,
-          "PidsLimit": 100
+          "PidsLimit": 100,
+          "ShmSize": ""
         },
         "RestartPolicy": "no",
         "Healthcheck": null,

@@ -899,6 +899,7 @@ func TestRenderer_RenderMemoryConstraints(t *testing.T) {
 		expectMemory    string // substring to check for, empty means not present
 		expectMemSwap   string
 		expectMemReserv string
+		expectShmSize   string
 	}{
 		{
 			name:         "memory only",
@@ -923,6 +924,11 @@ func TestRenderer_RenderMemoryConstraints(t *testing.T) {
 			expectMemory:    "Memory=1g",
 			expectMemReserv: "PodmanArgs=--memory-reservation 512m",
 			expectMemSwap:   "PodmanArgs=--memory-swap 2g",
+		},
+		{
+			name:          "shm size",
+			resources:     service.Resources{ShmSize: "64m"},
+			expectShmSize: "ShmSize=64m",
 		},
 		{
 			name:      "empty values not rendered",
@@ -961,6 +967,10 @@ func TestRenderer_RenderMemoryConstraints(t *testing.T) {
 
 			if tt.expectMemSwap != "" {
 				assert.Contains(t, content, tt.expectMemSwap, "expected MemorySwap directive")
+			}
+
+			if tt.expectShmSize != "" {
+				assert.Contains(t, content, tt.expectShmSize, "expected ShmSize directive")
 			}
 		})
 	}

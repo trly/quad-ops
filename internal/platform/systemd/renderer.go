@@ -492,6 +492,10 @@ func (r *Renderer) addResources(builder *strings.Builder, c service.Container) {
 		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--memory-swap %s", c.Resources.MemorySwap)))
 	}
 
+	if c.Resources.ShmSize != "" {
+		builder.WriteString(formatKeyValue("ShmSize", c.Resources.ShmSize))
+	}
+
 	// CPU constraints (rendered as PodmanArgs)
 	if c.Resources.CPUShares > 0 {
 		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--cpu-shares %d", c.Resources.CPUShares)))

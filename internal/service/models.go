@@ -123,6 +123,7 @@ type Resources struct {
 	CPUQuota          int64  // CPU quota in microseconds
 	CPUPeriod         int64  // CPU period in microseconds
 	PidsLimit         int64  // Maximum PIDs
+	ShmSize           string // Shared memory size (e.g., "64m", "1g")
 }
 
 // RestartPolicy represents the container restart policy.

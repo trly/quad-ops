@@ -259,6 +259,9 @@ func appendResourceArgs(args []string, res service.Resources) []string {
 	if res.MemorySwap != "" {
 		args = append(args, "--memory-swap", res.MemorySwap)
 	}
+	if res.ShmSize != "" {
+		args = append(args, "--shm-size", res.ShmSize)
+	}
 	if res.CPUShares > 0 {
 		args = append(args, "--cpu-shares", fmt.Sprintf("%d", res.CPUShares))
 	}

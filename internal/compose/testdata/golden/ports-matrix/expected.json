@@ -76,7 +76,8 @@
           "CPUShares": 0,
           "CPUQuota": 0,
           "CPUPeriod": 0,
-          "PidsLimit": 0
+          "PidsLimit": 0,
+          "ShmSize": ""
         },
         "RestartPolicy": "no",
         "Healthcheck": null,

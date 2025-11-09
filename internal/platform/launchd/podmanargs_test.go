@@ -763,6 +763,13 @@ func TestAppendResourceArgs(t *testing.T) {
 			want: []string{"--memory-swap", "1g"},
 		},
 		{
+			name: "shm size",
+			resources: service.Resources{
+				ShmSize: "64m",
+			},
+			want: []string{"--shm-size", "64m"},
+		},
+		{
 			name: "cpu shares",
 			resources: service.Resources{
 				CPUShares: 512,
@@ -796,6 +803,7 @@ func TestAppendResourceArgs(t *testing.T) {
 				Memory:            "1g",
 				MemoryReservation: "512m",
 				MemorySwap:        "2g",
+				ShmSize:           "64m",
 				CPUShares:         1024,
 				CPUQuota:          100000,
 				CPUPeriod:         100000,
@@ -805,6 +813,7 @@ func TestAppendResourceArgs(t *testing.T) {
 				"--memory", "1g",
 				"--memory-reservation", "512m",
 				"--memory-swap", "2g",
+				"--shm-size", "64m",
 				"--cpu-shares", "1024",
 				"--cpu-quota", "100000",
 				"--cpu-period", "100000",

@@ -339,6 +339,24 @@ func TestSpecConverter_ConvertService(t *testing.T) {
 			},
 		},
 		{
+			name:        "service with shm_size",
+			serviceName: "app",
+			composeService: types.ServiceConfig{
+				Name:    "app",
+				Image:   "app:1.0",
+				ShmSize: 64 * 1024 * 1024, // 64MB
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Equal(t, "64m", spec.Container.Resources.ShmSize)
+			},
+		},
+		{
 			name:        "service with security settings",
 			serviceName: "app",
 			composeService: types.ServiceConfig{
