@@ -164,8 +164,8 @@ func TestRenderer_RenderVolume(t *testing.T) {
 	assert.Contains(t, *volumeArtifact, "WantedBy=default.target")
 
 	require.NotNil(t, containerArtifact)
-	assert.Contains(t, *containerArtifact, "After=data-volume.service")
-	assert.Contains(t, *containerArtifact, "Requires=data-volume.service")
+	assert.Contains(t, *containerArtifact, "After=data.volume")
+	assert.Contains(t, *containerArtifact, "Requires=data.volume")
 }
 
 func TestRenderer_RenderNetwork(t *testing.T) {
@@ -226,8 +226,8 @@ func TestRenderer_RenderNetwork(t *testing.T) {
 	assert.Contains(t, *networkArtifact, "WantedBy=default.target")
 
 	require.NotNil(t, containerArtifact)
-	assert.Contains(t, *containerArtifact, "After=backend-network.service")
-	assert.Contains(t, *containerArtifact, "Requires=backend-network.service")
+	assert.Contains(t, *containerArtifact, "After=backend.network")
+	assert.Contains(t, *containerArtifact, "Requires=backend.network")
 	assert.Contains(t, *containerArtifact, "Network=backend.network")
 }
 
@@ -278,10 +278,10 @@ func TestRenderer_MultipleNetworks(t *testing.T) {
 	require.NotNil(t, containerArtifact)
 
 	// Verify container depends on both networks
-	assert.Contains(t, *containerArtifact, "After=default-network.service")
-	assert.Contains(t, *containerArtifact, "After=infrastructure-proxy-network.service")
-	assert.Contains(t, *containerArtifact, "Requires=default-network.service")
-	assert.Contains(t, *containerArtifact, "Requires=infrastructure-proxy-network.service")
+	assert.Contains(t, *containerArtifact, "After=default.network")
+	assert.Contains(t, *containerArtifact, "After=infrastructure-proxy.network")
+	assert.Contains(t, *containerArtifact, "Requires=default.network")
+	assert.Contains(t, *containerArtifact, "Requires=infrastructure-proxy.network")
 
 	// Verify container joins both networks
 	assert.Contains(t, *containerArtifact, "Network=default.network")
@@ -337,12 +337,12 @@ func TestRenderer_ExternalNetworks(t *testing.T) {
 	require.NotNil(t, containerArtifact)
 
 	// Container should depend on and join only the local network
-	assert.Contains(t, *containerArtifact, "After=local-net-network.service")
-	assert.Contains(t, *containerArtifact, "Requires=local-net-network.service")
+	assert.Contains(t, *containerArtifact, "After=local-net.network")
+	assert.Contains(t, *containerArtifact, "Requires=local-net.network")
 	assert.Contains(t, *containerArtifact, "Network=local-net.network")
 
 	// Should NOT have external network directives
-	assert.NotContains(t, *containerArtifact, "After=external-net-network.service")
+	assert.NotContains(t, *containerArtifact, "After=external-net.network")
 	assert.NotContains(t, *containerArtifact, "Network=external-net.network")
 }
 

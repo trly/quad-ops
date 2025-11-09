@@ -145,8 +145,8 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	if len(spec.Volumes) > 0 {
 		for _, vol := range spec.Volumes {
 			if !vol.External {
-				builder.WriteString(fmt.Sprintf("After=%s-volume.service\n", vol.Name))
-				builder.WriteString(fmt.Sprintf("Requires=%s-volume.service\n", vol.Name))
+				builder.WriteString(fmt.Sprintf("After=%s.volume\n", vol.Name))
+				builder.WriteString(fmt.Sprintf("Requires=%s.volume\n", vol.Name))
 			}
 		}
 	}
@@ -155,8 +155,8 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	if len(spec.Networks) > 0 {
 		for _, net := range spec.Networks {
 			if !net.External {
-				builder.WriteString(fmt.Sprintf("After=%s-network.service\n", net.Name))
-				builder.WriteString(fmt.Sprintf("Requires=%s-network.service\n", net.Name))
+				builder.WriteString(fmt.Sprintf("After=%s.network\n", net.Name))
+				builder.WriteString(fmt.Sprintf("Requires=%s.network\n", net.Name))
 			}
 		}
 	}
