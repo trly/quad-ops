@@ -81,8 +81,7 @@ jobs:
           files: ./coverage-${{ matrix.os }}.out
           flags: ${{ matrix.os }}
           name: coverage-${{ matrix.os }}
-      - name: Upload build artifacts (on tag)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.os }}
