@@ -193,6 +193,11 @@ func TestRenderer_RenderNetwork(t *testing.T) {
 		},
 		Container: service.Container{
 			Image: "alpine:latest",
+			// Container explicitly declares it uses the backend network
+			Network: service.NetworkMode{
+				Mode:            "bridge",
+				ServiceNetworks: []string{"backend"},
+			},
 		},
 	}
 
@@ -253,6 +258,11 @@ func TestRenderer_MultipleNetworks(t *testing.T) {
 		},
 		Container: service.Container{
 			Image: "immich-server:latest",
+			// Container explicitly uses both networks
+			Network: service.NetworkMode{
+				Mode:            "bridge",
+				ServiceNetworks: []string{"default", "infrastructure-proxy"},
+			},
 		},
 	}
 
@@ -314,6 +324,11 @@ func TestRenderer_ExternalNetworks(t *testing.T) {
 		},
 		Container: service.Container{
 			Image: "myapp:latest",
+			// Container explicitly uses the local network
+			Network: service.NetworkMode{
+				Mode:            "bridge",
+				ServiceNetworks: []string{"local-net"},
+			},
 		},
 	}
 
@@ -632,4 +647,126 @@ func TestRenderer_QuadletNetworkExtensions(t *testing.T) {
 	assert.Contains(t, networkContent, "DNS=8.8.8.8")
 	assert.Contains(t, networkContent, "ContainersConfModule=/etc/containers/network.conf")
 	assert.Contains(t, networkContent, "PodmanArgs=--dns-search=example.com")
+}
+
+// TestRenderer_ContainerNetworksDependOnlyOnUsedNetworks verifies that containers only
+// declare dependencies on networks they actually use (via ServiceNetworks), not on all
+// project-level networks. This prevents cross-project network reference errors.
+func TestRenderer_ContainerNetworksDependOnlyOnUsedNetworks(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	// Simulate a container in one project (media) that doesn't explicitly use
+	// any networks (like a case where ServiceNetworks is empty)
+	spec := service.Spec{
+		Name:        "media-immich-server",
+		Description: "Immich server",
+		// Project has multiple networks defined
+		Networks: []service.Network{
+			{Name: "media_default", Driver: "bridge", External: false},
+			{Name: "media_proxy", Driver: "bridge", External: false},
+		},
+		Container: service.Container{
+			Image: "immich-server:latest",
+			// Container has NO ServiceNetworks (empty)
+			Network: service.NetworkMode{
+				Mode:            "bridge",
+				ServiceNetworks: []string{}, // Empty!
+			},
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	// Should have 2 network units + 1 container unit
+	assert.Len(t, result.Artifacts, 3)
+
+	// Find the container artifact
+	var containerContent string
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			containerContent = string(a.Content)
+			break
+		}
+	}
+
+	require.NotEmpty(t, containerContent)
+
+	// The container should NOT have Network= directives since ServiceNetworks is empty
+	// It will use the default network implicitly
+	assert.NotContains(t, containerContent, "Network=media_default.network")
+	assert.NotContains(t, containerContent, "Network=media_proxy.network")
+
+	// The container should NOT depend on any networks since ServiceNetworks is empty
+	assert.NotContains(t, containerContent, "After=media_default.network")
+	assert.NotContains(t, containerContent, "After=media_proxy.network")
+	assert.NotContains(t, containerContent, "Requires=media_default.network")
+	assert.NotContains(t, containerContent, "Requires=media_proxy.network")
+}
+
+// TestRenderer_ContainerNetworksDependOnExplicitNetworks verifies that containers
+// declare dependencies only on networks they explicitly declare via ServiceNetworks.
+func TestRenderer_ContainerNetworksDependOnExplicitNetworks(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	// Container explicitly declares which networks it uses
+	spec := service.Spec{
+		Name:        "media-immich-server",
+		Description: "Immich server with explicit networks",
+		// Project has multiple networks
+		Networks: []service.Network{
+			{Name: "media_default", Driver: "bridge", External: false},
+			{Name: "media_cache", Driver: "bridge", External: false},
+			{Name: "infrastructure_proxy", Driver: "bridge", External: false},
+		},
+		Container: service.Container{
+			Image: "immich-server:latest",
+			// Container explicitly uses only media_default and infrastructure_proxy
+			Network: service.NetworkMode{
+				Mode: "bridge",
+				ServiceNetworks: []string{
+					"media_default",
+					"infrastructure_proxy",
+				},
+			},
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	// Should have 3 network units + 1 container unit
+	assert.Len(t, result.Artifacts, 4)
+
+	// Find the container artifact
+	var containerContent string
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			containerContent = string(a.Content)
+			break
+		}
+	}
+
+	require.NotEmpty(t, containerContent)
+
+	// The container should have Network= directives only for its explicit networks
+	assert.Contains(t, containerContent, "Network=media_default.network")
+	assert.Contains(t, containerContent, "Network=infrastructure_proxy.network")
+	// But NOT for media_cache which it doesn't use
+	assert.NotContains(t, containerContent, "Network=media_cache.network")
+
+	// The container should depend only on its explicit networks
+	assert.Contains(t, containerContent, "After=media_default.network")
+	assert.Contains(t, containerContent, "After=infrastructure_proxy.network")
+	assert.Contains(t, containerContent, "Requires=media_default.network")
+	assert.Contains(t, containerContent, "Requires=infrastructure_proxy.network")
+	// But NOT for media_cache
+	assert.NotContains(t, containerContent, "After=media_cache.network")
+	assert.NotContains(t, containerContent, "Requires=media_cache.network")
 }

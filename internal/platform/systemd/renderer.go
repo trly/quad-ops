@@ -151,13 +151,30 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 		}
 	}
 
-	// Add dependencies for networks
-	if len(spec.Networks) > 0 {
-		for _, net := range spec.Networks {
-			if !net.External {
-				builder.WriteString(fmt.Sprintf("After=%s.network\n", net.Name))
-				builder.WriteString(fmt.Sprintf("Requires=%s.network\n", net.Name))
-			}
+	// Add dependencies for networks that this container actually uses
+	// We only add dependencies for networks explicitly used by the container,
+	// not for all project-level networks.
+	usedNetworks := make(map[string]bool)
+	if len(spec.Container.Network.ServiceNetworks) > 0 {
+		for _, netName := range spec.Container.Network.ServiceNetworks {
+			// Strip the .network suffix if present (it will be re-added in the dependency)
+			net := strings.TrimSuffix(netName, ".network")
+			usedNetworks[net] = true
+		}
+	}
+
+	// Add dependencies only for networks this container actually uses
+	if len(usedNetworks) > 0 {
+		// Get unique sorted network names
+		networks := make([]string, 0, len(usedNetworks))
+		for net := range usedNetworks {
+			networks = append(networks, net)
+		}
+		sort.Strings(networks)
+
+		for _, net := range networks {
+			builder.WriteString(fmt.Sprintf("After=%s.network\n", net))
+			builder.WriteString(fmt.Sprintf("Requires=%s.network\n", net))
 		}
 	}
 
@@ -185,7 +202,7 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addEnvironment(&builder, spec.Container)
 	r.addPorts(&builder, spec.Container)
 	r.addMounts(&builder, spec.Container)
-	r.addNetworks(&builder, spec.Container, spec)
+	r.addNetworks(&builder, spec.Container)
 	r.addExecution(&builder, spec.Container)
 	r.addHealthcheck(&builder, spec.Container)
 	r.addResources(&builder, spec.Container)
@@ -292,7 +309,7 @@ func (r *Renderer) addMounts(builder *strings.Builder, c service.Container) {
 }
 
 // addNetworks adds network configuration.
-func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container, spec service.Spec) {
+func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container) {
 	if c.Network.Mode != "" && c.Network.Mode != "bridge" {
 		builder.WriteString(formatKeyValue("Network", c.Network.Mode))
 	}
@@ -315,20 +332,11 @@ func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container, sp
 		for _, net := range sorted {
 			builder.WriteString(formatKeyValue("Network", net+".network"))
 		}
-	} else {
-		// Fallback: Add Network directives for project-level networks with .network suffix
-		// Sort networks for deterministic ordering
-		networks := make([]string, 0, len(spec.Networks))
-		for _, net := range spec.Networks {
-			if !net.External {
-				networks = append(networks, net.Name+".network")
-			}
-		}
-		sort.Strings(networks)
-		for _, net := range networks {
-			builder.WriteString(formatKeyValue("Network", net))
-		}
 	}
+	// Note: We do NOT have a fallback to project-level networks here.
+	// The compose parser's convertServiceNetworks() already handles the logic of
+	// what networks a service should use. If ServiceNetworks is empty, the container
+	// will use the default network which is the correct behavior.
 }
 
 // addExecution adds execution configuration.
