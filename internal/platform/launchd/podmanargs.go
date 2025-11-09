@@ -195,8 +195,13 @@ func buildVolumeArg(mount service.Mount) string {
 	}
 
 	// Add bind options
-	if mount.BindOptions != nil && mount.BindOptions.Propagation != "" {
-		opts = append(opts, mount.BindOptions.Propagation)
+	if mount.BindOptions != nil {
+		if mount.BindOptions.Propagation != "" {
+			opts = append(opts, mount.BindOptions.Propagation)
+		}
+		if mount.BindOptions.SELinux != "" {
+			opts = append(opts, mount.BindOptions.SELinux)
+		}
 	}
 
 	// Add custom options

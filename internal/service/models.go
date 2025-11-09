@@ -99,6 +99,7 @@ const (
 // BindOptions represents bind mount options.
 type BindOptions struct {
 	Propagation string // "private", "shared", "slave", "rshared", "rslave"
+	SELinux     string // "z" (shared) or "Z" (private) for SELinux relabeling
 }
 
 // Resources represents resource constraints.

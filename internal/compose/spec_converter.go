@@ -229,9 +229,16 @@ func (sc *SpecConverter) convertVolumeMounts(volumes []types.ServiceVolumeConfig
 		switch v.Type {
 		case "bind":
 			mount.Type = service.MountTypeBind
-			if v.Bind != nil && v.Bind.Propagation != "" {
-				mount.BindOptions = &service.BindOptions{
-					Propagation: v.Bind.Propagation,
+			if v.Bind != nil {
+				bindOpts := &service.BindOptions{}
+				if v.Bind.Propagation != "" {
+					bindOpts.Propagation = v.Bind.Propagation
+				}
+				if v.Bind.SELinux != "" {
+					bindOpts.SELinux = v.Bind.SELinux
+				}
+				if bindOpts.Propagation != "" || bindOpts.SELinux != "" {
+					mount.BindOptions = bindOpts
 				}
 			}
 		case "volume":

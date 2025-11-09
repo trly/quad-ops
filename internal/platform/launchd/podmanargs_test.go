@@ -567,6 +567,41 @@ func TestBuildVolumeArg(t *testing.T) {
 			want: "/host/path:/container/path:ro,rshared",
 		},
 		{
+			name: "mount with SELinux z flag",
+			mount: service.Mount{
+				Source: "/host/path",
+				Target: "/container/path",
+				BindOptions: &service.BindOptions{
+					SELinux: "z",
+				},
+			},
+			want: "/host/path:/container/path:z",
+		},
+		{
+			name: "mount with SELinux Z flag",
+			mount: service.Mount{
+				Source: "/host/path",
+				Target: "/container/path",
+				BindOptions: &service.BindOptions{
+					SELinux: "Z",
+				},
+			},
+			want: "/host/path:/container/path:Z",
+		},
+		{
+			name: "read-only mount with SELinux and propagation",
+			mount: service.Mount{
+				Source:   "/host/path",
+				Target:   "/container/path",
+				ReadOnly: true,
+				BindOptions: &service.BindOptions{
+					Propagation: "shared",
+					SELinux:     "z",
+				},
+			},
+			want: "/host/path:/container/path:ro,shared,z",
+		},
+		{
 			name: "mount with custom options",
 			mount: service.Mount{
 				Source: "/host/path",

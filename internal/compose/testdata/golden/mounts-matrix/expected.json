@@ -31,12 +31,34 @@
             "BindOptions": null
           },
           {
+            "Source": "/private/data",
+            "Target": "/app/private",
+            "Type": "bind",
+            "ReadOnly": true,
+            "Options": {},
+            "BindOptions": {
+              "Propagation": "",
+              "SELinux": "Z"
+            }
+          },
+          {
             "Source": "/readonly",
             "Target": "/app/ro",
             "Type": "bind",
             "ReadOnly": true,
             "Options": {},
             "BindOptions": null
+          },
+          {
+            "Source": "/shared/data",
+            "Target": "/app/shared",
+            "Type": "bind",
+            "ReadOnly": false,
+            "Options": {},
+            "BindOptions": {
+              "Propagation": "",
+              "SELinux": "z"
+            }
           },
           {
             "Source": "",

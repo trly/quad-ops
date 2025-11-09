@@ -6,6 +6,18 @@ services:
       - ./data:/app/data                    # relative bind
       - /host/config:/app/config            # absolute bind
       - /readonly:/app/ro:ro                # readonly
+      # SELinux bind mounts
+      - type: bind
+        source: /shared/data
+        target: /app/shared
+        bind:
+          selinux: z
+      - type: bind
+        source: /private/data
+        target: /app/private
+        read_only: true
+        bind:
+          selinux: Z
       # Named volumes
       - app-data:/app/storage
       - cache:/tmp/cache:rw

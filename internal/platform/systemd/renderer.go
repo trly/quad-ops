@@ -312,9 +312,18 @@ func (r *Renderer) addMounts(builder *strings.Builder, c service.Container) {
 		// The .volume suffix is only needed in Unit file dependencies (After=, Requires=),
 		// which are handled separately in renderContainer().
 		mountStr := fmt.Sprintf("%s:%s", source, m.Target)
+
+		var options []string
 		if m.ReadOnly {
-			mountStr += ":ro"
+			options = append(options, "ro")
 		}
+		if m.BindOptions != nil && m.BindOptions.SELinux != "" {
+			options = append(options, m.BindOptions.SELinux)
+		}
+		if len(options) > 0 {
+			mountStr += ":" + strings.Join(options, ",")
+		}
+
 		mounts = append(mounts, mountStr)
 	}
 
