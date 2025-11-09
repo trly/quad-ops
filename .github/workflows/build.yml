@@ -1,37 +1,30 @@
 name: Build
-
 permissions:
   contents: write
-
 on:
   push:
     branches: [ main ]
     tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
-
 jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Clean Go Cache
         run: |
           mkdir -p $HOME/.cache/go-build
           rm -rf $HOME/.cache/go-build/*
           mkdir -p $HOME/go/pkg
           rm -rf $HOME/go/pkg/mod
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache: false
-
       - name: Download Dependencies
         run: go mod download
-
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v8
         with:
@@ -39,7 +32,6 @@ jobs:
           args: --timeout=5m --build-tags=exclude_graphdriver_btrfs,exclude_graphdriver_devicemapper,containers_image_openpgp
         env:
           CGO_ENABLED: 0
-
   build:
     strategy:
       matrix:
@@ -49,26 +41,21 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v4
-
       - name: Clean Go Cache
         run: |
           mkdir -p $HOME/.cache/go-build
           rm -rf $HOME/.cache/go-build/*
           mkdir -p $HOME/go/pkg
           rm -rf $HOME/go/pkg/mod
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache: false
-
       - name: Download Dependencies
         run: go mod download
-
       - name: Build
         run: go build -v ./...
-
   test:
     strategy:
       matrix:
@@ -78,33 +65,28 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
           cache: true
-
       - name: Download Dependencies
         run: go mod download
-
       - name: Run tests with coverage
-       run: go test -v -race -covermode=atomic -coverprofile=coverage-${{ matrix.os }}.out ./...
-
+        run: go test -v -race -covermode=atomic -coverprofile=coverage-${{ matrix.os }}.out ./...
       - name: Upload coverage reports to Codecov
-       uses: codecov/codecov-action@v5
-       with:
-         token: ${{ secrets.CODECOV_TOKEN }}
-         files: ./coverage-${{ matrix.os }}.out
-         flags: ${{ matrix.os }}
-         name: coverage-${{ matrix.os }}
-
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage-${{ matrix.os }}.out
+          flags: ${{ matrix.os }}
+          name: coverage-${{ matrix.os }}
       - name: Upload build artifacts (on tag)
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: actions/upload-artifact@v4
-      with:
-      name: build-${{ matrix.os }}
-      path: |
-      quad-ops
-      coverage-${{ matrix.os }}.out
-      retention-days: 7
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: |
+            quad-ops
+            coverage-${{ matrix.os }}.out
+          retention-days: 7
