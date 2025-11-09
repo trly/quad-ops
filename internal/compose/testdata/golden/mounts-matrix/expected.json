@@ -1,175 +1,178 @@
 {
+  "networks": [
+    {
+      "Driver": "",
+      "External": false,
+      "IPAM": null,
+      "IPv6": false,
+      "Internal": false,
+      "Labels": null,
+      "Name": "mounts-matrix_default",
+      "Options": null
+    }
+  ],
   "services": [
     {
-      "Name": "mounts-matrix-app",
-      "Description": "Service app from project mounts-matrix",
+      "Annotations": null,
       "Container": {
-        "Image": "myapp:1.0",
-        "Command": null,
         "Args": null,
+        "Build": null,
+        "Command": null,
+        "ContainerName": "mounts-matrix-app",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
+        "Entrypoint": null,
         "Env": {},
         "EnvFiles": null,
-        "WorkingDir": "",
-        "User": "",
+        "EnvSecrets": null,
+        "ExtraHosts": null,
         "Group": "",
-        "Ports": null,
-        "Mounts": [
-          {
-            "Source": "/host/config",
-            "Target": "/app/config",
-            "Type": "bind",
-            "ReadOnly": false,
-            "Options": {},
-            "BindOptions": null
-          },
-          {
-            "Source": "data",
-            "Target": "/app/data",
-            "Type": "bind",
-            "ReadOnly": false,
-            "Options": {},
-            "BindOptions": null
-          },
-          {
-            "Source": "/readonly",
-            "Target": "/app/ro",
-            "Type": "bind",
-            "ReadOnly": true,
-            "Options": {},
-            "BindOptions": null
-          },
-          {
-            "Source": "",
-            "Target": "/tmp/scratch",
-            "Type": "tmpfs",
-            "ReadOnly": false,
-            "Options": {},
-            "BindOptions": null
-          },
-          {
-            "Source": "mounts-matrix-app-data",
-            "Target": "/app/storage",
-            "Type": "volume",
-            "ReadOnly": false,
-            "Options": {},
-            "BindOptions": null
-          },
-          {
-            "Source": "mounts-matrix-cache",
-            "Target": "/tmp/cache",
-            "Type": "volume",
-            "ReadOnly": false,
-            "Options": {},
-            "BindOptions": null
-          }
-        ],
-        "Resources": {
-          "Memory": "",
-          "MemoryReservation": "",
-          "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
-          "PidsLimit": 0
-        },
-        "RestartPolicy": "no",
         "Healthcheck": null,
-        "Security": {
-          "Privileged": false,
-          "CapAdd": null,
-          "CapDrop": null,
-          "SecurityOpt": null,
-          "ReadonlyRootfs": false,
-          "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
-        },
-        "Build": null,
-        "Labels": null,
         "Hostname": "",
-        "ContainerName": "mounts-matrix-app",
-        "Entrypoint": null,
+        "Image": "myapp:1.0",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": [
+          {
+            "BindOptions": null,
+            "Options": {},
+            "ReadOnly": false,
+            "Source": "/host/config",
+            "Target": "/app/config",
+            "Type": "bind"
+          },
+          {
+            "BindOptions": null,
+            "Options": {},
+            "ReadOnly": false,
+            "Source": "data",
+            "Target": "/app/data",
+            "Type": "bind"
+          },
+          {
+            "BindOptions": null,
+            "Options": {},
+            "ReadOnly": true,
+            "Source": "/readonly",
+            "Target": "/app/ro",
+            "Type": "bind"
+          },
+          {
+            "BindOptions": null,
+            "Options": {},
+            "ReadOnly": false,
+            "Source": "",
+            "Target": "/tmp/scratch",
+            "Type": "tmpfs"
+          },
+          {
+            "BindOptions": null,
+            "Options": {},
+            "ReadOnly": false,
+            "Source": "mounts-matrix-app-data",
+            "Target": "/app/storage",
+            "Type": "volume"
+          },
+          {
+            "BindOptions": null,
+            "Options": {},
+            "ReadOnly": false,
+            "Source": "mounts-matrix-cache",
+            "Target": "/tmp/cache",
+            "Type": "volume"
+          }
+        ],
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "mounts-matrix_default"
           ]
         },
+        "PidsLimit": 0,
+        "PodmanArgs": null,
+        "Ports": null,
+        "ReadOnly": false,
+        "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
+          "Memory": "",
+          "MemoryReservation": "",
+          "MemorySwap": "",
+          "PidsLimit": 0
+        },
+        "RestartPolicy": "no",
+        "Secrets": null,
+        "Security": {
+          "AppArmorProfile": "",
+          "CapAdd": null,
+          "CapDrop": null,
+          "Privileged": false,
+          "ReadonlyRootfs": false,
+          "SELinuxType": "",
+          "SeccompProfile": "",
+          "SecurityOpt": null
+        },
+        "Sysctls": null,
         "Tmpfs": null,
         "Ulimits": null,
-        "Sysctls": null,
+        "User": "",
         "UserNS": "",
-        "PodmanArgs": null,
-        "PidsLimit": 0,
-        "ExtraHosts": null
+        "WorkingDir": ""
       },
-      "Volumes": [
-        {
-          "Name": "mounts-matrix_app-data",
-          "Driver": "local",
-          "Options": null,
-          "Labels": null,
-          "External": false
-        },
-        {
-          "Name": "mounts-matrix_cache",
-          "Driver": "local",
-          "Options": null,
-          "Labels": null,
-          "External": false
-        }
-      ],
+      "DependsOn": null,
+      "Description": "Service app from project mounts-matrix",
+      "Name": "mounts-matrix-app",
       "Networks": [
         {
-          "Name": "mounts-matrix_default",
           "Driver": "",
-          "Options": null,
-          "Labels": null,
+          "External": false,
           "IPAM": null,
-          "Internal": false,
           "IPv6": false,
-          "External": false
+          "Internal": false,
+          "Labels": null,
+          "Name": "mounts-matrix_default",
+          "Options": null
         }
       ],
-      "DependsOn": null,
-      "Annotations": null
+      "Volumes": [
+        {
+          "Driver": "local",
+          "External": false,
+          "Labels": null,
+          "Name": "mounts-matrix_app-data",
+          "Options": null
+        },
+        {
+          "Driver": "local",
+          "External": false,
+          "Labels": null,
+          "Name": "mounts-matrix_cache",
+          "Options": null
+        }
+      ]
     }
   ],
   "volumes": [
     {
-      "Name": "mounts-matrix_app-data",
       "Driver": "local",
-      "Options": null,
+      "External": false,
       "Labels": null,
-      "External": false
+      "Name": "mounts-matrix_app-data",
+      "Options": null
     },
     {
-      "Name": "mounts-matrix_cache",
       "Driver": "local",
-      "Options": null,
+      "External": false,
       "Labels": null,
-      "External": false
-    }
-  ],
-  "networks": [
-    {
-      "Name": "mounts-matrix_default",
-      "Driver": "",
-      "Options": null,
-      "Labels": null,
-      "IPAM": null,
-      "Internal": false,
-      "IPv6": false,
-      "External": false
+      "Name": "mounts-matrix_cache",
+      "Options": null
     }
   ]
 }

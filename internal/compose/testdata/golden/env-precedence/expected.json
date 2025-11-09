@@ -1,12 +1,28 @@
 {
+  "networks": [
+    {
+      "Driver": "",
+      "External": false,
+      "IPAM": null,
+      "IPv6": false,
+      "Internal": false,
+      "Labels": null,
+      "Name": "env-precedence_default",
+      "Options": null
+    }
+  ],
   "services": [
     {
-      "Name": "env-precedence-app",
-      "Description": "Service app from project env-precedence",
+      "Annotations": null,
       "Container": {
-        "Image": "testapp:1.0",
-        "Command": null,
         "Args": null,
+        "Build": null,
+        "Command": null,
+        "ContainerName": "env-precedence-app",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
+        "Entrypoint": null,
         "Env": {
           "API_VERSION": "v1",
           "APP_URL": "http://localhost:8080",
@@ -21,88 +37,75 @@
           "env.common",
           "env.prod"
         ],
-        "WorkingDir": "",
-        "User": "",
+        "EnvSecrets": null,
+        "ExtraHosts": null,
         "Group": "",
-        "Ports": null,
-        "Mounts": null,
-        "Resources": {
-          "Memory": "",
-          "MemoryReservation": "",
-          "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
-          "PidsLimit": 0
-        },
-        "RestartPolicy": "no",
         "Healthcheck": null,
-        "Security": {
-          "Privileged": false,
-          "CapAdd": null,
-          "CapDrop": null,
-          "SecurityOpt": null,
-          "ReadonlyRootfs": false,
-          "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
-        },
-        "Build": null,
-        "Labels": null,
         "Hostname": "",
-        "ContainerName": "env-precedence-app",
-        "Entrypoint": null,
+        "Image": "testapp:1.0",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": null,
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "env-precedence_default"
           ]
         },
+        "PidsLimit": 0,
+        "PodmanArgs": null,
+        "Ports": null,
+        "ReadOnly": false,
+        "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
+          "Memory": "",
+          "MemoryReservation": "",
+          "MemorySwap": "",
+          "PidsLimit": 0
+        },
+        "RestartPolicy": "no",
+        "Secrets": null,
+        "Security": {
+          "AppArmorProfile": "",
+          "CapAdd": null,
+          "CapDrop": null,
+          "Privileged": false,
+          "ReadonlyRootfs": false,
+          "SELinuxType": "",
+          "SeccompProfile": "",
+          "SecurityOpt": null
+        },
+        "Sysctls": null,
         "Tmpfs": null,
         "Ulimits": null,
-        "Sysctls": null,
+        "User": "",
         "UserNS": "",
-        "PodmanArgs": null,
-        "PidsLimit": 0,
-        "ExtraHosts": null
+        "WorkingDir": ""
       },
-      "Volumes": null,
+      "DependsOn": null,
+      "Description": "Service app from project env-precedence",
+      "Name": "env-precedence-app",
       "Networks": [
         {
-          "Name": "env-precedence_default",
           "Driver": "",
-          "Options": null,
-          "Labels": null,
+          "External": false,
           "IPAM": null,
-          "Internal": false,
           "IPv6": false,
-          "External": false
+          "Internal": false,
+          "Labels": null,
+          "Name": "env-precedence_default",
+          "Options": null
         }
       ],
-      "DependsOn": null,
-      "Annotations": null
+      "Volumes": null
     }
   ],
-  "volumes": null,
-  "networks": [
-    {
-      "Name": "env-precedence_default",
-      "Driver": "",
-      "Options": null,
-      "Labels": null,
-      "IPAM": null,
-      "Internal": false,
-      "IPv6": false,
-      "External": false
-    }
-  ]
+  "volumes": null
 }

@@ -222,6 +222,7 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addPorts(&builder, spec.Container)
 	r.addMounts(&builder, spec.Container)
 	r.addNetworks(&builder, spec.Container)
+	r.addDNS(&builder, spec.Container)
 	r.addExecution(&builder, spec.Container)
 	r.addHealthcheck(&builder, spec.Container)
 	r.addResources(&builder, spec.Container)
@@ -566,6 +567,41 @@ func (r *Renderer) addSecrets(builder *strings.Builder, c service.Container) {
 }
 
 // addExtraHosts adds extra host-to-IP mappings.
+func (r *Renderer) addDNS(builder *strings.Builder, c service.Container) {
+	// Add DNS servers
+	if len(c.DNS) > 0 {
+		sorted := make([]string, len(c.DNS))
+		copy(sorted, c.DNS)
+		sort.Strings(sorted)
+
+		for _, dns := range sorted {
+			builder.WriteString(formatKeyValue("DNS", dns))
+		}
+	}
+
+	// Add DNS search domains
+	if len(c.DNSSearch) > 0 {
+		sorted := make([]string, len(c.DNSSearch))
+		copy(sorted, c.DNSSearch)
+		sort.Strings(sorted)
+
+		for _, domain := range sorted {
+			builder.WriteString(formatKeyValue("DNSSearch", domain))
+		}
+	}
+
+	// Add DNS options
+	if len(c.DNSOptions) > 0 {
+		sorted := make([]string, len(c.DNSOptions))
+		copy(sorted, c.DNSOptions)
+		sort.Strings(sorted)
+
+		for _, opt := range sorted {
+			builder.WriteString(formatKeyValue("DNSOption", opt))
+		}
+	}
+}
+
 func (r *Renderer) addExtraHosts(builder *strings.Builder, c service.Container) {
 	if len(c.ExtraHosts) == 0 {
 		return

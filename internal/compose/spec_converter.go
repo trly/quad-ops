@@ -119,6 +119,9 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		Sysctls:       composeService.Sysctls,
 		UserNS:        composeService.UserNSMode,
 		ExtraHosts:    sc.convertExtraHosts(composeService.ExtraHosts),
+		DNS:           sc.convertDNS(composeService.DNS),
+		DNSSearch:     sc.convertDNSSearch(composeService.DNSSearch),
+		DNSOptions:    sc.convertDNSOpts(composeService.DNSOpts),
 	}
 
 	// Handle user/group parsing
@@ -582,6 +585,48 @@ func (sc *SpecConverter) convertExtraHosts(extraHosts types.HostsList) []string 
 	// Use HostsList.AsList() to convert to "hostname:ip" format
 	// The ":" separator matches Quadlet's AddHost directive format
 	result := extraHosts.AsList(":")
+
+	// Sort for determinism
+	sorting.SortStringSlice(result)
+	return result
+}
+
+// convertDNS converts compose dns to DNS servers slice.
+func (sc *SpecConverter) convertDNS(dns []string) []string {
+	if len(dns) == 0 {
+		return nil
+	}
+
+	result := make([]string, len(dns))
+	copy(result, dns)
+
+	// Sort for determinism
+	sorting.SortStringSlice(result)
+	return result
+}
+
+// convertDNSSearch converts compose dns_search to DNS search domains slice.
+func (sc *SpecConverter) convertDNSSearch(dnsSearch []string) []string {
+	if len(dnsSearch) == 0 {
+		return nil
+	}
+
+	result := make([]string, len(dnsSearch))
+	copy(result, dnsSearch)
+
+	// Sort for determinism
+	sorting.SortStringSlice(result)
+	return result
+}
+
+// convertDNSOpts converts compose dns_opt to DNS options slice.
+func (sc *SpecConverter) convertDNSOpts(dnsOpts []string) []string {
+	if len(dnsOpts) == 0 {
+		return nil
+	}
+
+	result := make([]string, len(dnsOpts))
+	copy(result, dnsOpts)
 
 	// Sort for determinism
 	sorting.SortStringSlice(result)

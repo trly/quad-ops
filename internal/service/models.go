@@ -52,6 +52,9 @@ type Container struct {
 	PodmanArgs    []string          // Additional Podman arguments
 	PidsLimit     int64             // Maximum PIDs
 	ExtraHosts    []string          // Extra host-to-IP mappings in "hostname:ip" format
+	DNS           []string          // Custom DNS servers
+	DNSSearch     []string          // DNS search domains
+	DNSOptions    []string          // DNS options
 }
 
 // InitContainer represents an init container configuration.

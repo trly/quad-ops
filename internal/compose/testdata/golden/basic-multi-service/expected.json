@@ -1,340 +1,349 @@
 {
+  "networks": [
+    {
+      "Driver": "bridge",
+      "External": false,
+      "IPAM": null,
+      "IPv6": false,
+      "Internal": false,
+      "Labels": null,
+      "Name": "basic-multi-service_backend",
+      "Options": null
+    },
+    {
+      "Driver": "bridge",
+      "External": false,
+      "IPAM": null,
+      "IPv6": false,
+      "Internal": false,
+      "Labels": null,
+      "Name": "basic-multi-service_frontend",
+      "Options": null
+    }
+  ],
   "services": [
     {
-      "Name": "basic-multi-service-app",
-      "Description": "Service app from project basic-multi-service",
+      "Annotations": null,
       "Container": {
-        "Image": "myapp:1.0",
-        "Command": null,
         "Args": null,
+        "Build": null,
+        "Command": null,
+        "ContainerName": "basic-multi-service-app",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
+        "Entrypoint": null,
         "Env": {
           "DEBUG": "true",
           "PORT": "3000"
         },
         "EnvFiles": null,
-        "WorkingDir": "",
-        "User": "",
+        "EnvSecrets": null,
+        "ExtraHosts": null,
         "Group": "",
-        "Ports": null,
-        "Mounts": [
-          {
-            "Source": "basic-multi-service-app-data",
-            "Target": "/data",
-            "Type": "volume",
-            "ReadOnly": false,
-            "Options": {},
-            "BindOptions": null
-          }
-        ],
-        "Resources": {
-          "Memory": "",
-          "MemoryReservation": "",
-          "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
-          "PidsLimit": 0
-        },
-        "RestartPolicy": "always",
         "Healthcheck": null,
-        "Security": {
-          "Privileged": false,
-          "CapAdd": null,
-          "CapDrop": null,
-          "SecurityOpt": null,
-          "ReadonlyRootfs": false,
-          "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
-        },
-        "Build": null,
-        "Labels": null,
         "Hostname": "",
-        "ContainerName": "basic-multi-service-app",
-        "Entrypoint": null,
+        "Image": "myapp:1.0",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": [
+          {
+            "BindOptions": null,
+            "Options": {},
+            "ReadOnly": false,
+            "Source": "basic-multi-service-app-data",
+            "Target": "/data",
+            "Type": "volume"
+          }
+        ],
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "basic-multi-service_backend",
             "basic-multi-service_frontend"
           ]
         },
+        "PidsLimit": 0,
+        "PodmanArgs": null,
+        "Ports": null,
+        "ReadOnly": false,
+        "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
+          "Memory": "",
+          "MemoryReservation": "",
+          "MemorySwap": "",
+          "PidsLimit": 0
+        },
+        "RestartPolicy": "always",
+        "Secrets": null,
+        "Security": {
+          "AppArmorProfile": "",
+          "CapAdd": null,
+          "CapDrop": null,
+          "Privileged": false,
+          "ReadonlyRootfs": false,
+          "SELinuxType": "",
+          "SeccompProfile": "",
+          "SecurityOpt": null
+        },
+        "Sysctls": null,
         "Tmpfs": null,
         "Ulimits": null,
-        "Sysctls": null,
+        "User": "",
         "UserNS": "",
-        "PodmanArgs": null,
-        "PidsLimit": 0,
-        "ExtraHosts": null
+        "WorkingDir": ""
       },
-      "Volumes": [
-        {
-          "Name": "basic-multi-service_app-data",
-          "Driver": "local",
-          "Options": null,
-          "Labels": null,
-          "External": false
-        }
-      ],
+      "DependsOn": null,
+      "Description": "Service app from project basic-multi-service",
+      "Name": "basic-multi-service-app",
       "Networks": [
         {
-          "Name": "basic-multi-service_backend",
           "Driver": "bridge",
-          "Options": null,
-          "Labels": null,
+          "External": false,
           "IPAM": null,
-          "Internal": false,
           "IPv6": false,
-          "External": false
+          "Internal": false,
+          "Labels": null,
+          "Name": "basic-multi-service_backend",
+          "Options": null
         },
         {
-          "Name": "basic-multi-service_frontend",
           "Driver": "bridge",
-          "Options": null,
-          "Labels": null,
+          "External": false,
           "IPAM": null,
-          "Internal": false,
           "IPv6": false,
-          "External": false
+          "Internal": false,
+          "Labels": null,
+          "Name": "basic-multi-service_frontend",
+          "Options": null
         }
       ],
-      "DependsOn": null,
-      "Annotations": null
+      "Volumes": [
+        {
+          "Driver": "local",
+          "External": false,
+          "Labels": null,
+          "Name": "basic-multi-service_app-data",
+          "Options": null
+        }
+      ]
     },
     {
-      "Name": "basic-multi-service-db",
-      "Description": "Service db from project basic-multi-service",
+      "Annotations": null,
       "Container": {
-        "Image": "postgres:15",
-        "Command": null,
         "Args": null,
+        "Build": null,
+        "Command": null,
+        "ContainerName": "basic-multi-service-db",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
+        "Entrypoint": null,
         "Env": {
           "POSTGRES_DB": "myapp",
           "POSTGRES_PASSWORD": "secret123",
           "POSTGRES_USER": "app"
         },
         "EnvFiles": null,
-        "WorkingDir": "",
-        "User": "",
+        "EnvSecrets": null,
+        "ExtraHosts": null,
         "Group": "",
-        "Ports": null,
-        "Mounts": [
-          {
-            "Source": "basic-multi-service-db-data",
-            "Target": "/var/lib/postgresql/data",
-            "Type": "volume",
-            "ReadOnly": false,
-            "Options": {},
-            "BindOptions": null
-          }
-        ],
-        "Resources": {
-          "Memory": "",
-          "MemoryReservation": "",
-          "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
-          "PidsLimit": 0
-        },
-        "RestartPolicy": "always",
         "Healthcheck": null,
-        "Security": {
-          "Privileged": false,
-          "CapAdd": null,
-          "CapDrop": null,
-          "SecurityOpt": null,
-          "ReadonlyRootfs": false,
-          "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
-        },
-        "Build": null,
-        "Labels": null,
         "Hostname": "",
-        "ContainerName": "basic-multi-service-db",
-        "Entrypoint": null,
+        "Image": "postgres:15",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": [
+          {
+            "BindOptions": null,
+            "Options": {},
+            "ReadOnly": false,
+            "Source": "basic-multi-service-db-data",
+            "Target": "/var/lib/postgresql/data",
+            "Type": "volume"
+          }
+        ],
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "basic-multi-service_backend"
           ]
         },
-        "Tmpfs": null,
-        "Ulimits": null,
-        "Sysctls": null,
-        "UserNS": "",
-        "PodmanArgs": null,
         "PidsLimit": 0,
-        "ExtraHosts": null
-      },
-      "Volumes": [
-        {
-          "Name": "basic-multi-service_db-data",
-          "Driver": "local",
-          "Options": null,
-          "Labels": null,
-          "External": false
-        }
-      ],
-      "Networks": [
-        {
-          "Name": "basic-multi-service_backend",
-          "Driver": "bridge",
-          "Options": null,
-          "Labels": null,
-          "IPAM": null,
-          "Internal": false,
-          "IPv6": false,
-          "External": false
-        }
-      ],
-      "DependsOn": null,
-      "Annotations": null
-    },
-    {
-      "Name": "basic-multi-service-web",
-      "Description": "Service web from project basic-multi-service",
-      "Container": {
-        "Image": "nginx:1.25",
-        "Command": null,
-        "Args": null,
-        "Env": {},
-        "EnvFiles": null,
-        "WorkingDir": "",
-        "User": "",
-        "Group": "",
-        "Ports": [
-          {
-            "Host": "",
-            "HostPort": 8080,
-            "Container": 80,
-            "Protocol": "tcp"
-          }
-        ],
-        "Mounts": null,
+        "PodmanArgs": null,
+        "Ports": null,
+        "ReadOnly": false,
         "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
           "Memory": "",
           "MemoryReservation": "",
           "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
           "PidsLimit": 0
         },
-        "RestartPolicy": "unless-stopped",
-        "Healthcheck": null,
+        "RestartPolicy": "always",
+        "Secrets": null,
         "Security": {
-          "Privileged": false,
+          "AppArmorProfile": "",
           "CapAdd": null,
           "CapDrop": null,
-          "SecurityOpt": null,
+          "Privileged": false,
           "ReadonlyRootfs": false,
           "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
+          "SeccompProfile": "",
+          "SecurityOpt": null
         },
+        "Sysctls": null,
+        "Tmpfs": null,
+        "Ulimits": null,
+        "User": "",
+        "UserNS": "",
+        "WorkingDir": ""
+      },
+      "DependsOn": null,
+      "Description": "Service db from project basic-multi-service",
+      "Name": "basic-multi-service-db",
+      "Networks": [
+        {
+          "Driver": "bridge",
+          "External": false,
+          "IPAM": null,
+          "IPv6": false,
+          "Internal": false,
+          "Labels": null,
+          "Name": "basic-multi-service_backend",
+          "Options": null
+        }
+      ],
+      "Volumes": [
+        {
+          "Driver": "local",
+          "External": false,
+          "Labels": null,
+          "Name": "basic-multi-service_db-data",
+          "Options": null
+        }
+      ]
+    },
+    {
+      "Annotations": null,
+      "Container": {
+        "Args": null,
         "Build": null,
-        "Labels": null,
-        "Hostname": "",
+        "Command": null,
         "ContainerName": "basic-multi-service-web",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
         "Entrypoint": null,
+        "Env": {},
+        "EnvFiles": null,
+        "EnvSecrets": null,
+        "ExtraHosts": null,
+        "Group": "",
+        "Healthcheck": null,
+        "Hostname": "",
+        "Image": "nginx:1.25",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": null,
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "basic-multi-service_frontend"
           ]
         },
+        "PidsLimit": 0,
+        "PodmanArgs": null,
+        "Ports": [
+          {
+            "Container": 80,
+            "Host": "",
+            "HostPort": 8080,
+            "Protocol": "tcp"
+          }
+        ],
+        "ReadOnly": false,
+        "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
+          "Memory": "",
+          "MemoryReservation": "",
+          "MemorySwap": "",
+          "PidsLimit": 0
+        },
+        "RestartPolicy": "unless-stopped",
+        "Secrets": null,
+        "Security": {
+          "AppArmorProfile": "",
+          "CapAdd": null,
+          "CapDrop": null,
+          "Privileged": false,
+          "ReadonlyRootfs": false,
+          "SELinuxType": "",
+          "SeccompProfile": "",
+          "SecurityOpt": null
+        },
+        "Sysctls": null,
         "Tmpfs": null,
         "Ulimits": null,
-        "Sysctls": null,
+        "User": "",
         "UserNS": "",
-        "PodmanArgs": null,
-        "PidsLimit": 0,
-        "ExtraHosts": null
+        "WorkingDir": ""
       },
-      "Volumes": null,
-      "Networks": [
-        {
-          "Name": "basic-multi-service_frontend",
-          "Driver": "bridge",
-          "Options": null,
-          "Labels": null,
-          "IPAM": null,
-          "Internal": false,
-          "IPv6": false,
-          "External": false
-        }
-      ],
       "DependsOn": [
         "basic-multi-service-app"
       ],
-      "Annotations": null
+      "Description": "Service web from project basic-multi-service",
+      "Name": "basic-multi-service-web",
+      "Networks": [
+        {
+          "Driver": "bridge",
+          "External": false,
+          "IPAM": null,
+          "IPv6": false,
+          "Internal": false,
+          "Labels": null,
+          "Name": "basic-multi-service_frontend",
+          "Options": null
+        }
+      ],
+      "Volumes": null
     }
   ],
   "volumes": [
     {
+      "Driver": "local",
+      "External": false,
+      "Labels": null,
       "Name": "basic-multi-service_app-data",
-      "Driver": "local",
-      "Options": null,
-      "Labels": null,
-      "External": false
+      "Options": null
     },
     {
+      "Driver": "local",
+      "External": false,
+      "Labels": null,
       "Name": "basic-multi-service_db-data",
-      "Driver": "local",
-      "Options": null,
-      "Labels": null,
-      "External": false
-    }
-  ],
-  "networks": [
-    {
-      "Name": "basic-multi-service_backend",
-      "Driver": "bridge",
-      "Options": null,
-      "Labels": null,
-      "IPAM": null,
-      "Internal": false,
-      "IPv6": false,
-      "External": false
-    },
-    {
-      "Name": "basic-multi-service_frontend",
-      "Driver": "bridge",
-      "Options": null,
-      "Labels": null,
-      "IPAM": null,
-      "Internal": false,
-      "IPv6": false,
-      "External": false
+      "Options": null
     }
   ]
 }

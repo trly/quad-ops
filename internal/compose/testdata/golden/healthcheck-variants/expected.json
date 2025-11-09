@@ -1,276 +1,285 @@
 {
+  "networks": [
+    {
+      "Driver": "",
+      "External": false,
+      "IPAM": null,
+      "IPv6": false,
+      "Internal": false,
+      "Labels": null,
+      "Name": "healthcheck-variants_default",
+      "Options": null
+    }
+  ],
   "services": [
     {
-      "Name": "healthcheck-variants-app",
-      "Description": "Service app from project healthcheck-variants",
+      "Annotations": null,
       "Container": {
-        "Image": "myapp:1.0",
-        "Command": null,
         "Args": null,
+        "Build": null,
+        "Command": null,
+        "ContainerName": "healthcheck-variants-app",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
+        "Entrypoint": null,
         "Env": {},
         "EnvFiles": null,
-        "WorkingDir": "",
-        "User": "",
+        "EnvSecrets": null,
+        "ExtraHosts": null,
         "Group": "",
-        "Ports": null,
-        "Mounts": null,
-        "Resources": {
-          "Memory": "",
-          "MemoryReservation": "",
-          "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
-          "PidsLimit": 0
-        },
-        "RestartPolicy": "no",
         "Healthcheck": {
+          "Interval": 10000000000,
+          "Retries": 5,
+          "StartInterval": 0,
+          "StartPeriod": 0,
           "Test": [
             "CMD-SHELL",
             "pg_isready -U postgres"
           ],
-          "Interval": 10000000000,
-          "Timeout": 5000000000,
-          "Retries": 5,
-          "StartPeriod": 0,
-          "StartInterval": 0
+          "Timeout": 5000000000
         },
-        "Security": {
-          "Privileged": false,
-          "CapAdd": null,
-          "CapDrop": null,
-          "SecurityOpt": null,
-          "ReadonlyRootfs": false,
-          "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
-        },
-        "Build": null,
-        "Labels": null,
         "Hostname": "",
-        "ContainerName": "healthcheck-variants-app",
-        "Entrypoint": null,
+        "Image": "myapp:1.0",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": null,
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "healthcheck-variants_default"
           ]
         },
-        "Tmpfs": null,
-        "Ulimits": null,
-        "Sysctls": null,
-        "UserNS": "",
-        "PodmanArgs": null,
         "PidsLimit": 0,
-        "ExtraHosts": null
-      },
-      "Volumes": null,
-      "Networks": [
-        {
-          "Name": "healthcheck-variants_default",
-          "Driver": "",
-          "Options": null,
-          "Labels": null,
-          "IPAM": null,
-          "Internal": false,
-          "IPv6": false,
-          "External": false
-        }
-      ],
-      "DependsOn": null,
-      "Annotations": null
-    },
-    {
-      "Name": "healthcheck-variants-disabled",
-      "Description": "Service disabled from project healthcheck-variants",
-      "Container": {
-        "Image": "nohealth:1.0",
-        "Command": null,
-        "Args": null,
-        "Env": {},
-        "EnvFiles": null,
-        "WorkingDir": "",
-        "User": "",
-        "Group": "",
+        "PodmanArgs": null,
         "Ports": null,
-        "Mounts": null,
+        "ReadOnly": false,
         "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
           "Memory": "",
           "MemoryReservation": "",
           "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
           "PidsLimit": 0
         },
         "RestartPolicy": "no",
-        "Healthcheck": null,
+        "Secrets": null,
         "Security": {
-          "Privileged": false,
+          "AppArmorProfile": "",
           "CapAdd": null,
           "CapDrop": null,
-          "SecurityOpt": null,
+          "Privileged": false,
           "ReadonlyRootfs": false,
           "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
+          "SeccompProfile": "",
+          "SecurityOpt": null
         },
+        "Sysctls": null,
+        "Tmpfs": null,
+        "Ulimits": null,
+        "User": "",
+        "UserNS": "",
+        "WorkingDir": ""
+      },
+      "DependsOn": null,
+      "Description": "Service app from project healthcheck-variants",
+      "Name": "healthcheck-variants-app",
+      "Networks": [
+        {
+          "Driver": "",
+          "External": false,
+          "IPAM": null,
+          "IPv6": false,
+          "Internal": false,
+          "Labels": null,
+          "Name": "healthcheck-variants_default",
+          "Options": null
+        }
+      ],
+      "Volumes": null
+    },
+    {
+      "Annotations": null,
+      "Container": {
+        "Args": null,
         "Build": null,
-        "Labels": null,
-        "Hostname": "",
+        "Command": null,
         "ContainerName": "healthcheck-variants-disabled",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
         "Entrypoint": null,
+        "Env": {},
+        "EnvFiles": null,
+        "EnvSecrets": null,
+        "ExtraHosts": null,
+        "Group": "",
+        "Healthcheck": null,
+        "Hostname": "",
+        "Image": "nohealth:1.0",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": null,
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "healthcheck-variants_default"
           ]
         },
-        "Tmpfs": null,
-        "Ulimits": null,
-        "Sysctls": null,
-        "UserNS": "",
-        "PodmanArgs": null,
         "PidsLimit": 0,
-        "ExtraHosts": null
-      },
-      "Volumes": null,
-      "Networks": [
-        {
-          "Name": "healthcheck-variants_default",
-          "Driver": "",
-          "Options": null,
-          "Labels": null,
-          "IPAM": null,
-          "Internal": false,
-          "IPv6": false,
-          "External": false
-        }
-      ],
-      "DependsOn": null,
-      "Annotations": null
-    },
-    {
-      "Name": "healthcheck-variants-web",
-      "Description": "Service web from project healthcheck-variants",
-      "Container": {
-        "Image": "nginx:latest",
-        "Command": null,
-        "Args": null,
-        "Env": {},
-        "EnvFiles": null,
-        "WorkingDir": "",
-        "User": "",
-        "Group": "",
+        "PodmanArgs": null,
         "Ports": null,
-        "Mounts": null,
+        "ReadOnly": false,
         "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
           "Memory": "",
           "MemoryReservation": "",
           "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
           "PidsLimit": 0
         },
         "RestartPolicy": "no",
+        "Secrets": null,
+        "Security": {
+          "AppArmorProfile": "",
+          "CapAdd": null,
+          "CapDrop": null,
+          "Privileged": false,
+          "ReadonlyRootfs": false,
+          "SELinuxType": "",
+          "SeccompProfile": "",
+          "SecurityOpt": null
+        },
+        "Sysctls": null,
+        "Tmpfs": null,
+        "Ulimits": null,
+        "User": "",
+        "UserNS": "",
+        "WorkingDir": ""
+      },
+      "DependsOn": null,
+      "Description": "Service disabled from project healthcheck-variants",
+      "Name": "healthcheck-variants-disabled",
+      "Networks": [
+        {
+          "Driver": "",
+          "External": false,
+          "IPAM": null,
+          "IPv6": false,
+          "Internal": false,
+          "Labels": null,
+          "Name": "healthcheck-variants_default",
+          "Options": null
+        }
+      ],
+      "Volumes": null
+    },
+    {
+      "Annotations": null,
+      "Container": {
+        "Args": null,
+        "Build": null,
+        "Command": null,
+        "ContainerName": "healthcheck-variants-web",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
+        "Entrypoint": null,
+        "Env": {},
+        "EnvFiles": null,
+        "EnvSecrets": null,
+        "ExtraHosts": null,
+        "Group": "",
         "Healthcheck": {
+          "Interval": 30000000000,
+          "Retries": 3,
+          "StartInterval": 5000000000,
+          "StartPeriod": 40000000000,
           "Test": [
             "CMD",
             "curl",
             "-f",
             "http://localhost"
           ],
-          "Interval": 30000000000,
-          "Timeout": 10000000000,
-          "Retries": 3,
-          "StartPeriod": 40000000000,
-          "StartInterval": 5000000000
+          "Timeout": 10000000000
         },
-        "Security": {
-          "Privileged": false,
-          "CapAdd": null,
-          "CapDrop": null,
-          "SecurityOpt": null,
-          "ReadonlyRootfs": false,
-          "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
-        },
-        "Build": null,
-        "Labels": null,
         "Hostname": "",
-        "ContainerName": "healthcheck-variants-web",
-        "Entrypoint": null,
+        "Image": "nginx:latest",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": null,
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "healthcheck-variants_default"
           ]
         },
+        "PidsLimit": 0,
+        "PodmanArgs": null,
+        "Ports": null,
+        "ReadOnly": false,
+        "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
+          "Memory": "",
+          "MemoryReservation": "",
+          "MemorySwap": "",
+          "PidsLimit": 0
+        },
+        "RestartPolicy": "no",
+        "Secrets": null,
+        "Security": {
+          "AppArmorProfile": "",
+          "CapAdd": null,
+          "CapDrop": null,
+          "Privileged": false,
+          "ReadonlyRootfs": false,
+          "SELinuxType": "",
+          "SeccompProfile": "",
+          "SecurityOpt": null
+        },
+        "Sysctls": null,
         "Tmpfs": null,
         "Ulimits": null,
-        "Sysctls": null,
+        "User": "",
         "UserNS": "",
-        "PodmanArgs": null,
-        "PidsLimit": 0,
-        "ExtraHosts": null
+        "WorkingDir": ""
       },
-      "Volumes": null,
+      "DependsOn": null,
+      "Description": "Service web from project healthcheck-variants",
+      "Name": "healthcheck-variants-web",
       "Networks": [
         {
-          "Name": "healthcheck-variants_default",
           "Driver": "",
-          "Options": null,
-          "Labels": null,
+          "External": false,
           "IPAM": null,
-          "Internal": false,
           "IPv6": false,
-          "External": false
+          "Internal": false,
+          "Labels": null,
+          "Name": "healthcheck-variants_default",
+          "Options": null
         }
       ],
-      "DependsOn": null,
-      "Annotations": null
+      "Volumes": null
     }
   ],
-  "volumes": null,
-  "networks": [
-    {
-      "Name": "healthcheck-variants_default",
-      "Driver": "",
-      "Options": null,
-      "Labels": null,
-      "IPAM": null,
-      "Internal": false,
-      "IPv6": false,
-      "External": false
-    }
-  ]
+  "volumes": null
 }

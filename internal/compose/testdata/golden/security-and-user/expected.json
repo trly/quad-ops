@@ -1,32 +1,75 @@
 {
+  "networks": [
+    {
+      "Driver": "",
+      "External": false,
+      "IPAM": null,
+      "IPv6": false,
+      "Internal": false,
+      "Labels": null,
+      "Name": "security-and-user_default",
+      "Options": null
+    }
+  ],
   "services": [
     {
-      "Name": "security-and-user-app",
-      "Description": "Service app from project security-and-user",
+      "Annotations": null,
       "Container": {
-        "Image": "myapp:1.0",
-        "Command": null,
         "Args": null,
+        "Build": null,
+        "Command": null,
+        "ContainerName": "security-and-user-app",
+        "DNS": [
+          "8.8.4.4",
+          "8.8.8.8"
+        ],
+        "DNSOptions": null,
+        "DNSSearch": [
+          "example.com"
+        ],
+        "Entrypoint": null,
         "Env": {},
         "EnvFiles": null,
-        "WorkingDir": "/app",
-        "User": "1000",
+        "EnvSecrets": null,
+        "ExtraHosts": [
+          "custom.local:192.168.1.100",
+          "host.docker.internal:host-gateway"
+        ],
         "Group": "1000",
-        "Ports": null,
+        "Healthcheck": null,
+        "Hostname": "myapp-host",
+        "Image": "myapp:1.0",
+        "Init": false,
+        "Labels": null,
+        "Logging": {
+          "Driver": "",
+          "Options": null
+        },
         "Mounts": null,
+        "Network": {
+          "Aliases": null,
+          "Mode": "bridge",
+          "ServiceNetworks": [
+            "security-and-user_default"
+          ]
+        },
+        "PidsLimit": 0,
+        "PodmanArgs": null,
+        "Ports": null,
+        "ReadOnly": true,
         "Resources": {
+          "CPUPeriod": 0,
+          "CPUQuota": 0,
+          "CPUShares": 0,
           "Memory": "",
           "MemoryReservation": "",
           "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 0,
-          "CPUPeriod": 0,
           "PidsLimit": 0
         },
         "RestartPolicy": "no",
-        "Healthcheck": null,
+        "Secrets": null,
         "Security": {
-          "Privileged": false,
+          "AppArmorProfile": "docker-default",
           "CapAdd": [
             "NET_ADMIN",
             "SYS_TIME"
@@ -34,75 +77,40 @@
           "CapDrop": [
             "ALL"
           ],
+          "Privileged": false,
+          "ReadonlyRootfs": true,
+          "SELinuxType": "container_runtime_t",
+          "SeccompProfile": "unconfined",
           "SecurityOpt": [
             "seccomp=unconfined",
             "apparmor=docker-default",
             "label=type:container_runtime_t"
-          ],
-          "ReadonlyRootfs": true,
-          "SELinuxType": "container_runtime_t",
-          "AppArmorProfile": "docker-default",
-          "SeccompProfile": "unconfined"
-        },
-        "Build": null,
-        "Labels": null,
-        "Hostname": "myapp-host",
-        "ContainerName": "security-and-user-app",
-        "Entrypoint": null,
-        "Init": false,
-        "ReadOnly": true,
-        "Logging": {
-          "Driver": "",
-          "Options": null
-        },
-        "Secrets": null,
-        "EnvSecrets": null,
-        "Network": {
-          "Mode": "bridge",
-          "Aliases": null,
-          "ServiceNetworks": [
-            "security-and-user_default"
           ]
         },
+        "Sysctls": null,
         "Tmpfs": null,
         "Ulimits": null,
-        "Sysctls": null,
+        "User": "1000",
         "UserNS": "",
-        "PodmanArgs": null,
-        "PidsLimit": 0,
-        "ExtraHosts": [
-          "custom.local:192.168.1.100",
-          "host.docker.internal:host-gateway"
-        ]
+        "WorkingDir": "/app"
       },
-      "Volumes": null,
+      "DependsOn": null,
+      "Description": "Service app from project security-and-user",
+      "Name": "security-and-user-app",
       "Networks": [
         {
-          "Name": "security-and-user_default",
           "Driver": "",
-          "Options": null,
-          "Labels": null,
+          "External": false,
           "IPAM": null,
-          "Internal": false,
           "IPv6": false,
-          "External": false
+          "Internal": false,
+          "Labels": null,
+          "Name": "security-and-user_default",
+          "Options": null
         }
       ],
-      "DependsOn": null,
-      "Annotations": null
+      "Volumes": null
     }
   ],
-  "volumes": null,
-  "networks": [
-    {
-      "Name": "security-and-user_default",
-      "Driver": "",
-      "Options": null,
-      "Labels": null,
-      "IPAM": null,
-      "Internal": false,
-      "IPv6": false,
-      "External": false
-    }
-  ]
+  "volumes": null
 }

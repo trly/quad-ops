@@ -1187,6 +1187,230 @@ func TestSpecConverter_ConvertExtraHosts(t *testing.T) {
 	}
 }
 
+func TestSpecConverter_ConvertDNS(t *testing.T) {
+	tests := []struct {
+		name           string
+		serviceName    string
+		composeService types.ServiceConfig
+		project        *types.Project
+		validate       func(t *testing.T, specs []service.Spec)
+		wantErr        bool
+	}{
+		{
+			name:        "service with single DNS server",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx:latest",
+				DNS:   []string{"8.8.8.8"},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.DNS, 1)
+				assert.Contains(t, spec.Container.DNS, "8.8.8.8")
+			},
+		},
+		{
+			name:        "service with multiple DNS servers",
+			serviceName: "app",
+			composeService: types.ServiceConfig{
+				Name:  "app",
+				Image: "app:1.0",
+				DNS:   []string{"8.8.8.8", "8.8.4.4", "1.1.1.1"},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.DNS, 3)
+				assert.Contains(t, spec.Container.DNS, "8.8.8.8")
+				assert.Contains(t, spec.Container.DNS, "8.8.4.4")
+				assert.Contains(t, spec.Container.DNS, "1.1.1.1")
+			},
+		},
+		{
+			name:        "service with single DNS search domain",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:      "web",
+				Image:     "nginx:latest",
+				DNSSearch: []string{"example.com"},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.DNSSearch, 1)
+				assert.Contains(t, spec.Container.DNSSearch, "example.com")
+			},
+		},
+		{
+			name:        "service with multiple DNS search domains",
+			serviceName: "app",
+			composeService: types.ServiceConfig{
+				Name:      "app",
+				Image:     "app:1.0",
+				DNSSearch: []string{"example.com", "internal.local", "corp.net"},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.DNSSearch, 3)
+				assert.Contains(t, spec.Container.DNSSearch, "example.com")
+				assert.Contains(t, spec.Container.DNSSearch, "internal.local")
+				assert.Contains(t, spec.Container.DNSSearch, "corp.net")
+			},
+		},
+		{
+			name:        "service with single DNS option",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:    "web",
+				Image:   "nginx:latest",
+				DNSOpts: []string{"ndots:5"},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.DNSOptions, 1)
+				assert.Contains(t, spec.Container.DNSOptions, "ndots:5")
+			},
+		},
+		{
+			name:        "service with multiple DNS options",
+			serviceName: "app",
+			composeService: types.ServiceConfig{
+				Name:    "app",
+				Image:   "app:1.0",
+				DNSOpts: []string{"ndots:5", "timeout:2", "attempts:3"},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.DNSOptions, 3)
+				assert.Contains(t, spec.Container.DNSOptions, "ndots:5")
+				assert.Contains(t, spec.Container.DNSOptions, "timeout:2")
+				assert.Contains(t, spec.Container.DNSOptions, "attempts:3")
+			},
+		},
+		{
+			name:        "service with all DNS settings",
+			serviceName: "app",
+			composeService: types.ServiceConfig{
+				Name:      "app",
+				Image:     "app:1.0",
+				DNS:       []string{"8.8.8.8", "1.1.1.1"},
+				DNSSearch: []string{"example.com", "internal.local"},
+				DNSOpts:   []string{"ndots:5", "timeout:2"},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.DNS, 2)
+				assert.Contains(t, spec.Container.DNS, "8.8.8.8")
+				assert.Contains(t, spec.Container.DNS, "1.1.1.1")
+				assert.Len(t, spec.Container.DNSSearch, 2)
+				assert.Contains(t, spec.Container.DNSSearch, "example.com")
+				assert.Contains(t, spec.Container.DNSSearch, "internal.local")
+				assert.Len(t, spec.Container.DNSOptions, 2)
+				assert.Contains(t, spec.Container.DNSOptions, "ndots:5")
+				assert.Contains(t, spec.Container.DNSOptions, "timeout:2")
+			},
+		},
+		{
+			name:        "service with empty DNS arrays",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:      "web",
+				Image:     "nginx:latest",
+				DNS:       []string{},
+				DNSSearch: []string{},
+				DNSOpts:   []string{},
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Len(t, spec.Container.DNS, 0)
+				assert.Len(t, spec.Container.DNSSearch, 0)
+				assert.Len(t, spec.Container.DNSOptions, 0)
+			},
+		},
+		{
+			name:        "service with nil DNS arrays",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:      "web",
+				Image:     "nginx:latest",
+				DNS:       nil,
+				DNSSearch: nil,
+				DNSOpts:   nil,
+			},
+			project: &types.Project{
+				Name:       "test",
+				WorkingDir: "/test",
+			},
+			validate: func(t *testing.T, specs []service.Spec) {
+				require.Len(t, specs, 1)
+				spec := specs[0]
+				assert.Nil(t, spec.Container.DNS)
+				assert.Nil(t, spec.Container.DNSSearch)
+				assert.Nil(t, spec.Container.DNSOptions)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := NewSpecConverter(tt.project.WorkingDir)
+			specs, err := converter.convertService(tt.serviceName, tt.composeService, tt.project)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			tt.validate(t, specs)
+
+			// Validate all specs
+			for _, spec := range specs {
+				assert.NoError(t, spec.Validate())
+			}
+		})
+	}
+}
+
 // Helper functions.
 
 func strPtr(s string) *string {

@@ -1,110 +1,113 @@
 {
+  "networks": [
+    {
+      "Driver": "",
+      "External": false,
+      "IPAM": null,
+      "IPv6": false,
+      "Internal": false,
+      "Labels": null,
+      "Name": "resources-limits_default",
+      "Options": null
+    }
+  ],
   "services": [
     {
-      "Name": "resources-limits-app",
-      "Description": "Service app from project resources-limits",
+      "Annotations": null,
       "Container": {
-        "Image": "myapp:1.0",
-        "Command": null,
         "Args": null,
+        "Build": null,
+        "Command": null,
+        "ContainerName": "resources-limits-app",
+        "DNS": null,
+        "DNSOptions": null,
+        "DNSSearch": null,
+        "Entrypoint": null,
         "Env": {},
         "EnvFiles": null,
-        "WorkingDir": "",
-        "User": "",
+        "EnvSecrets": null,
+        "ExtraHosts": null,
         "Group": "",
-        "Ports": null,
-        "Mounts": null,
-        "Resources": {
-          "Memory": "512m",
-          "MemoryReservation": "256m",
-          "MemorySwap": "",
-          "CPUShares": 0,
-          "CPUQuota": 150000,
-          "CPUPeriod": 100000,
-          "PidsLimit": 100
-        },
-        "RestartPolicy": "no",
         "Healthcheck": null,
-        "Security": {
-          "Privileged": false,
-          "CapAdd": null,
-          "CapDrop": null,
-          "SecurityOpt": null,
-          "ReadonlyRootfs": false,
-          "SELinuxType": "",
-          "AppArmorProfile": "",
-          "SeccompProfile": ""
-        },
-        "Build": null,
-        "Labels": null,
         "Hostname": "",
-        "ContainerName": "resources-limits-app",
-        "Entrypoint": null,
+        "Image": "myapp:1.0",
         "Init": false,
-        "ReadOnly": false,
+        "Labels": null,
         "Logging": {
           "Driver": "",
           "Options": null
         },
-        "Secrets": null,
-        "EnvSecrets": null,
+        "Mounts": null,
         "Network": {
-          "Mode": "bridge",
           "Aliases": null,
+          "Mode": "bridge",
           "ServiceNetworks": [
             "resources-limits_default"
           ]
         },
-        "Tmpfs": null,
-        "Ulimits": [
-          {
-            "Name": "nofile",
-            "Soft": 1024,
-            "Hard": 2048
-          },
-          {
-            "Name": "nproc",
-            "Soft": 0,
-            "Hard": 0
-          }
-        ],
+        "PidsLimit": 0,
+        "PodmanArgs": null,
+        "Ports": null,
+        "ReadOnly": false,
+        "Resources": {
+          "CPUPeriod": 100000,
+          "CPUQuota": 150000,
+          "CPUShares": 0,
+          "Memory": "512m",
+          "MemoryReservation": "256m",
+          "MemorySwap": "",
+          "PidsLimit": 100
+        },
+        "RestartPolicy": "no",
+        "Secrets": null,
+        "Security": {
+          "AppArmorProfile": "",
+          "CapAdd": null,
+          "CapDrop": null,
+          "Privileged": false,
+          "ReadonlyRootfs": false,
+          "SELinuxType": "",
+          "SeccompProfile": "",
+          "SecurityOpt": null
+        },
         "Sysctls": {
           "net.core.somaxconn": "1024",
           "net.ipv4.tcp_syncookies": "0"
         },
+        "Tmpfs": null,
+        "Ulimits": [
+          {
+            "Hard": 2048,
+            "Name": "nofile",
+            "Soft": 1024
+          },
+          {
+            "Hard": 0,
+            "Name": "nproc",
+            "Soft": 0
+          }
+        ],
+        "User": "",
         "UserNS": "",
-        "PodmanArgs": null,
-        "PidsLimit": 0,
-        "ExtraHosts": null
+        "WorkingDir": ""
       },
-      "Volumes": null,
+      "DependsOn": null,
+      "Description": "Service app from project resources-limits",
+      "Name": "resources-limits-app",
       "Networks": [
         {
-          "Name": "resources-limits_default",
           "Driver": "",
-          "Options": null,
-          "Labels": null,
+          "External": false,
           "IPAM": null,
-          "Internal": false,
           "IPv6": false,
-          "External": false
+          "Internal": false,
+          "Labels": null,
+          "Name": "resources-limits_default",
+          "Options": null
         }
       ],
-      "DependsOn": null,
-      "Annotations": null
+      "Volumes": null
     }
   ],
-  "volumes": null,
-  "networks": [
-    {
-      "Name": "resources-limits_default",
-      "Driver": "",
-      "Options": null,
-      "Labels": null,
-      "IPAM": null,
-      "Internal": false,
-      "IPv6": false,
-      "External": false
-    }
-  ]
+  "volumes": null
 }

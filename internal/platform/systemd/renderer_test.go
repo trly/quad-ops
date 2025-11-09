@@ -1069,6 +1069,128 @@ func TestRenderer_RenderMixedConstraints(t *testing.T) {
 	assert.Contains(t, content, "PodmanArgs=--cpu-shares 2048")
 }
 
+func TestRenderer_RenderDNS(t *testing.T) {
+	tests := []struct {
+		name      string
+		container service.Container
+		wantDNS   []string
+	}{
+		{
+			name: "single DNS server",
+			container: service.Container{
+				Image: "alpine:latest",
+				DNS:   []string{"8.8.8.8"},
+			},
+			wantDNS: []string{"DNS=8.8.8.8"},
+		},
+		{
+			name: "multiple DNS servers",
+			container: service.Container{
+				Image: "alpine:latest",
+				DNS:   []string{"8.8.8.8", "8.8.4.4", "1.1.1.1"},
+			},
+			wantDNS: []string{"DNS=8.8.8.8", "DNS=8.8.4.4", "DNS=1.1.1.1"},
+		},
+		{
+			name: "single DNS search domain",
+			container: service.Container{
+				Image:     "alpine:latest",
+				DNSSearch: []string{"example.com"},
+			},
+			wantDNS: []string{"DNSSearch=example.com"},
+		},
+		{
+			name: "multiple DNS search domains",
+			container: service.Container{
+				Image:     "alpine:latest",
+				DNSSearch: []string{"example.com", "internal.local", "corp.net"},
+			},
+			wantDNS: []string{"DNSSearch=example.com", "DNSSearch=internal.local", "DNSSearch=corp.net"},
+		},
+		{
+			name: "single DNS option",
+			container: service.Container{
+				Image:      "alpine:latest",
+				DNSOptions: []string{"ndots:5"},
+			},
+			wantDNS: []string{"DNSOption=ndots:5"},
+		},
+		{
+			name: "multiple DNS options",
+			container: service.Container{
+				Image:      "alpine:latest",
+				DNSOptions: []string{"ndots:5", "timeout:2", "attempts:3"},
+			},
+			wantDNS: []string{"DNSOption=ndots:5", "DNSOption=timeout:2", "DNSOption=attempts:3"},
+		},
+		{
+			name: "all DNS settings combined",
+			container: service.Container{
+				Image:      "alpine:latest",
+				DNS:        []string{"8.8.8.8", "1.1.1.1"},
+				DNSSearch:  []string{"example.com", "internal.local"},
+				DNSOptions: []string{"ndots:5", "timeout:2"},
+			},
+			wantDNS: []string{
+				"DNS=8.8.8.8",
+				"DNS=1.1.1.1",
+				"DNSSearch=example.com",
+				"DNSSearch=internal.local",
+				"DNSOption=ndots:5",
+				"DNSOption=timeout:2",
+			},
+		},
+		{
+			name: "empty DNS arrays not rendered",
+			container: service.Container{
+				Image:      "alpine:latest",
+				DNS:        []string{},
+				DNSSearch:  []string{},
+				DNSOptions: []string{},
+			},
+			wantDNS: []string{},
+		},
+		{
+			name: "nil DNS arrays not rendered",
+			container: service.Container{
+				Image:      "alpine:latest",
+				DNS:        nil,
+				DNSSearch:  nil,
+				DNSOptions: nil,
+			},
+			wantDNS: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := testutil.NewTestLogger(t)
+			r := NewRenderer(logger)
+
+			spec := service.Spec{
+				Name:      "app",
+				Container: tt.container,
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+
+			for _, expected := range tt.wantDNS {
+				assert.Contains(t, content, expected, "expected DNS directive: %s", expected)
+			}
+
+			if len(tt.wantDNS) == 0 {
+				assert.NotContains(t, content, "DNS=")
+				assert.NotContains(t, content, "DNSSearch=")
+				assert.NotContains(t, content, "DNSOption=")
+			}
+		})
+	}
+}
+
 func TestRenderer_ZeroValuesNotRendered(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
 	r := NewRenderer(logger)
