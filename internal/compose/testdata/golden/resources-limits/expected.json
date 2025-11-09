@@ -52,7 +52,7 @@
           "Mode": "bridge",
           "Aliases": null,
           "ServiceNetworks": [
-            "resources-limits-default"
+            "resources-limits_default"
           ]
         },
         "Tmpfs": null,
@@ -79,7 +79,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "resources-limits-default",
+          "Name": "resources-limits_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -96,7 +96,7 @@
   "volumes": null,
   "networks": [
     {
-      "Name": "resources-limits-default",
+      "Name": "resources-limits_default",
       "Driver": "",
       "Options": null,
       "Labels": null,

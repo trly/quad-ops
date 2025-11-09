@@ -561,14 +561,14 @@ func TestSanitizeName(t *testing.T) {
 			expected: "my-service",
 		},
 		{
-			name:     "underscores converted to hyphens",
+			name:     "underscores preserved",
 			input:    "my_service",
-			expected: "my-service",
+			expected: "my_service",
 		},
 		{
-			name:     "dots preserved, underscores to hyphens",
+			name:     "dots and underscores preserved",
 			input:    "my_service.v1",
-			expected: "my-service.v1",
+			expected: "my_service.v1",
 		},
 		{
 			name:     "collapse multiple hyphens",
@@ -632,6 +632,150 @@ func TestServiceNameRegex(t *testing.T) {
 	for _, name := range invalidNames {
 		t.Run("invalid: "+name, func(t *testing.T) {
 			assert.False(t, serviceNameRegex.MatchString(name), "expected %q to be invalid", name)
+		})
+	}
+}
+
+// TestSanitizeName_UnderscorePreservation tests that underscores are preserved
+// for backward compatibility with v0.21.2 and systemd unit name validity.
+// This addresses quad-ops-ksi (name instability regression).
+func TestSanitizeName_UnderscorePreservation(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		reason   string
+	}{
+		{
+			name:     "preserve single underscore",
+			input:    "my_service",
+			expected: "my_service",
+			reason:   "underscores are valid in systemd unit names",
+		},
+		{
+			name:     "preserve multiple underscores",
+			input:    "my_service_name",
+			expected: "my_service_name",
+			reason:   "all underscores should be preserved",
+		},
+		{
+			name:     "preserve underscores with hyphens",
+			input:    "my_service-name",
+			expected: "my_service-name",
+			reason:   "mix of underscores and hyphens is valid",
+		},
+		{
+			name:     "preserve underscores with dots",
+			input:    "my_service.v1",
+			expected: "my_service.v1",
+			reason:   "underscores with dots are both valid",
+		},
+		{
+			name:     "preserve leading underscore after valid char",
+			input:    "a_service",
+			expected: "a_service",
+			reason:   "underscore after alphanumeric is valid",
+		},
+		{
+			name:     "replace invalid chars but keep underscores",
+			input:    "my_service@test",
+			expected: "my_service-test",
+			reason:   "only invalid chars should be replaced",
+		},
+		{
+			name:     "v0.21.2 compatibility - database_backup",
+			input:    "database_backup",
+			expected: "database_backup",
+			reason:   "common v0.21.2 naming pattern",
+		},
+		{
+			name:     "v0.21.2 compatibility - web_app_server",
+			input:    "web_app_server",
+			expected: "web_app_server",
+			reason:   "common v0.21.2 naming pattern with multiple underscores",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SanitizeName(tt.input)
+			assert.Equal(t, tt.expected, result, tt.reason)
+		})
+	}
+}
+
+// TestSanitizeName_DependencyStability tests that sanitized names don't break
+// dependency edges, addressing the core issue in quad-ops-ksi.
+func TestSanitizeName_DependencyStability(t *testing.T) {
+	// Simulate v0.21.2 service names with underscores
+	serviceName := "api_gateway"
+	dependencyName := "auth_service"
+
+	// Both should preserve underscores to maintain dependency edges
+	sanitizedService := SanitizeName(serviceName)
+	sanitizedDependency := SanitizeName(dependencyName)
+
+	assert.Equal(t, "api_gateway", sanitizedService, "service name should preserve underscores")
+	assert.Equal(t, "auth_service", sanitizedDependency, "dependency name should preserve underscores")
+
+	// If we have a spec with this dependency, it should validate
+	spec := Spec{
+		Name: sanitizedService,
+		Container: Container{
+			Image: "nginx:latest",
+		},
+		DependsOn: []string{sanitizedDependency},
+	}
+
+	err := spec.Validate()
+	assert.NoError(t, err, "spec with underscored dependencies should validate")
+}
+
+// TestSanitizeName_SystemdCompatibility tests that sanitized names are valid
+// for systemd unit files.
+func TestSanitizeName_SystemdCompatibility(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		reason   string
+	}{
+		{
+			name:     "systemd allows underscores",
+			input:    "service_name",
+			expected: "service_name",
+			reason:   "systemd.unit(5) allows underscores in unit names",
+		},
+		{
+			name:     "systemd requires alphanumeric start",
+			input:    "_service",
+			expected: "service",
+			reason:   "leading underscore should be removed",
+		},
+		{
+			name:     "systemd allows dots",
+			input:    "service.backup",
+			expected: "service.backup",
+			reason:   "dots are valid in systemd unit names",
+		},
+		{
+			name:     "systemd allows hyphens",
+			input:    "my-service",
+			expected: "my-service",
+			reason:   "hyphens are valid in systemd unit names",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := SanitizeName(tt.input)
+			assert.Equal(t, tt.expected, result, tt.reason)
+
+			// Verify result matches validation regex
+			if result != "" {
+				assert.True(t, serviceNameRegex.MatchString(result),
+					"sanitized name %q should match validation regex", result)
+			}
 		})
 	}
 }

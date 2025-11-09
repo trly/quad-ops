@@ -107,7 +107,7 @@
           "Mode": "bridge",
           "Aliases": null,
           "ServiceNetworks": [
-            "ports-matrix-default"
+            "ports-matrix_default"
           ]
         },
         "Tmpfs": null,
@@ -120,7 +120,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "ports-matrix-default",
+          "Name": "ports-matrix_default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -137,7 +137,7 @@
   "volumes": null,
   "networks": [
     {
-      "Name": "ports-matrix-default",
+      "Name": "ports-matrix_default",
       "Driver": "",
       "Options": null,
       "Labels": null,
