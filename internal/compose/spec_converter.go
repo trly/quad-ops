@@ -118,6 +118,9 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		Ulimits:       sc.convertUlimits(composeService.Ulimits),
 		Sysctls:       composeService.Sysctls,
 		UserNS:        composeService.UserNSMode,
+		PidMode:       composeService.Pid,
+		IpcMode:       composeService.Ipc,
+		CgroupMode:    composeService.Cgroup,
 		ExtraHosts:    sc.convertExtraHosts(composeService.ExtraHosts),
 		DNS:           sc.convertDNS(composeService.DNS),
 		DNSSearch:     sc.convertDNSSearch(composeService.DNSSearch),
@@ -418,6 +421,7 @@ func (sc *SpecConverter) convertSecurity(composeService types.ServiceConfig) ser
 		CapDrop:        composeService.CapDrop,
 		SecurityOpt:    composeService.SecurityOpt,
 		ReadonlyRootfs: composeService.ReadOnly,
+		GroupAdd:       composeService.GroupAdd,
 	}
 
 	// Parse security_opt for specific fields

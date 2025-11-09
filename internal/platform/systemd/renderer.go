@@ -553,6 +553,10 @@ func (r *Renderer) addSecurity(builder *strings.Builder, c service.Container) {
 		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--security-opt=%s", opt)))
 	}
 
+	for _, group := range c.Security.GroupAdd {
+		builder.WriteString(formatKeyValue("GroupAdd", group))
+	}
+
 	if c.UserNS != "" {
 		builder.WriteString(formatKeyValue("UserNS", c.UserNS))
 	}

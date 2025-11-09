@@ -56,6 +56,9 @@ type Container struct {
 	DNSSearch     []string          // DNS search domains
 	DNSOptions    []string          // DNS options
 	Devices       []string          // Device mappings in "host:container" or "host:container:permissions" format
+	PidMode       string            // PID namespace mode
+	IpcMode       string            // IPC namespace mode
+	CgroupMode    string            // Cgroup namespace mode
 }
 
 // InitContainer represents an init container configuration.
@@ -153,6 +156,7 @@ type Security struct {
 	SELinuxType     string   // SELinux type label
 	AppArmorProfile string   // AppArmor profile
 	SeccompProfile  string   // Seccomp profile
+	GroupAdd        []string // Additional groups to join
 }
 
 // Build represents container build configuration.

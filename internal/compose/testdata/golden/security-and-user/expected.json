@@ -42,7 +42,11 @@
           "ReadonlyRootfs": true,
           "SELinuxType": "container_runtime_t",
           "AppArmorProfile": "docker-default",
-          "SeccompProfile": "unconfined"
+          "SeccompProfile": "unconfined",
+          "GroupAdd": [
+            "2000",
+            "3000"
+          ]
         },
         "Build": null,
         "Labels": null,
@@ -84,7 +88,10 @@
         "DNSOptions": null,
         "Devices": [
           "/dev/sda:/dev/xvda:rwm"
-        ]
+        ],
+        "PidMode": "",
+        "IpcMode": "",
+        "CgroupMode": ""
       },
       "Volumes": null,
       "Networks": [

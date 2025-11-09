@@ -300,6 +300,9 @@ func appendSecurityArgs(args []string, sec service.Security) []string {
 	if sec.SeccompProfile != "" {
 		args = append(args, "--security-opt", fmt.Sprintf("seccomp=%s", sec.SeccompProfile))
 	}
+	for _, group := range sec.GroupAdd {
+		args = append(args, "--group-add", group)
+	}
 	return args
 }
 

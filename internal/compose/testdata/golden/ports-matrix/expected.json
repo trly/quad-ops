@@ -88,7 +88,8 @@
           "ReadonlyRootfs": false,
           "SELinuxType": "",
           "AppArmorProfile": "",
-          "SeccompProfile": ""
+          "SeccompProfile": "",
+          "GroupAdd": null
         },
         "Build": null,
         "Labels": null,
@@ -120,7 +121,10 @@
         "DNS": null,
         "DNSSearch": null,
         "DNSOptions": null,
-        "Devices": null
+        "Devices": null,
+        "PidMode": "",
+        "IpcMode": "",
+        "CgroupMode": ""
       },
       "Volumes": null,
       "Networks": [
