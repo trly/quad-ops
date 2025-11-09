@@ -1093,3 +1093,36 @@ func TestRenderer_NoDuplicatePidsLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderer_TimeoutStartSecDefault(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name:        "web",
+		Description: "Web server",
+		Container: service.Container{
+			Image:         "nginx:latest",
+			RestartPolicy: service.RestartPolicyAlways,
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	content := string(result.Artifacts[0].Content)
+
+	// Verify TimeoutStartSec is set to 900 seconds (15 minutes)
+	assert.Contains(t, content, "TimeoutStartSec=900")
+
+	// Verify it's in the [Service] section
+	serviceIdx := strings.Index(content, "[Service]")
+	installIdx := strings.Index(content, "[Install]")
+	assert.Greater(t, serviceIdx, -1)
+	assert.Greater(t, installIdx, -1)
+
+	timeoutIdx := strings.Index(content, "TimeoutStartSec=900")
+	assert.Greater(t, timeoutIdx, serviceIdx, "TimeoutStartSec should be in [Service] section")
+	assert.Less(t, timeoutIdx, installIdx, "TimeoutStartSec should be before [Install] section")
+}

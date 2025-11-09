@@ -222,6 +222,10 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	restart := r.mapRestartPolicy(spec.Container.RestartPolicy)
 	builder.WriteString(formatKeyValue("Restart", restart))
 
+	// Set timeout for image pull (default 15 minutes = 900 seconds)
+	// This prevents systemd's default 90-second timeout from killing long image pulls
+	builder.WriteString(formatKeyValue("TimeoutStartSec", "900"))
+
 	builder.WriteString("\n[Install]\n")
 	builder.WriteString("WantedBy=default.target\n")
 
