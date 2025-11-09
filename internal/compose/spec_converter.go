@@ -63,7 +63,7 @@ func (sc *SpecConverter) convertService(serviceName string, composeService types
 		Name:        sanitizedName,
 		Description: fmt.Sprintf("Service %s from project %s", serviceName, project.Name),
 		Container:   container,
-		Volumes:     sc.convertProjectVolumes(project),
+		Volumes:     sc.convertServiceVolumes(composeService, project),
 		Networks:    sc.convertServiceNetworks(composeService, project),
 		DependsOn:   sc.convertDependencies(composeService.DependsOn, project.Name),
 		Annotations: sc.convertLabels(composeService.Labels),
@@ -648,6 +648,77 @@ func (sc *SpecConverter) convertProjectVolumes(project *types.Project) []service
 
 		result = append(result, volume)
 	}
+	return result
+}
+
+// convertServiceVolumes converts service-level volume declarations to service.Volume.
+// Only returns volumes that the service actually mounts, not all project volumes.
+func (sc *SpecConverter) convertServiceVolumes(composeService types.ServiceConfig, project *types.Project) []service.Volume {
+	if len(composeService.Volumes) == 0 {
+		return nil
+	}
+
+	// Collect unique named volumes used by this service
+	usedVolumes := make(map[string]bool)
+	for _, mount := range composeService.Volumes {
+		// Only track named volumes (not bind mounts or tmpfs)
+		if mount.Type == "volume" || (mount.Type == "" && mount.Source != "" && 
+			!filepath.IsAbs(mount.Source) && 
+			!strings.HasPrefix(mount.Source, "./") && 
+			!strings.HasPrefix(mount.Source, "../")) {
+			if mount.Source != "" {
+				usedVolumes[mount.Source] = true
+			}
+		}
+	}
+
+	if len(usedVolumes) == 0 {
+		return nil
+	}
+
+	result := make([]service.Volume, 0, len(usedVolumes))
+	
+	// Convert each used volume
+	for volumeName := range usedVolumes {
+		projectVol, exists := project.Volumes[volumeName]
+		if !exists {
+			// Volume declared by service but not in project volumes
+			// This can happen with external volumes from other projects
+			resolvedName := service.SanitizeName(volumeName)
+
+			volume := service.Volume{
+				Name:   resolvedName,
+				Driver: "local",
+			}
+			result = append(result, volume)
+			continue
+		}
+
+		// Resolve volume name from project definition
+		resolvedName := NameResolver(projectVol.Name, volumeName)
+		sanitizedName := service.SanitizeName(resolvedName)
+		
+		// Don't apply project prefix to external volumes
+		if !IsExternal(projectVol.External) && !strings.Contains(resolvedName, project.Name) {
+			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+		}
+
+		volume := service.Volume{
+			Name:     sanitizedName,
+			Driver:   projectVol.Driver,
+			Options:  projectVol.DriverOpts,
+			Labels:   sc.convertLabels(projectVol.Labels),
+			External: IsExternal(projectVol.External),
+		}
+
+		result = append(result, volume)
+	}
+
+	// Sort for determinism
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Name < result[j].Name
+	})
+
 	return result
 }
 

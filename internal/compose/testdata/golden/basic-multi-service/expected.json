@@ -82,13 +82,6 @@
           "Options": null,
           "Labels": null,
           "External": false
-        },
-        {
-          "Name": "basic-multi-service-db-data",
-          "Driver": "local",
-          "Options": null,
-          "Labels": null,
-          "External": false
         }
       ],
       "Networks": [
@@ -193,13 +186,6 @@
       },
       "Volumes": [
         {
-          "Name": "basic-multi-service-app-data",
-          "Driver": "local",
-          "Options": null,
-          "Labels": null,
-          "External": false
-        },
-        {
           "Name": "basic-multi-service-db-data",
           "Driver": "local",
           "Options": null,
@@ -291,22 +277,7 @@
         "PodmanArgs": null,
         "PidsLimit": 0
       },
-      "Volumes": [
-        {
-          "Name": "basic-multi-service-app-data",
-          "Driver": "local",
-          "Options": null,
-          "Labels": null,
-          "External": false
-        },
-        {
-          "Name": "basic-multi-service-db-data",
-          "Driver": "local",
-          "Options": null,
-          "Labels": null,
-          "External": false
-        }
-      ],
+      "Volumes": null,
       "Networks": [
         {
           "Name": "basic-multi-service-frontend",
