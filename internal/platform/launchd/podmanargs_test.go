@@ -1488,9 +1488,9 @@ func TestBuildPodmanArgs_DeviceCgroupRules(t *testing.T) {
 
 func TestBuildPodmanArgs_ExtraHosts(t *testing.T) {
 	tests := []struct {
-		name       string
-		spec       service.Spec
-		wantHosts  []string
+		name      string
+		spec      service.Spec
+		wantHosts []string
 	}{
 		{
 			name: "single extra host",
@@ -1556,9 +1556,9 @@ func TestBuildPodmanArgs_ExtraHosts(t *testing.T) {
 
 func TestBuildPodmanArgs_DNS(t *testing.T) {
 	tests := []struct {
-		name       string
-		spec       service.Spec
-		wantFlags  []string
+		name      string
+		spec      service.Spec
+		wantFlags []string
 	}{
 		{
 			name: "single DNS server",
@@ -1624,9 +1624,9 @@ func TestBuildPodmanArgs_DNS(t *testing.T) {
 
 func TestBuildPodmanArgs_DNSSearch(t *testing.T) {
 	tests := []struct {
-		name       string
-		spec       service.Spec
-		wantFlags  []string
+		name      string
+		spec      service.Spec
+		wantFlags []string
 	}{
 		{
 			name: "single DNS search domain",
@@ -1692,16 +1692,16 @@ func TestBuildPodmanArgs_DNSSearch(t *testing.T) {
 
 func TestBuildPodmanArgs_DNSOptions(t *testing.T) {
 	tests := []struct {
-		name       string
-		spec       service.Spec
-		wantFlags  []string
+		name      string
+		spec      service.Spec
+		wantFlags []string
 	}{
 		{
 			name: "single DNS option",
 			spec: service.Spec{
 				Name: "test-service",
 				Container: service.Container{
-					Image:       "alpine:latest",
+					Image:      "alpine:latest",
 					DNSOptions: []string{"ndots:2"},
 				},
 			},
@@ -1712,7 +1712,7 @@ func TestBuildPodmanArgs_DNSOptions(t *testing.T) {
 			spec: service.Spec{
 				Name: "test-service",
 				Container: service.Container{
-					Image:       "alpine:latest",
+					Image:      "alpine:latest",
 					DNSOptions: []string{"timeout:3", "ndots:2", "attempts:5"},
 				},
 			},
@@ -1727,7 +1727,7 @@ func TestBuildPodmanArgs_DNSOptions(t *testing.T) {
 			spec: service.Spec{
 				Name: "test-service",
 				Container: service.Container{
-					Image:       "alpine:latest",
+					Image:      "alpine:latest",
 					DNSOptions: nil,
 				},
 			},
@@ -1828,9 +1828,9 @@ func TestBuildPodmanArgs_Devices(t *testing.T) {
 
 func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 	tests := []struct {
-		name       string
-		spec       service.Spec
-		wantTmpfs  []string
+		name      string
+		spec      service.Spec
+		wantTmpfs []string
 	}{
 		{
 			name: "tmpfs mount with size option",
@@ -1840,9 +1840,9 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 					Image: "alpine:latest",
 					Mounts: []service.Mount{
 						{
-							Source:   "/tmp",
-							Target:   "/tmp",
-							Type:     service.MountTypeTmpfs,
+							Source: "/tmp",
+							Target: "/tmp",
+							Type:   service.MountTypeTmpfs,
 							TmpfsOptions: &service.TmpfsOptions{
 								Size: "64m",
 							},
@@ -1860,9 +1860,9 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 					Image: "alpine:latest",
 					Mounts: []service.Mount{
 						{
-							Source:   "/run",
-							Target:   "/run",
-							Type:     service.MountTypeTmpfs,
+							Source: "/run",
+							Target: "/run",
+							Type:   service.MountTypeTmpfs,
 							TmpfsOptions: &service.TmpfsOptions{
 								Mode: 1777,
 							},
@@ -1880,9 +1880,9 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 					Image: "alpine:latest",
 					Mounts: []service.Mount{
 						{
-							Source:   "/cache",
-							Target:   "/cache",
-							Type:     service.MountTypeTmpfs,
+							Source: "/cache",
+							Target: "/cache",
+							Type:   service.MountTypeTmpfs,
 							TmpfsOptions: &service.TmpfsOptions{
 								Size: "256m",
 								Mode: 0755,
@@ -1901,9 +1901,9 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 					Image: "alpine:latest",
 					Mounts: []service.Mount{
 						{
-							Source:   "/data",
-							Target:   "/data",
-							Type:     service.MountTypeTmpfs,
+							Source: "/data",
+							Target: "/data",
+							Type:   service.MountTypeTmpfs,
 							TmpfsOptions: &service.TmpfsOptions{
 								Size: "512m",
 								UID:  1000,
@@ -1923,9 +1923,9 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 					Image: "alpine:latest",
 					Mounts: []service.Mount{
 						{
-							Source:   "/temp",
-							Target:   "/temp",
-							Type:     service.MountTypeTmpfs,
+							Source: "/temp",
+							Target: "/temp",
+							Type:   service.MountTypeTmpfs,
 							TmpfsOptions: &service.TmpfsOptions{
 								Size: "1g",
 								Mode: 1777,
@@ -1946,15 +1946,15 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 					Image: "alpine:latest",
 					Mounts: []service.Mount{
 						{
-							Source:   "/cache",
-							Target:   "/cache",
-							Type:     service.MountTypeTmpfs,
+							Source:       "/cache",
+							Target:       "/cache",
+							Type:         service.MountTypeTmpfs,
 							TmpfsOptions: &service.TmpfsOptions{Size: "256m"},
 						},
 						{
-							Source:   "/tmp",
-							Target:   "/tmp",
-							Type:     service.MountTypeTmpfs,
+							Source:       "/tmp",
+							Target:       "/tmp",
+							Type:         service.MountTypeTmpfs,
 							TmpfsOptions: &service.TmpfsOptions{Mode: 1777},
 						},
 					},

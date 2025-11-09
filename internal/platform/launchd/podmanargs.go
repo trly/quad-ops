@@ -19,6 +19,7 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 	args = appendPortArgs(args, spec.Container.Ports)
 	args = appendMountArgs(args, spec.Container)
 	args = appendNetworkArgs(args, &spec.Container.Network, spec.Networks)
+	args = appendExtraHostsAndDNSArgs(args, spec.Container)
 	args = appendLabelArgs(args, spec.Container.Labels)
 	args = appendResourceArgs(args, spec.Container.Resources)
 	args = appendSecurityArgs(args, spec.Container.Security)
@@ -343,6 +344,51 @@ func appendHealthcheckArgs(args []string, hc *service.Healthcheck) []string {
 	}
 	if hc.StartPeriod > 0 {
 		args = append(args, "--health-start-period", hc.StartPeriod.String())
+	}
+
+	return args
+}
+
+// appendExtraHostsAndDNSArgs appends extra hosts and DNS-related arguments.
+func appendExtraHostsAndDNSArgs(args []string, c service.Container) []string {
+	// Sort extra hosts for deterministic output
+	if len(c.ExtraHosts) > 0 {
+		hosts := make([]string, len(c.ExtraHosts))
+		copy(hosts, c.ExtraHosts)
+		sort.Strings(hosts)
+		for _, host := range hosts {
+			args = append(args, "--add-host", host)
+		}
+	}
+
+	// Sort DNS servers for deterministic output
+	if len(c.DNS) > 0 {
+		dns := make([]string, len(c.DNS))
+		copy(dns, c.DNS)
+		sort.Strings(dns)
+		for _, server := range dns {
+			args = append(args, "--dns", server)
+		}
+	}
+
+	// Sort DNS search domains for deterministic output
+	if len(c.DNSSearch) > 0 {
+		search := make([]string, len(c.DNSSearch))
+		copy(search, c.DNSSearch)
+		sort.Strings(search)
+		for _, domain := range search {
+			args = append(args, "--dns-search", domain)
+		}
+	}
+
+	// Sort DNS options for deterministic output
+	if len(c.DNSOptions) > 0 {
+		opts := make([]string, len(c.DNSOptions))
+		copy(opts, c.DNSOptions)
+		sort.Strings(opts)
+		for _, opt := range opts {
+			args = append(args, "--dns-opt", opt)
+		}
 	}
 
 	return args
