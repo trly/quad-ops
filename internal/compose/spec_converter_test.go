@@ -664,6 +664,67 @@ func TestSpecConverter_NameSanitization(t *testing.T) {
 	}
 }
 
+func TestSpecConverter_ConvertNetworkMode(t *testing.T) {
+	tests := []struct {
+		name            string
+		networkMode     string
+		networks        map[string]*types.ServiceNetworkConfig
+		projectName     string
+		projectNetworks types.Networks
+		validate        func(t *testing.T, mode service.NetworkMode)
+	}{
+		{
+			name:        "service with external network from different project",
+			networkMode: "bridge",
+			networks: map[string]*types.ServiceNetworkConfig{
+				"infrastructure-proxy": {},
+			},
+			projectName:     "llm",
+			projectNetworks: types.Networks{},
+			validate: func(t *testing.T, mode service.NetworkMode) {
+				// External network should NOT be prefixed with project name
+				assert.Len(t, mode.ServiceNetworks, 1)
+				assert.Equal(t, service.SanitizeName("infrastructure-proxy"), mode.ServiceNetworks[0])
+			},
+		},
+		{
+			name:        "service with project-local network",
+			networkMode: "bridge",
+			networks: map[string]*types.ServiceNetworkConfig{
+				"backend": {},
+			},
+			projectName: "llm",
+			projectNetworks: types.Networks{
+				"backend": {
+					Name:   "backend",
+					Driver: "bridge",
+				},
+			},
+			validate: func(t *testing.T, mode service.NetworkMode) {
+				// Project-local network should be prefixed
+				assert.Len(t, mode.ServiceNetworks, 1)
+				assert.Equal(t, service.SanitizeName("llm-backend"), mode.ServiceNetworks[0])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := NewSpecConverter("/test")
+			project := &types.Project{
+				Name:       tt.projectName,
+				WorkingDir: "/test",
+				Networks:   tt.projectNetworks,
+			}
+
+			mode := converter.convertNetworkMode(tt.networkMode, tt.networks, project)
+			if tt.validate != nil {
+				tt.validate(t, mode)
+			}
+		})
+	}
+}
+
 func TestSpecConverter_ServiceNetworks(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -789,6 +850,41 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 				// The external network is from another project and should be used as-is
 				assert.Len(t, spec.Networks, 1)
 				assert.Equal(t, service.SanitizeName("infrastructure-proxy"), spec.Networks[0].Name)
+			},
+		},
+		{
+			name:        "multiple services share external network across projects",
+			serviceName: "web",
+			composeService: types.ServiceConfig{
+				Name:  "web",
+				Image: "nginx:latest",
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"infrastructure-proxy": {},
+					"local-frontend":       {},
+				},
+			},
+			projectNetworks: types.Networks{
+				"local-frontend": {
+					Name:   "local-frontend",
+					Driver: "bridge",
+				},
+			},
+			projectName: "dozzle",
+			validate: func(t *testing.T, spec service.Spec) {
+				// Should have both networks:
+				// - infrastructure-proxy: external, not prefixed
+				// - local-frontend: local, prefixed with project
+				assert.Len(t, spec.Networks, 2)
+				networkNames := make(map[string]bool)
+				networkExternal := make(map[string]bool)
+				for _, net := range spec.Networks {
+					networkNames[net.Name] = true
+					networkExternal[net.Name] = net.External
+				}
+				// External network should not have project prefix
+				assert.True(t, networkNames[service.SanitizeName("infrastructure-proxy")])
+				// Local network should have project prefix
+				assert.True(t, networkNames[service.SanitizeName("dozzle-local-frontend")])
 			},
 		},
 	}
