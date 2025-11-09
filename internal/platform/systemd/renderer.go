@@ -131,6 +131,13 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 		builder.WriteString(formatKeyValue("Description", spec.Description))
 	}
 
+	// Add network-online.target dependency if container uses networks or has published ports
+	needsNetworkOnline := r.needsNetworkOnline(spec)
+	if needsNetworkOnline {
+		builder.WriteString("After=network-online.target\n")
+		builder.WriteString("Wants=network-online.target\n")
+	}
+
 	if len(spec.DependsOn) > 0 {
 		deps := make([]string, len(spec.DependsOn))
 		copy(deps, spec.DependsOn)
@@ -946,4 +953,25 @@ func (r *Renderer) combineHashes(hashes []string) string {
 		h.Write([]byte(hash))
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// needsNetworkOnline determines if a container needs network-online.target dependency.
+// Returns true if the container uses any networks (including host mode) or has published ports.
+func (r *Renderer) needsNetworkOnline(spec service.Spec) bool {
+	// Container has published ports - needs network
+	if len(spec.Container.Ports) > 0 {
+		return true
+	}
+
+	// Container uses explicit networks
+	if len(spec.Container.Network.ServiceNetworks) > 0 {
+		return true
+	}
+
+	// Container uses special network modes (host, bridge, etc.)
+	if spec.Container.Network.Mode != "" {
+		return true
+	}
+
+	return false
 }
