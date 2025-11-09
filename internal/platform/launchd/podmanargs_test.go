@@ -1406,3 +1406,82 @@ func TestBuildPodmanArgs_NamespaceModes(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildPodmanArgs_DeviceCgroupRules(t *testing.T) {
+	tests := []struct {
+		name      string
+		spec      service.Spec
+		wantRules []string
+	}{
+		{
+			name: "single device cgroup rule",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:             "alpine:latest",
+					DeviceCgroupRules: []string{"c 13:* rmw"},
+				},
+			},
+			wantRules: []string{"--device-cgroup-rule", "c 13:* rmw"},
+		},
+		{
+			name: "multiple device cgroup rules",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:             "alpine:latest",
+					DeviceCgroupRules: []string{"c 13:* rmw", "b 8:* rmw", "a *:* rwm"},
+				},
+			},
+			wantRules: []string{
+				"--device-cgroup-rule", "c 13:* rmw",
+				"--device-cgroup-rule", "b 8:* rmw",
+				"--device-cgroup-rule", "a *:* rwm",
+			},
+		},
+		{
+			name: "device cgroup rule with specific device number",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:             "alpine:latest",
+					DeviceCgroupRules: []string{"c 13:64 r"},
+				},
+			},
+			wantRules: []string{"--device-cgroup-rule", "c 13:64 r"},
+		},
+		{
+			name: "no device cgroup rules",
+			spec: service.Spec{
+				Name: "test-service",
+				Container: service.Container{
+					Image:             "alpine:latest",
+					DeviceCgroupRules: nil,
+				},
+			},
+			wantRules: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			args := BuildPodmanArgs(tt.spec, "test-container")
+
+			if tt.wantRules == nil {
+				argsStr := strings.Join(args, " ")
+				assert.NotContains(t, argsStr, "--device-cgroup-rule")
+				return
+			}
+
+			// Find all device-cgroup-rule flags and their values
+			var foundRules []string
+			for i := 0; i < len(args)-1; i++ {
+				if args[i] == "--device-cgroup-rule" {
+					foundRules = append(foundRules, args[i], args[i+1])
+				}
+			}
+
+			assert.Equal(t, tt.wantRules, foundRules)
+		})
+	}
+}

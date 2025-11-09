@@ -90,6 +90,7 @@
         "Devices": [
           "/dev/sda:/dev/xvda:rwm"
         ],
+        "DeviceCgroupRules": null,
         "PidMode": "",
         "IpcMode": "",
         "CgroupMode": ""

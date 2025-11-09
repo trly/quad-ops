@@ -224,6 +224,7 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addNetworks(&builder, spec.Container)
 	r.addDNS(&builder, spec.Container)
 	r.addDevices(&builder, spec.Container)
+	r.addDeviceCgroupRules(&builder, spec.Container)
 	r.addExecution(&builder, spec.Container)
 	r.addHealthcheck(&builder, spec.Container)
 	r.addResources(&builder, spec.Container)
@@ -669,6 +670,21 @@ func (r *Renderer) addDevices(builder *strings.Builder, c service.Container) {
 
 	for _, device := range sorted {
 		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--device=%s", device)))
+	}
+}
+
+func (r *Renderer) addDeviceCgroupRules(builder *strings.Builder, c service.Container) {
+	if len(c.DeviceCgroupRules) == 0 {
+		return
+	}
+
+	// Device cgroup rules are in "type major:minor permissions" format from converter
+	sorted := make([]string, len(c.DeviceCgroupRules))
+	copy(sorted, c.DeviceCgroupRules)
+	sort.Strings(sorted)
+
+	for _, rule := range sorted {
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--device-cgroup-rule=%s", rule)))
 	}
 }
 

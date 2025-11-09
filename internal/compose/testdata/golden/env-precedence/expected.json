@@ -80,6 +80,7 @@
         "DNSSearch": null,
         "DNSOptions": null,
         "Devices": null,
+        "DeviceCgroupRules": null,
         "PidMode": "",
         "IpcMode": "",
         "CgroupMode": ""

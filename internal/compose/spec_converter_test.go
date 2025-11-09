@@ -1529,3 +1529,55 @@ func TestSpecConverter_ConvertUlimits(t *testing.T) {
 		})
 	}
 }
+
+func TestSpecConverter_ConvertDeviceCgroupRules(t *testing.T) {
+	tests := []struct {
+		name     string
+		rules    []string
+		expected []string
+	}{
+		{
+			name:     "single rule",
+			rules:    []string{"c 13:* rmw"},
+			expected: []string{"c 13:* rmw"},
+		},
+		{
+			name:     "multiple rules",
+			rules:    []string{"c 13:* rmw", "b 8:* rmw", "a *:* rwm"},
+			expected: []string{"a *:* rwm", "b 8:* rmw", "c 13:* rmw"}, // sorted
+		},
+		{
+			name:     "specific device number",
+			rules:    []string{"c 13:64 r"},
+			expected: []string{"c 13:64 r"},
+		},
+		{
+			name:     "block device rule",
+			rules:    []string{"b 8:* rmw"},
+			expected: []string{"b 8:* rmw"},
+		},
+		{
+			name:     "all devices rule",
+			rules:    []string{"a *:* rwm"},
+			expected: []string{"a *:* rwm"},
+		},
+		{
+			name:     "empty rules",
+			rules:    []string{},
+			expected: nil,
+		},
+		{
+			name:     "nil rules",
+			rules:    nil,
+			expected: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := NewSpecConverter("/test")
+			result := converter.convertDeviceCgroupRules(tt.rules)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

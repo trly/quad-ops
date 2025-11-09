@@ -144,6 +144,16 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 		args = append(args, "--pids-limit", fmt.Sprintf("%d", spec.Container.PidsLimit))
 	}
 
+	// Devices
+	for _, device := range spec.Container.Devices {
+		args = append(args, "--device", device)
+	}
+
+	// Device cgroup rules
+	for _, rule := range spec.Container.DeviceCgroupRules {
+		args = append(args, "--device-cgroup-rule", rule)
+	}
+
 	// Secrets (Podman-specific feature)
 	for _, secret := range spec.Container.Secrets {
 		secretArg := buildSecretArg(secret)

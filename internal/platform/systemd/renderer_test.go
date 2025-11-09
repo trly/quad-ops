@@ -1201,6 +1201,85 @@ func TestRenderer_RenderDNS(t *testing.T) {
 	}
 }
 
+func TestRenderer_RenderDeviceCgroupRules(t *testing.T) {
+	tests := []struct {
+		name      string
+		container service.Container
+		wantRules []string
+	}{
+		{
+			name: "single device cgroup rule",
+			container: service.Container{
+				Image:             "alpine:latest",
+				DeviceCgroupRules: []string{"c 13:* rmw"},
+			},
+			wantRules: []string{"PodmanArgs=--device-cgroup-rule=c 13:* rmw"},
+		},
+		{
+			name: "multiple device cgroup rules",
+			container: service.Container{
+				Image:             "alpine:latest",
+				DeviceCgroupRules: []string{"c 13:* rmw", "b 8:* rmw", "a *:* rwm"},
+			},
+			wantRules: []string{
+				"PodmanArgs=--device-cgroup-rule=a *:* rwm",
+				"PodmanArgs=--device-cgroup-rule=b 8:* rmw",
+				"PodmanArgs=--device-cgroup-rule=c 13:* rmw",
+			},
+		},
+		{
+			name: "device cgroup rule with specific device number",
+			container: service.Container{
+				Image:             "alpine:latest",
+				DeviceCgroupRules: []string{"c 13:64 r"},
+			},
+			wantRules: []string{"PodmanArgs=--device-cgroup-rule=c 13:64 r"},
+		},
+		{
+			name: "empty rules array not rendered",
+			container: service.Container{
+				Image:             "alpine:latest",
+				DeviceCgroupRules: []string{},
+			},
+			wantRules: []string{},
+		},
+		{
+			name: "nil rules array not rendered",
+			container: service.Container{
+				Image:             "alpine:latest",
+				DeviceCgroupRules: nil,
+			},
+			wantRules: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := testutil.NewTestLogger(t)
+			r := NewRenderer(logger)
+
+			spec := service.Spec{
+				Name:      "app",
+				Container: tt.container,
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+
+			for _, expected := range tt.wantRules {
+				assert.Contains(t, content, expected, "expected device cgroup rule: %s", expected)
+			}
+
+			if len(tt.wantRules) == 0 {
+				assert.NotContains(t, content, "--device-cgroup-rule=")
+			}
+		})
+	}
+}
+
 func TestRenderer_RenderDevices(t *testing.T) {
 	tests := []struct {
 		name        string

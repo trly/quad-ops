@@ -92,40 +92,41 @@ func (sc *SpecConverter) convertService(serviceName string, composeService types
 // convertContainer converts Docker Compose service config to service.Container.
 func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, serviceName string, project *types.Project) service.Container {
 	container := service.Container{
-		Image:         composeService.Image,
-		Command:       composeService.Command,
-		Env:           sc.convertEnvironment(composeService.Environment),
-		EnvFiles:      sc.convertEnvFiles(composeService.EnvFiles, serviceName),
-		WorkingDir:    composeService.WorkingDir,
-		User:          composeService.User,
-		Ports:         sc.convertPorts(composeService.Ports),
-		Mounts:        sc.convertVolumeMounts(composeService.Volumes, project),
-		Resources:     sc.convertResources(composeService.Deploy, composeService),
-		RestartPolicy: sc.convertRestartPolicy(composeService.Restart),
-		Healthcheck:   sc.convertHealthcheck(composeService.HealthCheck),
-		Security:      sc.convertSecurity(composeService),
-		Build:         sc.convertBuild(composeService.Build, project),
-		Labels:        sc.convertLabels(composeService.Labels),
-		Hostname:      composeService.Hostname,
-		ContainerName: service.SanitizeName(Prefix(project.Name, serviceName)),
-		Entrypoint:    composeService.Entrypoint,
-		Init:          composeService.Init != nil && *composeService.Init,
-		ReadOnly:      composeService.ReadOnly,
-		Logging:       sc.convertLogging(composeService.Logging),
-		Secrets:       sc.convertSecrets(composeService.Secrets),
-		Network:       sc.convertNetworkMode(composeService.NetworkMode, composeService.Networks, project),
-		Tmpfs:         sc.convertTmpfs(composeService.Tmpfs),
-		Ulimits:       sc.convertUlimits(composeService.Ulimits),
-		Sysctls:       composeService.Sysctls,
-		UserNS:        composeService.UserNSMode,
-		PidMode:       composeService.Pid,
-		IpcMode:       composeService.Ipc,
-		CgroupMode:    composeService.Cgroup,
-		ExtraHosts:    sc.convertExtraHosts(composeService.ExtraHosts),
-		DNS:           sc.convertDNS(composeService.DNS),
-		DNSSearch:     sc.convertDNSSearch(composeService.DNSSearch),
-		DNSOptions:    sc.convertDNSOpts(composeService.DNSOpts),
-		Devices:       sc.convertDevices(composeService.Devices),
+		Image:             composeService.Image,
+		Command:           composeService.Command,
+		Env:               sc.convertEnvironment(composeService.Environment),
+		EnvFiles:          sc.convertEnvFiles(composeService.EnvFiles, serviceName),
+		WorkingDir:        composeService.WorkingDir,
+		User:              composeService.User,
+		Ports:             sc.convertPorts(composeService.Ports),
+		Mounts:            sc.convertVolumeMounts(composeService.Volumes, project),
+		Resources:         sc.convertResources(composeService.Deploy, composeService),
+		RestartPolicy:     sc.convertRestartPolicy(composeService.Restart),
+		Healthcheck:       sc.convertHealthcheck(composeService.HealthCheck),
+		Security:          sc.convertSecurity(composeService),
+		Build:             sc.convertBuild(composeService.Build, project),
+		Labels:            sc.convertLabels(composeService.Labels),
+		Hostname:          composeService.Hostname,
+		ContainerName:     service.SanitizeName(Prefix(project.Name, serviceName)),
+		Entrypoint:        composeService.Entrypoint,
+		Init:              composeService.Init != nil && *composeService.Init,
+		ReadOnly:          composeService.ReadOnly,
+		Logging:           sc.convertLogging(composeService.Logging),
+		Secrets:           sc.convertSecrets(composeService.Secrets),
+		Network:           sc.convertNetworkMode(composeService.NetworkMode, composeService.Networks, project),
+		Tmpfs:             sc.convertTmpfs(composeService.Tmpfs),
+		Ulimits:           sc.convertUlimits(composeService.Ulimits),
+		Sysctls:           composeService.Sysctls,
+		UserNS:            composeService.UserNSMode,
+		PidMode:           composeService.Pid,
+		IpcMode:           composeService.Ipc,
+		CgroupMode:        composeService.Cgroup,
+		ExtraHosts:        sc.convertExtraHosts(composeService.ExtraHosts),
+		DNS:               sc.convertDNS(composeService.DNS),
+		DNSSearch:         sc.convertDNSSearch(composeService.DNSSearch),
+		DNSOptions:        sc.convertDNSOpts(composeService.DNSOpts),
+		Devices:           sc.convertDevices(composeService.Devices),
+		DeviceCgroupRules: sc.convertDeviceCgroupRules(composeService.DeviceCgroupRules),
 	}
 
 	// Handle user/group parsing
@@ -696,6 +697,21 @@ func (sc *SpecConverter) convertDevices(devices []types.DeviceMapping) []string 
 		}
 		result = append(result, deviceStr)
 	}
+
+	// Sort for determinism
+	sorting.SortStringSlice(result)
+	return result
+}
+
+// convertDeviceCgroupRules converts compose device_cgroup_rules to slice.
+// Rules are in format "type major:minor permissions" (e.g., "c 13:* rmw").
+func (sc *SpecConverter) convertDeviceCgroupRules(rules []string) []string {
+	if len(rules) == 0 {
+		return nil
+	}
+
+	result := make([]string, len(rules))
+	copy(result, rules)
 
 	// Sort for determinism
 	sorting.SortStringSlice(result)

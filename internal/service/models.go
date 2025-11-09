@@ -20,45 +20,46 @@ type Spec struct {
 
 // Container represents container runtime configuration.
 type Container struct {
-	Image         string            // Container image (name:tag)
-	Command       []string          // Override CMD
-	Args          []string          // Additional arguments
-	Env           map[string]string // Environment variables
-	EnvFiles      []string          // Environment files to load
-	WorkingDir    string            // Working directory
-	User          string            // User to run as
-	Group         string            // Group to run as
-	Ports         []Port            // Port mappings
-	Mounts        []Mount           // File/directory mounts
-	Resources     Resources         // Resource constraints
-	RestartPolicy RestartPolicy     // Restart behavior
-	Healthcheck   *Healthcheck      // Health check configuration
-	Security      Security          // Security settings
-	Build         *Build            // Build configuration (if image needs building)
-	Labels        map[string]string // Container labels
-	Hostname      string            // Container hostname
-	ContainerName string            // Explicit container name
-	Entrypoint    []string          // Override ENTRYPOINT
-	Init          bool              // Run init inside container
-	ReadOnly      bool              // Read-only root filesystem
-	Logging       Logging           // Logging configuration
-	Secrets       []Secret          // Secrets to mount
-	EnvSecrets    map[string]string // Secrets to expose as environment variables (secret_name -> env_var_name)
-	Network       NetworkMode       // Network mode configuration
-	Tmpfs         []string          // Tmpfs mounts
-	Ulimits       []Ulimit          // Ulimit settings
-	Sysctls       map[string]string // Sysctl settings
-	UserNS        string            // User namespace mode
-	PodmanArgs    []string          // Additional Podman arguments
-	PidsLimit     int64             // Maximum PIDs
-	ExtraHosts    []string          // Extra host-to-IP mappings in "hostname:ip" format
-	DNS           []string          // Custom DNS servers
-	DNSSearch     []string          // DNS search domains
-	DNSOptions    []string          // DNS options
-	Devices       []string          // Device mappings in "host:container" or "host:container:permissions" format
-	PidMode       string            // PID namespace mode
-	IpcMode       string            // IPC namespace mode
-	CgroupMode    string            // Cgroup namespace mode
+	Image             string            // Container image (name:tag)
+	Command           []string          // Override CMD
+	Args              []string          // Additional arguments
+	Env               map[string]string // Environment variables
+	EnvFiles          []string          // Environment files to load
+	WorkingDir        string            // Working directory
+	User              string            // User to run as
+	Group             string            // Group to run as
+	Ports             []Port            // Port mappings
+	Mounts            []Mount           // File/directory mounts
+	Resources         Resources         // Resource constraints
+	RestartPolicy     RestartPolicy     // Restart behavior
+	Healthcheck       *Healthcheck      // Health check configuration
+	Security          Security          // Security settings
+	Build             *Build            // Build configuration (if image needs building)
+	Labels            map[string]string // Container labels
+	Hostname          string            // Container hostname
+	ContainerName     string            // Explicit container name
+	Entrypoint        []string          // Override ENTRYPOINT
+	Init              bool              // Run init inside container
+	ReadOnly          bool              // Read-only root filesystem
+	Logging           Logging           // Logging configuration
+	Secrets           []Secret          // Secrets to mount
+	EnvSecrets        map[string]string // Secrets to expose as environment variables (secret_name -> env_var_name)
+	Network           NetworkMode       // Network mode configuration
+	Tmpfs             []string          // Tmpfs mounts
+	Ulimits           []Ulimit          // Ulimit settings
+	Sysctls           map[string]string // Sysctl settings
+	UserNS            string            // User namespace mode
+	PodmanArgs        []string          // Additional Podman arguments
+	PidsLimit         int64             // Maximum PIDs
+	ExtraHosts        []string          // Extra host-to-IP mappings in "hostname:ip" format
+	DNS               []string          // Custom DNS servers
+	DNSSearch         []string          // DNS search domains
+	DNSOptions        []string          // DNS options
+	Devices           []string          // Device mappings in "host:container" or "host:container:permissions" format
+	DeviceCgroupRules []string          // Device cgroup rules in "type major:minor permissions" format (e.g., "c 13:* rmw")
+	PidMode           string            // PID namespace mode
+	IpcMode           string            // IPC namespace mode
+	CgroupMode        string            // Cgroup namespace mode
 }
 
 // InitContainer represents an init container configuration.
