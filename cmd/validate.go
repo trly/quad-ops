@@ -224,6 +224,10 @@ func cloneRepositoryWithDeps(logger log.Logger, configProvider config.Provider) 
 	}
 
 	// Return path and cleanup function
+	// Note: GitSyncer creates a subdirectory named after the repository (repoConfig.Name)
+	// so we need to return the full path including that subdirectory
+	fullPath := filepath.Join(tempPath, repoConfig.Name)
+
 	cleanup := func() error {
 		if !skipClone && strings.HasSuffix(tempPath, "quad-ops-validate") {
 			return os.RemoveAll(tempPath)
@@ -231,7 +235,7 @@ func cloneRepositoryWithDeps(logger log.Logger, configProvider config.Provider) 
 		return nil
 	}
 
-	return tempPath, cleanup, nil
+	return fullPath, cleanup, nil
 }
 
 // isValidGitRepo checks if the given path contains a valid git repository.
