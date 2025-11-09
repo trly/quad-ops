@@ -703,6 +703,7 @@ func (sc *SpecConverter) convertDevices(devices []types.DeviceMapping) []string 
 }
 
 // convertUlimits converts compose ulimits to service.Ulimit.
+// Handles both short syntax (nproc: 512 -> Single field) and long syntax (soft/hard fields).
 func (sc *SpecConverter) convertUlimits(ulimits map[string]*types.UlimitsConfig) []service.Ulimit {
 	if len(ulimits) == 0 {
 		return nil
@@ -711,10 +712,16 @@ func (sc *SpecConverter) convertUlimits(ulimits map[string]*types.UlimitsConfig)
 	result := make([]service.Ulimit, 0, len(ulimits))
 	for name, limit := range ulimits {
 		if limit != nil {
+			soft, hard := int64(limit.Soft), int64(limit.Hard)
+			// Handle short syntax: nproc: 512 sets both soft and hard to 512
+			if limit.Single > 0 {
+				soft = int64(limit.Single)
+				hard = int64(limit.Single)
+			}
 			result = append(result, service.Ulimit{
 				Name: name,
-				Soft: int64(limit.Soft),
-				Hard: int64(limit.Hard),
+				Soft: soft,
+				Hard: hard,
 			})
 		}
 	}

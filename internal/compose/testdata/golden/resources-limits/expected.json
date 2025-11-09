@@ -66,8 +66,8 @@
           },
           {
             "Name": "nproc",
-            "Soft": 0,
-            "Hard": 0
+            "Soft": 512,
+            "Hard": 512
           }
         ],
         "Sysctls": {

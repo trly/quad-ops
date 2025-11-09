@@ -1443,3 +1443,89 @@ func durationPtr(d time.Duration) *types.Duration {
 func uint64Ptr(i uint64) *uint64 {
 	return &i
 }
+
+func TestSpecConverter_ConvertUlimits(t *testing.T) {
+	tests := []struct {
+		name     string
+		ulimits  map[string]*types.UlimitsConfig
+		expected []service.Ulimit
+	}{
+		{
+			name:     "nil ulimits",
+			ulimits:  nil,
+			expected: nil,
+		},
+		{
+			name:     "empty ulimits",
+			ulimits:  map[string]*types.UlimitsConfig{},
+			expected: nil,
+		},
+		{
+			name: "short syntax - single value sets both soft and hard",
+			ulimits: map[string]*types.UlimitsConfig{
+				"nproc": {Single: 512},
+			},
+			expected: []service.Ulimit{
+				{Name: "nproc", Soft: 512, Hard: 512},
+			},
+		},
+		{
+			name: "long syntax - explicit soft and hard",
+			ulimits: map[string]*types.UlimitsConfig{
+				"nofile": {Soft: 1024, Hard: 2048},
+			},
+			expected: []service.Ulimit{
+				{Name: "nofile", Soft: 1024, Hard: 2048},
+			},
+		},
+		{
+			name: "mixed syntax",
+			ulimits: map[string]*types.UlimitsConfig{
+				"nofile": {Soft: 1024, Hard: 2048},
+				"nproc":  {Single: 512},
+			},
+			expected: []service.Ulimit{
+				{Name: "nofile", Soft: 1024, Hard: 2048},
+				{Name: "nproc", Soft: 512, Hard: 512},
+			},
+		},
+		{
+			name: "single takes precedence over soft/hard",
+			ulimits: map[string]*types.UlimitsConfig{
+				"nproc": {Single: 512, Soft: 100, Hard: 200},
+			},
+			expected: []service.Ulimit{
+				{Name: "nproc", Soft: 512, Hard: 512},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sc := NewSpecConverter("/test")
+			result := sc.convertUlimits(tt.ulimits)
+
+			if tt.expected == nil {
+				assert.Nil(t, result)
+				return
+			}
+
+			require.Equal(t, len(tt.expected), len(result))
+
+			// Sort both slices by name for comparison
+			sortUlimits := func(ulimits []service.Ulimit) {
+				for i := 0; i < len(ulimits)-1; i++ {
+					for j := i + 1; j < len(ulimits); j++ {
+						if ulimits[i].Name > ulimits[j].Name {
+							ulimits[i], ulimits[j] = ulimits[j], ulimits[i]
+						}
+					}
+				}
+			}
+			sortUlimits(result)
+			sortUlimits(tt.expected)
+
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

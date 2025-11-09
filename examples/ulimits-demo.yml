@@ -1,0 +1,21 @@
+services:
+  # Database service with ulimits for file handles
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: secret
+    ulimits:
+      # Long syntax - different soft and hard limits
+      nofile:
+        soft: 1024
+        hard: 2048
+      # Short syntax - same soft and hard limit
+      nproc: 512
+
+  # Web server with high file descriptor limits
+  nginx:
+    image: nginx:latest
+    ulimits:
+      nofile: 65536  # Short syntax
+    ports:
+      - "8080:80"
