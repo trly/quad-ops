@@ -55,6 +55,7 @@ type Container struct {
 	DNS           []string          // Custom DNS servers
 	DNSSearch     []string          // DNS search domains
 	DNSOptions    []string          // DNS options
+	Devices       []string          // Device mappings in "host:container" or "host:container:permissions" format
 }
 
 // InitContainer represents an init container configuration.

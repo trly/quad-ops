@@ -122,6 +122,7 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		DNS:           sc.convertDNS(composeService.DNS),
 		DNSSearch:     sc.convertDNSSearch(composeService.DNSSearch),
 		DNSOptions:    sc.convertDNSOpts(composeService.DNSOpts),
+		Devices:       sc.convertDevices(composeService.Devices),
 	}
 
 	// Handle user/group parsing
@@ -627,6 +628,30 @@ func (sc *SpecConverter) convertDNSOpts(dnsOpts []string) []string {
 
 	result := make([]string, len(dnsOpts))
 	copy(result, dnsOpts)
+
+	// Sort for determinism
+	sorting.SortStringSlice(result)
+	return result
+}
+
+// convertDevices converts compose devices to device mappings slice.
+func (sc *SpecConverter) convertDevices(devices []types.DeviceMapping) []string {
+	if len(devices) == 0 {
+		return nil
+	}
+
+	result := make([]string, 0, len(devices))
+	for _, device := range devices {
+		// Build device string: source:target or source:target:permissions
+		deviceStr := device.Source
+		if device.Target != "" {
+			deviceStr = fmt.Sprintf("%s:%s", device.Source, device.Target)
+		}
+		if device.Permissions != "" {
+			deviceStr = fmt.Sprintf("%s:%s", deviceStr, device.Permissions)
+		}
+		result = append(result, deviceStr)
+	}
 
 	// Sort for determinism
 	sorting.SortStringSlice(result)

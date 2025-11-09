@@ -223,6 +223,7 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addMounts(&builder, spec.Container)
 	r.addNetworks(&builder, spec.Container)
 	r.addDNS(&builder, spec.Container)
+	r.addDevices(&builder, spec.Container)
 	r.addExecution(&builder, spec.Container)
 	r.addHealthcheck(&builder, spec.Container)
 	r.addResources(&builder, spec.Container)
@@ -599,6 +600,21 @@ func (r *Renderer) addDNS(builder *strings.Builder, c service.Container) {
 		for _, opt := range sorted {
 			builder.WriteString(formatKeyValue("DNSOption", opt))
 		}
+	}
+}
+
+func (r *Renderer) addDevices(builder *strings.Builder, c service.Container) {
+	if len(c.Devices) == 0 {
+		return
+	}
+
+	// Devices are already in "host:container" or "host:container:permissions" format from converter
+	sorted := make([]string, len(c.Devices))
+	copy(sorted, c.Devices)
+	sort.Strings(sorted)
+
+	for _, device := range sorted {
+		builder.WriteString(formatKeyValue("PodmanArgs", fmt.Sprintf("--device=%s", device)))
 	}
 }
 

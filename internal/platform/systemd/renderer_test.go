@@ -1191,6 +1191,85 @@ func TestRenderer_RenderDNS(t *testing.T) {
 	}
 }
 
+func TestRenderer_RenderDevices(t *testing.T) {
+	tests := []struct {
+		name        string
+		container   service.Container
+		wantDevices []string
+	}{
+		{
+			name: "single device mapping",
+			container: service.Container{
+				Image:   "alpine:latest",
+				Devices: []string{"/dev/sda:/dev/xvda"},
+			},
+			wantDevices: []string{"PodmanArgs=--device=/dev/sda:/dev/xvda"},
+		},
+		{
+			name: "multiple device mappings",
+			container: service.Container{
+				Image:   "alpine:latest",
+				Devices: []string{"/dev/sda:/dev/xvda", "/dev/sdb:/dev/xvdb", "/dev/fuse"},
+			},
+			wantDevices: []string{
+				"PodmanArgs=--device=/dev/fuse",
+				"PodmanArgs=--device=/dev/sda:/dev/xvda",
+				"PodmanArgs=--device=/dev/sdb:/dev/xvdb",
+			},
+		},
+		{
+			name: "device with permissions",
+			container: service.Container{
+				Image:   "alpine:latest",
+				Devices: []string{"/dev/sda:/dev/xvda:rwm"},
+			},
+			wantDevices: []string{"PodmanArgs=--device=/dev/sda:/dev/xvda:rwm"},
+		},
+		{
+			name: "empty devices array not rendered",
+			container: service.Container{
+				Image:   "alpine:latest",
+				Devices: []string{},
+			},
+			wantDevices: []string{},
+		},
+		{
+			name: "nil devices array not rendered",
+			container: service.Container{
+				Image:   "alpine:latest",
+				Devices: nil,
+			},
+			wantDevices: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := testutil.NewTestLogger(t)
+			r := NewRenderer(logger)
+
+			spec := service.Spec{
+				Name:      "app",
+				Container: tt.container,
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+
+			for _, expected := range tt.wantDevices {
+				assert.Contains(t, content, expected, "expected device directive: %s", expected)
+			}
+
+			if len(tt.wantDevices) == 0 {
+				assert.NotContains(t, content, "--device=")
+			}
+		})
+	}
+}
+
 func TestRenderer_ZeroValuesNotRendered(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
 	r := NewRenderer(logger)
