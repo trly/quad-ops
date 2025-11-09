@@ -62,7 +62,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "env-precedence_default"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,

@@ -173,8 +173,9 @@ type Secret struct {
 
 // NetworkMode represents network configuration mode.
 type NetworkMode struct {
-	Mode    string   // "bridge", "host", "none", "container:<name>", "service:<name>"
-	Aliases []string // Network aliases
+	Mode            string   // "bridge", "host", "none", "container:<name>", "service:<name>"
+	Aliases         []string // Network aliases
+	ServiceNetworks []string // Networks this service joins (for service-to-service DNS)
 }
 
 // Ulimit represents a ulimit setting.

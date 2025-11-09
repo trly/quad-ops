@@ -306,17 +306,28 @@ func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container, sp
 		}
 	}
 
-	// Add Network directives for named networks with .network suffix to enable automatic Quadlet dependencies
-	// Sort networks for deterministic ordering
-	networks := make([]string, 0, len(spec.Networks))
-	for _, net := range spec.Networks {
-		if !net.External {
-			networks = append(networks, net.Name+".network")
+	// Add Network directives for service-specific networks with .network suffix
+	// This enables service-to-service DNS resolution and automatic Quadlet dependencies
+	if len(c.Network.ServiceNetworks) > 0 {
+		sorted := make([]string, len(c.Network.ServiceNetworks))
+		copy(sorted, c.Network.ServiceNetworks)
+		sort.Strings(sorted)
+		for _, net := range sorted {
+			builder.WriteString(formatKeyValue("Network", net+".network"))
 		}
-	}
-	sort.Strings(networks)
-	for _, net := range networks {
-		builder.WriteString(formatKeyValue("Network", net))
+	} else {
+		// Fallback: Add Network directives for project-level networks with .network suffix
+		// Sort networks for deterministic ordering
+		networks := make([]string, 0, len(spec.Networks))
+		for _, net := range spec.Networks {
+			if !net.External {
+				networks = append(networks, net.Name+".network")
+			}
+		}
+		sort.Strings(networks)
+		for _, net := range networks {
+			builder.WriteString(formatKeyValue("Network", net))
+		}
 	}
 }
 

@@ -113,7 +113,7 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		ReadOnly:      composeService.ReadOnly,
 		Logging:       sc.convertLogging(composeService.Logging),
 		Secrets:       sc.convertSecrets(composeService.Secrets),
-		Network:       sc.convertNetworkMode(composeService.NetworkMode, composeService.Networks),
+		Network:       sc.convertNetworkMode(composeService.NetworkMode, composeService.Networks, project),
 		Tmpfs:         sc.convertTmpfs(composeService.Tmpfs),
 		Ulimits:       sc.convertUlimits(composeService.Ulimits),
 		Sysctls:       composeService.Sysctls,
@@ -491,22 +491,46 @@ func (sc *SpecConverter) convertSecrets(secrets []types.ServiceSecretConfig) []s
 }
 
 // convertNetworkMode converts compose network mode to service.NetworkMode.
-func (sc *SpecConverter) convertNetworkMode(networkMode string, networks map[string]*types.ServiceNetworkConfig) service.NetworkMode {
+func (sc *SpecConverter) convertNetworkMode(networkMode string, networks map[string]*types.ServiceNetworkConfig, project *types.Project) service.NetworkMode {
 	mode := service.NetworkMode{
-		Mode: networkMode,
+		Mode:            networkMode,
+		ServiceNetworks: make([]string, 0, len(networks)),
 	}
 
-	// Collect aliases from networks
-	for _, netConfig := range networks {
+	// Collect aliases and resolve network names
+	for networkName, netConfig := range networks {
 		if netConfig != nil && len(netConfig.Aliases) > 0 {
 			mode.Aliases = append(mode.Aliases, netConfig.Aliases...)
 		}
+
+		// Resolve and add network name to ServiceNetworks
+		projectNet, exists := project.Networks[networkName]
+		if !exists {
+			// External or undefined network - use as-is with sanitization
+			resolvedName := service.SanitizeName(networkName)
+			if !strings.Contains(networkName, project.Name) {
+				resolvedName = service.SanitizeName(Prefix(project.Name, networkName))
+			}
+			mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
+			continue
+		}
+
+		// Resolve network name from project definition
+		resolvedName := NameResolver(projectNet.Name, networkName)
+		sanitizedName := service.SanitizeName(resolvedName)
+		if !strings.Contains(resolvedName, project.Name) {
+			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+		}
+		mode.ServiceNetworks = append(mode.ServiceNetworks, sanitizedName)
 	}
 
 	// If no explicit mode, default to bridge
 	if mode.Mode == "" {
 		mode.Mode = "bridge"
 	}
+
+	// Sort for determinism
+	sort.Strings(mode.ServiceNetworks)
 
 	return mode
 }

@@ -50,7 +50,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "resources-limits_default"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": [

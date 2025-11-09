@@ -62,7 +62,11 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "basic-multi-service_backend",
+            "basic-multi-service_frontend"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,
@@ -175,7 +179,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "basic-multi-service_backend"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,
@@ -272,7 +279,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "basic-multi-service_frontend"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,

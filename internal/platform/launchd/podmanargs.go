@@ -84,15 +84,19 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 		args = append(args, "--network", spec.Container.Network.Mode)
 	}
 
-	// Service-level networks (additional networks the service joins)
+	// Service-level networks (additional networks the service joins for DNS resolution)
 	// Sort networks for deterministic ordering
-	networks := make([]string, 0, len(spec.Networks))
-	for _, net := range spec.Networks {
-		if !net.External {
-			networks = append(networks, net.Name)
+	networks := spec.Container.Network.ServiceNetworks
+	if len(networks) == 0 {
+		// Fallback to project-level networks for backward compatibility
+		networks = make([]string, 0, len(spec.Networks))
+		for _, net := range spec.Networks {
+			if !net.External {
+				networks = append(networks, net.Name)
+			}
 		}
+		sort.Strings(networks)
 	}
-	sort.Strings(networks)
 	for _, net := range networks {
 		args = append(args, "--network", net)
 	}

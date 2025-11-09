@@ -105,7 +105,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "ports-matrix_default"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,

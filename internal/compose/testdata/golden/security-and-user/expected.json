@@ -59,7 +59,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "security-and-user_default"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,

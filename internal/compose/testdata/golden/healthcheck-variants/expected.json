@@ -60,7 +60,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "healthcheck-variants_default"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,
@@ -135,7 +138,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "healthcheck-variants_default"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,
@@ -222,7 +228,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "healthcheck-variants_default"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,

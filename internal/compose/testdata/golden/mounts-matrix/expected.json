@@ -99,7 +99,10 @@
         "EnvSecrets": null,
         "Network": {
           "Mode": "bridge",
-          "Aliases": null
+          "Aliases": null,
+          "ServiceNetworks": [
+            "mounts-matrix_default"
+          ]
         },
         "Tmpfs": null,
         "Ulimits": null,
