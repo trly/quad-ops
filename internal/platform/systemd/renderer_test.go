@@ -1027,28 +1027,28 @@ func TestRenderer_ResourcesWithPidsLimitAndUlimits(t *testing.T) {
 
 func TestRenderer_NoDuplicatePidsLimit(t *testing.T) {
 	tests := []struct {
-		name          string
+		name           string
 		resourcesLimit int64 // Container.Resources.PidsLimit
 		containerLimit int64 // Container.PidsLimit
-		expected      int64  // Expected rendered value
-		shouldBeOnce  bool   // Should appear only once in output
+		expected       int64 // Expected rendered value
+		shouldBeOnce   bool  // Should appear only once in output
 	}{
 		{
-			name:          "only Resources.PidsLimit",
+			name:           "only Resources.PidsLimit",
 			resourcesLimit: 512,
 			containerLimit: 0,
 			expected:       512,
 			shouldBeOnce:   true,
 		},
 		{
-			name:          "Resources.PidsLimit takes precedence",
+			name:           "Resources.PidsLimit takes precedence",
 			resourcesLimit: 512,
 			containerLimit: 1024,
 			expected:       512,
 			shouldBeOnce:   true,
 		},
 		{
-			name:          "no PidsLimit when both zero",
+			name:           "no PidsLimit when both zero",
 			resourcesLimit: 0,
 			containerLimit: 0,
 			expected:       0,
@@ -1077,11 +1077,11 @@ func TestRenderer_NoDuplicatePidsLimit(t *testing.T) {
 			require.NoError(t, err)
 
 			content := string(result.Artifacts[0].Content)
-			
+
 			if tt.expected > 0 {
 				expectedStr := fmt.Sprintf("PidsLimit=%d", tt.expected)
 				assert.Contains(t, content, expectedStr)
-				
+
 				// Count occurrences of PidsLimit directive
 				count := strings.Count(content, "PidsLimit=")
 				if tt.shouldBeOnce {
