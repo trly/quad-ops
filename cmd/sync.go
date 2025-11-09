@@ -217,7 +217,13 @@ func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncO
 	repoPath := filepath.Join(app.Config.RepositoryDir, result.Repository.Name)
 	if result.Repository.ComposeDir != "" {
 		repoPath = filepath.Join(repoPath, result.Repository.ComposeDir)
+		// Validate that composeDir path exists before attempting to read projects
+		if _, err := deps.FileSystem.Stat(repoPath); err != nil {
+			deps.Logger.Error("Compose directory not found", "repo", result.Repository.Name, "composeDir", result.Repository.ComposeDir, "error", err)
+			return fmt.Errorf("compose directory not found: %s", result.Repository.ComposeDir)
+		}
 	}
+	deps.Logger.Debug("Reading compose projects", "repo", result.Repository.Name, "path", repoPath)
 	projects, err := compose.ReadProjects(repoPath)
 	if err != nil {
 		return fmt.Errorf("failed to read compose projects: %w", err)

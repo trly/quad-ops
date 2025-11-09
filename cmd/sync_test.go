@@ -377,3 +377,134 @@ func TestSyncCommand_SkipsUnchangedRepos(t *testing.T) {
 		assert.Greater(t, processCalls, 0, "ComposeProcessor.Process should be called when force is true")
 	})
 }
+
+// TestSyncCommand_WithComposeDir tests that composeDir is respected during sync.
+func TestSyncCommand_WithComposeDir(t *testing.T) {
+	var processCalls int
+	var processedProjects []string
+
+	tmpDir := t.TempDir()
+
+	// Create repository with subdirectory structure
+	repoDir := filepath.Join(tmpDir, "test-repo")
+	subDir := filepath.Join(repoDir, "services")
+	err := os.MkdirAll(subDir, 0750)
+	require.NoError(t, err)
+
+	// Create compose file in subdirectory
+	composeContent := []byte(`services:
+  web:
+    image: nginx:latest
+`)
+	err = os.WriteFile(filepath.Join(subDir, "docker-compose.yml"), composeContent, 0600)
+	require.NoError(t, err)
+
+	// Create a compose file in root directory that should NOT be processed
+	err = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), composeContent, 0600)
+	require.NoError(t, err)
+
+	deps := SyncDeps{
+		CommonDeps: CommonDeps{
+			Clock: clock.NewMock(),
+			FileSystem: &FileSystemOps{
+				MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+			},
+			Logger: testutil.NewTestLogger(t),
+		},
+		GitSyncer: &MockGitSyncer{
+			SyncAllFunc: func(_ context.Context, _ []config.Repository) ([]repository.SyncResult, error) {
+				return []repository.SyncResult{
+					{Repository: config.Repository{Name: "test-repo", ComposeDir: "services"}, Success: true, Changed: true},
+				}, nil
+			},
+		},
+		ComposeProcessor: &MockComposeProcessor{
+			ProcessFunc: func(_ context.Context, project *types.Project) ([]service.Spec, error) {
+				processCalls++
+				processedProjects = append(processedProjects, project.Name)
+				return []service.Spec{}, nil
+			},
+		},
+		Renderer: &MockRenderer{
+			RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+				return &platform.RenderResult{Artifacts: []platform.Artifact{}, ServiceChanges: map[string]platform.ChangeStatus{}}, nil
+			},
+		},
+		ArtifactStore: &MockArtifactStore{
+			WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+				return []string{}, nil
+			},
+		},
+		Lifecycle: &MockLifecycle{
+			ReloadFunc: func(_ context.Context) error { return nil },
+		},
+	}
+
+	app := NewAppBuilder(t).
+		WithConfig(&config.Settings{
+			RepositoryDir: tmpDir,
+			Repositories: []config.Repository{
+				{Name: "test-repo", ComposeDir: "services"},
+			},
+		}).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
+		Build(t)
+
+	syncCmd := NewSyncCommand()
+	opts := SyncOptions{}
+
+	err = syncCmd.Run(context.Background(), app, opts, deps)
+	require.NoError(t, err)
+	assert.Greater(t, processCalls, 0, "ComposeProcessor.Process should be called for composeDir subdirectory")
+}
+
+// TestSyncCommand_WithComposeDirNotFound tests error handling when composeDir doesn't exist.
+func TestSyncCommand_WithComposeDirNotFound(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create repository WITHOUT the configured subdirectory
+	repoDir := filepath.Join(tmpDir, "test-repo")
+	err := os.MkdirAll(repoDir, 0750)
+	require.NoError(t, err)
+
+	deps := SyncDeps{
+		CommonDeps: CommonDeps{
+			Clock: clock.NewMock(),
+			FileSystem: &FileSystemOps{
+				MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+			},
+			Logger: testutil.NewTestLogger(t),
+		},
+		GitSyncer: &MockGitSyncer{
+			SyncAllFunc: func(_ context.Context, _ []config.Repository) ([]repository.SyncResult, error) {
+				return []repository.SyncResult{
+					{Repository: config.Repository{Name: "test-repo", ComposeDir: "nonexistent"}, Success: true, Changed: true},
+				}, nil
+			},
+		},
+		ComposeProcessor: &MockComposeProcessor{},
+		Renderer:         &MockRenderer{},
+		ArtifactStore:    &MockArtifactStore{},
+		Lifecycle:        &MockLifecycle{},
+	}
+
+	app := NewAppBuilder(t).
+		WithConfig(&config.Settings{
+			RepositoryDir: tmpDir,
+			Repositories: []config.Repository{
+				{Name: "test-repo", ComposeDir: "nonexistent"},
+			},
+		}).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
+		Build(t)
+
+	syncCmd := NewSyncCommand()
+	opts := SyncOptions{}
+
+	// The sync command should complete without error, but logs an error for the missing composeDir
+	// This allows other repositories to continue processing
+	err = syncCmd.Run(context.Background(), app, opts, deps)
+	assert.NoError(t, err, "sync command should complete without error even if one repo fails")
+}
