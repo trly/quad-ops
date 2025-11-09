@@ -61,7 +61,7 @@
           "Mode": "bridge",
           "Aliases": null,
           "ServiceNetworks": [
-            "security-and-user_default"
+            "security-and-user-default"
           ]
         },
         "Tmpfs": null,
@@ -74,7 +74,7 @@
       "Volumes": null,
       "Networks": [
         {
-          "Name": "security-and-user_default",
+          "Name": "security-and-user-default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -91,7 +91,7 @@
   "volumes": null,
   "networks": [
     {
-      "Name": "security-and-user_default",
+      "Name": "security-and-user-default",
       "Driver": "",
       "Options": null,
       "Labels": null,

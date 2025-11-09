@@ -101,7 +101,7 @@
           "Mode": "bridge",
           "Aliases": null,
           "ServiceNetworks": [
-            "mounts-matrix_default"
+            "mounts-matrix-default"
           ]
         },
         "Tmpfs": null,
@@ -113,14 +113,14 @@
       },
       "Volumes": [
         {
-          "Name": "mounts-matrix_app-data",
+          "Name": "mounts-matrix-app-data",
           "Driver": "local",
           "Options": null,
           "Labels": null,
           "External": false
         },
         {
-          "Name": "mounts-matrix_cache",
+          "Name": "mounts-matrix-cache",
           "Driver": "local",
           "Options": null,
           "Labels": null,
@@ -129,7 +129,7 @@
       ],
       "Networks": [
         {
-          "Name": "mounts-matrix_default",
+          "Name": "mounts-matrix-default",
           "Driver": "",
           "Options": null,
           "Labels": null,
@@ -145,14 +145,14 @@
   ],
   "volumes": [
     {
-      "Name": "mounts-matrix_app-data",
+      "Name": "mounts-matrix-app-data",
       "Driver": "local",
       "Options": null,
       "Labels": null,
       "External": false
     },
     {
-      "Name": "mounts-matrix_cache",
+      "Name": "mounts-matrix-cache",
       "Driver": "local",
       "Options": null,
       "Labels": null,
@@ -161,7 +161,7 @@
   ],
   "networks": [
     {
-      "Name": "mounts-matrix_default",
+      "Name": "mounts-matrix-default",
       "Driver": "",
       "Options": null,
       "Labels": null,

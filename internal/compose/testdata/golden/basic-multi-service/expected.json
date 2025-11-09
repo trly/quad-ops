@@ -64,8 +64,8 @@
           "Mode": "bridge",
           "Aliases": null,
           "ServiceNetworks": [
-            "basic-multi-service_backend",
-            "basic-multi-service_frontend"
+            "basic-multi-service-backend",
+            "basic-multi-service-frontend"
           ]
         },
         "Tmpfs": null,
@@ -77,14 +77,14 @@
       },
       "Volumes": [
         {
-          "Name": "basic-multi-service_app-data",
+          "Name": "basic-multi-service-app-data",
           "Driver": "local",
           "Options": null,
           "Labels": null,
           "External": false
         },
         {
-          "Name": "basic-multi-service_db-data",
+          "Name": "basic-multi-service-db-data",
           "Driver": "local",
           "Options": null,
           "Labels": null,
@@ -93,7 +93,7 @@
       ],
       "Networks": [
         {
-          "Name": "basic-multi-service_backend",
+          "Name": "basic-multi-service-backend",
           "Driver": "bridge",
           "Options": null,
           "Labels": null,
@@ -103,7 +103,7 @@
           "External": false
         },
         {
-          "Name": "basic-multi-service_frontend",
+          "Name": "basic-multi-service-frontend",
           "Driver": "bridge",
           "Options": null,
           "Labels": null,
@@ -181,7 +181,7 @@
           "Mode": "bridge",
           "Aliases": null,
           "ServiceNetworks": [
-            "basic-multi-service_backend"
+            "basic-multi-service-backend"
           ]
         },
         "Tmpfs": null,
@@ -193,14 +193,14 @@
       },
       "Volumes": [
         {
-          "Name": "basic-multi-service_app-data",
+          "Name": "basic-multi-service-app-data",
           "Driver": "local",
           "Options": null,
           "Labels": null,
           "External": false
         },
         {
-          "Name": "basic-multi-service_db-data",
+          "Name": "basic-multi-service-db-data",
           "Driver": "local",
           "Options": null,
           "Labels": null,
@@ -209,7 +209,7 @@
       ],
       "Networks": [
         {
-          "Name": "basic-multi-service_backend",
+          "Name": "basic-multi-service-backend",
           "Driver": "bridge",
           "Options": null,
           "Labels": null,
@@ -281,7 +281,7 @@
           "Mode": "bridge",
           "Aliases": null,
           "ServiceNetworks": [
-            "basic-multi-service_frontend"
+            "basic-multi-service-frontend"
           ]
         },
         "Tmpfs": null,
@@ -293,14 +293,14 @@
       },
       "Volumes": [
         {
-          "Name": "basic-multi-service_app-data",
+          "Name": "basic-multi-service-app-data",
           "Driver": "local",
           "Options": null,
           "Labels": null,
           "External": false
         },
         {
-          "Name": "basic-multi-service_db-data",
+          "Name": "basic-multi-service-db-data",
           "Driver": "local",
           "Options": null,
           "Labels": null,
@@ -309,7 +309,7 @@
       ],
       "Networks": [
         {
-          "Name": "basic-multi-service_frontend",
+          "Name": "basic-multi-service-frontend",
           "Driver": "bridge",
           "Options": null,
           "Labels": null,
@@ -327,14 +327,14 @@
   ],
   "volumes": [
     {
-      "Name": "basic-multi-service_app-data",
+      "Name": "basic-multi-service-app-data",
       "Driver": "local",
       "Options": null,
       "Labels": null,
       "External": false
     },
     {
-      "Name": "basic-multi-service_db-data",
+      "Name": "basic-multi-service-db-data",
       "Driver": "local",
       "Options": null,
       "Labels": null,
@@ -343,7 +343,7 @@
   ],
   "networks": [
     {
-      "Name": "basic-multi-service_backend",
+      "Name": "basic-multi-service-backend",
       "Driver": "bridge",
       "Options": null,
       "Labels": null,
@@ -353,7 +353,7 @@
       "External": false
     },
     {
-      "Name": "basic-multi-service_frontend",
+      "Name": "basic-multi-service-frontend",
       "Driver": "bridge",
       "Options": null,
       "Labels": null,

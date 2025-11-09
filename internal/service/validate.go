@@ -224,10 +224,14 @@ func (i *IPAM) Validate() error {
 }
 
 // SanitizeName sanitizes a name to be safe for systemd and filesystem use.
-// It replaces invalid characters with hyphens and ensures the name starts with alphanumeric.
+// It replaces invalid characters with hyphens (DNS spec compliant).
+// Underscores are explicitly converted to hyphens for DNS compatibility.
 func SanitizeName(name string) string {
-	// Replace invalid characters with hyphens
-	result := regexp.MustCompile(`[^a-zA-Z0-9_.-]+`).ReplaceAllString(name, "-")
+	// Replace underscores with hyphens (DNS spec: only alphanumerics and hyphens)
+	result := strings.ReplaceAll(name, "_", "-")
+
+	// Replace other invalid characters with hyphens
+	result = regexp.MustCompile(`[^a-zA-Z0-9.-]+`).ReplaceAllString(result, "-")
 
 	// Ensure it starts with alphanumeric
 	result = regexp.MustCompile(`^[^a-zA-Z0-9]+`).ReplaceAllString(result, "")

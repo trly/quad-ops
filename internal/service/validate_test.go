@@ -561,9 +561,14 @@ func TestSanitizeName(t *testing.T) {
 			expected: "my-service",
 		},
 		{
-			name:     "dots and underscores preserved",
+			name:     "underscores converted to hyphens",
+			input:    "my_service",
+			expected: "my-service",
+		},
+		{
+			name:     "dots preserved, underscores to hyphens",
 			input:    "my_service.v1",
-			expected: "my_service.v1",
+			expected: "my-service.v1",
 		},
 		{
 			name:     "collapse multiple hyphens",
