@@ -24,6 +24,49 @@ Core pipeline: `Docker Compose → Spec Converter → Platform Renderer → Life
 - `internal/systemd/` - systemd/DBus integration for lifecycle management
 - `cmd/` - CLI commands using Cobra (sync, up, down, daemon, etc.)
 
+## Compose Specification Scope
+
+**quad-ops converts standard Docker Compose to Podman Quadlet units. NOT a Swarm orchestrator.**
+
+### ✅ In Scope: Standard Compose + Podman Features
+
+Support all container runtime features that work with standalone Podman:
+
+- **Container basics**: image, build, command, entrypoint, working_dir, user, hostname
+- **Environment**: environment, env_file, labels, annotations
+- **Networking**: networks (bridge/host/custom), ports (host mode), dns*, extra_hosts, network_mode
+- **Storage**: volumes (bind/named/tmpfs), secrets/configs with **local sources only** (file/content/environment)
+- **Resources**: memory, cpu (shares/quota/period), pids_limit, shm_size, sysctls, ulimits
+- **Security**: cap_add/drop, privileged, security_opt, read_only, group_add, pid/ipc/cgroup modes
+- **Devices**: devices, device_cgroup_rules, gpus (if Podman supports)
+- **Health**: healthcheck, restart (maps to systemd), stop_signal, stop_grace_period
+- **Dependencies**: depends_on (maps to systemd After/Requires, all conditions treated equally)
+
+### ❌ Out of Scope: Docker Swarm Orchestration
+
+**REJECT these features in validation with clear error messages:**
+
+- **Multi-node orchestration**: deploy.placement, deploy.mode: global, deploy.replicas > 1
+- **Rolling updates**: deploy.update_config, deploy.rollback_config
+- **Service discovery**: deploy.endpoint_mode (vip/dnsrr)
+- **Swarm networking**: ports with mode: ingress (use mode: host instead)
+- **Swarm config/secrets store**: configs/secrets with `driver` field (use file/content sources)
+- **Service labels**: deploy.labels (use top-level labels for containers)
+
+**Error message format**: "Swarm orchestration not supported. Use Kubernetes/Nomad for feature X. Alternative: [workaround]"
+
+### ⚠️ Key Distinctions
+
+**Configs & Secrets** - Context matters:
+- ✅ **Local sources** (file: ./config.txt, content: "data", environment: VAR) → Convert to bind mounts
+- ❌ **Swarm store** (external: true with driver) → Reject with error
+
+**Deploy section** - Mixed bag:
+- ✅ deploy.resources.limits → Map to Quadlet resource directives
+- ❌ deploy.placement/update_config/rollback_config → Swarm orchestration, reject
+
+**Reference**: See history/v0.22.0-podman-only-scope.md for complete analysis
+
 ## Code Style
 
 - **Testing**: table-driven tests preferred, heavy use of dependency injection and mocks
