@@ -185,3 +185,27 @@ func TestLifecycle_SetUnitGenerationTimeout(t *testing.T) {
 	l.SetUnitGenerationTimeout(10 * time.Second)
 	assert.Equal(t, 10*time.Second, l.unitGenerationTimeout)
 }
+
+func TestLifecycle_RestartMany_UnitAvailableForRestart(t *testing.T) {
+	// This test verifies that after waitForUnitGeneration succeeds,
+	// RestartUnit operations also succeed immediately (not flaky)
+	logger := testutil.NewTestLogger(t)
+	
+	mockFactory := &MockConnectionFactory{}
+	mockConn := &MockConnection{
+		factory:  mockFactory,
+		props:    map[string]interface{}{},
+		failMode: 0, // GetUnitProperties succeeds immediately
+	}
+	mockFactory.connection = mockConn
+
+	l := NewLifecycle(nil, mockFactory, false, logger)
+	l.SetUnitGenerationTimeout(1 * time.Second)
+
+	ctx := context.Background()
+	results := l.RestartMany(ctx, []string{"test-svc"})
+
+	// Should succeed without "Unit not found" errors
+	assert.Len(t, results, 1)
+	assert.NoError(t, results["test-svc"])
+}

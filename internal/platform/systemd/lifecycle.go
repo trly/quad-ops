@@ -449,6 +449,22 @@ func (l *Lifecycle) RestartMany(ctx context.Context, names []string) map[string]
 		}
 	}
 
+	// After verifying all units exist, add a small buffer to ensure systemd has fully
+	// processed the units and they're available for operations like RestartUnit.
+	// This addresses a race condition where GetUnitProperties succeeds but RestartUnit
+	// fails immediately after with "Unit not found" (D-Bus caching/sync issue).
+	l.logger.Debug("Allowing time for systemd to fully process units before restart operations")
+	select {
+	case <-time.After(100 * time.Millisecond):
+		// Continue to restart operations
+	case <-ctx.Done():
+		results := make(map[string]error)
+		for _, name := range names {
+			results[name] = fmt.Errorf("restart operation cancelled: %w", ctx.Err())
+		}
+		return results
+	}
+
 	results := make(map[string]error)
 	var mu sync.Mutex
 
