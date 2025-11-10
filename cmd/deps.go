@@ -91,3 +91,22 @@ func NewCommonDeps(logger log.Logger) CommonDeps {
 func NewRootDeps(app *App) CommonDeps {
 	return NewCommonDeps(app.Logger)
 }
+
+// fileSystemChecker wraps FileSystem to implement systemd.FileSystemChecker interface.
+// This adapter is used by diagnostic functions to check file existence.
+type fileSystemChecker struct {
+	fs FileSystem
+}
+
+// Stat checks if a file exists and returns (true, nil) if it does, (false, nil) if it doesn't,
+// or (false, error) if there's an error accessing the file.
+func (f *fileSystemChecker) Stat(path string) (bool, error) {
+	stat, err := f.fs.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return stat != nil, nil
+}

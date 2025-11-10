@@ -26,12 +26,14 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/platform"
 	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // SyncOptions holds sync command options.
@@ -180,12 +182,15 @@ func (c *SyncCommand) syncRepositories(ctx context.Context, app *App, opts SyncO
 	}
 
 	servicesToRestart := make(map[string]bool)
+	allArtifactPaths := make([]string, 0)
 	anyChanges := false
 
 	for _, result := range results {
-		if err := c.handleSyncResult(ctx, app, opts, deps, result, servicesToRestart, &anyChanges); err != nil {
+		artifactPaths, err := c.handleSyncResult(ctx, app, opts, deps, result, servicesToRestart, &anyChanges)
+		if err != nil {
 			deps.Logger.Error("Failed to process repository", "repo", result.Repository.Name, "error", err)
 		}
+		allArtifactPaths = append(allArtifactPaths, artifactPaths...)
 	}
 
 	if anyChanges || opts.Force {
@@ -197,12 +202,19 @@ func (c *SyncCommand) syncRepositories(ctx context.Context, app *App, opts SyncO
 		if len(servicesToRestart) > 0 {
 			names := c.sortedServiceNames(servicesToRestart)
 			restartErrs := deps.Lifecycle.RestartMany(ctx, names)
+			hasErrors := false
 			for name, rerr := range restartErrs {
 				if rerr != nil {
 					deps.Logger.Error("Failed to restart service", "service", name, "error", rerr)
+					hasErrors = true
 				} else {
 					deps.Logger.Info("Service restarted", "service", name)
 				}
+			}
+
+			// Run diagnostics if any services failed and we're on Linux
+			if hasErrors {
+				c.runDiagnosticsIfLinux(ctx, app, deps, allArtifactPaths)
 			}
 		}
 	} else {
@@ -228,14 +240,15 @@ func (c *SyncCommand) filterRepositories(repos []config.Repository, opts SyncOpt
 }
 
 // handleSyncResult processes a single repository sync result.
-func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncOptions, deps SyncDeps, result repository.SyncResult, servicesToRestart map[string]bool, anyChanges *bool) error {
+// Returns the list of artifact paths that were written.
+func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncOptions, deps SyncDeps, result repository.SyncResult, servicesToRestart map[string]bool, anyChanges *bool) ([]string, error) {
 	if result.Error != nil {
-		return result.Error
+		return nil, result.Error
 	}
 
 	if !result.Changed && !opts.Force {
 		deps.Logger.Debug("Repository unchanged, skipping", "repo", result.Repository.Name)
-		return nil
+		return nil, nil
 	}
 
 	repoPath := filepath.Join(app.Config.RepositoryDir, result.Repository.Name)
@@ -244,19 +257,21 @@ func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncO
 		// Validate that composeDir path exists before attempting to read projects
 		if _, err := deps.FileSystem.Stat(repoPath); err != nil {
 			deps.Logger.Error("Compose directory not found", "repo", result.Repository.Name, "composeDir", result.Repository.ComposeDir, "error", err)
-			return fmt.Errorf("compose directory not found: %s", result.Repository.ComposeDir)
+			return nil, fmt.Errorf("compose directory not found: %s", result.Repository.ComposeDir)
 		}
 	}
 	deps.Logger.Debug("Reading compose projects", "repo", result.Repository.Name, "path", repoPath)
 	projects, err := compose.ReadProjects(repoPath)
 	if err != nil {
-		return fmt.Errorf("failed to read compose projects: %w", err)
+		return nil, fmt.Errorf("failed to read compose projects: %w", err)
 	}
 
 	if len(projects) == 0 {
 		deps.Logger.Debug("No compose projects found", "repo", result.Repository.Name)
-		return nil
+		return nil, nil
 	}
+
+	artifactPaths := make([]string, 0)
 
 	for _, project := range projects {
 		specs, err := deps.ComposeProcessor.Process(ctx, project)
@@ -271,6 +286,11 @@ func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncO
 		if err != nil {
 			deps.Logger.Error("Failed to render artifacts", "repo", result.Repository.Name, "project", project.Name, "error", err)
 			continue
+		}
+
+		// Track all artifact paths for diagnostics
+		for _, artifact := range renderResult.Artifacts {
+			artifactPaths = append(artifactPaths, artifact.Path)
 		}
 
 		changedPaths, err := deps.ArtifactStore.Write(ctx, renderResult.Artifacts)
@@ -288,7 +308,7 @@ func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncO
 		}
 	}
 
-	return nil
+	return artifactPaths, nil
 }
 
 // trackChangedServices marks services for restart based on changed artifact paths.
@@ -322,4 +342,43 @@ func (c *SyncCommand) sortedServiceNames(services map[string]bool) []string {
 		names = append(names, name)
 	}
 	return names
+}
+
+// runDiagnosticsIfLinux runs diagnostic checks for unit generation failures (Linux only).
+func (c *SyncCommand) runDiagnosticsIfLinux(ctx context.Context, app *App, deps SyncDeps, artifactPaths []string) {
+	// Only run diagnostics on Linux (systemd platform)
+	if runtime.GOOS != "linux" {
+		return
+	}
+
+	if len(artifactPaths) == 0 {
+		return
+	}
+
+	deps.Logger.Info("Running diagnostics to identify unit generation issues...")
+
+	// Default Quadlet generator path for systemd
+	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
+
+	// Create FileSystemChecker adapter
+	fsChecker := &fileSystemChecker{fs: deps.FileSystem}
+
+	// Create connection factory for diagnostics
+	connFactory := systemd.NewConnectionFactory(deps.Logger)
+
+	// Run comprehensive diagnostics
+	userMode := app.Config.UserMode
+	issues := systemd.DiagnoseGeneratorIssues(ctx, generatorPath, artifactPaths, fsChecker, connFactory, userMode, deps.Logger)
+
+	if len(issues) == 0 {
+		deps.Logger.Info("No diagnostic issues found - units may be temporarily unavailable")
+		return
+	}
+
+	// Format and display diagnostic issues
+	deps.Logger.Warn("Diagnostic issues detected", "count", len(issues))
+	for _, issue := range issues {
+		formatted := systemd.FormatDiagnosticIssue(issue)
+		deps.Logger.Error(formatted)
+	}
 }

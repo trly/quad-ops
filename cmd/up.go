@@ -26,12 +26,14 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/service"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // UpOptions holds up command options.
@@ -243,6 +245,7 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 
 	// Track all service specs and dependencies
 	registry := newServiceRegistry()
+	allArtifactPaths := make([]string, 0)
 	anyChanges := false
 
 	// 1. Process compose files from selected repositories
@@ -293,6 +296,11 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 				deps.Logger.Error("Failed to render artifacts",
 					"repo", repo.Name, "project", project.Name, "error", err)
 				continue
+			}
+
+			// Track all artifact paths for diagnostics
+			for _, artifact := range renderResult.Artifacts {
+				allArtifactPaths = append(allArtifactPaths, artifact.Path)
 			}
 
 			// Handle dry-run mode
@@ -388,7 +396,9 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		}
 	}
 
+	// Run diagnostics if any services failed and we're on Linux
 	if failCount > 0 {
+		c.runDiagnosticsIfLinux(ctx, app, deps, allArtifactPaths)
 		return fmt.Errorf("failed to start %d services", failCount)
 	}
 
@@ -397,4 +407,43 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 	}
 
 	return nil
+}
+
+// runDiagnosticsIfLinux runs diagnostic checks for unit generation failures (Linux only).
+func (c *UpCommand) runDiagnosticsIfLinux(ctx context.Context, app *App, deps UpDeps, artifactPaths []string) {
+	// Only run diagnostics on Linux (systemd platform)
+	if runtime.GOOS != "linux" {
+		return
+	}
+
+	if len(artifactPaths) == 0 {
+		return
+	}
+
+	deps.Logger.Info("Running diagnostics to identify unit generation issues...")
+
+	// Default Quadlet generator path for systemd
+	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
+
+	// Create FileSystemChecker adapter
+	fsChecker := &fileSystemChecker{fs: deps.FileSystem}
+
+	// Create connection factory for diagnostics
+	connFactory := systemd.NewConnectionFactory(deps.Logger)
+
+	// Run comprehensive diagnostics
+	userMode := app.Config.UserMode
+	issues := systemd.DiagnoseGeneratorIssues(ctx, generatorPath, artifactPaths, fsChecker, connFactory, userMode, deps.Logger)
+
+	if len(issues) == 0 {
+		deps.Logger.Info("No diagnostic issues found - units may be temporarily unavailable")
+		return
+	}
+
+	// Format and display diagnostic issues
+	deps.Logger.Warn("Diagnostic issues detected", "count", len(issues))
+	for _, issue := range issues {
+		formatted := systemd.FormatDiagnosticIssue(issue)
+		deps.Logger.Error(formatted)
+	}
 }

@@ -32,6 +32,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/trly/quad-ops/internal/systemd"
 )
 
 // DoctorOptions holds doctor command options.
@@ -113,6 +114,7 @@ func (c *DoctorCommand) Run(_ context.Context, app *App, _ DoctorOptions, deps D
 
 	// Run all checks
 	results = append(results, c.checkSystemRequirements(app, deps)...)
+	results = append(results, c.checkQuadletGenerator(app, deps)...)
 	results = append(results, c.checkConfiguration(app, deps)...)
 	results = append(results, c.checkDirectories(app, deps)...)
 	results = append(results, c.checkRepositories(app, deps)...)
@@ -212,6 +214,70 @@ func (c *DoctorCommand) checkSystemRequirements(app *App, deps DoctorDeps) []Che
 
 	return results
 }
+
+// checkQuadletGenerator validates Quadlet generator binary installation (Linux only).
+func (c *DoctorCommand) checkQuadletGenerator(app *App, deps DoctorDeps) []CheckResult {
+	var results []CheckResult
+
+	// Only check on Linux (systemd platform)
+	platform := deps.GetOS()
+	if platform != "linux" {
+		// Skip check on non-Linux platforms
+		return results
+	}
+
+	// Default Quadlet generator path
+	generatorPath := "/usr/lib/systemd/system-generators/podman-system-generator"
+
+	// Create a FileSystemChecker wrapper for the diagnostics package
+	fsChecker := &fileSystemChecker{fs: deps.FileSystem}
+
+	// Check if generator binary exists
+	exists, err := systemd.CheckGeneratorBinaryExists(generatorPath, fsChecker, deps.Logger)
+	if err != nil {
+		results = append(results, CheckResult{
+			Name:    "Quadlet Generator",
+			Passed:  false,
+			Message: fmt.Sprintf("Error checking generator binary: %v", err),
+			Suggestions: []string{
+				"Verify file system permissions",
+				"Check if the path is accessible",
+			},
+		})
+		return results
+	}
+
+	if !exists {
+		issue := systemd.DiagnosticIssue{
+			Type:    "generator_missing",
+			Message: fmt.Sprintf("Quadlet generator binary not found at %s", generatorPath),
+			Suggestions: []string{
+				"Install podman (the generator is included with podman)",
+				"Verify podman version >= 4.4 (Quadlet was introduced in 4.4)",
+				"For Fedora/RHEL: sudo dnf install podman",
+				"For Ubuntu: sudo apt install podman",
+				fmt.Sprintf("Verify generator exists: ls -la %s", generatorPath),
+			},
+		}
+
+		results = append(results, CheckResult{
+			Name:        "Quadlet Generator",
+			Passed:      false,
+			Message:     issue.Message,
+			Suggestions: issue.Suggestions,
+		})
+	} else {
+		results = append(results, CheckResult{
+			Name:    "Quadlet Generator",
+			Passed:  true,
+			Message: fmt.Sprintf("Quadlet generator found at %s", generatorPath),
+		})
+	}
+
+	return results
+}
+
+
 
 // checkConfiguration validates configuration file and settings.
 func (c *DoctorCommand) checkConfiguration(app *App, deps DoctorDeps) []CheckResult {
