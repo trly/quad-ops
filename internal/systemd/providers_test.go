@@ -383,4 +383,53 @@ func TestWaitForUnitsGenerated(t *testing.T) {
 		err := orchestrator.waitForUnitsGenerated(ctx, []string{}, 5, 10*time.Millisecond)
 		assert.NoError(t, err)
 	})
+
+	t.Run("verifies units are in loaded state before returning success", func(t *testing.T) {
+		attempts := 0
+		mockConn := &MockConnection{
+			GetUnitPropertiesFunc: func(_ context.Context, _ string) (map[string]interface{}, error) {
+				attempts++
+				// First attempt: unit exists but LoadState is not "loaded"
+				if attempts == 1 {
+					return map[string]interface{}{
+						"LoadState": "loading",
+					}, nil
+				}
+				// Second attempt: unit is now fully loaded
+				return map[string]interface{}{
+					"LoadState": "loaded",
+				}, nil
+			},
+		}
+
+		mockFactory := &MockConnectionFactory{
+			Connection: mockConn,
+		}
+
+		orchestrator := createTestOrchestrator(mockFactory).(*DefaultOrchestrator)
+		ctx := context.Background()
+		err := orchestrator.waitForUnitsGenerated(ctx, []string{"test-unit"}, 5, 10*time.Millisecond)
+		assert.NoError(t, err)
+		assert.Greater(t, attempts, 1, "should have retried until LoadState was loaded")
+	})
+
+	t.Run("fails if LoadState never reaches loaded state", func(t *testing.T) {
+		mockConn := &MockConnection{
+			GetUnitPropertiesFunc: func(_ context.Context, _ string) (map[string]interface{}, error) {
+				return map[string]interface{}{
+					"LoadState": "error",
+				}, nil
+			},
+		}
+
+		mockFactory := &MockConnectionFactory{
+			Connection: mockConn,
+		}
+
+		orchestrator := createTestOrchestrator(mockFactory).(*DefaultOrchestrator)
+		ctx := context.Background()
+		err := orchestrator.waitForUnitsGenerated(ctx, []string{"test-unit"}, 2, 5*time.Millisecond)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "units not generated")
+	})
 }

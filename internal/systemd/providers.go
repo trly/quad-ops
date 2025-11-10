@@ -263,6 +263,7 @@ func (o *DefaultOrchestrator) StartUnitDependencyAware(unitName, unitType string
 
 // waitForUnitsGenerated waits for all specified units to be generated and available in systemd.
 // It uses exponential backoff with a maximum timeout to avoid blocking forever.
+// Additionally verifies that units are in "loaded" state to ensure they're ready for operations like Restart.
 func (o *DefaultOrchestrator) waitForUnitsGenerated(ctx context.Context, unitNames []string, maxRetries int, initialBackoff time.Duration) error {
 	if len(unitNames) == 0 {
 		return nil
@@ -289,10 +290,11 @@ func (o *DefaultOrchestrator) waitForUnitsGenerated(ctx context.Context, unitNam
 				allFound = false
 				notFoundUnits = append(notFoundUnits, serviceName)
 				lastErr = err
+				_ = conn.Close()
 				continue
 			}
 
-			_, err = conn.GetUnitProperties(ctx, serviceName)
+			props, err := conn.GetUnitProperties(ctx, serviceName)
 			_ = conn.Close() // Always close the connection
 
 			if err != nil {
@@ -301,15 +303,29 @@ func (o *DefaultOrchestrator) waitForUnitsGenerated(ctx context.Context, unitNam
 				lastErr = err
 				continue
 			}
+
+			// Verify LoadState is "loaded" to ensure systemd can actually operate on the unit
+			// This is critical because GetUnitProperties may succeed while the unit is still
+			// being processed by the Quadlet generator, but RestartUnit will fail on not-yet-loaded units.
+			if loadState, ok := props["LoadState"].(string); ok && loadState != "loaded" {
+				o.logger.Debug("Unit found but not yet loaded",
+					"unit", serviceName,
+					"loadState", loadState,
+					"attempt", attempt)
+				allFound = false
+				notFoundUnits = append(notFoundUnits, serviceName)
+				lastErr = fmt.Errorf("unit %s has LoadState=%s, waiting for loaded", serviceName, loadState)
+				continue
+			}
 		}
 
 		if allFound {
-			o.logger.Debug("All units are now available")
+			o.logger.Debug("All units are now available and loaded")
 			return nil
 		}
 
 		if attempt < maxRetries-1 {
-			o.logger.Debug("Units not yet available, retrying",
+			o.logger.Debug("Units not yet available/loaded, retrying",
 				"attempt", attempt+1,
 				"maxRetries", maxRetries,
 				"backoff", backoff,
