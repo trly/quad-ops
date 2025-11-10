@@ -119,10 +119,10 @@ func DiagnoseGeneratorIssues(
 				Message: fmt.Sprintf("%s exists but %s not loaded in systemd", artifactName, unitName),
 				Suggestions: []string{
 					"Run: systemctl daemon-reload (or systemctl --user daemon-reload for user mode)",
-					fmt.Sprintf("Check generator logs: journalctl -u systemd-system-generators.target -n 50"),
+					"Check generator logs: journalctl -u systemd-system-generators.target -n 50",
 					fmt.Sprintf("Verify artifact syntax: cat %s", artifactPath),
 					"Generator may have failed silently - check for syntax errors in .container/.network/.volume files",
-					fmt.Sprintf("Try manually: /usr/lib/systemd/system-generators/podman-system-generator /tmp/test"),
+					"Try manually: /usr/lib/systemd/system-generators/podman-system-generator /tmp/test",
 				},
 			})
 		}

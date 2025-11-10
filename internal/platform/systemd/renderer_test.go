@@ -2072,7 +2072,7 @@ func TestRenderer_NetworkReferenceNormalization(t *testing.T) {
 }
 
 // TestRenderer_NetworkUnderscoreSanitization tests that renderer correctly handles
-// networks with underscores (which are preserved by SanitizeName after ea9646e fix)
+// networks with underscores (which are preserved by SanitizeName after ea9646e fix).
 func TestRenderer_NetworkUnderscoreSanitization(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
 	r := NewRenderer(logger)

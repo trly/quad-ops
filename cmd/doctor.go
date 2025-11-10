@@ -216,7 +216,7 @@ func (c *DoctorCommand) checkSystemRequirements(app *App, deps DoctorDeps) []Che
 }
 
 // checkQuadletGenerator validates Quadlet generator binary installation (Linux only).
-func (c *DoctorCommand) checkQuadletGenerator(app *App, deps DoctorDeps) []CheckResult {
+func (c *DoctorCommand) checkQuadletGenerator(_ *App, deps DoctorDeps) []CheckResult {
 	var results []CheckResult
 
 	// Only check on Linux (systemd platform)
@@ -276,8 +276,6 @@ func (c *DoctorCommand) checkQuadletGenerator(app *App, deps DoctorDeps) []Check
 
 	return results
 }
-
-
 
 // checkConfiguration validates configuration file and settings.
 func (c *DoctorCommand) checkConfiguration(app *App, deps DoctorDeps) []CheckResult {
