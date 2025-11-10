@@ -190,6 +190,60 @@ func TestNetworkDependencies_ExternalNetworksInServiceNetworks(t *testing.T) {
 	assert.True(t, externalNet.External, "infrastructure-proxy should be marked as external")
 }
 
+// TestNetworkDependencies_ExternalNetworkNotInProjectNetworks tests that
+// external networks referenced by services but not defined in project.Networks
+// are handled correctly without project prefix.
+func TestNetworkDependencies_ExternalNetworkNotInProjectNetworks(t *testing.T) {
+	converter := NewSpecConverter(".")
+
+	// Simulate scenario where service references an external network
+	// (from another project) that is NOT in the current project's Networks
+	project := &types.Project{
+		Name: "llm",
+		Networks: map[string]types.NetworkConfig{
+			"default": {
+				Name:   "default",
+				Driver: "bridge",
+			},
+		},
+		Services: map[string]types.ServiceConfig{
+			"ollama": {
+				Name:  "ollama",
+				Image: "ollama:latest",
+				Networks: map[string]*types.ServiceNetworkConfig{
+					"default":              {}, // Local network
+					"infrastructure-proxy": {}, // External network NOT in project.Networks
+				},
+			},
+		},
+	}
+
+	specs, err := converter.ConvertProject(project)
+	require.NoError(t, err)
+	require.Len(t, specs, 1)
+
+	spec := specs[0]
+
+	// The external network should be in ServiceNetworks WITHOUT the project prefix
+	// Expected: "infrastructure-proxy" (not "llm-infrastructure-proxy")
+	assert.ElementsMatch(t,
+		[]string{"infrastructure-proxy", "llm-default"},
+		spec.Container.Network.ServiceNetworks,
+		"external network should not have project prefix")
+
+	// spec.Networks should have both networks
+	require.Len(t, spec.Networks, 2)
+	var externalNet *service.Network
+	for i := range spec.Networks {
+		if spec.Networks[i].Name == "infrastructure-proxy" {
+			externalNet = &spec.Networks[i]
+			break
+		}
+	}
+	require.NotNil(t, externalNet, "infrastructure-proxy should exist in Networks")
+	assert.True(t, externalNet.External, "external network should be marked as external")
+}
+
 // TestNetworkDependencies_BridgeMode tests that bridge mode services
 // still get proper network assignments.
 func TestNetworkDependencies_BridgeModeWithNetworks(t *testing.T) {

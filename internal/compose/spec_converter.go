@@ -913,9 +913,9 @@ func (sc *SpecConverter) convertServiceNetworksList(networks map[string]*types.S
 			resolvedName := service.SanitizeName(networkName)
 
 			network := service.Network{
-				Name: resolvedName,
-				// Default driver for undefined networks
-				Driver: "bridge",
+				Name:     resolvedName,
+				Driver:   "bridge",
+				External: true, // Mark as external since it's not defined in this project
 			}
 			result = append(result, network)
 			continue
