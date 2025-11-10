@@ -222,24 +222,3 @@ func (i *IPAM) Validate() error {
 	// More detailed validation can be added as needed
 	return nil
 }
-
-// SanitizeName sanitizes a name to be safe for systemd and filesystem use.
-// It preserves underscores, hyphens, and dots (all valid in systemd unit names).
-// Only replaces truly invalid characters with hyphens.
-// This ensures backward compatibility with v0.21.2 naming patterns.
-func SanitizeName(name string) string {
-	// Replace invalid characters with hyphens
-	// Keep: alphanumerics, underscores, hyphens, dots
-	result := regexp.MustCompile(`[^a-zA-Z0-9_.-]+`).ReplaceAllString(name, "-")
-
-	// Ensure it starts with alphanumeric
-	result = regexp.MustCompile(`^[^a-zA-Z0-9]+`).ReplaceAllString(result, "")
-
-	// Remove trailing invalid characters
-	result = regexp.MustCompile(`[^a-zA-Z0-9]+$`).ReplaceAllString(result, "")
-
-	// Collapse multiple hyphens
-	result = regexp.MustCompile(`-+`).ReplaceAllString(result, "-")
-
-	return result
-}

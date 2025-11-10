@@ -647,7 +647,7 @@ func TestSpecConverter_ConvertCPU(t *testing.T) {
 	}
 }
 
-func TestSpecConverter_NameSanitization(t *testing.T) {
+func TestSpecConverter_ValidProjectNames(t *testing.T) {
 	tests := []struct {
 		projectName string
 		serviceName string
@@ -655,7 +655,9 @@ func TestSpecConverter_NameSanitization(t *testing.T) {
 	}{
 		{"my-project", "web", "my-project-web"},
 		{"project_name", "db", "project_name-db"},
-		{"Project With Spaces", "api", "Project-With-Spaces-api"},
+		{"MyProject", "api", "MyProject-api"},
+		{"project123", "cache", "project123-cache"},
+		{"proj.test", "svc", "proj.test-svc"},
 	}
 
 	for _, tt := range tests {
@@ -676,8 +678,41 @@ func TestSpecConverter_NameSanitization(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, specs, 1)
 
-			// Name should be sanitized
-			assert.Equal(t, service.SanitizeName(tt.wantPrefix), specs[0].Name)
+			// Name should match the prefixed name
+			assert.Equal(t, tt.wantPrefix, specs[0].Name)
+		})
+	}
+}
+
+func TestSpecConverter_InvalidProjectNames(t *testing.T) {
+	tests := []struct {
+		projectName string
+		serviceName string
+	}{
+		{"Project With Spaces", "api"},
+		{"-invalid", "web"},
+		{"invalid!", "db"},
+		{".start", "svc"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.projectName+"/"+tt.serviceName, func(t *testing.T) {
+			converter := NewSpecConverter("/test")
+			project := &types.Project{
+				Name:       tt.projectName,
+				WorkingDir: "/test",
+				Services: types.Services{
+					tt.serviceName: {
+						Name:  tt.serviceName,
+						Image: "test:latest",
+					},
+				},
+			}
+
+			specs, err := converter.ConvertProject(project)
+			require.Error(t, err)
+			assert.Nil(t, specs)
+			assert.Contains(t, err.Error(), "invalid project name")
 		})
 	}
 }
@@ -702,7 +737,7 @@ func TestSpecConverter_ConvertNetworkMode(t *testing.T) {
 			validate: func(t *testing.T, mode service.NetworkMode) {
 				// External network should NOT be prefixed with project name
 				assert.Len(t, mode.ServiceNetworks, 1)
-				assert.Equal(t, service.SanitizeName("infrastructure-proxy"), mode.ServiceNetworks[0])
+				assert.Equal(t, "infrastructure-proxy", mode.ServiceNetworks[0])
 			},
 		},
 		{
@@ -721,7 +756,7 @@ func TestSpecConverter_ConvertNetworkMode(t *testing.T) {
 			validate: func(t *testing.T, mode service.NetworkMode) {
 				// Project-local network should be prefixed
 				assert.Len(t, mode.ServiceNetworks, 1)
-				assert.Equal(t, service.SanitizeName("llm-backend"), mode.ServiceNetworks[0])
+				assert.Equal(t, "llm-backend", mode.ServiceNetworks[0])
 			},
 		},
 	}
@@ -789,7 +824,7 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 			validate: func(t *testing.T, spec service.Spec) {
 				// Should have the service-level network
 				assert.Len(t, spec.Networks, 1)
-				assert.Equal(t, service.SanitizeName("myapp-backend"), spec.Networks[0].Name)
+				assert.Equal(t, "myapp-backend", spec.Networks[0].Name)
 				assert.Equal(t, "bridge", spec.Networks[0].Driver)
 			},
 		},
@@ -822,8 +857,8 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 				for _, net := range spec.Networks {
 					networkNames[net.Name] = true
 				}
-				assert.True(t, networkNames[service.SanitizeName("test-frontend")])
-				assert.True(t, networkNames[service.SanitizeName("test-backend")])
+				assert.True(t, networkNames["test-frontend"])
+				assert.True(t, networkNames["test-backend"])
 			},
 		},
 		{
@@ -848,7 +883,7 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 				// Should still include external networks
 				// External networks should NOT be prefixed even if they're in project.Networks
 				assert.Len(t, spec.Networks, 1)
-				assert.Equal(t, service.SanitizeName("external-net"), spec.Networks[0].Name)
+				assert.Equal(t, "external-net", spec.Networks[0].Name)
 				assert.True(t, spec.Networks[0].External)
 			},
 		},
@@ -868,7 +903,7 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 				// Should NOT prefix with current project name
 				// The external network is from another project and should be used as-is
 				assert.Len(t, spec.Networks, 1)
-				assert.Equal(t, service.SanitizeName("infrastructure-proxy"), spec.Networks[0].Name)
+				assert.Equal(t, "infrastructure-proxy", spec.Networks[0].Name)
 			},
 		},
 		{
@@ -901,9 +936,9 @@ func TestSpecConverter_ServiceNetworks(t *testing.T) {
 					networkExternal[net.Name] = net.External
 				}
 				// External network should not have project prefix
-				assert.True(t, networkNames[service.SanitizeName("infrastructure-proxy")])
+				assert.True(t, networkNames["infrastructure-proxy"])
 				// Local network should have project prefix
-				assert.True(t, networkNames[service.SanitizeName("dozzle-local-frontend")])
+				assert.True(t, networkNames["dozzle-local-frontend"])
 			},
 		},
 	}

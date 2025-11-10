@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -53,8 +54,8 @@ func (sc *SpecConverter) ConvertProject(project *types.Project) ([]service.Spec,
 // convertService converts a single Docker Compose service to one or more service.Spec instances.
 // Init containers are converted to separate specs with dependencies on the main service.
 func (sc *SpecConverter) convertService(serviceName string, composeService types.ServiceConfig, project *types.Project) ([]service.Spec, error) {
-	// Create sanitized service name
-	sanitizedName := service.SanitizeName(Prefix(project.Name, serviceName))
+	// Create service name
+	sanitizedName := Prefix(project.Name, serviceName)
 
 	// Convert extensions
 	initContainers := sc.convertInitContainers(serviceName, composeService, project)
@@ -122,7 +123,7 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		Build:             sc.convertBuild(composeService.Build, composeService, project),
 		Labels:            sc.convertLabels(composeService.Labels),
 		Hostname:          composeService.Hostname,
-		ContainerName:     service.SanitizeName(Prefix(project.Name, serviceName)),
+		ContainerName:     Prefix(project.Name, serviceName),
 		Entrypoint:        composeService.Entrypoint,
 		Init:              composeService.Init != nil && *composeService.Init,
 		ReadOnly:          composeService.ReadOnly,
@@ -550,9 +551,9 @@ func (sc *SpecConverter) convertNetworkMode(networkMode string, networks map[str
 
 			// Resolve and add network name
 			resolvedName := NameResolver(projectNet.Name, networkName)
-			sanitizedName := service.SanitizeName(resolvedName)
+			sanitizedName := resolvedName
 			if !strings.Contains(resolvedName, project.Name) {
-				sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+				sanitizedName = Prefix(project.Name, resolvedName)
 			}
 			mode.ServiceNetworks = append(mode.ServiceNetworks, sanitizedName)
 		}
@@ -566,26 +567,24 @@ func (sc *SpecConverter) convertNetworkMode(networkMode string, networks map[str
 			// Resolve and add network name to ServiceNetworks
 			projectNet, exists := project.Networks[networkName]
 			if !exists {
-				// External or undefined network - use as-is with sanitization
+				// External or undefined network - use as-is
 				// Don't apply current project prefix to external networks
-				resolvedName := service.SanitizeName(networkName)
-				mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
+				mode.ServiceNetworks = append(mode.ServiceNetworks, networkName)
 				continue
 			}
 
 			// Check if it's an external network
 			if IsExternal(projectNet.External) {
 				// External network from another project - use as-is
-				resolvedName := service.SanitizeName(networkName)
-				mode.ServiceNetworks = append(mode.ServiceNetworks, resolvedName)
+				mode.ServiceNetworks = append(mode.ServiceNetworks, networkName)
 				continue
 			}
 
 			// Resolve network name from project definition
 			resolvedName := NameResolver(projectNet.Name, networkName)
-			sanitizedName := service.SanitizeName(resolvedName)
+			sanitizedName := resolvedName
 			if !strings.Contains(resolvedName, project.Name) {
-				sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+				sanitizedName = Prefix(project.Name, resolvedName)
 			}
 			mode.ServiceNetworks = append(mode.ServiceNetworks, sanitizedName)
 		}
@@ -757,8 +756,8 @@ func (sc *SpecConverter) convertDependencies(dependsOn types.DependsOnConfig, pr
 			// In future, could log warning here
 		}
 
-		// Convert to sanitized service name
-		result = append(result, service.SanitizeName(Prefix(projectName, serviceName)))
+		// Convert to service name
+		result = append(result, Prefix(projectName, serviceName))
 	}
 
 	// Sort for determinism
@@ -789,9 +788,9 @@ func (sc *SpecConverter) convertProjectVolumes(project *types.Project) []service
 		// Resolve volume name
 		volumeName := NameResolver(vol.Name, name)
 		// Apply prefix only if not already prefixed
-		sanitizedName := service.SanitizeName(volumeName)
+		sanitizedName := volumeName
 		if !strings.Contains(volumeName, project.Name) {
-			sanitizedName = service.SanitizeName(Prefix(project.Name, volumeName))
+			sanitizedName = Prefix(project.Name, volumeName)
 		}
 
 		// Skip external volumes
@@ -845,10 +844,8 @@ func (sc *SpecConverter) convertServiceVolumes(composeService types.ServiceConfi
 		if !exists {
 			// Volume declared by service but not in project volumes
 			// This can happen with external volumes from other projects
-			resolvedName := service.SanitizeName(volumeName)
-
 			volume := service.Volume{
-				Name:   resolvedName,
+				Name:   volumeName,
 				Driver: "local",
 			}
 			result = append(result, volume)
@@ -857,11 +854,11 @@ func (sc *SpecConverter) convertServiceVolumes(composeService types.ServiceConfi
 
 		// Resolve volume name from project definition
 		resolvedName := NameResolver(projectVol.Name, volumeName)
-		sanitizedName := service.SanitizeName(resolvedName)
+		sanitizedName := resolvedName
 
 		// Don't apply project prefix to external volumes
 		if !IsExternal(projectVol.External) && !strings.Contains(resolvedName, project.Name) {
-			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+			sanitizedName = Prefix(project.Name, resolvedName)
 		}
 
 		volume := service.Volume{
@@ -910,10 +907,8 @@ func (sc *SpecConverter) convertServiceNetworksList(networks map[string]*types.S
 			// Network declared by service but not in project networks
 			// This can happen with external networks (from other projects)
 			// Use network name as-is without applying current project prefix
-			resolvedName := service.SanitizeName(networkName)
-
 			network := service.Network{
-				Name:     resolvedName,
+				Name:     networkName,
 				Driver:   "bridge",
 				External: true, // Mark as external since it's not defined in this project
 			}
@@ -923,11 +918,11 @@ func (sc *SpecConverter) convertServiceNetworksList(networks map[string]*types.S
 
 		// Resolve network name from project definition
 		resolvedName := NameResolver(projectNet.Name, networkName)
-		sanitizedName := service.SanitizeName(resolvedName)
+		sanitizedName := resolvedName
 
 		// Don't apply project prefix to external networks
 		if !IsExternal(projectNet.External) && !strings.Contains(resolvedName, project.Name) {
-			sanitizedName = service.SanitizeName(Prefix(project.Name, resolvedName))
+			sanitizedName = Prefix(project.Name, resolvedName)
 		}
 
 		network := service.Network{
@@ -967,9 +962,9 @@ func (sc *SpecConverter) convertProjectNetworks(project *types.Project) []servic
 		// Resolve network name
 		networkName := NameResolver(net.Name, name)
 		// Apply prefix only if not already prefixed
-		sanitizedName := service.SanitizeName(networkName)
+		sanitizedName := networkName
 		if !strings.Contains(networkName, project.Name) {
-			sanitizedName = service.SanitizeName(Prefix(project.Name, networkName))
+			sanitizedName = Prefix(project.Name, networkName)
 		}
 
 		// Skip external networks
@@ -1041,7 +1036,7 @@ func (sc *SpecConverter) convertInitContainers(serviceName string, composeServic
 	}
 
 	specs := make([]service.Spec, 0, len(initList))
-	baseName := service.SanitizeName(Prefix(project.Name, serviceName))
+	baseName := Prefix(project.Name, serviceName)
 
 	// Pre-convert main service resources that init containers can inherit
 	mainEnv := sc.convertEnvironment(composeService.Environment)
@@ -1205,8 +1200,18 @@ func (sc *SpecConverter) getStringSliceFromMap(m map[string]interface{}, key str
 	return nil
 }
 
-// validateProject validates project-level configs and secrets for Swarm-specific features.
+// validateProject validates project-level configs, secrets, and project name.
 func (sc *SpecConverter) validateProject(project *types.Project) error {
+	// Validate project name matches service name regex
+	serviceNameRegex := "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
+	matched, err := regexp.MatchString(serviceNameRegex, project.Name)
+	if err != nil {
+		return fmt.Errorf("failed to validate project name regex: %w", err)
+	}
+	if !matched {
+		return fmt.Errorf("invalid project name %q: must start with alphanumeric and contain only alphanumeric, hyphen, underscore, or dot", project.Name)
+	}
+
 	for name, cfg := range project.Configs {
 		if cfg.Driver != "" {
 			return fmt.Errorf("config %q uses 'driver' which is Swarm-specific and not supported. Use file/content/environment sources instead", name)
@@ -1224,7 +1229,7 @@ func (sc *SpecConverter) validateProject(project *types.Project) error {
 
 // ensureProjectTempDir creates and returns a temporary directory for the project.
 func (sc *SpecConverter) ensureProjectTempDir(projectName, kind string) (string, error) {
-	tempBase := filepath.Join(os.TempDir(), "quad-ops", service.SanitizeName(projectName), kind)
+	tempBase := filepath.Join(os.TempDir(), "quad-ops", projectName, kind)
 	if err := os.MkdirAll(tempBase, 0700); err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
@@ -1233,7 +1238,7 @@ func (sc *SpecConverter) ensureProjectTempDir(projectName, kind string) (string,
 
 // writeTempFile writes content to a file in the given directory with the specified mode.
 func (sc *SpecConverter) writeTempFile(dir, name string, data []byte, mode os.FileMode) (string, error) {
-	filePath := filepath.Join(dir, service.SanitizeName(name))
+	filePath := filepath.Join(dir, name)
 
 	if _, err := os.Stat(filePath); err == nil {
 		if err := os.Chmod(filePath, 0600); err != nil {

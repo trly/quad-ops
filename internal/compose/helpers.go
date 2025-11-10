@@ -5,10 +5,26 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
-// Prefix creates a prefixed resource name using project name for consistency.
+// SanitizeProjectName sanitizes a project name to make it safe for use in resource names.
+// Project names come from compose files and may contain spaces and other invalid characters.
+// This replaces invalid characters (spaces) with hyphens, while preserving underscores which are valid.
+func SanitizeProjectName(name string) string {
+	// Replace spaces with hyphens (keep underscores as they're valid)
+	normalized := strings.ReplaceAll(name, " ", "-")
+	// Remove leading/trailing non-alphanumeric
+	normalized = regexp.MustCompile(`^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$`).ReplaceAllString(normalized, "")
+	// Collapse multiple consecutive hyphens
+	normalized = regexp.MustCompile(`-+`).ReplaceAllString(normalized, "-")
+	return normalized
+}
+
+// Prefix creates a prefixed resource name using project name and resource name.
+// No sanitization is performed; the projectName must already be valid according to
+// the service name regex: ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$.
 func Prefix(projectName, resourceName string) string {
 	return fmt.Sprintf("%s-%s", projectName, resourceName)
 }
