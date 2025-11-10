@@ -185,7 +185,14 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 
 	// Add dependencies for volumes
 	if len(spec.Volumes) > 0 {
-		for _, vol := range spec.Volumes {
+		// Sort volumes by name for deterministic output
+		volumes := make([]service.Volume, len(spec.Volumes))
+		copy(volumes, spec.Volumes)
+		sort.Slice(volumes, func(i, j int) bool {
+			return volumes[i].Name < volumes[j].Name
+		})
+
+		for _, vol := range volumes {
 			if !vol.External {
 				builder.WriteString(fmt.Sprintf("After=%s%s\n", vol.Name, UnitSuffixVolume))
 				builder.WriteString(fmt.Sprintf("Requires=%s%s\n", vol.Name, UnitSuffixVolume))
