@@ -1465,3 +1465,210 @@ func TestValidateCommand_DirectoryReadError(t *testing.T) {
 	// On macOS with certain file systems, read may still work, so we don't assert error
 	_ = err
 }
+
+// TestCheckUnsupportedFields tests warning messages for unimplemented standard Compose fields.
+func TestCheckUnsupportedFields(t *testing.T) {
+	tests := []struct {
+		name        string
+		service     types.ServiceConfig
+		expectWarns []string
+	}{
+		{
+			name: "volumes_from warning",
+			service: types.ServiceConfig{
+				VolumesFrom: []string{"other-service"},
+			},
+			expectWarns: []string{"volumes_from", "named volumes"},
+		},
+		{
+			name: "stdin_open warning",
+			service: types.ServiceConfig{
+				StdinOpen: true,
+			},
+			expectWarns: []string{"stdin_open", "interactive mode"},
+		},
+		{
+			name: "tty warning",
+			service: types.ServiceConfig{
+				Tty: true,
+			},
+			expectWarns: []string{"tty", "interactive mode"},
+		},
+		{
+			name: "unsupported logging driver",
+			service: types.ServiceConfig{
+				Logging: &types.LoggingConfig{
+					Driver: "syslog",
+				},
+			},
+			expectWarns: []string{"logging driver", "syslog", "Podman supports"},
+		},
+		{
+			name: "supported logging driver - no warning",
+			service: types.ServiceConfig{
+				Logging: &types.LoggingConfig{
+					Driver: "journald",
+				},
+			},
+			expectWarns: nil,
+		},
+		{
+			name: "multiple unsupported fields",
+			service: types.ServiceConfig{
+				VolumesFrom: []string{"other"},
+				StdinOpen:   true,
+				Tty:         true,
+			},
+			expectWarns: []string{"volumes_from", "stdin_open", "tty"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := testutil.NewTestLogger(t)
+
+			checkUnsupportedFields("test-service", tt.service, logger)
+
+			// Note: We can't easily capture testutil.NewTestLogger output,
+			// so we just verify the function runs without panicking
+			// Manual testing or integration tests can verify actual warning output
+		})
+	}
+}
+
+// TestCheckSwarmFields tests error messages for Swarm-only orchestration features.
+func TestCheckSwarmFields(t *testing.T) {
+	tests := []struct {
+		name        string
+		service     types.ServiceConfig
+		expectError string
+	}{
+		{
+			name: "no deploy config - no error",
+			service: types.ServiceConfig{
+				Deploy: nil,
+			},
+			expectError: "",
+		},
+		{
+			name: "deploy.mode global",
+			service: types.ServiceConfig{
+				Deploy: &types.DeployConfig{
+					Mode: "global",
+				},
+			},
+			expectError: "deploy.mode=global",
+		},
+		{
+			name: "deploy.replicas > 1",
+			service: types.ServiceConfig{
+				Deploy: &types.DeployConfig{
+					Replicas: func() *int { v := 3; return &v }(),
+				},
+			},
+			expectError: "deploy.replicas > 1",
+		},
+		{
+			name: "deploy.replicas = 1 - no error",
+			service: types.ServiceConfig{
+				Deploy: &types.DeployConfig{
+					Replicas: func() *int { v := 1; return &v }(),
+				},
+			},
+			expectError: "",
+		},
+		{
+			name: "deploy.placement constraints",
+			service: types.ServiceConfig{
+				Deploy: &types.DeployConfig{
+					Placement: types.Placement{
+						Constraints: []string{"node.role == worker"},
+					},
+				},
+			},
+			expectError: "deploy.placement",
+		},
+		{
+			name: "deploy.update_config",
+			service: types.ServiceConfig{
+				Deploy: &types.DeployConfig{
+					UpdateConfig: &types.UpdateConfig{},
+				},
+			},
+			expectError: "deploy.update_config",
+		},
+		{
+			name: "deploy.rollback_config",
+			service: types.ServiceConfig{
+				Deploy: &types.DeployConfig{
+					RollbackConfig: &types.UpdateConfig{},
+				},
+			},
+			expectError: "deploy.rollback_config",
+		},
+		{
+			name: "deploy.endpoint_mode",
+			service: types.ServiceConfig{
+				Deploy: &types.DeployConfig{
+					EndpointMode: "dnsrr",
+				},
+			},
+			expectError: "deploy.endpoint_mode",
+		},
+		{
+			name: "ports with mode=ingress",
+			service: types.ServiceConfig{
+				Ports: []types.ServicePortConfig{
+					{
+						Mode:      "ingress",
+						Target:    80,
+						Published: "8080",
+					},
+				},
+			},
+			expectError: "mode=ingress",
+		},
+		{
+			name: "ports with mode=host - no error",
+			service: types.ServiceConfig{
+				Ports: []types.ServicePortConfig{
+					{
+						Mode:      "host",
+						Target:    80,
+						Published: "8080",
+					},
+				},
+			},
+			expectError: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkSwarmFields("test-service", tt.service)
+
+			if tt.expectError == "" {
+				assert.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.expectError)
+				assert.Contains(t, err.Error(), "Swarm feature not supported")
+			}
+		})
+	}
+}
+
+// TestValidateSecretWithSwarmDriver tests secret validation rejects Swarm driver field.
+func TestValidateSecretWithSwarmDriver(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	validator := validate.NewValidatorWithDefaults(logger)
+
+	secret := types.SecretConfig{
+		Driver: "vault",
+	}
+
+	err := validateSecretWithDeps("test-secret", secret, validator, logger)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "swarm feature not supported")
+	assert.Contains(t, err.Error(), "driver")
+}

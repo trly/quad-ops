@@ -20,6 +20,28 @@ Quad-Ops is a lightweight GitOps framework for Podman containers managed by [Qua
 - **Flexible deployment** - Works in both system-wide and user (rootless) modes
 - **Production-ready** - Built with dependency injection, comprehensive test coverage (582+ tests)
 
+## Compose Feature Support
+
+Quad-Ops converts standard Docker Compose files to Podman Quadlet units. It supports all container runtime features that work with standalone Podman.
+
+### Unsupported Fields
+
+**Standard Compose fields (not yet implemented):**
+- `volumes_from` - Use named volumes instead
+- `stdin_open`, `tty` - Interactive mode not practical in systemd units
+- `logging.driver` - Custom drivers (only journald, k8s-file, none, passthrough supported)
+
+**Docker Swarm orchestration features (rejected with error):**
+- `deploy.mode: global` - Use Kubernetes/Nomad for multi-node orchestration
+- `deploy.replicas > 1` - Use Kubernetes/Nomad for multi-instance services
+- `deploy.placement` - Use Kubernetes/Nomad for placement constraints
+- `deploy.update_config`, `deploy.rollback_config` - Use Kubernetes/Nomad for rolling updates
+- `deploy.endpoint_mode` - Use Kubernetes/Nomad for service discovery
+- `ports.mode: ingress` - Use `mode: host` for Podman
+- `secrets.driver` - Use file/content/environment sources instead of Swarm secret store
+
+Use `quad-ops validate` to check your Compose files for unsupported features.
+
 ## Architecture
 
 Quad-Ops uses a clean, modular architecture with clear separation of concerns:

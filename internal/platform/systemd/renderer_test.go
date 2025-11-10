@@ -1768,9 +1768,9 @@ func TestRenderer_NamespaceModes(t *testing.T) {
 			content := string(result.Artifacts[0].Content)
 			for _, expected := range tt.expected {
 				assert.Contains(t, content, expected)
-				}
-				})
-				}
+			}
+		})
+	}
 }
 
 func TestRenderer_StopSignalAndGracePeriod(t *testing.T) {

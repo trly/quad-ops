@@ -1999,16 +1999,16 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantTmpfs, foundTmpfs)
-			})
-			}
+		})
+	}
 }
 
 func TestBuildPodmanArgs_StopSignalAndGracePeriod(t *testing.T) {
 	tests := []struct {
-		name          string
-		container     service.Container
-		expectedArgs  []string
-		notExpected   []string
+		name         string
+		container    service.Container
+		expectedArgs []string
+		notExpected  []string
 	}{
 		{
 			name: "custom stop signal",

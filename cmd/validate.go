@@ -388,7 +388,15 @@ func validateProjectWithDeps(project *types.Project, validator *validate.Validat
 }
 
 // validateService validates a Docker Compose service configuration.
-func validateService(_ string, service types.ServiceConfig, _ *types.Project, validator *validate.Validator, _ log.Logger) error {
+func validateService(serviceName string, service types.ServiceConfig, _ *types.Project, validator *validate.Validator, logger log.Logger) error {
+	// Check for unsupported standard Compose fields
+	checkUnsupportedFields(serviceName, service, logger)
+
+	// Check for Swarm-only fields (errors)
+	if err := checkSwarmFields(serviceName, service); err != nil {
+		return err
+	}
+
 	// Validate environment variables
 	for key, value := range service.Environment {
 		if err := validate.EnvKey(key); err != nil {
@@ -534,6 +542,84 @@ func validateSecretWithDeps(secretName string, secret types.SecretConfig, valida
 				return fmt.Errorf("secret file path contains directory traversal: %s", secret.File)
 			}
 		}
+	}
+
+	// Check for Swarm-only secret features
+	if secret.Driver != "" {
+		return fmt.Errorf("swarm feature not supported: secrets with 'driver' field (use file/content/environment sources instead)")
+	}
+
+	return nil
+}
+
+// checkUnsupportedFields warns about unimplemented standard Compose fields.
+func checkUnsupportedFields(serviceName string, service types.ServiceConfig, logger log.Logger) {
+	// volumes_from - suggest named volumes
+	if len(service.VolumesFrom) > 0 {
+		logger.Warn(fmt.Sprintf("Service '%s' uses unsupported field 'volumes_from' - consider using named volumes instead", serviceName))
+	}
+
+	// stdin_open, tty - interactive mode not practical in systemd
+	if service.StdinOpen {
+		logger.Warn(fmt.Sprintf("Service '%s' uses unsupported field 'stdin_open' - interactive mode not practical in systemd units", serviceName))
+	}
+	if service.Tty {
+		logger.Warn(fmt.Sprintf("Service '%s' uses unsupported field 'tty' - interactive mode not practical in systemd units", serviceName))
+	}
+
+	// logging - only warn about custom drivers not supported by Podman
+	if service.Logging != nil && service.Logging.Driver != "" {
+		supportedDrivers := map[string]bool{
+			"":            true,
+			"journald":    true,
+			"k8s-file":    true,
+			"none":        true,
+			"passthrough": true,
+		}
+		if !supportedDrivers[service.Logging.Driver] {
+			logger.Warn(fmt.Sprintf("Service '%s' uses potentially unsupported logging driver '%s' - Podman supports: journald, k8s-file, none, passthrough", serviceName, service.Logging.Driver))
+		}
+	}
+}
+
+// checkSwarmFields returns an error for Swarm-only orchestration features.
+func checkSwarmFields(serviceName string, service types.ServiceConfig) error {
+	// Check for ingress mode ports (Swarm load balancing) - check regardless of deploy config
+	for _, port := range service.Ports {
+		if port.Mode == "ingress" {
+			return fmt.Errorf("service '%s': Swarm feature not supported: ports with mode=ingress (use mode=host for Podman)", serviceName)
+		}
+	}
+
+	if service.Deploy == nil {
+		return nil
+	}
+
+	deploy := service.Deploy
+
+	// Swarm orchestration features
+	if deploy.Mode == "global" {
+		return fmt.Errorf("service '%s': Swarm feature not supported: deploy.mode=global (use Kubernetes/Nomad for multi-node orchestration)", serviceName)
+	}
+
+	if deploy.Replicas != nil && *deploy.Replicas > 1 {
+		return fmt.Errorf("service '%s': Swarm feature not supported: deploy.replicas > 1 (use Kubernetes/Nomad for multi-instance orchestration)", serviceName)
+	}
+
+	if len(deploy.Placement.Constraints) > 0 {
+		return fmt.Errorf("service '%s': Swarm feature not supported: deploy.placement (use Kubernetes/Nomad for orchestration)", serviceName)
+	}
+
+	if deploy.UpdateConfig != nil {
+		return fmt.Errorf("service '%s': Swarm feature not supported: deploy.update_config (use Kubernetes/Nomad for rolling updates)", serviceName)
+	}
+
+	if deploy.RollbackConfig != nil {
+		return fmt.Errorf("service '%s': Swarm feature not supported: deploy.rollback_config (use Kubernetes/Nomad for rollback)", serviceName)
+	}
+
+	if deploy.EndpointMode != "" && deploy.EndpointMode != "vip" {
+		return fmt.Errorf("service '%s': Swarm feature not supported: deploy.endpoint_mode (use Kubernetes/Nomad for service discovery)", serviceName)
 	}
 
 	return nil
