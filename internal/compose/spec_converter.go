@@ -59,11 +59,9 @@ func (sc *SpecConverter) convertService(serviceName string, composeService types
 	// Convert extensions
 	initContainers := sc.convertInitContainers(serviceName, composeService, project)
 	envSecrets := sc.convertEnvSecrets(composeService)
-	podmanVolumes := sc.convertPodmanVolumesExtension(composeService.Extensions["x-podman-volumes"], project)
 
 	container := sc.convertContainer(composeService, serviceName, project)
 	container.EnvSecrets = envSecrets
-	container.Mounts = append(container.Mounts, podmanVolumes...)
 
 	// Create main service spec
 	spec := service.Spec{
@@ -471,7 +469,7 @@ func (sc *SpecConverter) convertSecurity(composeService types.ServiceConfig) ser
 }
 
 // convertBuild converts compose build config to service.Build.
-func (sc *SpecConverter) convertBuild(build *types.BuildConfig, composeService types.ServiceConfig, project *types.Project) *service.Build {
+func (sc *SpecConverter) convertBuild(build *types.BuildConfig, _ types.ServiceConfig, project *types.Project) *service.Build {
 	if build == nil {
 		return nil
 	}
@@ -484,19 +482,6 @@ func (sc *SpecConverter) convertBuild(build *types.BuildConfig, composeService t
 		Labels:     sc.convertLabels(build.Labels),
 		Pull:       build.Pull,
 		Tags:       build.Tags,
-	}
-
-	// Merge x-podman-buildargs extension
-	podmanBuildArgs := sc.convertPodmanBuildArgsExtension(composeService.Extensions["x-podman-buildargs"])
-	if len(podmanBuildArgs) > 0 {
-		if buildSpec.Args == nil {
-			buildSpec.Args = podmanBuildArgs
-		} else {
-			// Merge, with podman args taking precedence
-			for k, v := range podmanBuildArgs {
-				buildSpec.Args[k] = v
-			}
-		}
 	}
 
 	// Convert build context path
@@ -1450,95 +1435,4 @@ func (sc *SpecConverter) convertDuration(d *types.Duration) time.Duration {
 		return 0
 	}
 	return time.Duration(*d)
-}
-
-// convertPodmanBuildArgsExtension converts x-podman-buildargs extension to build args map.
-func (sc *SpecConverter) convertPodmanBuildArgsExtension(extension interface{}) map[string]string {
-	if extension == nil {
-		return nil
-	}
-
-	argsMap, ok := extension.(map[string]interface{})
-	if !ok {
-		return nil
-	}
-
-	if len(argsMap) == 0 {
-		return nil
-	}
-
-	result := make(map[string]string)
-	for key, value := range argsMap {
-		if str, ok := value.(string); ok {
-			result[key] = str
-		}
-	}
-
-	return result
-}
-
-// convertPodmanVolumesExtension converts x-podman-volumes extension to service.Mount.
-// Supports volume syntax: "source:target" or "source:target:options"
-func (sc *SpecConverter) convertPodmanVolumesExtension(extension interface{}, project *types.Project) []service.Mount {
-	if extension == nil {
-		return nil
-	}
-
-	volumeList, ok := extension.([]interface{})
-	if !ok {
-		return nil
-	}
-
-	if len(volumeList) == 0 {
-		return nil
-	}
-
-	result := make([]service.Mount, 0, len(volumeList))
-
-	for _, item := range volumeList {
-		volumeStr, ok := item.(string)
-		if !ok {
-			continue
-		}
-
-		mount := sc.parseVolumeString(volumeStr, project)
-		if mount != nil {
-			result = append(result, *mount)
-		}
-	}
-
-	return result
-}
-
-// parseVolumeString parses a volume string in the format "source:target" or "source:target:options"
-func (sc *SpecConverter) parseVolumeString(volumeStr string, project *types.Project) *service.Mount {
-	parts := strings.Split(volumeStr, ":")
-	if len(parts) < 2 {
-		return nil
-	}
-
-	source := parts[0]
-	target := parts[1]
-	options := ""
-	if len(parts) > 2 {
-		options = parts[2]
-	}
-
-	mount := &service.Mount{
-		Source:   source,
-		Target:   target,
-		Options:  make(map[string]string),
-		ReadOnly: strings.Contains(options, "ro"),
-	}
-
-	// Determine mount type
-	if filepath.IsAbs(source) || strings.HasPrefix(source, "./") || strings.HasPrefix(source, "../") {
-		mount.Type = service.MountTypeBind
-	} else {
-		mount.Type = service.MountTypeVolume
-		// Prefix named volume sources to match volume names
-		mount.Source = Prefix(project.Name, source)
-	}
-
-	return mount
 }

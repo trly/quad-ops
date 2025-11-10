@@ -116,34 +116,6 @@ services:
       API_KEY: api_secret
 ```
 
-### Volume Extensions
-
-Podman-specific volume options:
-
-```yaml
-services:
-  app:
-    volumes:
-      - "data:/data"
-    x-podman-volumes:
-      - "cache:/tmp/cache:O"  # Overlay mount
-      - "logs:/logs:U"        # Chown to container user
-```
-
-### Build Extensions
-
-Additional build arguments:
-
-```yaml
-services:
-  app:
-    build:
-      context: .
-    x-podman-buildargs:
-      BUILDKIT_INLINE_CACHE: "1"
-      BUILDPLATFORM: "linux/amd64"
-```
-
 ## Conversion Examples
 
 ### Docker Compose to Quadlet

@@ -313,36 +313,6 @@ services:
       network: host  # Use host networking during build
 ```
 
-## Podman-Specific Build Extensions
-
-### Build Cache Configuration
-
-Use Quad-Ops' [x-podman-buildargs extension](../docker-compose-support/#build-extensions) for additional build arguments:
-
-```yaml
-services:
-  app:
-    build:
-      context: .
-    x-podman-buildargs:
-      BUILDAH_LAYERS: "true"
-      BUILDKIT_INLINE_CACHE: "1"
-```
-
-### Custom Build Volumes
-
-Use Quad-Ops' [x-podman-volumes extension](../docker-compose-support/#volume-extensions) for build-time volume mounts:
-
-```yaml
-services:
-  app:
-    build:
-      context: .
-    x-podman-volumes:
-      - "build-cache:/cache"
-      - "/tmp/build:/tmp:rw"
-```
-
 ## Build Dependencies and Lifecycle
 
 ### Build Order Management
