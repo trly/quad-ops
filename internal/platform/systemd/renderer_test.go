@@ -1928,3 +1928,196 @@ func TestRenderer_ExternalNetworksWithLocalNetworks(t *testing.T) {
 	assert.Contains(t, *containerArtifact, "Network=infrastructure-proxy.network")
 	assert.Contains(t, *containerArtifact, "Network=backend.network")
 }
+
+// TestRenderer_CrossProjectNetworkDependencies_NameMismatch tests quad-ops-782 regression.
+// The bug: renderer must correctly map ServiceNetworks references to spec.Networks canonical names.
+// For external networks from other projects, the renderer must NOT add project prefixes.
+func TestRenderer_CrossProjectNetworkDependencies_NameMismatch(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	// Scenario: "myapp" project with TWO networks:
+	// 1. "default" - local project network → gets prefixed to "myapp-default"
+	// 2. "infrastructure-proxy" - external network → stays "infrastructure-proxy" (no prefix)
+	//
+	// The spec_converter has already done the right thing:
+	// - spec.Networks contains the canonical names (with or without prefixes as appropriate)
+	// - ServiceNetworks references those networks
+	//
+	// The renderer must:
+	// - Match ServiceNetworks entries to spec.Networks canonical names
+	// - Use spec.Networks names verbatim in dependencies and Network= directives
+	// - NOT invent new prefixes or modify names
+
+	spec := service.Spec{
+		Name:        "myapp-web",
+		Description: "Service using both local and external networks",
+		Networks: []service.Network{
+			{
+				Name:     "myapp-default", // Local network WITH project prefix
+				Driver:   "bridge",
+				External: false,
+			},
+			{
+				Name:     "infrastructure-proxy", // External network WITHOUT project prefix
+				Driver:   "bridge",
+				External: true,
+			},
+		},
+		Container: service.Container{
+			Image: "nginx:latest",
+			Network: service.NetworkMode{
+				Mode: "bridge",
+				// ServiceNetworks references - may or may not exactly match spec.Networks names
+				// The renderer must resolve these to the canonical spec.Networks names
+				ServiceNetworks: []string{"myapp-default", "infrastructure-proxy"},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	// Should render 1 local network + 1 container (external network not rendered)
+	assert.Len(t, result.Artifacts, 2)
+
+	var containerContent string
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			containerContent = string(a.Content)
+			break
+		}
+	}
+	require.NotEmpty(t, containerContent, "should have rendered container artifact")
+
+	// CRITICAL: Dependencies must match spec.Networks canonical names
+
+	// Local network should have project prefix
+	assert.Contains(t, containerContent, "After=myapp-default.network",
+		"After directive for local network must include project prefix")
+	assert.Contains(t, containerContent, "Requires=myapp-default.network",
+		"Requires directive for local network must include project prefix")
+	assert.Contains(t, containerContent, "Network=myapp-default.network",
+		"Network directive for local network must include project prefix")
+
+	// External network should NOT have project prefix
+	assert.Contains(t, containerContent, "After=infrastructure-proxy.network",
+		"After directive for external network must NOT add project prefix")
+	assert.Contains(t, containerContent, "Requires=infrastructure-proxy.network",
+		"Requires directive for external network must NOT add project prefix")
+	assert.Contains(t, containerContent, "Network=infrastructure-proxy.network",
+		"Network directive for external network must NOT add project prefix")
+
+	// BUG: Renderer incorrectly adds project prefix to external network
+	// This assertion will FAIL if the bug exists
+	assert.NotContains(t, containerContent, "myapp-infrastructure-proxy.network",
+		"Must NOT add project prefix to external network - causes Quadlet generator failure")
+}
+
+// TestRenderer_NetworkReferenceNormalization tests that renderer correctly normalizes
+// ServiceNetworks references with various forms (with suffix, pre-sanitization, etc.)
+func TestRenderer_NetworkReferenceNormalization(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	// Scenario: ServiceNetworks may reference networks in different forms:
+	// 1. With .network suffix already attached
+	// 2. With underscores instead of hyphens (pre-sanitization)
+	// 3. Exact match to spec.Networks name
+	//
+	// The renderer must normalize all forms to match spec.Networks canonical names
+
+	spec := service.Spec{
+		Name:        "test-app",
+		Description: "Test network reference normalization",
+		Networks: []service.Network{
+			{
+				Name:     "test-backend", // Canonical name (sanitized)
+				Driver:   "bridge",
+				External: false,
+			},
+		},
+		Container: service.Container{
+			Image: "app:latest",
+			Network: service.NetworkMode{
+				Mode: "bridge",
+				// Reference with .network suffix (should be stripped and matched)
+				ServiceNetworks: []string{"test-backend.network"},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	var containerContent string
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			containerContent = string(a.Content)
+			break
+		}
+	}
+	require.NotEmpty(t, containerContent)
+
+	// Should resolve to canonical name and emit dependency
+	assert.Contains(t, containerContent, "After=test-backend.network")
+	assert.Contains(t, containerContent, "Requires=test-backend.network")
+	assert.Contains(t, containerContent, "Network=test-backend.network")
+
+	// Should NOT double-suffix
+	assert.NotContains(t, containerContent, ".network.network",
+		"Must not double-suffix network references")
+}
+
+// TestRenderer_NetworkUnderscoreSanitization tests that renderer correctly handles
+// networks with underscores (which are preserved by SanitizeName after ea9646e fix)
+func TestRenderer_NetworkUnderscoreSanitization(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	// After commit ea9646e, SanitizeName preserves underscores
+	// This test ensures renderer handles underscored network names correctly
+
+	spec := service.Spec{
+		Name:        "test-service",
+		Description: "Test underscored network names",
+		Networks: []service.Network{
+			{
+				Name:     "infra_proxy", // Contains underscore (preserved by SanitizeName)
+				Driver:   "bridge",
+				External: true,
+			},
+		},
+		Container: service.Container{
+			Image: "app:latest",
+			Network: service.NetworkMode{
+				Mode:            "bridge",
+				ServiceNetworks: []string{"infra_proxy"}, // Exact match
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	var containerContent string
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			containerContent = string(a.Content)
+			break
+		}
+	}
+	require.NotEmpty(t, containerContent)
+
+	// Should preserve underscore in network references
+	assert.Contains(t, containerContent, "After=infra_proxy.network")
+	assert.Contains(t, containerContent, "Requires=infra_proxy.network")
+	assert.Contains(t, containerContent, "Network=infra_proxy.network")
+
+	// Should NOT convert underscore to hyphen
+	assert.NotContains(t, containerContent, "infra-proxy.network",
+		"Must preserve underscores per ea9646e fix (quad-ops-ksi)")
+}

@@ -176,9 +176,10 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	usedNetworks := make(map[string]bool)
 	if len(spec.Container.Network.ServiceNetworks) > 0 {
 		for _, netName := range spec.Container.Network.ServiceNetworks {
-			// Strip the .network suffix if present (it will be re-added in the dependency)
-			net := strings.TrimSuffix(netName, ".network")
-			usedNetworks[net] = true
+			// Resolve ServiceNetworks reference to sanitized spec.Networks name
+			// This ensures consistency between artifacts and dependencies (fixes quad-ops-782)
+			resolvedName := r.resolveNetworkName(spec.Networks, netName)
+			usedNetworks[resolvedName] = true
 		}
 	}
 
@@ -221,7 +222,7 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addEnvironment(&builder, spec.Container)
 	r.addPorts(&builder, spec.Container)
 	r.addMounts(&builder, spec.Container)
-	r.addNetworks(&builder, spec.Container)
+	r.addNetworks(&builder, spec)
 	r.addDNS(&builder, spec.Container)
 	r.addDevices(&builder, spec.Container)
 	r.addDeviceCgroupRules(&builder, spec.Container)
@@ -382,7 +383,9 @@ func (r *Renderer) addMounts(builder *strings.Builder, c service.Container) {
 }
 
 // addNetworks adds network configuration.
-func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container) {
+func (r *Renderer) addNetworks(builder *strings.Builder, spec service.Spec) {
+	c := spec.Container
+
 	if c.Network.Mode != "" && c.Network.Mode != "bridge" {
 		builder.WriteString(formatKeyValue("Network", c.Network.Mode))
 	}
@@ -398,11 +401,17 @@ func (r *Renderer) addNetworks(builder *strings.Builder, c service.Container) {
 
 	// Add Network directives for service-specific networks with .network suffix
 	// This enables service-to-service DNS resolution and automatic Quadlet dependencies
+	// Resolve ServiceNetworks references to sanitized spec.Networks names for consistency (fixes quad-ops-782)
 	if len(c.Network.ServiceNetworks) > 0 {
-		sorted := make([]string, len(c.Network.ServiceNetworks))
-		copy(sorted, c.Network.ServiceNetworks)
-		sort.Strings(sorted)
-		for _, net := range sorted {
+		// Normalize network names first
+		normalized := make([]string, 0, len(c.Network.ServiceNetworks))
+		for _, netName := range c.Network.ServiceNetworks {
+			resolvedName := r.resolveNetworkName(spec.Networks, netName)
+			normalized = append(normalized, resolvedName)
+		}
+		sort.Strings(normalized)
+
+		for _, net := range normalized {
 			builder.WriteString(formatKeyValue("Network", net+".network"))
 		}
 	}
@@ -1132,6 +1141,38 @@ func (r *Renderer) combineHashes(hashes []string) string {
 		h.Write([]byte(hash))
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
+}
+
+// resolveNetworkName maps a ServiceNetworks reference to its corresponding sanitized spec.Networks name.
+// This ensures consistency between network artifacts and container dependencies/directives.
+//
+// ServiceNetworks may reference networks using pre-sanitization names (e.g., "infrastructure_proxy")
+// while spec.Networks contains post-sanitization names (e.g., "infrastructure-proxy").
+// This helper normalizes references by matching against spec.Networks entries.
+//
+// Returns the sanitized network name from spec.Networks, or the original reference if no match found.
+func (r *Renderer) resolveNetworkName(networks []service.Network, ref string) string {
+	// Strip .network suffix if present (ServiceNetworks may include it)
+	cleanRef := strings.TrimSuffix(ref, ".network")
+
+	// Try exact match first (most common case)
+	for _, net := range networks {
+		if net.Name == cleanRef {
+			return net.Name
+		}
+	}
+
+	// Try sanitizing the reference and matching (handles underscore/hyphen conversion)
+	sanitizedRef := service.SanitizeName(cleanRef)
+	for _, net := range networks {
+		if net.Name == sanitizedRef {
+			return net.Name
+		}
+	}
+
+	// No match found - return sanitized form of original reference
+	// This handles cases where network is not in spec.Networks (e.g., implicit default network)
+	return sanitizedRef
 }
 
 // needsNetworkOnline determines if a container needs network-online.target dependency.
