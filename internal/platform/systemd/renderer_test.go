@@ -1850,3 +1850,81 @@ func TestRenderer_StopSignalAndGracePeriod(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderer_ExternalNetworksWithLocalNetworks(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	// Test case: container uses both external (non-prefixed) and local networks.
+	// This validates that the systemd renderer generates correct After=/Requires=
+	// directives that allow systemd to coordinate dependencies between services.
+	// External networks should NOT have project prefix, local networks SHOULD have it.
+	spec := service.Spec{
+		Name:        "app",
+		Description: "App with external and local networks for coordination",
+		Networks: []service.Network{
+			{
+				Name:     "infrastructure-proxy",
+				Driver:   "bridge",
+				External: true,
+			},
+			{
+				Name:     "backend",
+				Driver:   "bridge",
+				External: false,
+			},
+		},
+		Container: service.Container{
+			Image: "myapp:latest",
+			Network: service.NetworkMode{
+				Mode:            "bridge",
+				ServiceNetworks: []string{"infrastructure-proxy", "backend"},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	// Should have 1 local network unit + 1 container unit (external network creates no unit)
+	assert.Len(t, result.Artifacts, 2)
+
+	var containerArtifact *string
+	networkArtifacts := make(map[string]*string)
+
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			content := string(a.Content)
+			containerArtifact = &content
+		}
+		if strings.HasSuffix(a.Path, ".network") {
+			content := string(a.Content)
+			networkArtifacts[a.Path] = &content
+		}
+	}
+
+	require.NotNil(t, containerArtifact)
+
+	// Verify local network unit was created
+	assert.Contains(t, networkArtifacts, "backend.network")
+	assert.NotContains(t, networkArtifacts, "infrastructure-proxy.network")
+
+	// Verify container has correct After= and Requires= directives for network coordination:
+	// - External network (infrastructure-proxy) should NOT have project prefix
+	// - Local network (backend) should have project prefix applied by systemd
+	//
+	// The renderer generates directives like After=infrastructure-proxy.network
+	// and After=backend.network. When systemd processes these, it will look for
+	// units with those names. For local networks managed by this project,
+	// they will be created with their names (backend.network), allowing proper
+	// dependency coordination through After=/Requires= directives.
+	assert.Contains(t, *containerArtifact, "After=infrastructure-proxy.network")
+	assert.Contains(t, *containerArtifact, "After=backend.network")
+	assert.Contains(t, *containerArtifact, "Requires=infrastructure-proxy.network")
+	assert.Contains(t, *containerArtifact, "Requires=backend.network")
+
+	// Verify Network directives use correct names
+	assert.Contains(t, *containerArtifact, "Network=infrastructure-proxy.network")
+	assert.Contains(t, *containerArtifact, "Network=backend.network")
+}
