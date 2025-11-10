@@ -232,6 +232,7 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	r.addLogging(&builder, spec.Container)
 	r.addSecrets(&builder, spec.Container)
 	r.addExtraHosts(&builder, spec.Container)
+	r.addStopConfiguration(&builder, spec.Container)
 	r.addAdvanced(&builder, spec.Container)
 
 	builder.WriteString("\n[Service]\n")
@@ -701,6 +702,27 @@ func (r *Renderer) addExtraHosts(builder *strings.Builder, c service.Container) 
 
 	for _, host := range sorted {
 		builder.WriteString(formatKeyValue("AddHost", host))
+	}
+}
+
+// addStopConfiguration adds stop signal and timeout configuration.
+func (r *Renderer) addStopConfiguration(builder *strings.Builder, c service.Container) {
+	// Map stop signal to Quadlet StopSignal directive
+	// If empty, Quadlet will use the container's default (SIGTERM)
+	if c.StopSignal != "" {
+		// Remove "SIG" prefix if present (e.g., "SIGTERM" -> "TERM")
+		signal := c.StopSignal
+		if strings.HasPrefix(signal, "SIG") {
+			signal = signal[3:]
+		}
+		builder.WriteString(formatKeyValue("StopSignal", signal))
+	}
+
+	// Map stop grace period to Quadlet StopTimeoutSec directive
+	// Convert duration to seconds. Default is 10s if not specified.
+	if c.StopGracePeriod > 0 {
+		seconds := int(c.StopGracePeriod.Seconds())
+		builder.WriteString(fmt.Sprintf("StopTimeoutSec=%d\n", seconds))
 	}
 }
 

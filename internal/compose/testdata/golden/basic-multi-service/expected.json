@@ -85,7 +85,9 @@
         "DeviceCgroupRules": null,
         "PidMode": "",
         "IpcMode": "",
-        "CgroupMode": ""
+        "CgroupMode": "",
+        "StopSignal": "",
+        "StopGracePeriod": 0
       },
       "Volumes": [
         {
@@ -206,7 +208,9 @@
         "DeviceCgroupRules": null,
         "PidMode": "",
         "IpcMode": "",
-        "CgroupMode": ""
+        "CgroupMode": "",
+        "StopSignal": "",
+        "StopGracePeriod": 0
       },
       "Volumes": [
         {
@@ -310,7 +314,9 @@
         "DeviceCgroupRules": null,
         "PidMode": "",
         "IpcMode": "",
-        "CgroupMode": ""
+        "CgroupMode": "",
+        "StopSignal": "",
+        "StopGracePeriod": 0
       },
       "Volumes": null,
       "Networks": [

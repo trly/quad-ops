@@ -60,6 +60,8 @@ type Container struct {
 	PidMode           string            // PID namespace mode
 	IpcMode           string            // IPC namespace mode
 	CgroupMode        string            // Cgroup namespace mode
+	StopSignal        string            // Stop signal (e.g., "SIGTERM")
+	StopGracePeriod   time.Duration     // Grace period before forced kill
 }
 
 // InitContainer represents an init container configuration.

@@ -93,7 +93,9 @@
         "DeviceCgroupRules": null,
         "PidMode": "",
         "IpcMode": "",
-        "CgroupMode": ""
+        "CgroupMode": "",
+        "StopSignal": "SIGTERM",
+        "StopGracePeriod": 30000000000
       },
       "Volumes": null,
       "Networks": [

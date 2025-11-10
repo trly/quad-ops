@@ -1768,6 +1768,84 @@ func TestRenderer_NamespaceModes(t *testing.T) {
 			content := string(result.Artifacts[0].Content)
 			for _, expected := range tt.expected {
 				assert.Contains(t, content, expected)
+				}
+				})
+				}
+}
+
+func TestRenderer_StopSignalAndGracePeriod(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	tests := []struct {
+		name          string
+		stopSignal    string
+		gracePeriod   time.Duration
+		expectedLines []string
+	}{
+		{
+			name:          "custom stop signal SIGKILL",
+			stopSignal:    "SIGKILL",
+			expectedLines: []string{"StopSignal=KILL"},
+		},
+		{
+			name:          "custom stop signal SIGTERM",
+			stopSignal:    "SIGTERM",
+			expectedLines: []string{"StopSignal=TERM"},
+		},
+		{
+			name:          "stop signal without SIG prefix",
+			stopSignal:    "TERM",
+			expectedLines: []string{"StopSignal=TERM"},
+		},
+		{
+			name:          "grace period 30 seconds",
+			gracePeriod:   30 * time.Second,
+			expectedLines: []string{"StopTimeoutSec=30"},
+		},
+		{
+			name:          "grace period 1 minute",
+			gracePeriod:   1 * time.Minute,
+			expectedLines: []string{"StopTimeoutSec=60"},
+		},
+		{
+			name:          "both signal and grace period",
+			stopSignal:    "SIGINT",
+			gracePeriod:   45 * time.Second,
+			expectedLines: []string{"StopSignal=INT", "StopTimeoutSec=45"},
+		},
+		{
+			name:          "empty values (defaults)",
+			expectedLines: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := service.Spec{
+				Name: "test",
+				Container: service.Container{
+					Image:           "test:latest",
+					StopSignal:      tt.stopSignal,
+					StopGracePeriod: tt.gracePeriod,
+				},
+			}
+
+			ctx := context.Background()
+			result, err := r.Render(ctx, []service.Spec{spec})
+			require.NoError(t, err)
+
+			content := string(result.Artifacts[0].Content)
+			for _, expected := range tt.expectedLines {
+				assert.Contains(t, content, expected, "expected line not found: %s", expected)
+			}
+
+			// Ensure we don't have unexpected directives
+			if tt.stopSignal == "" {
+				assert.NotContains(t, content, "StopSignal=")
+			}
+			if tt.gracePeriod == 0 {
+				assert.NotContains(t, content, "StopTimeoutSec=")
 			}
 		})
 	}

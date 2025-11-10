@@ -142,6 +142,8 @@ func (sc *SpecConverter) convertContainer(composeService types.ServiceConfig, se
 		DNSOptions:        sc.convertDNSOpts(composeService.DNSOpts),
 		Devices:           sc.convertDevices(composeService.Devices),
 		DeviceCgroupRules: sc.convertDeviceCgroupRules(composeService.DeviceCgroupRules),
+		StopSignal:        composeService.StopSignal,
+		StopGracePeriod:   sc.convertDuration(composeService.StopGracePeriod),
 	}
 
 	// Handle user/group parsing
@@ -1424,4 +1426,13 @@ func (sc *SpecConverter) convertExternalSecrets(secrets []types.ServiceSecretCon
 	}
 
 	return result
+}
+
+// convertDuration converts a compose duration pointer to time.Duration.
+// Returns zero if the pointer is nil.
+func (sc *SpecConverter) convertDuration(d *types.Duration) time.Duration {
+	if d == nil {
+		return 0
+	}
+	return time.Duration(*d)
 }

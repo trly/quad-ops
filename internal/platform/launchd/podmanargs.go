@@ -28,6 +28,7 @@ func BuildPodmanArgs(spec service.Spec, containerName string) []string {
 	args = appendDeviceArgs(args, spec.Container)
 	args = appendSecretArgs(args, spec.Container)
 	args = appendHealthcheckArgs(args, spec.Container.Healthcheck)
+	args = appendStopConfiguration(args, spec.Container)
 	args = append(args, spec.Container.PodmanArgs...)
 	args = appendImageAndCommand(args, spec.Container)
 
@@ -386,6 +387,20 @@ func appendHealthcheckArgs(args []string, hc *service.Healthcheck) []string {
 	}
 	if hc.StartPeriod > 0 {
 		args = append(args, "--health-start-period", hc.StartPeriod.String())
+	}
+
+	return args
+}
+
+// appendStopConfiguration appends stop signal and timeout arguments.
+func appendStopConfiguration(args []string, c service.Container) []string {
+	if c.StopSignal != "" {
+		args = append(args, "--stop-signal", c.StopSignal)
+	}
+
+	if c.StopGracePeriod > 0 {
+		seconds := int(c.StopGracePeriod.Seconds())
+		args = append(args, "--stop-timeout", fmt.Sprintf("%d", seconds))
 	}
 
 	return args

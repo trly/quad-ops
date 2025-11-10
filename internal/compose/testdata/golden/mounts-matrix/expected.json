@@ -155,7 +155,9 @@
         "DeviceCgroupRules": null,
         "PidMode": "",
         "IpcMode": "",
-        "CgroupMode": ""
+        "CgroupMode": "",
+        "StopSignal": "",
+        "StopGracePeriod": 0
       },
       "Volumes": [
         {

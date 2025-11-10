@@ -1999,6 +1999,87 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.wantTmpfs, foundTmpfs)
+			})
+			}
+}
+
+func TestBuildPodmanArgs_StopSignalAndGracePeriod(t *testing.T) {
+	tests := []struct {
+		name          string
+		container     service.Container
+		expectedArgs  []string
+		notExpected   []string
+	}{
+		{
+			name: "custom stop signal",
+			container: service.Container{
+				Image:      "test:latest",
+				StopSignal: "SIGKILL",
+			},
+			expectedArgs: []string{"--stop-signal", "SIGKILL"},
+		},
+		{
+			name: "grace period 30 seconds",
+			container: service.Container{
+				Image:           "test:latest",
+				StopGracePeriod: 30 * time.Second,
+			},
+			expectedArgs: []string{"--stop-timeout", "30"},
+		},
+		{
+			name: "both signal and grace period",
+			container: service.Container{
+				Image:           "test:latest",
+				StopSignal:      "SIGINT",
+				StopGracePeriod: 45 * time.Second,
+			},
+			expectedArgs: []string{"--stop-signal", "SIGINT", "--stop-timeout", "45"},
+		},
+		{
+			name: "grace period 1 minute",
+			container: service.Container{
+				Image:           "test:latest",
+				StopGracePeriod: 1 * time.Minute,
+			},
+			expectedArgs: []string{"--stop-timeout", "60"},
+		},
+		{
+			name: "empty values (no stop args)",
+			container: service.Container{
+				Image: "test:latest",
+			},
+			notExpected: []string{"--stop-signal", "--stop-timeout"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spec := service.Spec{
+				Name:      "test",
+				Container: tt.container,
+			}
+
+			args := BuildPodmanArgs(spec, "test-container")
+
+			// Check expected args are present
+			for i := 0; i < len(tt.expectedArgs); i += 2 {
+				flag := tt.expectedArgs[i]
+				value := tt.expectedArgs[i+1]
+
+				found := false
+				for j := 0; j < len(args)-1; j++ {
+					if args[j] == flag && args[j+1] == value {
+						found = true
+						break
+					}
+				}
+				assert.True(t, found, "expected args not found: %s %s", flag, value)
+			}
+
+			// Check unexpected args are not present
+			for _, notExpected := range tt.notExpected {
+				assert.NotContains(t, args, notExpected, "unexpected arg should not be present")
+			}
 		})
 	}
 }
