@@ -80,6 +80,10 @@ func appendPortArgs(args []string, ports []service.Port) []string {
 // appendMountArgs appends mount and tmpfs arguments.
 func appendMountArgs(args []string, c service.Container) []string {
 	for _, mount := range c.Mounts {
+		if mount.Type == service.MountTypeTmpfs {
+			args = append(args, "--tmpfs", buildTmpfsArg(mount))
+			continue
+		}
 		args = append(args, "-v", buildVolumeArg(mount))
 	}
 	for _, tmpfs := range c.Tmpfs {
@@ -151,8 +155,14 @@ func appendNamespaceArgs(args []string, c service.Container) []string {
 
 // appendDeviceArgs appends device and device cgroup rule arguments.
 func appendDeviceArgs(args []string, c service.Container) []string {
-	for _, device := range c.Devices {
-		args = append(args, "--device", device)
+	// Sort devices for deterministic output
+	if len(c.Devices) > 0 {
+		devices := make([]string, len(c.Devices))
+		copy(devices, c.Devices)
+		sort.Strings(devices)
+		for _, device := range devices {
+			args = append(args, "--device", device)
+		}
 	}
 	for _, rule := range c.DeviceCgroupRules {
 		args = append(args, "--device-cgroup-rule", rule)
@@ -196,6 +206,38 @@ func buildPortArg(port service.Port) string {
 		return fmt.Sprintf("%s:%d:%d/%s", port.Host, port.HostPort, port.Container, protocol)
 	}
 	return fmt.Sprintf("%d:%d/%s", port.HostPort, port.Container, protocol)
+}
+
+// buildTmpfsArg builds a tmpfs mount argument with options.
+func buildTmpfsArg(mount service.Mount) string {
+	tmpfsStr := mount.Target
+	var options []string
+
+	if mount.TmpfsOptions == nil {
+		return tmpfsStr
+	}
+
+	if mount.TmpfsOptions.Size != "" {
+		options = append(options, "size="+mount.TmpfsOptions.Size)
+	}
+	if mount.TmpfsOptions.Mode != 0 {
+		// Mode is rendered as decimal for cross-platform compatibility
+		options = append(options, fmt.Sprintf("mode=%d", mount.TmpfsOptions.Mode))
+	}
+
+	// Only include UID/GID if non-zero (matches systemd behavior)
+	if mount.TmpfsOptions.UID != 0 {
+		options = append(options, fmt.Sprintf("uid=%d", mount.TmpfsOptions.UID))
+	}
+	if mount.TmpfsOptions.GID != 0 {
+		options = append(options, fmt.Sprintf("gid=%d", mount.TmpfsOptions.GID))
+	}
+
+	if len(options) > 0 {
+		tmpfsStr += ":" + strings.Join(options, ",")
+	}
+
+	return tmpfsStr
 }
 
 // buildVolumeArg builds a volume mount argument.

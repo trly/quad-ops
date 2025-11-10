@@ -1885,7 +1885,7 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 							Type:   service.MountTypeTmpfs,
 							TmpfsOptions: &service.TmpfsOptions{
 								Size: "256m",
-								Mode: 0755,
+								Mode: 755, // Decimal for cross-platform compatibility
 							},
 						},
 					},
@@ -1929,14 +1929,13 @@ func TestBuildPodmanArgs_TmpfsWithOptions(t *testing.T) {
 							TmpfsOptions: &service.TmpfsOptions{
 								Size: "1g",
 								Mode: 1777,
-								UID:  0,
-								GID:  0,
+								// UID/GID default to 0, which matches systemd behavior (not rendered)
 							},
 						},
 					},
 				},
 			},
-			wantTmpfs: []string{"--tmpfs", "/temp:size=1g,mode=1777,uid=0,gid=0"},
+			wantTmpfs: []string{"--tmpfs", "/temp:size=1g,mode=1777"},
 		},
 		{
 			name: "multiple tmpfs mounts with options",
