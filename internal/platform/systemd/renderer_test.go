@@ -392,7 +392,7 @@ func TestRenderer_NetworkWithNetworkSuffix(t *testing.T) {
 			Image: "nginx:latest",
 			Network: service.NetworkMode{
 				Mode:            "bridge",
-				ServiceNetworks: []string{"devops-infrastructure-proxy.network"},
+				ServiceNetworks: []string{"devops-infrastructure-proxy"},
 			},
 		},
 	}
@@ -413,7 +413,7 @@ func TestRenderer_NetworkWithNetworkSuffix(t *testing.T) {
 
 	require.NotNil(t, containerArtifact)
 
-	// The dependency should be After=devops-infrastructure-proxy.network (not .network.service)
+	// The dependency should be After=devops-infrastructure-proxy.network
 	assert.Contains(t, *containerArtifact, "After=devops-infrastructure-proxy.network")
 	assert.Contains(t, *containerArtifact, "Requires=devops-infrastructure-proxy.network")
 
@@ -480,6 +480,69 @@ func TestRenderer_ExternalNetworks(t *testing.T) {
 	// Should NOT have external network directives
 	assert.NotContains(t, *containerArtifact, "After=external-net.network")
 	assert.NotContains(t, *containerArtifact, "Network=external-net.network")
+}
+
+// TestRenderer_ExternalNetworks_ContainerUsesExternalNetwork verifies that containers
+// using external networks get After= but not Requires= directives, since external
+// networks are not created by quad-ops.
+func TestRenderer_ExternalNetworks_ContainerUsesExternalNetwork(t *testing.T) {
+	logger := testutil.NewTestLogger(t)
+	r := NewRenderer(logger)
+
+	spec := service.Spec{
+		Name:        "app-shared-infra",
+		Description: "App using shared external infrastructure network",
+		Networks: []service.Network{
+			{
+				Name:     "app-local",
+				Driver:   "bridge",
+				External: false,
+			},
+			{
+				Name:     "infrastructure-proxy",
+				Driver:   "bridge",
+				External: true, // Shared external network from infrastructure project
+			},
+		},
+		Container: service.Container{
+			Image: "myapp:latest",
+			Network: service.NetworkMode{
+				Mode:            "bridge",
+				ServiceNetworks: []string{"app-local", "infrastructure-proxy"},
+			},
+		},
+	}
+
+	ctx := context.Background()
+	result, err := r.Render(ctx, []service.Spec{spec})
+	require.NoError(t, err)
+
+	// Should have 1 local network unit + 1 container unit (external network is not created)
+	assert.Len(t, result.Artifacts, 2)
+
+	var containerArtifact *string
+	for _, a := range result.Artifacts {
+		if strings.HasSuffix(a.Path, ".container") {
+			content := string(a.Content)
+			containerArtifact = &content
+		}
+		// Verify no external network unit was created
+		assert.NotEqual(t, "infrastructure-proxy.network", a.Path)
+	}
+
+	require.NotNil(t, containerArtifact)
+
+	// Container should have After= for ordering but NOT Requires= for external networks
+	assert.Contains(t, *containerArtifact, "After=app-local.network")
+	assert.Contains(t, *containerArtifact, "Requires=app-local.network")
+
+	// External network should have After= but NOT Requires= dependency
+	assert.Contains(t, *containerArtifact, "After=infrastructure-proxy.network")
+	assert.NotContains(t, *containerArtifact, "Requires=infrastructure-proxy.network")
+
+	// Both networks should be in Network directive
+	assert.Contains(t, *containerArtifact, "Network=app-local.network")
+	assert.Contains(t, *containerArtifact, "Network=infrastructure-proxy.network")
 }
 
 func TestRenderer_RenderBuild(t *testing.T) {
@@ -1911,17 +1974,19 @@ func TestRenderer_ExternalNetworksWithLocalNetworks(t *testing.T) {
 	assert.NotContains(t, networkArtifacts, "infrastructure-proxy.network")
 
 	// Verify container has correct After= and Requires= directives for network coordination:
-	// - External network (infrastructure-proxy) should NOT have project prefix
-	// - Local network (backend) should have project prefix applied by systemd
+	// - External network (infrastructure-proxy) should NOT have Requires= since it's not created by quad-ops
+	// - External network should still have After= for ordering when systemd starts it
+	// - Local network (backend) should have both After= and Requires=
 	//
 	// The renderer generates directives like After=infrastructure-proxy.network
 	// and After=backend.network. When systemd processes these, it will look for
 	// units with those names. For local networks managed by this project,
 	// they will be created with their names (backend.network), allowing proper
 	// dependency coordination through After=/Requires= directives.
+	// External networks are assumed to be pre-created externally and not managed by quad-ops.
 	assert.Contains(t, *containerArtifact, "After=infrastructure-proxy.network")
+	assert.NotContains(t, *containerArtifact, "Requires=infrastructure-proxy.network")
 	assert.Contains(t, *containerArtifact, "After=backend.network")
-	assert.Contains(t, *containerArtifact, "Requires=infrastructure-proxy.network")
 	assert.Contains(t, *containerArtifact, "Requires=backend.network")
 
 	// Verify Network directives use correct names
@@ -2004,8 +2069,8 @@ func TestRenderer_CrossProjectNetworkDependencies_NameMismatch(t *testing.T) {
 	// External network should NOT have project prefix
 	assert.Contains(t, containerContent, "After=infrastructure-proxy.network",
 		"After directive for external network must NOT add project prefix")
-	assert.Contains(t, containerContent, "Requires=infrastructure-proxy.network",
-		"Requires directive for external network must NOT add project prefix")
+	assert.NotContains(t, containerContent, "Requires=infrastructure-proxy.network",
+		"Requires directive for external network must NOT be added (external networks are pre-created)")
 	assert.Contains(t, containerContent, "Network=infrastructure-proxy.network",
 		"Network directive for external network must NOT add project prefix")
 
@@ -2042,8 +2107,8 @@ func TestRenderer_NetworkReferenceNormalization(t *testing.T) {
 			Image: "app:latest",
 			Network: service.NetworkMode{
 				Mode: "bridge",
-				// Reference with .network suffix (should be stripped and matched)
-				ServiceNetworks: []string{"test-backend.network"},
+				// ServiceNetworks should contain only the sanitized name, not the suffix
+				ServiceNetworks: []string{"test-backend"},
 			},
 		},
 	}
@@ -2061,7 +2126,7 @@ func TestRenderer_NetworkReferenceNormalization(t *testing.T) {
 	}
 	require.NotEmpty(t, containerContent)
 
-	// Should resolve to canonical name and emit dependency
+	// Should emit correct dependency with .network suffix
 	assert.Contains(t, containerContent, "After=test-backend.network")
 	assert.Contains(t, containerContent, "Requires=test-backend.network")
 	assert.Contains(t, containerContent, "Network=test-backend.network")
@@ -2114,7 +2179,8 @@ func TestRenderer_NetworkUnderscoreSanitization(t *testing.T) {
 
 	// Should preserve underscore in network references
 	assert.Contains(t, containerContent, "After=infra_proxy.network")
-	assert.Contains(t, containerContent, "Requires=infra_proxy.network")
+	assert.NotContains(t, containerContent, "Requires=infra_proxy.network",
+		"Requires directive must NOT be added for external networks (they are pre-created)")
 	assert.Contains(t, containerContent, "Network=infra_proxy.network")
 
 	// Should NOT convert underscore to hyphen

@@ -14,6 +14,29 @@ import (
 	"github.com/trly/quad-ops/internal/sorting"
 )
 
+// Unit type suffix constants for Quadlet unit files.
+// These suffixes distinguish different types of managed resources in systemd dependencies.
+const (
+	UnitSuffixContainer = ".container"
+	UnitSuffixNetwork   = ".network"
+	UnitSuffixVolume    = ".volume"
+	UnitSuffixBuild     = ".build"
+	UnitSuffixService   = ".service"
+)
+
+// knownUnitSuffixes lists all recognized Quadlet unit type suffixes.
+// Used for dependency resolution and validation.
+var knownUnitSuffixes = []string{
+	UnitSuffixNetwork,
+	UnitSuffixVolume,
+	".pod",
+	".kube",
+	UnitSuffixBuild,
+	".image",
+	".artifact",
+	UnitSuffixService,
+}
+
 // Renderer implements platform.Renderer for systemd/Quadlet.
 type Renderer struct {
 	logger log.Logger
@@ -75,7 +98,7 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 			content := r.renderVolume(vol)
 			hash := r.computeHash(content)
 			artifacts = append(artifacts, platform.Artifact{
-				Path:    fmt.Sprintf("%s.volume", vol.Name),
+				Path:    vol.Name + UnitSuffixVolume,
 				Content: []byte(content),
 				Mode:    0644,
 				Hash:    hash,
@@ -89,7 +112,7 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 			content := r.renderNetwork(net)
 			hash := r.computeHash(content)
 			artifacts = append(artifacts, platform.Artifact{
-				Path:    fmt.Sprintf("%s.network", net.Name),
+				Path:    net.Name + UnitSuffixNetwork,
 				Content: []byte(content),
 				Mode:    0644,
 				Hash:    hash,
@@ -102,7 +125,7 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 		content := r.renderBuild(spec.Name, spec.Description, *spec.Container.Build, spec.DependsOn)
 		hash := r.computeHash(content)
 		artifacts = append(artifacts, platform.Artifact{
-			Path:    fmt.Sprintf("%s-build.build", spec.Name),
+			Path:    spec.Name + "-build" + UnitSuffixBuild,
 			Content: []byte(content),
 			Mode:    0644,
 			Hash:    hash,
@@ -113,7 +136,7 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 	content := r.renderContainer(spec)
 	hash := r.computeHash(content)
 	artifacts = append(artifacts, platform.Artifact{
-		Path:    fmt.Sprintf("%s.container", spec.Name),
+		Path:    spec.Name + UnitSuffixContainer,
 		Content: []byte(content),
 		Mode:    0644,
 		Hash:    hash,
@@ -164,44 +187,46 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 	if len(spec.Volumes) > 0 {
 		for _, vol := range spec.Volumes {
 			if !vol.External {
-				builder.WriteString(fmt.Sprintf("After=%s.volume\n", vol.Name))
-				builder.WriteString(fmt.Sprintf("Requires=%s.volume\n", vol.Name))
+				builder.WriteString(fmt.Sprintf("After=%s%s\n", vol.Name, UnitSuffixVolume))
+				builder.WriteString(fmt.Sprintf("Requires=%s%s\n", vol.Name, UnitSuffixVolume))
 			}
 		}
 	}
 
-	// Add dependencies for networks that this container actually uses
+	// Add dependencies for networks that this container actually uses.
+	// ServiceNetworks contains sanitized names that exactly match spec.Networks names.
 	// We only add dependencies for networks explicitly used by the container,
 	// not for all project-level networks.
-	usedNetworks := make(map[string]bool)
-	if len(spec.Container.Network.ServiceNetworks) > 0 {
-		for _, netName := range spec.Container.Network.ServiceNetworks {
-			// Resolve ServiceNetworks reference to sanitized spec.Networks name
-			// This ensures consistency between artifacts and dependencies (fixes quad-ops-782)
-			resolvedName := r.resolveNetworkName(spec.Networks, netName)
-			usedNetworks[resolvedName] = true
+	externalNetworks := make(map[string]bool)
+
+	// Build a map of which networks are external for reference
+	for _, net := range spec.Networks {
+		if net.External {
+			externalNetworks[net.Name] = true
 		}
 	}
 
-	// Add dependencies only for networks this container actually uses
-	if len(usedNetworks) > 0 {
-		// Get unique sorted network names
-		networks := make([]string, 0, len(usedNetworks))
-		for net := range usedNetworks {
-			networks = append(networks, net)
-		}
+	if len(spec.Container.Network.ServiceNetworks) > 0 {
+		// Sort for deterministic output
+		networks := make([]string, len(spec.Container.Network.ServiceNetworks))
+		copy(networks, spec.Container.Network.ServiceNetworks)
 		sort.Strings(networks)
 
 		for _, net := range networks {
-			builder.WriteString(fmt.Sprintf("After=%s.network\n", net))
-			builder.WriteString(fmt.Sprintf("Requires=%s.network\n", net))
+			builder.WriteString(fmt.Sprintf("After=%s%s\n", net, UnitSuffixNetwork))
+			// Only add hard Requires dependency for networks that are created by quad-ops.
+			// External networks are assumed to be pre-created and managed externally.
+			if !externalNetworks[net] {
+				builder.WriteString(fmt.Sprintf("Requires=%s%s\n", net, UnitSuffixNetwork))
+			}
 		}
 	}
 
 	// Add dependencies for build
 	if spec.Container.Build != nil {
-		builder.WriteString(fmt.Sprintf("After=%s-build.service\n", spec.Name))
-		builder.WriteString(fmt.Sprintf("Requires=%s-build.service\n", spec.Name))
+		buildUnit := spec.Name + "-build" + UnitSuffixService
+		builder.WriteString(fmt.Sprintf("After=%s\n", buildUnit))
+		builder.WriteString(fmt.Sprintf("Requires=%s\n", buildUnit))
 	}
 
 	builder.WriteString("\n[Container]\n")
@@ -399,20 +424,17 @@ func (r *Renderer) addNetworks(builder *strings.Builder, spec service.Spec) {
 		}
 	}
 
-	// Add Network directives for service-specific networks with .network suffix
-	// This enables service-to-service DNS resolution and automatic Quadlet dependencies
-	// Resolve ServiceNetworks references to sanitized spec.Networks names for consistency (fixes quad-ops-782)
+	// Add Network directives for service-specific networks with .network suffix.
+	// ServiceNetworks contains sanitized names that exactly match spec.Networks names.
+	// This enables service-to-service DNS resolution and automatic Quadlet dependencies.
 	if len(c.Network.ServiceNetworks) > 0 {
-		// Normalize network names first
-		normalized := make([]string, 0, len(c.Network.ServiceNetworks))
-		for _, netName := range c.Network.ServiceNetworks {
-			resolvedName := r.resolveNetworkName(spec.Networks, netName)
-			normalized = append(normalized, resolvedName)
-		}
-		sort.Strings(normalized)
+		// Sort for deterministic output
+		networks := make([]string, len(c.Network.ServiceNetworks))
+		copy(networks, c.Network.ServiceNetworks)
+		sort.Strings(networks)
 
-		for _, net := range normalized {
-			builder.WriteString(formatKeyValue("Network", net+".network"))
+		for _, net := range networks {
+			builder.WriteString(formatKeyValue("Network", net+UnitSuffixNetwork))
 		}
 	}
 	// Note: We do NOT have a fallback to project-level networks here.
@@ -1073,26 +1095,15 @@ func (r *Renderer) renderBuild(name, description string, build service.Build, de
 // If the dependency already has a unit type suffix (.network, .volume, etc.),
 // it returns as-is. Otherwise, appends .service for service-to-service deps.
 func (r *Renderer) formatDependency(dep string) string {
-	// List of known Quadlet unit type suffixes
-	suffixes := []string{
-		".network",
-		".volume",
-		".pod",
-		".kube",
-		".build",
-		".image",
-		".artifact",
-		".service", // Already has service suffix
-	}
-
-	for _, suffix := range suffixes {
+	// Check if dependency already has a known unit type suffix
+	for _, suffix := range knownUnitSuffixes {
 		if strings.HasSuffix(dep, suffix) {
 			return dep
 		}
 	}
 
 	// No unit type suffix found, default to .service
-	return dep + ".service"
+	return dep + UnitSuffixService
 }
 
 // mapRestartPolicy maps service.RestartPolicy to systemd restart value.
@@ -1141,38 +1152,6 @@ func (r *Renderer) combineHashes(hashes []string) string {
 		h.Write([]byte(hash))
 	}
 	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-// resolveNetworkName maps a ServiceNetworks reference to its corresponding sanitized spec.Networks name.
-// This ensures consistency between network artifacts and container dependencies/directives.
-//
-// ServiceNetworks may reference networks using pre-sanitization names (e.g., "infrastructure_proxy")
-// while spec.Networks contains post-sanitization names (e.g., "infrastructure-proxy").
-// This helper normalizes references by matching against spec.Networks entries.
-//
-// Returns the sanitized network name from spec.Networks, or the original reference if no match found.
-func (r *Renderer) resolveNetworkName(networks []service.Network, ref string) string {
-	// Strip .network suffix if present (ServiceNetworks may include it)
-	cleanRef := strings.TrimSuffix(ref, ".network")
-
-	// Try exact match first (most common case)
-	for _, net := range networks {
-		if net.Name == cleanRef {
-			return net.Name
-		}
-	}
-
-	// Try sanitizing the reference and matching (handles underscore/hyphen conversion)
-	sanitizedRef := service.SanitizeName(cleanRef)
-	for _, net := range networks {
-		if net.Name == sanitizedRef {
-			return net.Name
-		}
-	}
-
-	// No match found - return sanitized form of original reference
-	// This handles cases where network is not in spec.Networks (e.g., implicit default network)
-	return sanitizedRef
 }
 
 // needsNetworkOnline determines if a container needs network-online.target dependency.
