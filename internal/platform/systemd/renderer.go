@@ -711,10 +711,7 @@ func (r *Renderer) addStopConfiguration(builder *strings.Builder, c service.Cont
 	// If empty, Quadlet will use the container's default (SIGTERM)
 	if c.StopSignal != "" {
 		// Remove "SIG" prefix if present (e.g., "SIGTERM" -> "TERM")
-		signal := c.StopSignal
-		if strings.HasPrefix(signal, "SIG") {
-			signal = signal[3:]
-		}
+		signal := strings.TrimPrefix(c.StopSignal, "SIG")
 		builder.WriteString(formatKeyValue("StopSignal", signal))
 	}
 
@@ -722,7 +719,7 @@ func (r *Renderer) addStopConfiguration(builder *strings.Builder, c service.Cont
 	// Convert duration to seconds. Default is 10s if not specified.
 	if c.StopGracePeriod > 0 {
 		seconds := int(c.StopGracePeriod.Seconds())
-		builder.WriteString(fmt.Sprintf("StopTimeoutSec=%d\n", seconds))
+		fmt.Fprintf(builder, "StopTimeoutSec=%d\n", seconds)
 	}
 }
 
