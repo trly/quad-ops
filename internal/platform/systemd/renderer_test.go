@@ -532,15 +532,17 @@ func TestRenderer_ExternalNetworks_ContainerUsesExternalNetwork(t *testing.T) {
 
 	require.NotNil(t, containerArtifact)
 
-	// Container should have After= for ordering but NOT Requires= for external networks
+	// Container should have After= and Requires= for local networks only
 	assert.Contains(t, *containerArtifact, "After=app-local.network")
 	assert.Contains(t, *containerArtifact, "Requires=app-local.network")
 
-	// External network should have After= but NOT Requires= dependency
-	assert.Contains(t, *containerArtifact, "After=infrastructure-proxy.network")
+	// External networks should NOT have systemd dependencies (After/Requires),
+	// as they are not created by quad-ops and quadlet-generator cannot translate
+	// dependencies to non-existent unit files. They are still in Network directive for connectivity.
+	assert.NotContains(t, *containerArtifact, "After=infrastructure-proxy.network")
 	assert.NotContains(t, *containerArtifact, "Requires=infrastructure-proxy.network")
 
-	// Both networks should be in Network directive
+	// Both networks should be in Network directive for container connectivity
 	assert.Contains(t, *containerArtifact, "Network=app-local.network")
 	assert.Contains(t, *containerArtifact, "Network=infrastructure-proxy.network")
 }
@@ -1974,22 +1976,19 @@ func TestRenderer_ExternalNetworksWithLocalNetworks(t *testing.T) {
 	assert.NotContains(t, networkArtifacts, "infrastructure-proxy.network")
 
 	// Verify container has correct After= and Requires= directives for network coordination:
-	// - External network (infrastructure-proxy) should NOT have Requires= since it's not created by quad-ops
-	// - External network should still have After= for ordering when systemd starts it
-	// - Local network (backend) should have both After= and Requires=
+	// - External networks should NOT have After= or Requires= since they are not created by quad-ops
+	//   and quadlet-generator cannot translate dependencies to non-existent unit files
+	// - Local networks should have both After= and Requires=
 	//
-	// The renderer generates directives like After=infrastructure-proxy.network
-	// and After=backend.network. When systemd processes these, it will look for
-	// units with those names. For local networks managed by this project,
-	// they will be created with their names (backend.network), allowing proper
-	// dependency coordination through After=/Requires= directives.
-	// External networks are assumed to be pre-created externally and not managed by quad-ops.
-	assert.Contains(t, *containerArtifact, "After=infrastructure-proxy.network")
+	// The renderer only generates systemd directives for local networks that it actually creates.
+	// External networks are still added to the container's Network directive for connectivity,
+	// but they don't get systemd dependencies since they're assumed to be pre-created externally.
+	assert.NotContains(t, *containerArtifact, "After=infrastructure-proxy.network")
 	assert.NotContains(t, *containerArtifact, "Requires=infrastructure-proxy.network")
 	assert.Contains(t, *containerArtifact, "After=backend.network")
 	assert.Contains(t, *containerArtifact, "Requires=backend.network")
 
-	// Verify Network directives use correct names
+	// Verify Network directives include both local and external networks for container connectivity
 	assert.Contains(t, *containerArtifact, "Network=infrastructure-proxy.network")
 	assert.Contains(t, *containerArtifact, "Network=backend.network")
 }
@@ -2066,13 +2065,14 @@ func TestRenderer_CrossProjectNetworkDependencies_NameMismatch(t *testing.T) {
 	assert.Contains(t, containerContent, "Network=myapp-default.network",
 		"Network directive for local network must include project prefix")
 
-	// External network should NOT have project prefix
-	assert.Contains(t, containerContent, "After=infrastructure-proxy.network",
-		"After directive for external network must NOT add project prefix")
+	// External network should NOT have systemd dependencies since it's not created by quad-ops
+	// and quadlet-generator cannot translate dependencies to non-existent unit files
+	assert.NotContains(t, containerContent, "After=infrastructure-proxy.network",
+		"After directive for external network must NOT be added (external networks are pre-created)")
 	assert.NotContains(t, containerContent, "Requires=infrastructure-proxy.network",
 		"Requires directive for external network must NOT be added (external networks are pre-created)")
 	assert.Contains(t, containerContent, "Network=infrastructure-proxy.network",
-		"Network directive for external network must NOT add project prefix")
+		"Network directive for external network must be included for container connectivity (without project prefix)")
 
 	// BUG: Renderer incorrectly adds project prefix to external network
 	// This assertion will FAIL if the bug exists
@@ -2177,10 +2177,12 @@ func TestRenderer_NetworkUnderscoreSanitization(t *testing.T) {
 	}
 	require.NotEmpty(t, containerContent)
 
-	// Should preserve underscore in network references
-	assert.Contains(t, containerContent, "After=infra_proxy.network")
+	// External networks should NOT have systemd dependencies since they are not created by quad-ops
+	assert.NotContains(t, containerContent, "After=infra_proxy.network",
+		"After directive must NOT be added for external networks (quadlet-generator cannot translate non-existent units)")
 	assert.NotContains(t, containerContent, "Requires=infra_proxy.network",
 		"Requires directive must NOT be added for external networks (they are pre-created)")
+	// But Network directive should still be present for container connectivity
 	assert.Contains(t, containerContent, "Network=infra_proxy.network")
 
 	// Should NOT convert underscore to hyphen

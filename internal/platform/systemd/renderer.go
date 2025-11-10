@@ -213,10 +213,12 @@ func (r *Renderer) renderContainer(spec service.Spec) string {
 		sort.Strings(networks)
 
 		for _, net := range networks {
-			builder.WriteString(fmt.Sprintf("After=%s%s\n", net, UnitSuffixNetwork))
-			// Only add hard Requires dependency for networks that are created by quad-ops.
-			// External networks are assumed to be pre-created and managed externally.
+			// Only add systemd dependencies (After/Requires) for networks that are created by quad-ops.
+			// External networks are not created by quad-ops and should not appear in systemd dependencies,
+			// as the quadlet-generator cannot translate dependencies to non-existent unit files.
+			// External networks are still added to the container's Network directive for connectivity.
 			if !externalNetworks[net] {
+				builder.WriteString(fmt.Sprintf("After=%s%s\n", net, UnitSuffixNetwork))
 				builder.WriteString(fmt.Sprintf("Requires=%s%s\n", net, UnitSuffixNetwork))
 			}
 		}
