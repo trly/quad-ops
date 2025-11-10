@@ -20,27 +20,94 @@ Quad-Ops is a lightweight GitOps framework for Podman containers managed by [Qua
 - **Flexible deployment** - Works in both system-wide and user (rootless) modes
 - **Production-ready** - Built with dependency injection, comprehensive test coverage (582+ tests)
 
-## Compose Feature Support
+## Compose Specification Support
 
 Quad-Ops converts standard Docker Compose files to Podman Quadlet units. It supports all container runtime features that work with standalone Podman.
 
-### Unsupported Fields
+### Fully Supported
 
-**Standard Compose fields (not yet implemented):**
-- `volumes_from` - Use named volumes instead
+**Core container configuration:**
+- `image`, `build`, `command`, `entrypoint`, `working_dir`, `user`, `hostname`
+
+**Environment and labels:**
+- `environment`, `env_file`, `labels`, `annotations`
+
+**Networking:**
+- `networks` (bridge, host, custom networks)
+- `ports` (host mode only)
+- `dns`, `dns_search`, `dns_opt`, `extra_hosts`
+- `network_mode` (bridge, host, none, container:name)
+
+**Storage:**
+- `volumes` (bind mounts, named volumes, tmpfs)
+- `secrets` with file/content/environment sources
+- `configs` with file/content/environment sources
+
+**Resources:**
+- `memory`, `cpu_shares`, `cpu_quota`, `cpu_period`
+- `pids_limit`, `shm_size`, `sysctls`, `ulimits`
+
+**Security:**
+- `cap_add`, `cap_drop`, `privileged`, `security_opt`, `read_only`
+- `group_add`, `pid` mode, `ipc` mode, `cgroup_parent`
+
+**Devices and hardware:**
+- `devices`, `device_cgroup_rules`
+- `runtime` (e.g., nvidia for GPU support)
+
+**Health and lifecycle:**
+- `healthcheck` (test, interval, timeout, retries, start_period)
+- `restart` (maps to systemd restart policies)
+- `stop_signal`, `stop_grace_period`
+- `depends_on` (maps to systemd After/Requires)
+
+### Partially Supported
+
+**Secrets and configs:**
+- File sources (`file: ./secret.txt`)
+- Content sources (`content: "secret data"`)
+- Environment sources (`environment: SECRET_VAR`)
+- NOT supported: Swarm driver (`external: true` with `driver`)
+
+**Resource constraints:**
+- `deploy.resources.limits` (memory, cpus, pids)
+- `deploy.resources.reservations` (partial - depends on cgroups v2)
+
+**Dependency conditions:**
+- All `depends_on` conditions (`service_started`, `service_healthy`, `service_completed_successfully`) map to systemd `After` + `Requires`
+- No health-based startup gating (Quadlet limitation)
+
+**Logging:**
+- Supported: `journald`, `k8s-file`, `none`, `passthrough`
+- NOT supported: Custom drivers not supported by Podman
+
+### Not Supported - Use Alternatives
+
+**Standard Compose fields:**
+- `volumes_from` - Use named volumes or bind mounts
 - `stdin_open`, `tty` - Interactive mode not practical in systemd units
-- `logging.driver` - Custom drivers (only journald, k8s-file, none, passthrough supported)
+- `extends` - Use YAML anchors or include directives
 
-**Docker Swarm orchestration features (rejected with error):**
-- `deploy.mode: global` - Use Kubernetes/Nomad for multi-node orchestration
-- `deploy.replicas > 1` - Use Kubernetes/Nomad for multi-instance services
-- `deploy.placement` - Use Kubernetes/Nomad for placement constraints
-- `deploy.update_config`, `deploy.rollback_config` - Use Kubernetes/Nomad for rolling updates
-- `deploy.endpoint_mode` - Use Kubernetes/Nomad for service discovery
-- `ports.mode: ingress` - Use `mode: host` for Podman
-- `secrets.driver` - Use file/content/environment sources instead of Swarm secret store
+### Explicitly Out of Scope - Swarm Orchestration
+
+Quad-Ops is **NOT** a Swarm orchestrator. These features are rejected with validation errors:
+
+- `deploy.mode: global` - Multi-node replication
+- `deploy.replicas > 1` - Multi-instance services
+- `deploy.placement` - Node placement constraints
+- `deploy.update_config`, `deploy.rollback_config` - Rolling updates
+- `deploy.endpoint_mode` (vip/dnsrr) - Swarm service discovery
+- `ports.mode: ingress` - Swarm load balancing (use `mode: host`)
+- `configs`/`secrets` with `driver` field - Swarm secret store
+
+**For these features, use:**
+- **Kubernetes** - Cloud-native orchestration with full feature set
+- **Nomad** - Lightweight orchestrator for VMs and containers
+- **Docker Swarm** - If you need Swarm-specific features
 
 Use `quad-ops validate` to check your Compose files for unsupported features.
+
+**Reference:** [Podman Quadlet Documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
 
 ## Architecture
 

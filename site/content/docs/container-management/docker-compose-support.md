@@ -13,16 +13,92 @@ Quad-Ops converts Docker Compose files to Podman Quadlet units for systemd manag
 - **Version 3.0** through **3.8** (latest)
 - **Version 2.x** (partial compatibility)
 
-## Standard Docker Compose Features
+## Compose Specification Support
 
-Quad-Ops supports the full Docker Compose specification. For detailed documentation on standard features, refer to:
+Quad-Ops supports all container runtime features that work with standalone Podman.
 
-- [Services](https://compose-spec.io/spec/#services-top-level-element) - Container configuration
-- [Networks](https://compose-spec.io/spec/#networks-top-level-element) - Network definitions
-- [Volumes](https://compose-spec.io/spec/#volumes-top-level-element) - Volume management
-- [Build](https://compose-spec.io/spec/#build) - Image building
-- [Deploy](https://compose-spec.io/spec/#deploy) - Resource constraints and deployment
-- [Healthcheck](https://compose-spec.io/spec/#healthcheck) - Container health monitoring
+### Fully Supported
+
+**Core container configuration:**
+- `image`, `build`, `command`, `entrypoint`, `working_dir`, `user`, `hostname`
+
+**Environment and labels:**
+- `environment`, `env_file`, `labels`, `annotations`
+
+**Networking:**
+- `networks` (bridge, host, custom networks)
+- `ports` (host mode only)
+- `dns`, `dns_search`, `dns_opt`, `extra_hosts`
+- `network_mode` (bridge, host, none, container:name)
+
+**Storage:**
+- `volumes` (bind mounts, named volumes, tmpfs)
+- `secrets` with file/content/environment sources
+- `configs` with file/content/environment sources
+
+**Resources:**
+- `memory`, `cpu_shares`, `cpu_quota`, `cpu_period`
+- `pids_limit`, `shm_size`, `sysctls`, `ulimits`
+
+**Security:**
+- `cap_add`, `cap_drop`, `privileged`, `security_opt`, `read_only`
+- `group_add`, `pid` mode, `ipc` mode, `cgroup_parent`
+
+**Devices and hardware:**
+- `devices`, `device_cgroup_rules`
+- `runtime` (e.g., nvidia for GPU support)
+
+**Health and lifecycle:**
+- `healthcheck` (test, interval, timeout, retries, start_period)
+- `restart` (maps to systemd restart policies)
+- `stop_signal`, `stop_grace_period`
+- `depends_on` (maps to systemd After/Requires)
+
+### Partially Supported
+
+**Secrets and configs:**
+- File sources (`file: ./secret.txt`)
+- Content sources (`content: "secret data"`)
+- Environment sources (`environment: SECRET_VAR`)
+- NOT supported: Swarm driver (`external: true` with `driver`)
+
+**Resource constraints:**
+- `deploy.resources.limits` (memory, cpus, pids)
+- `deploy.resources.reservations` (partial - depends on cgroups v2)
+
+**Dependency conditions:**
+- All `depends_on` conditions (`service_started`, `service_healthy`, `service_completed_successfully`) map to systemd `After` + `Requires`
+- No health-based startup gating (Quadlet limitation)
+
+**Logging:**
+- Supported: `journald`, `k8s-file`, `none`, `passthrough`
+- NOT supported: Custom drivers not supported by Podman
+
+### Not Supported - Use Alternatives
+
+**Standard Compose fields:**
+- `volumes_from` - Use named volumes or bind mounts
+- `stdin_open`, `tty` - Interactive mode not practical in systemd units
+- `extends` - Use YAML anchors or include directives
+
+### Explicitly Out of Scope - Swarm Orchestration
+
+Quad-Ops is **NOT** a Swarm orchestrator. These features are rejected with validation errors:
+
+- `deploy.mode: global` - Multi-node replication
+- `deploy.replicas > 1` - Multi-instance services
+- `deploy.placement` - Node placement constraints
+- `deploy.update_config`, `deploy.rollback_config` - Rolling updates
+- `deploy.endpoint_mode` (vip/dnsrr) - Swarm service discovery
+- `ports.mode: ingress` - Swarm load balancing (use `mode: host`)
+- `configs`/`secrets` with `driver` field - Swarm secret store
+
+**For these features, use:**
+- **Kubernetes** - Cloud-native orchestration with full feature set
+- **Nomad** - Lightweight orchestrator for VMs and containers
+- **Docker Swarm** - If you need Swarm-specific features
+
+**Reference:** [Podman Quadlet Documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
 
 ## Podman-Specific Extensions
 
