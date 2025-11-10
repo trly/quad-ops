@@ -275,6 +275,35 @@ func (l *Lifecycle) StartMany(ctx context.Context, names []string) map[string]er
 		// Don't fail the operation, just log the warning
 	}
 
+	// Verify units exist before attempting to start - retry with exponential backoff to give systemd generator time to run
+	l.logger.Info("Verifying unit files were generated", "count", len(names))
+	for _, name := range names {
+		serviceName := name + ".service"
+		if err := l.waitForUnitGeneration(ctx, serviceName); err != nil {
+			// Unit failed to generate - return error for this service
+			l.logger.Error("Unit generation verification failed", "service", name, "error", err)
+			results := make(map[string]error)
+			results[name] = err
+			return results
+		}
+	}
+
+	// After verifying all units exist, add a small buffer to ensure systemd has fully
+	// processed the units and they're available for operations like StartUnit.
+	// This addresses a race condition where GetUnitProperties succeeds but StartUnit
+	// fails immediately after with "Unit not found" (D-Bus caching/sync issue).
+	l.logger.Debug("Allowing time for systemd to fully process units before start operations")
+	select {
+	case <-time.After(100 * time.Millisecond):
+		// Continue to start operations
+	case <-ctx.Done():
+		results := make(map[string]error)
+		for _, name := range names {
+			results[name] = fmt.Errorf("start operation cancelled: %w", ctx.Err())
+		}
+		return results
+	}
+
 	results := make(map[string]error)
 	var mu sync.Mutex
 
@@ -327,6 +356,35 @@ func (l *Lifecycle) StartMany(ctx context.Context, names []string) map[string]er
 // StopMany stops multiple services in reverse dependency order.
 func (l *Lifecycle) StopMany(ctx context.Context, names []string) map[string]error {
 	l.logger.Debug("Stopping multiple services", "count", len(names))
+
+	// Verify units exist before attempting to stop - retry with exponential backoff to give systemd generator time to run
+	l.logger.Info("Verifying unit files were generated", "count", len(names))
+	for _, name := range names {
+		serviceName := name + ".service"
+		if err := l.waitForUnitGeneration(ctx, serviceName); err != nil {
+			// Unit failed to generate - return error for this service
+			l.logger.Error("Unit generation verification failed", "service", name, "error", err)
+			results := make(map[string]error)
+			results[name] = err
+			return results
+		}
+	}
+
+	// After verifying all units exist, add a small buffer to ensure systemd has fully
+	// processed the units and they're available for operations like StopUnit.
+	// This addresses a race condition where GetUnitProperties succeeds but StopUnit
+	// fails immediately after with "Unit not found" (D-Bus caching/sync issue).
+	l.logger.Debug("Allowing time for systemd to fully process units before stop operations")
+	select {
+	case <-time.After(100 * time.Millisecond):
+		// Continue to stop operations
+	case <-ctx.Done():
+		results := make(map[string]error)
+		for _, name := range names {
+			results[name] = fmt.Errorf("stop operation cancelled: %w", ctx.Err())
+		}
+		return results
+	}
 
 	results := make(map[string]error)
 	var mu sync.Mutex

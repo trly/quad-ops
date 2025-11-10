@@ -209,3 +209,91 @@ func TestLifecycle_RestartMany_UnitAvailableForRestart(t *testing.T) {
 	assert.Len(t, results, 1)
 	assert.NoError(t, results["test-svc"])
 }
+
+func TestLifecycle_StartMany_WaitsForUnitGeneration(t *testing.T) {
+	// This test verifies that StartMany waits for units to be generated
+	// before attempting to start them
+	logger := testutil.NewTestLogger(t)
+
+	mockFactory := &MockConnectionFactory{failAttempts: 1}
+	// Fail first attempt, succeed on 2nd (simulates generator delay)
+	mockConn := &MockConnection{factory: mockFactory, props: map[string]interface{}{}, failMode: 2}
+	mockFactory.connection = mockConn
+
+	l := NewLifecycle(nil, mockFactory, false, logger)
+	l.SetUnitGenerationTimeout(1 * time.Second)
+
+	ctx := context.Background()
+	results := l.StartMany(ctx, []string{"test-svc"})
+
+	// Should succeed after waiting for unit generation
+	assert.Len(t, results, 1)
+	assert.NoError(t, results["test-svc"])
+	// Should have made multiple attempts to verify generation
+	assert.Greater(t, mockFactory.attemptCount, 1)
+}
+
+func TestLifecycle_StartMany_FailsOnGenerationTimeout(t *testing.T) {
+	// This test verifies that StartMany fails appropriately when
+	// units fail to be generated within the timeout
+	logger := testutil.NewTestLogger(t)
+
+	mockFactory := &MockConnectionFactory{}
+	mockConn := &MockConnection{factory: mockFactory, failMode: 1} // Always fail
+	mockFactory.connection = mockConn
+
+	l := NewLifecycle(nil, mockFactory, false, logger)
+	l.SetUnitGenerationTimeout(100 * time.Millisecond) // Very short timeout
+
+	ctx := context.Background()
+	results := l.StartMany(ctx, []string{"test-svc"})
+
+	// Should fail with generation timeout error
+	assert.Len(t, results, 1)
+	assert.Error(t, results["test-svc"])
+	assert.Contains(t, results["test-svc"].Error(), "failed to be generated")
+}
+
+func TestLifecycle_StopMany_WaitsForUnitGeneration(t *testing.T) {
+	// This test verifies that StopMany waits for units to be generated
+	// before attempting to stop them
+	logger := testutil.NewTestLogger(t)
+
+	mockFactory := &MockConnectionFactory{failAttempts: 1}
+	// Fail first attempt, succeed on 2nd (simulates generator delay)
+	mockConn := &MockConnection{factory: mockFactory, props: map[string]interface{}{}, failMode: 2}
+	mockFactory.connection = mockConn
+
+	l := NewLifecycle(nil, mockFactory, false, logger)
+	l.SetUnitGenerationTimeout(1 * time.Second)
+
+	ctx := context.Background()
+	results := l.StopMany(ctx, []string{"test-svc"})
+
+	// Should succeed after waiting for unit generation
+	assert.Len(t, results, 1)
+	assert.NoError(t, results["test-svc"])
+	// Should have made multiple attempts to verify generation
+	assert.Greater(t, mockFactory.attemptCount, 1)
+}
+
+func TestLifecycle_StopMany_FailsOnGenerationTimeout(t *testing.T) {
+	// This test verifies that StopMany fails appropriately when
+	// units fail to be generated within the timeout
+	logger := testutil.NewTestLogger(t)
+
+	mockFactory := &MockConnectionFactory{}
+	mockConn := &MockConnection{factory: mockFactory, failMode: 1} // Always fail
+	mockFactory.connection = mockConn
+
+	l := NewLifecycle(nil, mockFactory, false, logger)
+	l.SetUnitGenerationTimeout(100 * time.Millisecond) // Very short timeout
+
+	ctx := context.Background()
+	results := l.StopMany(ctx, []string{"test-svc"})
+
+	// Should fail with generation timeout error
+	assert.Len(t, results, 1)
+	assert.Error(t, results["test-svc"])
+	assert.Contains(t, results["test-svc"].Error(), "failed to be generated")
+}
