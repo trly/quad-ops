@@ -109,7 +109,11 @@ func (m *MockConnection) Close() error {
 func TestLifecycle_waitForUnitGeneration_Success(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
 	mockFactory := &MockConnectionFactory{}
-	mockConn := &MockConnection{factory: mockFactory, props: map[string]interface{}{}, failMode: 0}
+	mockConn := &MockConnection{
+		factory:  mockFactory,
+		props:    map[string]interface{}{"LoadState": "loaded"},
+		failMode: 0,
+	}
 	mockFactory.connection = mockConn
 
 	l := NewLifecycle(nil, mockFactory, false, logger)
@@ -126,7 +130,11 @@ func TestLifecycle_waitForUnitGeneration_RetrySucceeds(t *testing.T) {
 	logger := testutil.NewTestLogger(t)
 	mockFactory := &MockConnectionFactory{failAttempts: 2}
 	// Fail first 2 attempts, succeed on 3rd
-	mockConn := &MockConnection{factory: mockFactory, props: map[string]interface{}{}, failMode: 2}
+	mockConn := &MockConnection{
+		factory:  mockFactory,
+		props:    map[string]interface{}{"LoadState": "loaded"},
+		failMode: 2,
+	}
 	mockFactory.connection = mockConn
 
 	l := NewLifecycle(nil, mockFactory, false, logger)
@@ -152,7 +160,7 @@ func TestLifecycle_waitForUnitGeneration_Timeout(t *testing.T) {
 	err := l.waitForUnitGeneration(ctx, "test.service")
 
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to be generated")
+	assert.Contains(t, err.Error(), "failed to reach 'loaded' state")
 	assert.Contains(t, err.Error(), "100ms")
 }
 
@@ -194,7 +202,7 @@ func TestLifecycle_RestartMany_UnitAvailableForRestart(t *testing.T) {
 	mockFactory := &MockConnectionFactory{}
 	mockConn := &MockConnection{
 		factory:  mockFactory,
-		props:    map[string]interface{}{},
+		props:    map[string]interface{}{"LoadState": "loaded"},
 		failMode: 0, // GetUnitProperties succeeds immediately
 	}
 	mockFactory.connection = mockConn
@@ -217,7 +225,11 @@ func TestLifecycle_StartMany_WaitsForUnitGeneration(t *testing.T) {
 
 	mockFactory := &MockConnectionFactory{failAttempts: 1}
 	// Fail first attempt, succeed on 2nd (simulates generator delay)
-	mockConn := &MockConnection{factory: mockFactory, props: map[string]interface{}{}, failMode: 2}
+	mockConn := &MockConnection{
+		factory:  mockFactory,
+		props:    map[string]interface{}{"LoadState": "loaded"},
+		failMode: 2,
+	}
 	mockFactory.connection = mockConn
 
 	l := NewLifecycle(nil, mockFactory, false, logger)
@@ -251,7 +263,7 @@ func TestLifecycle_StartMany_FailsOnGenerationTimeout(t *testing.T) {
 	// Should fail with generation timeout error
 	assert.Len(t, results, 1)
 	assert.Error(t, results["test-svc"])
-	assert.Contains(t, results["test-svc"].Error(), "failed to be generated")
+	assert.Contains(t, results["test-svc"].Error(), "failed to reach 'loaded' state")
 }
 
 func TestLifecycle_StopMany_WaitsForUnitGeneration(t *testing.T) {
@@ -261,7 +273,11 @@ func TestLifecycle_StopMany_WaitsForUnitGeneration(t *testing.T) {
 
 	mockFactory := &MockConnectionFactory{failAttempts: 1}
 	// Fail first attempt, succeed on 2nd (simulates generator delay)
-	mockConn := &MockConnection{factory: mockFactory, props: map[string]interface{}{}, failMode: 2}
+	mockConn := &MockConnection{
+		factory:  mockFactory,
+		props:    map[string]interface{}{"LoadState": "loaded"},
+		failMode: 2,
+	}
 	mockFactory.connection = mockConn
 
 	l := NewLifecycle(nil, mockFactory, false, logger)
@@ -295,5 +311,5 @@ func TestLifecycle_StopMany_FailsOnGenerationTimeout(t *testing.T) {
 	// Should fail with generation timeout error
 	assert.Len(t, results, 1)
 	assert.Error(t, results["test-svc"])
-	assert.Contains(t, results["test-svc"].Error(), "failed to be generated")
+	assert.Contains(t, results["test-svc"].Error(), "failed to reach 'loaded' state")
 }
