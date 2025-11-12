@@ -13,7 +13,7 @@
         "User": "1000",
         "Group": "1000",
         "Ports": null,
-        "Mounts": null,
+        "Mounts": [],
         "Resources": {
           "Memory": "",
           "MemoryReservation": "",
@@ -114,7 +114,7 @@
       "Annotations": null
     }
   ],
-  "volumes": null,
+  "volumes": [],
   "networks": [
     {
       "Name": "security-and-user_default",

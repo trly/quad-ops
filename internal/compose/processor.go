@@ -10,15 +10,15 @@ import (
 )
 
 // SpecProcessor processes Docker Compose projects into service specs.
-// It wraps SpecConverter to provide the standard Process interface.
+// It wraps Converter to provide the standard Process interface.
 type SpecProcessor struct {
-	converter *SpecConverter
+	converter *Converter
 }
 
 // NewSpecProcessor creates a new SpecProcessor with the given working directory.
 func NewSpecProcessor(workingDir string) *SpecProcessor {
 	return &SpecProcessor{
-		converter: NewSpecConverter(workingDir),
+		converter: NewConverter(workingDir),
 	}
 }
 

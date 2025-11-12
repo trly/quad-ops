@@ -1,0 +1,18 @@
+[Unit]
+Description=Test container with sysctls
+
+[Container]
+Label=managed-by=quad-ops
+Image=nginx:alpine
+Sysctl=kernel.shmmax=68719476736
+Sysctl=net.ipv4.conf.all.rp_filter=2
+Sysctl=net.ipv4.ip_forward=1
+Sysctl=net.ipv4.tcp_keepalive_intvl=60
+Sysctl=net.ipv4.tcp_keepalive_time=600
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

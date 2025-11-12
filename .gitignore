@@ -43,3 +43,6 @@ configs/*
 *.db
 quad-ops
 config.yml
+
+# beads history (ephemeral)
+history/

@@ -13,7 +13,7 @@
         "User": "",
         "Group": "",
         "Ports": null,
-        "Mounts": null,
+        "Mounts": [],
         "Resources": {
           "Memory": "512m",
           "MemoryReservation": "256m",
@@ -106,7 +106,7 @@
       "Annotations": null
     }
   ],
-  "volumes": null,
+  "volumes": [],
   "networks": [
     {
       "Name": "resources-limits_default",

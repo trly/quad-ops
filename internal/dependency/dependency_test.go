@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -164,7 +165,10 @@ func TestDependencyGraphCycleDetection(t *testing.T) {
 	// Check topological order works
 	order, err := graph.GetTopologicalOrder()
 	require.NoError(t, err)
-	assert.Equal(t, []string{"a", "b", "c"}, order)
+	want := []string{"a", "b", "c"}
+	if diff := cmp.Diff(want, order); diff != "" {
+		t.Errorf("topological order mismatch (-want +got):\n%s", diff)
+	}
 
 	// Try to add c -> a, which would create a cycle: a -> b -> c -> a
 	err = graph.AddDependency("a", "c")
@@ -220,11 +224,17 @@ func TestGetTransitiveDependencies(t *testing.T) {
 
 	deps, err = graph.GetTransitiveDependencies("webapp")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"db"}, deps)
+	want := []string{"db"}
+	if diff := cmp.Diff(want, deps); diff != "" {
+		t.Errorf("webapp transitive dependencies mismatch (-want +got):\n%s", diff)
+	}
 
 	deps, err = graph.GetTransitiveDependencies("proxy")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"db", "webapp"}, deps)
+	want = []string{"db", "webapp"}
+	if diff := cmp.Diff(want, deps); diff != "" {
+		t.Errorf("proxy transitive dependencies mismatch (-want +got):\n%s", diff)
+	}
 
 	// Test unknown service
 	_, err = graph.GetTransitiveDependencies("unknown")
@@ -266,11 +276,17 @@ func TestGetTransitiveDependents(t *testing.T) {
 	// Test transitive dependents
 	deps, err := graph.GetTransitiveDependents("db")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"proxy", "webapp"}, deps)
+	want := []string{"proxy", "webapp"}
+	if diff := cmp.Diff(want, deps); diff != "" {
+		t.Errorf("db transitive dependents mismatch (-want +got):\n%s", diff)
+	}
 
 	deps, err = graph.GetTransitiveDependents("webapp")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"proxy"}, deps)
+	want = []string{"proxy"}
+	if diff := cmp.Diff(want, deps); diff != "" {
+		t.Errorf("webapp transitive dependents mismatch (-want +got):\n%s", diff)
+	}
 
 	deps, err = graph.GetTransitiveDependents("proxy")
 	require.NoError(t, err)

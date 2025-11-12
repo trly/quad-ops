@@ -25,7 +25,7 @@
         "User": "",
         "Group": "",
         "Ports": null,
-        "Mounts": null,
+        "Mounts": [],
         "Resources": {
           "Memory": "",
           "MemoryReservation": "",
@@ -104,7 +104,7 @@
       "Annotations": null
     }
   ],
-  "volumes": null,
+  "volumes": [],
   "networks": [
     {
       "Name": "env-precedence_default",

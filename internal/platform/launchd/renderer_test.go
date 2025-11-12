@@ -224,11 +224,7 @@ func TestBuildLabel(t *testing.T) {
 			opts := testOptions()
 			opts.LabelPrefix = tt.prefix
 
-			logger := testutil.NewTestLogger(t)
-			renderer, err := NewRenderer(opts, logger)
-			require.NoError(t, err)
-
-			label := renderer.buildLabel(tt.service)
+			label := opts.LabelFor(tt.service)
 			assert.Equal(t, tt.wantLabel, label)
 		})
 	}

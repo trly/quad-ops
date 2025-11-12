@@ -1,0 +1,13 @@
+[Unit]
+Description=Background worker without network needs
+
+[Container]
+Label=managed-by=quad-ops
+Image=worker:1.0
+
+[Service]
+Restart=no
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

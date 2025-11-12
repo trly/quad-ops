@@ -256,7 +256,7 @@
             "Protocol": "tcp"
           }
         ],
-        "Mounts": null,
+        "Mounts": [],
         "Resources": {
           "Memory": "",
           "MemoryReservation": "",

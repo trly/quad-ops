@@ -1,0 +1,14 @@
+[Unit]
+Description=Test tmpfs options
+
+[Container]
+Label=managed-by=quad-ops
+Image=nginx:alpine
+Tmpfs=/tmp/data:rw,size=64m,mode=1777,uid=1000,gid=1000
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

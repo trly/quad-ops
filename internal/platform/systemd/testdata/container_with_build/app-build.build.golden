@@ -1,0 +1,16 @@
+[Unit]
+Description=Build app
+WorkingDirectory=/path/to/build
+
+[Build]
+Label=managed-by=quad-ops
+ImageTag=myapp:1.0.0
+ImageTag=myapp:latest
+File=Dockerfile.prod
+Target=production
+Pull=always
+Environment=ENV=production
+Environment=VERSION=1.0.0
+
+[Install]
+WantedBy=default.target

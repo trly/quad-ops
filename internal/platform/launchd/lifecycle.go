@@ -66,7 +66,7 @@ func (l *Lifecycle) Start(ctx context.Context, name string) error {
 		return fmt.Errorf("podman machine check failed: %w", err)
 	}
 
-	label := l.buildLabel(name)
+	label := l.opts.LabelFor(name)
 	plistPath := l.buildPlistPath(label)
 	domainTarget := l.buildDomainTarget(label)
 
@@ -111,7 +111,7 @@ func (l *Lifecycle) Start(ctx context.Context, name string) error {
 
 // Stop stops a service.
 func (l *Lifecycle) Stop(ctx context.Context, name string) error {
-	label := l.buildLabel(name)
+	label := l.opts.LabelFor(name)
 	domainTarget := l.buildDomainTarget(label)
 
 	l.logger.Debug("Stopping service",
@@ -137,7 +137,7 @@ func (l *Lifecycle) Stop(ctx context.Context, name string) error {
 
 // Restart restarts a service and reloads its plist configuration.
 func (l *Lifecycle) Restart(ctx context.Context, name string) error {
-	label := l.buildLabel(name)
+	label := l.opts.LabelFor(name)
 	domainTarget := l.buildDomainTarget(label)
 	plistPath := l.buildPlistPath(label)
 
@@ -187,7 +187,7 @@ func (l *Lifecycle) Restart(ctx context.Context, name string) error {
 
 // Status returns the status of a service.
 func (l *Lifecycle) Status(ctx context.Context, name string) (*platform.ServiceStatus, error) {
-	label := l.buildLabel(name)
+	label := l.opts.LabelFor(name)
 	domainTarget := l.buildDomainTarget(label)
 
 	status := &platform.ServiceStatus{
@@ -373,11 +373,6 @@ func (l *Lifecycle) checkPodmanMachine(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// buildLabel creates a launchd label from service name.
-func (l *Lifecycle) buildLabel(serviceName string) string {
-	return SanitizeLabel(fmt.Sprintf("%s.%s", l.opts.LabelPrefix, serviceName))
 }
 
 // buildPlistPath returns the full path to a plist file.

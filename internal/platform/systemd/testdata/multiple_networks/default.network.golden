@@ -1,0 +1,9 @@
+[Unit]
+Description=Network default
+
+[Network]
+Label=managed-by=quad-ops
+NetworkName=default
+
+[Install]
+WantedBy=default.target

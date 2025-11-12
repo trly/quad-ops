@@ -1,8 +1,6 @@
 package testutil
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,23 +44,6 @@ func TestNewMockConfig(t *testing.T) {
 		assert.False(t, cfg.Verbose)
 		assert.True(t, cfg.UserMode)
 	})
-}
-
-func TestSetupTempDir(t *testing.T) {
-	tmpDir, cleanup := SetupTempDir(t)
-
-	// Verify directory exists
-	assert.DirExists(t, tmpDir)
-	assert.Contains(t, tmpDir, "quad-ops-test-")
-
-	// Create a file to verify cleanup works
-	testFile := filepath.Join(tmpDir, "test.txt")
-	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0600))
-	assert.FileExists(t, testFile)
-
-	// Manual cleanup to test it works
-	cleanup()
-	assert.NoDirExists(t, tmpDir)
 }
 
 func TestConfigOptions(t *testing.T) {

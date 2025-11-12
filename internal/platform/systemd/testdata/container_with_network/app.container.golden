@@ -1,0 +1,18 @@
+[Unit]
+Description=App with network
+After=network-online.target
+Wants=network-online.target
+After=backend.network
+Requires=backend.network
+
+[Container]
+Label=managed-by=quad-ops
+Image=alpine:latest
+Network=backend.network
+
+[Service]
+Restart=no
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

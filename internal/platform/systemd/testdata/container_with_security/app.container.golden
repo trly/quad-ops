@@ -1,0 +1,16 @@
+[Container]
+Label=managed-by=quad-ops
+Image=alpine:latest
+SecurityLabelDisable=yes
+AddCapability=NET_ADMIN
+AddCapability=SYS_TIME
+DropCapability=MKNOD
+SecurityLabelType=type:container_runtime_t
+SecurityLabelLevel=no-new-privileges
+
+[Service]
+Restart=no
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

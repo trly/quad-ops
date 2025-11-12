@@ -1,0 +1,9 @@
+[Unit]
+Description=External Network infrastructure_proxy
+
+[Network]
+Label=managed-by=quad-ops
+NetworkName=infrastructure_proxy
+
+[Install]
+WantedBy=default.target
