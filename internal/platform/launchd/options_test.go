@@ -114,32 +114,15 @@ func TestOptions_Validate(t *testing.T) {
 		assert.Contains(t, err.Error(), "system domain launchd is not supported with rootless Podman on macOS")
 	})
 
-	t.Run("system domain with LaunchAgents directory is rejected", func(t *testing.T) {
-		homeDir, _ := os.UserHomeDir()
+	t.Run("system domain is not supported", func(t *testing.T) {
 		opts := Options{
 			Domain:     DomainSystem,
 			PodmanPath: "/usr/bin/podman",
-			PlistDir:   filepath.Join(homeDir, "Library", "LaunchAgents"),
-			LogsDir:    "/var/log/quad-ops",
 		}
 
 		err := opts.Validate()
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "system domain requires LaunchDaemons directory")
-	})
-
-	t.Run("system domain with user logs directory is rejected", func(t *testing.T) {
-		homeDir, _ := os.UserHomeDir()
-		opts := Options{
-			Domain:     DomainSystem,
-			PodmanPath: "/usr/bin/podman",
-			PlistDir:   "/Library/LaunchDaemons",
-			LogsDir:    filepath.Join(homeDir, "Library", "Logs"),
-		}
-
-		err := opts.Validate()
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "system domain requires system logs directory")
+		assert.Contains(t, err.Error(), "system domain launchd is not supported")
 	})
 
 	t.Run("rejects invalid podman path", func(t *testing.T) {

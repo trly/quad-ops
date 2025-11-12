@@ -1,0 +1,16 @@
+[Unit]
+Description=Init container 0 for service web
+
+[Container]
+Label=managed-by=quad-ops
+Image=busybox:latest
+Exec=sh -c echo 'init'
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Restart=no
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

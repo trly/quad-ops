@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 // Domain represents launchd domain type.
@@ -143,19 +142,8 @@ func (o *Options) Validate() error {
 		}
 	}
 
-	// Validate domain/directory consistency and set sudo for system domain
+	// Podman on macOS runs rootless via podman-machine; system LaunchDaemons not supported
 	if o.Domain == DomainSystem {
-		// System domain requires LaunchDaemons directory
-		if strings.Contains(o.PlistDir, "LaunchAgents") {
-			return fmt.Errorf("system domain requires LaunchDaemons directory, got: %s", o.PlistDir)
-		}
-
-		// System domain requires system logs directory (not user home)
-		if strings.HasPrefix(o.LogsDir, homeDir) {
-			return fmt.Errorf("system domain requires system logs directory (e.g., /var/log), got: %s", o.LogsDir)
-		}
-
-		// Podman on macOS runs rootless via podman-machine; system LaunchDaemons not supported
 		return fmt.Errorf("system domain launchd is not supported with rootless Podman on macOS; use user domain")
 	}
 
@@ -214,4 +202,10 @@ func (o *Options) DomainID() string {
 		return "system"
 	}
 	return fmt.Sprintf("gui/%d", o.UID)
+}
+
+// LabelFor creates a launchd label from a service name.
+// Prefixes with LabelPrefix and sanitizes for launchd compatibility.
+func (o *Options) LabelFor(serviceName string) string {
+	return SanitizeLabel(fmt.Sprintf("%s.%s", o.LabelPrefix, serviceName))
 }

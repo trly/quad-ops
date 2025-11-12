@@ -1,0 +1,14 @@
+[Unit]
+After=data.volume
+Requires=data.volume
+
+[Container]
+Label=managed-by=quad-ops
+Image=alpine:latest
+
+[Service]
+Restart=no
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

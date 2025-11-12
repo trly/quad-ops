@@ -1,0 +1,15 @@
+[Container]
+Label=managed-by=quad-ops
+Image=nginx:latest
+HealthCmd=CMD-SHELL curl -f http://localhost/ || exit 1
+HealthInterval=30s
+HealthTimeout=10s
+HealthRetries=3
+HealthStartPeriod=40s
+
+[Service]
+Restart=no
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

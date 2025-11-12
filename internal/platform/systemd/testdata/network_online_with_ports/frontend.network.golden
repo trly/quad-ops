@@ -1,0 +1,9 @@
+[Unit]
+Description=Network frontend
+
+[Network]
+Label=managed-by=quad-ops
+NetworkName=frontend
+
+[Install]
+WantedBy=default.target

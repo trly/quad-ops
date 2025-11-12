@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/trly/quad-ops/internal/sorting"
+	"github.com/trly/quad-ops/internal/validate"
 )
 
 // StatusOptions holds status command options.
@@ -57,7 +57,7 @@ func (c *StatusCommand) GetCobraCommand() *cobra.Command {
 // Run executes the status command with injected dependencies.
 func (c *StatusCommand) Run(ctx context.Context, app *App, _ StatusOptions, deps StatusDeps, serviceName string) error {
 	// Validate service name to prevent command injection
-	if err := sorting.ValidateUnitName(serviceName); err != nil {
+	if err := validate.UnitName(serviceName); err != nil {
 		return fmt.Errorf("invalid service name %q: %w", serviceName, err)
 	}
 

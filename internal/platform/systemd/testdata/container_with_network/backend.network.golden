@@ -1,0 +1,13 @@
+[Unit]
+Description=Network backend
+
+[Network]
+Label=managed-by=quad-ops
+NetworkName=backend
+Subnet=172.20.0.0/16
+Gateway=172.20.0.1
+IPv6=yes
+Internal=yes
+
+[Install]
+WantedBy=default.target

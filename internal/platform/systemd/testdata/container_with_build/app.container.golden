@@ -1,0 +1,14 @@
+[Unit]
+After=app-build.service
+Requires=app-build.service
+
+[Container]
+Label=managed-by=quad-ops
+Image=myapp:latest
+
+[Service]
+Restart=no
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -74,8 +75,14 @@ func EncodePlist(p *Plist) ([]byte, error) {
 			writeDictBoolEntry(buf, "KeepAlive", ka)
 		case map[string]bool:
 			buf.WriteString("\t<key>KeepAlive</key>\n\t<dict>\n")
-			for k, v := range ka {
-				writeDictBoolEntry(buf, k, v)
+			// Sort keys for deterministic output
+			keys := make([]string, 0, len(ka))
+			for k := range ka {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				writeDictBoolEntry(buf, k, ka[k])
 			}
 			buf.WriteString("\t</dict>\n")
 		}
@@ -157,9 +164,15 @@ func writeDictDictEntry(buf *bytes.Buffer, key string, values map[string]string)
 		return
 	}
 	fmt.Fprintf(buf, "\t<key>%s</key>\n\t<dict>\n", xmlEscape(key))
-	for k, v := range values {
+	// Sort keys for deterministic output
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
 		fmt.Fprintf(buf, "\t\t<key>%s</key>\n\t\t<string>%s</string>\n",
-			xmlEscape(k), xmlEscape(v))
+			xmlEscape(k), xmlEscape(values[k]))
 	}
 	buf.WriteString("\t</dict>\n")
 }

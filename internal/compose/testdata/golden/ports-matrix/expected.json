@@ -68,7 +68,7 @@
             "Protocol": "tcp"
           }
         ],
-        "Mounts": null,
+        "Mounts": [],
         "Resources": {
           "Memory": "",
           "MemoryReservation": "",
@@ -147,7 +147,7 @@
       "Annotations": null
     }
   ],
-  "volumes": null,
+  "volumes": [],
   "networks": [
     {
       "Name": "ports-matrix_default",

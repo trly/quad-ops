@@ -1,0 +1,22 @@
+[Unit]
+Description=Web server
+After=network-online.target
+Wants=network-online.target
+After=db.service
+Requires=db.service
+
+[Container]
+Label=managed-by=quad-ops
+Image=nginx:latest
+ContainerName=my-web
+HostName=web.local
+Environment=BAZ=qux
+Environment=FOO=bar
+PublishPort=8080:80
+
+[Service]
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

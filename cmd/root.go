@@ -29,7 +29,7 @@ import (
 
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/sorting"
+	"github.com/trly/quad-ops/internal/validate"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -110,7 +110,7 @@ It automatically generates systemd unit files from Docker Compose files and hand
 func (c *RootCommand) buildDeps() RootDeps {
 	return RootDeps{
 		CommonDeps:   CommonDeps{}, // Will be initialized in persistentPreRun
-		ValidatePath: sorting.ValidatePath,
+		ValidatePath: validate.Path,
 		ExpandEnv:    os.ExpandEnv,
 	}
 }

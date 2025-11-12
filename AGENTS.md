@@ -77,6 +77,56 @@ Support all container runtime features that work with standalone Podman:
 - **Validation**: All specs validated via `spec.Validate()` before rendering
 - **Linters**: errcheck, govet, staticcheck, unused, revive, gosec, misspell enabled via golangci-lint
 
+### Table-Driven Tests
+
+Use table-driven tests for multiple test cases with the same testing logic. Follow [Go TableDrivenTests wiki](https://go.dev/wiki/TableDrivenTests) guidance.
+
+**Pattern:**
+```go
+func TestFeature(t *testing.T) {
+    tests := []struct {
+        name     string      // Required: descriptive test case name
+        input    InputType   // Test inputs
+        expected OutputType  // Expected outputs
+        wantErr  bool        // Optional: expect error
+    }{
+        {name: "basic case", input: ..., expected: ...},
+        {name: "edge case", input: ..., expected: ...},
+        {name: "error case", input: ..., wantErr: true},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            // Test logic using tt.input, tt.expected
+            got, err := DoSomething(tt.input)
+            
+            if tt.wantErr {
+                require.Error(t, err)
+                return
+            }
+            require.NoError(t, err)
+            assert.Equal(t, tt.expected, got)
+        })
+    }
+}
+```
+
+**When to use:**
+- ✅ Multiple test cases with same testing logic
+- ✅ Variations differ only in inputs/expected outputs
+- ✅ You're copy-pasting test code with minor changes
+
+**When NOT to use:**
+- ❌ Test logic significantly different between cases
+- ❌ Complex setup/teardown unique to specific scenarios
+- ❌ Only 1-2 test cases
+
+**Benefits:**
+- Add test case = add row to table (not new function)
+- Reduced code duplication through shared test logic
+- Clear subtest names for debugging: `go test -run TestFeature/edge_case`
+- Tests serve as documentation of all supported variations
+
 ## Issue Tracking with bd (beads)
 
 **IMPORTANT**: This project uses **bd (beads)** for ALL issue tracking. Do NOT use markdown TODOs, task lists, or other tracking methods.

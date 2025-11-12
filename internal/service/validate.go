@@ -133,6 +133,14 @@ func (c *Container) Validate() error {
 		}
 	}
 
+	// Validate network mode conflicts
+	if c.Network.Mode == "host" && len(c.Network.ServiceNetworks) > 0 {
+		errs = append(errs, ValidationError{
+			Field:   "Network",
+			Message: "cannot use network_mode: host with additional networks. host mode provides access to the host network directly. remove the networks declaration from this service or change network_mode",
+		})
+	}
+
 	if len(errs) > 0 {
 		return errs
 	}

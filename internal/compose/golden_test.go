@@ -23,7 +23,7 @@ type TestBundle struct {
 	Networks []service.Network `json:"networks"`
 }
 
-func TestSpecConverter_Golden(t *testing.T) {
+func TestConverter_Golden(t *testing.T) {
 	goldenDir := filepath.Join("testdata", "golden")
 
 	cases, err := os.ReadDir(goldenDir)
@@ -46,13 +46,29 @@ func TestSpecConverter_Golden(t *testing.T) {
 			require.NoError(t, err, "failed to load compose project")
 
 			// Convert using SpecConverter
-			converter := NewSpecConverter(caseDir)
+			converter := NewConverter(caseDir)
 			specs, err := converter.ConvertProject(project)
 			require.NoError(t, err, "failed to convert project")
 
-			// Convert volumes and networks
-			volumes := converter.convertProjectVolumes(project)
-			networks := converter.convertProjectNetworks(project)
+			// Extract volumes and networks from specs
+			volumeMap := make(map[string]service.Volume)
+			networkMap := make(map[string]service.Network)
+			for _, spec := range specs {
+				for _, vol := range spec.Volumes {
+					volumeMap[vol.Name] = vol
+				}
+				for _, net := range spec.Networks {
+					networkMap[net.Name] = net
+				}
+			}
+			volumes := make([]service.Volume, 0, len(volumeMap))
+			for _, vol := range volumeMap {
+				volumes = append(volumes, vol)
+			}
+			networks := make([]service.Network, 0, len(networkMap))
+			for _, net := range networkMap {
+				networks = append(networks, net)
+			}
 
 			// Validate all outputs
 			for _, spec := range specs {

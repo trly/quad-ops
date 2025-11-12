@@ -1,0 +1,21 @@
+[Unit]
+Description=Immich server with multiple networks
+After=network-online.target
+Wants=network-online.target
+After=default.network
+Requires=default.network
+After=infrastructure_proxy.network
+Requires=infrastructure_proxy.network
+
+[Container]
+Label=managed-by=quad-ops
+Image=immich-server:latest
+Network=default.network
+Network=infrastructure_proxy.network
+
+[Service]
+Restart=no
+TimeoutStartSec=900
+
+[Install]
+WantedBy=default.target

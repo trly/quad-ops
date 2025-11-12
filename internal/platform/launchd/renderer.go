@@ -10,6 +10,7 @@ import (
 
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/platform"
+	"github.com/trly/quad-ops/internal/podman"
 	"github.com/trly/quad-ops/internal/service"
 )
 
@@ -82,11 +83,11 @@ func (r *Renderer) Render(_ context.Context, specs []service.Spec) (*platform.Re
 // renderService renders a single service to plist artifact(s).
 func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error) {
 	// Generate label and container name
-	label := r.buildLabel(spec.Name)
+	label := r.opts.LabelFor(spec.Name)
 	containerName := label
 
 	// Build podman command arguments
-	podmanArgs := BuildPodmanArgs(spec, containerName)
+	podmanArgs := podman.BuildAllRunArgs(spec, containerName)
 
 	// Determine restart policy mapping
 	keepAlive := r.mapRestartPolicy(spec.Container.RestartPolicy)
@@ -96,8 +97,7 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 	if len(spec.DependsOn) > 0 {
 		dependsOn = make([]string, len(spec.DependsOn))
 		for i, depName := range spec.DependsOn {
-			depLabel := r.buildLabel(depName)
-			dependsOn[i] = depLabel
+			dependsOn[i] = r.opts.LabelFor(depName)
 		}
 	}
 
@@ -156,11 +156,6 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 	)
 
 	return []platform.Artifact{artifact}, nil
-}
-
-// buildLabel creates a launchd label from service name.
-func (r *Renderer) buildLabel(serviceName string) string {
-	return SanitizeLabel(fmt.Sprintf("%s.%s", r.opts.LabelPrefix, serviceName))
 }
 
 // mapRestartPolicy maps service.RestartPolicy to launchd KeepAlive.

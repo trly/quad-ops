@@ -12,7 +12,7 @@ import (
 	"github.com/trly/quad-ops/internal/dependency"
 	"github.com/trly/quad-ops/internal/execx"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/sorting"
+	"github.com/trly/quad-ops/internal/validate"
 )
 
 // DefaultContextProvider implements ContextProvider interface.
@@ -170,7 +170,7 @@ func (m *DefaultUnitManager) getUnitFailureDetails(unitName string) string {
 
 	// For logs, we still need journalctl as systemd dbus doesn't provide log retrieval
 	// Validate unitName to prevent command injection
-	if err := sorting.ValidateUnitName(unitName); err != nil {
+	if err := validate.UnitName(unitName); err != nil {
 		return fmt.Sprintf("\nUnit Status (via dbus):\n%s\nRecent logs: (unavailable - invalid unit name)", statusInfo)
 	}
 
