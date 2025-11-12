@@ -33,6 +33,7 @@ import (
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/platform"
 	"github.com/trly/quad-ops/internal/repository"
+	"github.com/trly/quad-ops/internal/service"
 	"github.com/trly/quad-ops/internal/systemd"
 )
 
@@ -183,10 +184,34 @@ func (c *SyncCommand) syncRepositories(ctx context.Context, app *App, opts SyncO
 
 	// Track all service specs and dependencies (like cmd/up.go)
 	registry := newServiceRegistry()
+	allSpecs := make([]service.Spec, 0)
 	servicesToRestart := make(map[string]bool)
 	allArtifactPaths := make([]string, 0)
 	anyChanges := false
 
+	// First pass: collect all specs and register dependencies
+	for _, result := range results {
+		specs, err := c.collectSpecs(ctx, app, deps, result, registry)
+		if err != nil {
+			deps.Logger.Error("Failed to collect specs", "repo", result.Repository.Name, "error", err)
+			continue
+		}
+		allSpecs = append(allSpecs, specs...)
+	}
+
+	// Validate external dependencies and resources (batch-aware, platform-aware)
+	if len(allSpecs) > 0 {
+		platform := deps.Lifecycle.Name()
+		if err := validateExternalDependencies(ctx, allSpecs, deps.Lifecycle, deps.Logger, platform); err != nil {
+			return fmt.Errorf("external dependency validation failed: %w", err)
+		}
+
+		if err := validateExternalResources(ctx, allSpecs, app.Runner); err != nil {
+			return fmt.Errorf("external resource validation failed: %w", err)
+		}
+	}
+
+	// Second pass: render and write artifacts
 	for _, result := range results {
 		artifactPaths, err := c.handleSyncResult(ctx, app, opts, deps, result, registry, servicesToRestart, &anyChanges)
 		if err != nil {
@@ -245,6 +270,50 @@ func (c *SyncCommand) filterRepositories(repos []config.Repository, opts SyncOpt
 	}
 
 	return nil, fmt.Errorf("repository not found: %s", opts.RepoName)
+}
+
+// collectSpecs processes compose files and collects specs for validation.
+func (c *SyncCommand) collectSpecs(ctx context.Context, app *App, deps SyncDeps, result repository.SyncResult, registry *serviceRegistry) ([]service.Spec, error) {
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	repoPath := filepath.Join(app.Config.RepositoryDir, result.Repository.Name)
+	if result.Repository.ComposeDir != "" {
+		repoPath = filepath.Join(repoPath, result.Repository.ComposeDir)
+		if _, err := deps.FileSystem.Stat(repoPath); err != nil {
+			return nil, fmt.Errorf("compose directory not found: %s", result.Repository.ComposeDir)
+		}
+	}
+
+	projects, err := compose.ReadProjects(repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read compose projects: %w", err)
+	}
+
+	if len(projects) == 0 {
+		return nil, nil
+	}
+
+	allSpecs := make([]service.Spec, 0)
+	for _, project := range projects {
+		specs, err := deps.ComposeProcessor.Process(ctx, project)
+		if err != nil {
+			deps.Logger.Error("Failed to process compose project", "repo", result.Repository.Name, "project", project.Name, "error", err)
+			continue
+		}
+
+		// Register all services with dependencies in the registry
+		for _, spec := range specs {
+			if err := registry.add(spec); err != nil {
+				deps.Logger.Error("Failed to register service", "repo", result.Repository.Name, "service", spec.Name, "error", err)
+				return nil, fmt.Errorf("failed to register service %s: %w", spec.Name, err)
+			}
+			allSpecs = append(allSpecs, spec)
+		}
+	}
+
+	return allSpecs, nil
 }
 
 // handleSyncResult processes a single repository sync result.

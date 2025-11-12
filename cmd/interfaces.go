@@ -50,4 +50,5 @@ type LifecycleInterface interface {
 	StartMany(ctx context.Context, names []string) map[string]error
 	StopMany(ctx context.Context, names []string) map[string]error
 	RestartMany(ctx context.Context, names []string) map[string]error
+	Exists(ctx context.Context, name string) (bool, error)
 }

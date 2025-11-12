@@ -61,6 +61,7 @@ type MockLifecycle struct {
 	StartManyFunc   func(context.Context, []string) map[string]error
 	StopManyFunc    func(context.Context, []string) map[string]error
 	RestartManyFunc func(context.Context, []string) map[string]error
+	ExistsFunc      func(context.Context, string) (bool, error)
 }
 
 func (m *MockLifecycle) Name() string {
@@ -124,6 +125,25 @@ func (m *MockLifecycle) RestartMany(_ context.Context, names []string) map[strin
 		return m.RestartManyFunc(context.Background(), names)
 	}
 	return make(map[string]error)
+}
+
+func (m *MockLifecycle) Exists(_ context.Context, name string) (bool, error) {
+	if m.ExistsFunc != nil {
+		return m.ExistsFunc(context.Background(), name)
+	}
+	return false, nil
+}
+
+// MockCommandRunner implements execx.Runner interface for testing.
+type MockCommandRunner struct {
+	CombinedOutputFunc func(ctx context.Context, name string, args ...string) ([]byte, error)
+}
+
+func (m *MockCommandRunner) CombinedOutput(ctx context.Context, name string, args ...string) ([]byte, error) {
+	if m.CombinedOutputFunc != nil {
+		return m.CombinedOutputFunc(ctx, name, args...)
+	}
+	return nil, nil
 }
 
 // MockComposeProcessor implements ComposeProcessorInterface for testing.

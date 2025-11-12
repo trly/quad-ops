@@ -245,10 +245,11 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 
 	// Track all service specs and dependencies
 	registry := newServiceRegistry()
+	allSpecs := make([]service.Spec, 0)
 	allArtifactPaths := make([]string, 0)
 	anyChanges := false
 
-	// 1. Process compose files from selected repositories
+	// 1. Process compose files from selected repositories and collect specs
 	for _, repo := range reposToProcess {
 		deps.Logger.Debug("Processing repository", "repo", repo.Name)
 
@@ -281,16 +282,49 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 			deps.Logger.Debug("Processed compose project",
 				"repo", repo.Name, "project", project.Name, "services", len(specs))
 
-			// Register services with dependencies
+			// Register services with dependencies and collect specs
 			for _, spec := range specs {
 				if err := registry.add(spec); err != nil {
 					deps.Logger.Error("Failed to register service",
 						"repo", repo.Name, "service", spec.Name, "error", err)
 					return fmt.Errorf("failed to register service %s: %w", spec.Name, err)
 				}
+				allSpecs = append(allSpecs, spec)
+			}
+		}
+	}
+
+	// 2. Validate external dependencies and resources (batch-aware, platform-aware)
+	if len(allSpecs) > 0 {
+		platform := deps.Lifecycle.Name()
+		if err := validateExternalDependencies(ctx, allSpecs, deps.Lifecycle, deps.Logger, platform); err != nil {
+			return fmt.Errorf("external dependency validation failed: %w", err)
+		}
+
+		if err := validateExternalResources(ctx, allSpecs, app.Runner); err != nil {
+			return fmt.Errorf("external resource validation failed: %w", err)
+		}
+	}
+
+	// 3. Render specs to platform-specific artifacts
+	for _, repo := range reposToProcess {
+		repoPath := filepath.Join(app.Config.RepositoryDir, repo.Name)
+		if repo.ComposeDir != "" {
+			repoPath = filepath.Join(repoPath, repo.ComposeDir)
+		}
+
+		projects, err := compose.ReadProjects(repoPath)
+		if err != nil {
+			continue
+		}
+
+		for _, project := range projects {
+			specs, err := deps.ComposeProcessor.Process(ctx, project)
+			if err != nil {
+				continue
 			}
 
-			// 2. Render to platform-specific artifacts
+			// Render to platform-specific artifacts
 			renderResult, err := deps.Renderer.Render(ctx, specs)
 			if err != nil {
 				deps.Logger.Error("Failed to render artifacts",
@@ -331,7 +365,7 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		}
 	}
 
-	// Handle dry-run mode early exit
+	// 4. Handle dry-run mode early exit
 	if opts.DryRun {
 		// Get all services in dependency order for display
 		orderedServices, err := registry.orderAndExpand(nil)
@@ -342,7 +376,7 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		return nil
 	}
 
-	// 4. Reload service manager if changes detected or forced
+	// 5. Reload service manager if changes detected or forced
 	if anyChanges || opts.Force {
 		deps.Logger.Info("Reloading service manager")
 		if err := deps.Lifecycle.Reload(ctx); err != nil {
@@ -350,7 +384,7 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		}
 	}
 
-	// 5. Determine target services and order by dependencies
+	// 6. Determine target services and order by dependencies
 	var orderedServices []string
 	var orderErr error
 
@@ -376,7 +410,7 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		return nil
 	}
 
-	// 6. Start services in dependency order using Lifecycle.StartMany
+	// 7. Start services in dependency order using Lifecycle.StartMany
 	deps.Logger.Info("Starting services in dependency order",
 		"count", len(orderedServices),
 		"order", orderedServices)

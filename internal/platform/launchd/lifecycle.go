@@ -361,6 +361,19 @@ func (l *Lifecycle) RestartMany(ctx context.Context, names []string) map[string]
 	return results
 }
 
+// Exists checks if a service exists (plist file exists).
+func (l *Lifecycle) Exists(ctx context.Context, name string) (bool, error) {
+	plistPath := l.buildPlistPath(name)
+
+	_, err := l.exec.CombinedOutput(ctx, "test", "-f", plistPath)
+	if err != nil {
+		// test returns non-zero if file doesn't exist
+		return false, nil
+	}
+
+	return true, nil
+}
+
 // checkPodmanMachine verifies podman machine is running.
 func (l *Lifecycle) checkPodmanMachine(ctx context.Context) error {
 	output, err := l.runCommandOutput(ctx, l.opts.PodmanPath, "machine", "inspect", "--format", "{{.State}}")

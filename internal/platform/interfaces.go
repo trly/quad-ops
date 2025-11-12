@@ -82,6 +82,9 @@ type Lifecycle interface {
 	// RestartMany restarts multiple services in dependency order.
 	// Returns a map of service name to error (nil if successful).
 	RestartMany(ctx context.Context, names []string) map[string]error
+
+	// Exists checks if a service unit/label exists in the service manager.
+	Exists(ctx context.Context, name string) (bool, error)
 }
 
 // Platform combines Renderer and Lifecycle for a complete platform adapter.
