@@ -206,16 +206,16 @@ func TestBuildLabel(t *testing.T) {
 			wantLabel: "dev.trly.quad-ops.nginx",
 		},
 		{
-			name:      "service with special chars",
+			name:      "service with dashes and underscores",
 			prefix:    "dev.trly.quad-ops",
 			service:   "my-app_v2",
 			wantLabel: "dev.trly.quad-ops.my-app_v2",
 		},
 		{
-			name:      "service with invalid chars",
+			name:      "service with periods",
 			prefix:    "dev.trly.quad-ops",
-			service:   "app@v1#test",
-			wantLabel: "dev.trly.quad-ops.app-v1-test",
+			service:   "app.v1.test",
+			wantLabel: "dev.trly.quad-ops.app.v1.test",
 		},
 	}
 

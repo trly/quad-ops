@@ -54,6 +54,46 @@ func formatBytes(bytes types.UnitBytes) string {
 	return fmt.Sprintf("%dg", b/(1024*1024*1024))
 }
 
+// ValidateProjectName validates that a project name follows Docker Compose naming requirements.
+// Project names must:
+//   - Start with a lowercase letter or digit
+//   - Contain only lowercase letters, digits, dashes, and underscores
+//   - Not be empty
+func ValidateProjectName(name string) error {
+	if name == "" {
+		return fmt.Errorf("project name cannot be empty")
+	}
+
+	// Pattern matches: lowercase letters, digits, dashes, underscores
+	// Must start with lowercase letter or digit
+	validNamePattern := regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
+	if !validNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid project name %q: must contain only lowercase letters, digits, dashes, underscores and start with letter/digit", name)
+	}
+
+	return nil
+}
+
+// ValidateServiceName validates that a service name follows Docker Compose naming requirements.
+// Service names must:
+//   - Start with an alphanumeric character (upper or lowercase)
+//   - Contain only alphanumeric characters, underscores, periods, and dashes
+//   - Not be empty
+func ValidateServiceName(name string) error {
+	if name == "" {
+		return fmt.Errorf("service name cannot be empty")
+	}
+
+	// Pattern matches: alphanumeric, underscores, periods, dashes
+	// Must start with alphanumeric
+	validNamePattern := regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
+	if !validNamePattern.MatchString(name) {
+		return fmt.Errorf("invalid service name %q: must contain only alphanumeric characters, underscores, periods, dashes and start with alphanumeric", name)
+	}
+
+	return nil
+}
+
 // ConvertProject converts a Docker Compose project to a list of service specs.
 // It normalizes multi-container setups into multiple Spec instances, handling
 // services, volumes, networks, and build configurations.
@@ -1115,16 +1155,18 @@ func (c *Converter) convertInitVolumesToMounts(initVolumes []string, project *ty
 	return c.convertMounts(volumeConfigs, nil, nil, project, serviceName)
 }
 
-// validateProject validates project-level configs, secrets, and project name.
+// validateProject validates project-level configs, secrets, project name, and service names.
 func (c *Converter) validateProject(project *types.Project) error {
-	// Validate project name matches service name regex
-	serviceNameRegex := "^[a-zA-Z0-9][a-zA-Z0-9_.-]*$"
-	matched, err := regexp.MatchString(serviceNameRegex, project.Name)
-	if err != nil {
-		return fmt.Errorf("failed to validate project name regex: %w", err)
+	// Validate project name
+	if err := ValidateProjectName(project.Name); err != nil {
+		return err
 	}
-	if !matched {
-		return fmt.Errorf("invalid project name %q: must start with alphanumeric and contain only alphanumeric, hyphen, underscore, or dot", project.Name)
+
+	// Validate all service names
+	for serviceName := range project.Services {
+		if err := ValidateServiceName(serviceName); err != nil {
+			return err
+		}
 	}
 
 	for name, cfg := range project.Configs {

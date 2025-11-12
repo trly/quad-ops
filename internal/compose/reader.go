@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/cli"
@@ -129,10 +128,12 @@ func ParseComposeFileWithLogger(path string, logger log.Logger) (*types.Project,
 		projectName = "default"
 	}
 
-	// Sanitize project name to meet Docker Compose requirements:
-	// must consist only of lowercase alphanumeric characters, hyphens, and underscores
-	// and start with a letter or number
-	projectName = sanitizeProjectName(projectName)
+	// Convert directory-based project name to lowercase (directories may have uppercase)
+	// Then validate to ensure it meets Docker Compose requirements
+	projectName = strings.ToLower(projectName)
+	if err := ValidateProjectName(projectName); err != nil {
+		return nil, fmt.Errorf("directory name %q is invalid for project name: %w", filepath.Base(dirPath), err)
+	}
 
 	// For production, always use directory name for project naming consistency
 	// Extract repository name from path (assuming repositories/<reponame>/<folder/subfolder/etc> pattern)
@@ -145,8 +146,10 @@ func ParseComposeFileWithLogger(path string, logger log.Logger) (*types.Project,
 				repoName := dirComponents[i+1]
 				// Always use the actual directory containing the compose file
 				folderName := filepath.Base(dirPath)
-				projectName = fmt.Sprintf("%s-%s", repoName, folderName)
-				projectName = sanitizeProjectName(projectName)
+				projectName = fmt.Sprintf("%s-%s", strings.ToLower(repoName), strings.ToLower(folderName))
+				if err := ValidateProjectName(projectName); err != nil {
+					return nil, fmt.Errorf("combined project name %q is invalid: %w", projectName, err)
+				}
 				break
 			}
 		}
@@ -268,39 +271,4 @@ func validateEnvKey(key string) error {
 	}
 
 	return nil
-}
-
-// sanitizeProjectName ensures the project name meets Docker Compose requirements:
-// must consist only of lowercase alphanumeric characters, hyphens, and underscores
-// and start with a letter or number.
-func sanitizeProjectName(name string) string {
-	if name == "" {
-		return "default"
-	}
-
-	// Convert to lowercase
-	name = strings.ToLower(name)
-
-	// Replace invalid characters with hyphens
-	validChars := regexp.MustCompile(`[^a-z0-9_-]`)
-	name = validChars.ReplaceAllString(name, "-")
-
-	// Remove leading/trailing hyphens and underscores
-	name = strings.Trim(name, "-_")
-
-	// Ensure it starts with alphanumeric
-	startsWithAlphanumeric := regexp.MustCompile(`^[a-z0-9]`)
-	if !startsWithAlphanumeric.MatchString(name) {
-		name = "p" + name // prefix with 'p' for 'project'
-	}
-
-	// Handle empty result or very short names
-	if len(name) == 0 {
-		return "default"
-	}
-	if len(name) == 1 && (name == "-" || name == "_") {
-		return "default"
-	}
-
-	return name
 }

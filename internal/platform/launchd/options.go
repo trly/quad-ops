@@ -205,7 +205,8 @@ func (o *Options) DomainID() string {
 }
 
 // LabelFor creates a launchd label from a service name.
-// Prefixes with LabelPrefix and sanitizes for launchd compatibility.
+// Prefixes with LabelPrefix (e.g., "com.quad-ops.myproject-web").
+// Service names are pre-validated, so no sanitization needed.
 func (o *Options) LabelFor(serviceName string) string {
-	return SanitizeLabel(fmt.Sprintf("%s.%s", o.LabelPrefix, serviceName))
+	return fmt.Sprintf("%s.%s", o.LabelPrefix, serviceName)
 }

@@ -264,7 +264,7 @@ func TestLifecycle_StartMany_Sequential(t *testing.T) {
 			domainTarget := fmt.Sprintf("gui/501/dev.trly.quad-ops.%s", svc)
 			mock.SetError("launchctl", []string{"print", domainTarget}, errors.New("Could not find service"))
 			// Bootstrap succeeds
-			label := SanitizeLabel(fmt.Sprintf("%s.%s", opts.LabelPrefix, svc))
+			label := fmt.Sprintf("%s.%s", opts.LabelPrefix, svc)
 			plistPath := fmt.Sprintf("%s/%s.plist", opts.PlistDir, label)
 			mock.SetOutput("launchctl", []string{"bootstrap", "gui/501", plistPath}, "")
 			// Enable
@@ -316,7 +316,7 @@ func TestLifecycle_StartMany_Sequential(t *testing.T) {
 		for _, svc := range []string{"postgres", "app", "worker"} {
 			mock.SetOutput(opts.PodmanPath, []string{"machine", "inspect", "--format", "{{.State}}"}, "running\n")
 			domainTarget := fmt.Sprintf("gui/501/dev.trly.quad-ops.%s", svc)
-			label := SanitizeLabel(fmt.Sprintf("%s.%s", opts.LabelPrefix, svc))
+			label := fmt.Sprintf("%s.%s", opts.LabelPrefix, svc)
 			plistPath := fmt.Sprintf("%s/%s.plist", opts.PlistDir, label)
 
 			if svc == "app" {
@@ -405,7 +405,7 @@ func TestLifecycle_RestartMany_Sequential(t *testing.T) {
 		for _, svc := range []string{"postgres", "app", "worker"} {
 			mock.SetOutput(opts.PodmanPath, []string{"machine", "inspect", "--format", "{{.State}}"}, "running\n")
 			domainTarget := fmt.Sprintf("gui/501/dev.trly.quad-ops.%s", svc)
-			label := SanitizeLabel(fmt.Sprintf("%s.%s", opts.LabelPrefix, svc))
+			label := fmt.Sprintf("%s.%s", opts.LabelPrefix, svc)
 			plistPath := fmt.Sprintf("%s/%s.plist", opts.PlistDir, label)
 
 			// Service is loaded
@@ -469,7 +469,7 @@ func TestLifecycle_StartMany_WaitsBetweenServices(t *testing.T) {
 		for _, svc := range []string{"postgres", "app"} {
 			mock.SetOutput(opts.PodmanPath, []string{"machine", "inspect", "--format", "{{.State}}"}, "running\n")
 			domainTarget := fmt.Sprintf("gui/501/dev.trly.quad-ops.%s", svc)
-			label := SanitizeLabel(fmt.Sprintf("%s.%s", opts.LabelPrefix, svc))
+			label := fmt.Sprintf("%s.%s", opts.LabelPrefix, svc)
 			plistPath := fmt.Sprintf("%s/%s.plist", opts.PlistDir, label)
 			mock.SetError("launchctl", []string{"print", domainTarget}, errors.New("Could not find service"))
 			mock.SetOutput("launchctl", []string{"bootstrap", "gui/501", plistPath}, "")

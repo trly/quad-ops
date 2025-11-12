@@ -7,7 +7,6 @@ import (
 	"encoding/xml"
 	"fmt"
 	"sort"
-	"strings"
 )
 
 // Plist represents a launchd property list.
@@ -182,19 +181,4 @@ func xmlEscape(s string) string {
 	buf := new(bytes.Buffer)
 	_ = xml.EscapeText(buf, []byte(s))
 	return buf.String()
-}
-
-// SanitizeLabel sanitizes a string for use as a launchd label.
-// Only allows: A-Z, a-z, 0-9, period, dash, underscore.
-func SanitizeLabel(s string) string {
-	var result strings.Builder
-	for _, r := range s {
-		if (r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') ||
-			(r >= '0' && r <= '9') || r == '.' || r == '-' || r == '_' {
-			result.WriteRune(r)
-		} else {
-			result.WriteRune('-')
-		}
-	}
-	return result.String()
 }

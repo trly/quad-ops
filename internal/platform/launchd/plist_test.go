@@ -198,57 +198,6 @@ func TestEncodePlist(t *testing.T) {
 	})
 }
 
-func TestSanitizeLabel(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "alphanumeric",
-			input:    "com.example.MyApp123",
-			expected: "com.example.MyApp123",
-		},
-		{
-			name:     "with dashes and underscores",
-			input:    "com.github.my-app_test",
-			expected: "com.github.my-app_test",
-		},
-		{
-			name:     "with spaces",
-			input:    "my app service",
-			expected: "my-app-service",
-		},
-		{
-			name:     "with special characters",
-			input:    "app@service!test",
-			expected: "app-service-test",
-		},
-		{
-			name:     "unicode characters",
-			input:    "service™®",
-			expected: "service--",
-		},
-		{
-			name:     "mixed special chars",
-			input:    "com.example/my_app:v1",
-			expected: "com.example-my_app-v1",
-		},
-		{
-			name:     "already clean",
-			input:    "dev.trly.quad-ops.web-service",
-			expected: "dev.trly.quad-ops.web-service",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := SanitizeLabel(tt.input)
-			assert.Equal(t, tt.expected, got, "SanitizeLabel(%q)", tt.input)
-		})
-	}
-}
-
 func TestWriteHelpers(t *testing.T) {
 	t.Run("writeDictEntry skips empty values", func(t *testing.T) {
 		var buf bytes.Buffer

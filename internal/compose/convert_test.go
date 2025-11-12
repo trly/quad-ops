@@ -147,9 +147,9 @@ func TestConverter_ValidateProject_InvalidName(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name:        "valid name with dot",
+			name:        "invalid name with dot (dots not allowed in project names)",
 			projectName: "my.app",
-			wantErr:     false,
+			wantErr:     true,
 		},
 		{
 			name:        "invalid name starting with hyphen",
@@ -1307,4 +1307,163 @@ func TestConverter_HealthcheckDisabled(t *testing.T) {
 	require.Len(t, specs, 1)
 
 	assert.Nil(t, specs[0].Container.Healthcheck)
+}
+
+// ---------------------------
+// Integration Tests for Validation
+// ---------------------------
+
+func TestConverter_RejectsInvalidServiceNames(t *testing.T) {
+	tests := []struct {
+		name        string
+		serviceName string
+		wantErr     string
+	}{
+		{
+			name:        "service with @ symbol",
+			serviceName: "web@app",
+			wantErr:     "invalid service name",
+		},
+		{
+			name:        "service with space",
+			serviceName: "web app",
+			wantErr:     "invalid service name",
+		},
+		{
+			name:        "service starting with dash",
+			serviceName: "-web",
+			wantErr:     "invalid service name",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			project := &types.Project{
+				Name:       "testproject",
+				WorkingDir: "/test",
+				Services: types.Services{
+					tt.serviceName: {
+						Name:  tt.serviceName,
+						Image: "nginx:latest",
+					},
+				},
+			}
+
+			converter := NewConverter("/test")
+			_, err := converter.ConvertProject(project)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+// ---------------------------
+// Validation Tests
+// ---------------------------
+
+func TestValidateProjectName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		errMsg  string
+	}{
+		// Valid cases
+		{name: "lowercase letters", input: "myproject", wantErr: false},
+		{name: "lowercase with digits", input: "myproject123", wantErr: false},
+		{name: "lowercase with dashes", input: "my-project", wantErr: false},
+		{name: "lowercase with underscores", input: "my_project", wantErr: false},
+		{name: "mixed dashes and underscores", input: "my-project_v2", wantErr: false},
+		{name: "starts with digit", input: "1project", wantErr: false},
+		{name: "single character", input: "p", wantErr: false},
+		{name: "single digit", input: "1", wantErr: false},
+
+		// Invalid cases - uppercase
+		{name: "uppercase letters", input: "MyProject", wantErr: true, errMsg: "must contain only lowercase letters"},
+		{name: "all uppercase", input: "MYPROJECT", wantErr: true, errMsg: "must contain only lowercase letters"},
+
+		// Invalid cases - special characters
+		{name: "exclamation mark", input: "my-project!", wantErr: true, errMsg: "must contain only lowercase letters"},
+		{name: "period", input: "my.project", wantErr: true, errMsg: "must contain only lowercase letters"},
+		{name: "space", input: "my project", wantErr: true, errMsg: "must contain only lowercase letters"},
+		{name: "at sign", input: "my@project", wantErr: true, errMsg: "must contain only lowercase letters"},
+
+		// Invalid cases - starts with invalid char
+		{name: "starts with dash", input: "-myproject", wantErr: true, errMsg: "must contain only lowercase letters"},
+		{name: "starts with underscore", input: "_myproject", wantErr: true, errMsg: "must contain only lowercase letters"},
+
+		// Invalid cases - empty
+		{name: "empty string", input: "", wantErr: true, errMsg: "cannot be empty"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateProjectName(tt.input)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateServiceName(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+		errMsg  string
+	}{
+		// Valid cases - lowercase
+		{name: "lowercase letters", input: "web", wantErr: false},
+		{name: "lowercase with digits", input: "web123", wantErr: false},
+		{name: "lowercase with dashes", input: "web-app", wantErr: false},
+		{name: "lowercase with underscores", input: "web_app", wantErr: false},
+		{name: "lowercase with periods", input: "web.app", wantErr: false},
+
+		// Valid cases - uppercase (allowed in service names)
+		{name: "uppercase letters", input: "WebApp", wantErr: false},
+		{name: "all uppercase", input: "WEB", wantErr: false},
+		{name: "mixed case", input: "Web-App", wantErr: false},
+
+		// Valid cases - starts with letter or digit
+		{name: "starts with uppercase", input: "Web", wantErr: false},
+		{name: "starts with digit", input: "1web", wantErr: false},
+
+		// Valid cases - complex combinations
+		{name: "all allowed chars", input: "Web-App_v1.0", wantErr: false},
+		{name: "single character", input: "w", wantErr: false},
+		{name: "single digit", input: "1", wantErr: false},
+
+		// Invalid cases - special characters not allowed
+		{name: "exclamation mark", input: "web!", wantErr: true, errMsg: "must contain only alphanumeric"},
+		{name: "at sign", input: "web@app", wantErr: true, errMsg: "must contain only alphanumeric"},
+		{name: "space", input: "web app", wantErr: true, errMsg: "must contain only alphanumeric"},
+		{name: "hash", input: "web#app", wantErr: true, errMsg: "must contain only alphanumeric"},
+
+		// Invalid cases - starts with invalid char
+		{name: "starts with dash", input: "-web", wantErr: true, errMsg: "must contain only alphanumeric"},
+		{name: "starts with underscore", input: "_web", wantErr: true, errMsg: "must contain only alphanumeric"},
+		{name: "starts with period", input: ".web", wantErr: true, errMsg: "must contain only alphanumeric"},
+
+		// Invalid cases - empty
+		{name: "empty string", input: "", wantErr: true, errMsg: "cannot be empty"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateServiceName(tt.input)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
