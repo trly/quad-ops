@@ -8,6 +8,8 @@ import (
 
 	"github.com/benbjohnson/clock"
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -152,9 +154,13 @@ func TestWorkflow_SyncUpDown(t *testing.T) {
 	err = ExecuteCommand(t, upCmdCobra, []string{})
 	require.NoError(t, err, "up should succeed")
 
-	assert.Len(t, startedServices, 2, "should start 2 services")
-	assert.Contains(t, startedServices, "web")
-	assert.Contains(t, startedServices, "db")
+	require.Len(t, startedServices, 2, "should start 2 services")
+	wantStarted := []string{"web", "db"}
+	if diff := cmp.Diff(wantStarted, startedServices, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("started services mismatch (-want +got):\n%s", diff)
+	}
 
 	// Step 3: Bring services down
 	downCmd := NewDownCommand()
@@ -164,9 +170,13 @@ func TestWorkflow_SyncUpDown(t *testing.T) {
 	err = ExecuteCommand(t, downCmdCobra, []string{})
 	require.NoError(t, err, "down should succeed")
 
-	assert.Len(t, stoppedServices, 2, "should stop 2 services")
-	assert.Contains(t, stoppedServices, "web")
-	assert.Contains(t, stoppedServices, "db")
+	require.Len(t, stoppedServices, 2, "should stop 2 services")
+	wantStopped := []string{"web", "db"}
+	if diff := cmp.Diff(wantStopped, stoppedServices, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("stopped services mismatch (-want +got):\n%s", diff)
+	}
 }
 
 // TestWorkflow_UpWithDependencies tests starting services with dependencies.
@@ -262,10 +272,10 @@ func TestWorkflow_UpWithDependencies(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify dependency order: db → api → web
-	require.Len(t, startOrder, 3)
-	assert.Equal(t, "db", startOrder[0])
-	assert.Equal(t, "api", startOrder[1])
-	assert.Equal(t, "web", startOrder[2])
+	want := []string{"db", "api", "web"}
+	if diff := cmp.Diff(want, startOrder); diff != "" {
+		t.Fatalf("start order mismatch (-want +got):\n%s", diff)
+	}
 }
 
 // TestWorkflow_SelectiveOperations tests operating on specific services.
