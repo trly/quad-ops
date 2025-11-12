@@ -104,8 +104,10 @@ func TestDaemon_PeriodicSync(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
-	// Run daemon in background
+	// Run daemon in background with synchronization
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		_ = daemonCmd.Run(ctx, app, opts, deps)
 	}()
 
@@ -117,6 +119,10 @@ func TestDaemon_PeriodicSync(t *testing.T) {
 	// Advance clock to trigger periodic sync
 	mockClock.Add(2 * time.Second)
 	time.Sleep(50 * time.Millisecond)
+
+	// Wait for daemon goroutine to exit
+	cancel()
+	<-done
 
 	// Note: Full periodic sync testing requires more complex timing control
 	// This test verifies the basic mechanism is in place
