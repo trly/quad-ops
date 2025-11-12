@@ -99,6 +99,7 @@
         }
       ],
       "DependsOn": null,
+      "ExternalDependencies": null,
       "Annotations": null
     },
     {
@@ -190,6 +191,7 @@
         }
       ],
       "DependsOn": null,
+      "ExternalDependencies": null,
       "Annotations": null
     },
     {
@@ -293,6 +295,7 @@
         }
       ],
       "DependsOn": null,
+      "ExternalDependencies": null,
       "Annotations": null
     }
   ],

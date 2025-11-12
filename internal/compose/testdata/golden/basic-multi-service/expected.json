@@ -121,6 +121,7 @@
         }
       ],
       "DependsOn": null,
+      "ExternalDependencies": null,
       "Annotations": null
     },
     {
@@ -234,6 +235,7 @@
         }
       ],
       "DependsOn": null,
+      "ExternalDependencies": null,
       "Annotations": null
     },
     {
@@ -334,6 +336,7 @@
       "DependsOn": [
         "basic-multi-service-app"
       ],
+      "ExternalDependencies": null,
       "Annotations": null
     }
   ],

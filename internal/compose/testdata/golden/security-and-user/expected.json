@@ -111,6 +111,7 @@
         }
       ],
       "DependsOn": null,
+      "ExternalDependencies": null,
       "Annotations": null
     }
   ],
