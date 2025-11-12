@@ -1,7 +1,3 @@
-[Unit]
-After=data.volume
-Requires=data.volume
-
 [Container]
 Label=managed-by=quad-ops
 Image=alpine:latest

@@ -372,7 +372,8 @@ func writeUnitSection(w *QuadletWriter, spec service.Spec) {
 		w.AppendSorted("Unit", "RequiresMountsFor", bindMountPaths...)
 	}
 
-	// DependsOn services
+	// DependsOn services - ONLY service-to-service dependencies
+	// Quadlet automatically handles Volume=, Network=, and Image= dependencies
 	if len(spec.DependsOn) > 0 {
 		deps := make([]string, len(spec.DependsOn))
 		copy(deps, spec.DependsOn)
@@ -383,41 +384,6 @@ func writeUnitSection(w *QuadletWriter, spec service.Spec) {
 			w.Append("Unit", "Requires", depUnit)
 		}
 	}
-
-	// Volumes (non-external)
-	if len(spec.Volumes) > 0 {
-		volumes := make([]service.Volume, len(spec.Volumes))
-		copy(volumes, spec.Volumes)
-		sort.Slice(volumes, func(i, j int) bool {
-			return volumes[i].Name < volumes[j].Name
-		})
-
-		for _, vol := range volumes {
-			if !vol.External {
-				w.Append("Unit", "After", vol.Name+UnitSuffixVolume)
-				w.Append("Unit", "Requires", vol.Name+UnitSuffixVolume)
-			}
-		}
-	}
-
-	// Networks
-	if len(spec.Container.Network.ServiceNetworks) > 0 {
-		networks := make([]string, len(spec.Container.Network.ServiceNetworks))
-		copy(networks, spec.Container.Network.ServiceNetworks)
-		sort.Strings(networks)
-
-		for _, net := range networks {
-			w.Append("Unit", "After", net+UnitSuffixNetwork)
-			w.Append("Unit", "Requires", net+UnitSuffixNetwork)
-		}
-	}
-
-	// Build dependency
-	if spec.Container.Build != nil {
-		buildUnit := spec.Name + "-build" + UnitSuffixService
-		w.Append("Unit", "After", buildUnit)
-		w.Append("Unit", "Requires", buildUnit)
-	}
 }
 
 // writeContainerSection builds the [Container] section.
@@ -425,7 +391,15 @@ func writeContainerSection(w *QuadletWriter, spec service.Spec) {
 	c := spec.Container
 
 	w.Set("Container", "Label", "managed-by=quad-ops")
-	w.Set("Container", "Image", c.Image)
+
+	// If this service has a build, use Quadlet .build reference
+	// Quadlet automatically creates dependency on the .build unit
+	if c.Build != nil {
+		w.Set("Container", "Image", spec.Name+".build")
+	} else {
+		w.Set("Container", "Image", c.Image)
+	}
+
 	w.Set("Container", "ContainerName", c.ContainerName)
 	w.Set("Container", "HostName", c.Hostname)
 
@@ -548,6 +522,11 @@ func writeMounts(w *QuadletWriter, c service.Container) {
 		}
 
 		source := m.Source
+		// Named volumes use Quadlet .volume reference syntax
+		// Quadlet automatically creates dependency on the .volume unit
+		if m.Type == service.MountTypeVolume {
+			source = source + UnitSuffixVolume
+		}
 		mountStr := fmt.Sprintf("%s:%s", source, m.Target)
 
 		var options []string

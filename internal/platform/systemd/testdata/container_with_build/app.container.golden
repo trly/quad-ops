@@ -1,10 +1,6 @@
-[Unit]
-After=app-build.service
-Requires=app-build.service
-
 [Container]
 Label=managed-by=quad-ops
-Image=myapp:latest
+Image=app.build
 
 [Service]
 Restart=no

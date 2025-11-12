@@ -1,8 +1,6 @@
 [Unit]
 After=network-online.target
 Wants=network-online.target
-After=infrastructure_proxy.network
-Requires=infrastructure_proxy.network
 
 [Container]
 Label=managed-by=quad-ops

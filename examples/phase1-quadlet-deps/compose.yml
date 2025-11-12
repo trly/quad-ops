@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:15
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    environment:
+      POSTGRES_PASSWORD: example
+
+  web:
+    image: nginx:latest
+    depends_on:
+      - db
+    volumes:
+      - web-config:/etc/nginx/conf.d
+    networks:
+      - backend
+      - frontend
+    ports:
+      - "8080:80"
+
+volumes:
+  db-data:
+  web-config:
+
+networks:
+  backend:
+  frontend:

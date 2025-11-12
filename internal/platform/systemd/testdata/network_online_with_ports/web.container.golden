@@ -2,8 +2,6 @@
 Description=Web server with networks and ports
 After=network-online.target
 Wants=network-online.target
-After=frontend.network
-Requires=frontend.network
 
 [Container]
 Label=managed-by=quad-ops

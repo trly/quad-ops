@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/trly/quad-ops/internal/service"
 )
 
 func TestQuadletWriter_BasicFormat(t *testing.T) {
@@ -125,4 +126,208 @@ func indexOf(s, substr string) int {
 		}
 	}
 	return -1
+}
+
+// ============================================================================
+// Phase 1: Quadlet Automatic Dependencies Tests
+// ============================================================================
+
+func TestRenderContainer_NamedVolume_UsesQuadletSyntax(t *testing.T) {
+	spec := service.Spec{
+		Name:        "myproject-web",
+		Description: "Web service",
+		Container: service.Container{
+			Image:         "nginx:latest",
+			ContainerName: "myproject-web",
+			Mounts: []service.Mount{
+				{
+					Type:   service.MountTypeVolume,
+					Source: "myproject-data",
+					Target: "/app/data",
+				},
+			},
+		},
+		Volumes: []service.Volume{
+			{
+				Name:     "myproject-data",
+				External: false,
+			},
+		},
+	}
+
+	result := renderContainer(spec)
+
+	assert.Contains(t, result, "Volume=myproject-data.volume:/app/data",
+		"named volume should use Quadlet .volume suffix syntax")
+	assert.NotContains(t, result, "After=myproject-data.volume",
+		"should NOT have manual After= for volume (Quadlet adds automatically)")
+	assert.NotContains(t, result, "Requires=myproject-data.volume",
+		"should NOT have manual Requires= for volume (Quadlet adds automatically)")
+}
+
+func TestRenderContainer_ServiceNetwork_UsesQuadletSyntax(t *testing.T) {
+	spec := service.Spec{
+		Name:        "myproject-web",
+		Description: "Web service",
+		Container: service.Container{
+			Image:         "nginx:latest",
+			ContainerName: "myproject-web",
+			Network: service.NetworkMode{
+				ServiceNetworks: []string{"myproject-backend"},
+			},
+		},
+	}
+
+	result := renderContainer(spec)
+
+	assert.Contains(t, result, "Network=myproject-backend.network",
+		"service network should use Quadlet .network suffix syntax")
+	assert.NotContains(t, result, "After=myproject-backend.network",
+		"should NOT have manual After= for network (Quadlet adds automatically)")
+	assert.NotContains(t, result, "Requires=myproject-backend.network",
+		"should NOT have manual Requires= for network (Quadlet adds automatically)")
+}
+
+func TestRenderContainer_ServiceDependency_KeepsManualDependencies(t *testing.T) {
+	spec := service.Spec{
+		Name:        "myproject-web",
+		Description: "Web service",
+		Container: service.Container{
+			Image:         "nginx:latest",
+			ContainerName: "myproject-web",
+		},
+		DependsOn: []string{"myproject-db"},
+	}
+
+	result := renderContainer(spec)
+
+	assert.Contains(t, result, "After=myproject-db.service",
+		"service-to-service dependencies MUST keep manual After=")
+	assert.Contains(t, result, "Requires=myproject-db.service",
+		"service-to-service dependencies MUST keep manual Requires=")
+}
+
+func TestRenderContainer_BuildDependency_UsesQuadletSyntax(t *testing.T) {
+	spec := service.Spec{
+		Name:        "myproject-web",
+		Description: "Web service",
+		Container: service.Container{
+			Image:         "localhost/myproject-web:latest",
+			ContainerName: "myproject-web",
+			Build: &service.Build{
+				Context:    "/build/context",
+				Dockerfile: "Containerfile",
+				Tags:       []string{"localhost/myproject-web:latest"},
+			},
+		},
+	}
+
+	result := renderContainer(spec)
+
+	assert.Contains(t, result, "Image=myproject-web.build",
+		"build should use Quadlet .build reference syntax")
+	assert.NotContains(t, result, "After=myproject-web-build.service",
+		"should NOT have manual After= for build (Quadlet adds automatically)")
+	assert.NotContains(t, result, "Requires=myproject-web-build.service",
+		"should NOT have manual Requires= for build (Quadlet adds automatically)")
+}
+
+func TestRenderContainer_MultipleNamedVolumes_AllUseQuadletSyntax(t *testing.T) {
+	spec := service.Spec{
+		Name:        "myproject-app",
+		Description: "App service",
+		Container: service.Container{
+			Image:         "app:latest",
+			ContainerName: "myproject-app",
+			Mounts: []service.Mount{
+				{
+					Type:   service.MountTypeVolume,
+					Source: "myproject-data",
+					Target: "/data",
+				},
+				{
+					Type:   service.MountTypeVolume,
+					Source: "myproject-config",
+					Target: "/config",
+				},
+			},
+		},
+		Volumes: []service.Volume{
+			{Name: "myproject-data", External: false},
+			{Name: "myproject-config", External: false},
+		},
+	}
+
+	result := renderContainer(spec)
+
+	assert.Contains(t, result, "Volume=myproject-data.volume:/data")
+	assert.Contains(t, result, "Volume=myproject-config.volume:/config")
+	assert.NotContains(t, result, "After=myproject-data.volume")
+	assert.NotContains(t, result, "After=myproject-config.volume")
+	assert.NotContains(t, result, "Requires=myproject-data.volume")
+	assert.NotContains(t, result, "Requires=myproject-config.volume")
+}
+
+func TestRenderContainer_BindMount_NotAffectedByChanges(t *testing.T) {
+	spec := service.Spec{
+		Name:        "myproject-web",
+		Description: "Web service",
+		Container: service.Container{
+			Image:         "nginx:latest",
+			ContainerName: "myproject-web",
+			Mounts: []service.Mount{
+				{
+					Type:   service.MountTypeBind,
+					Source: "/host/path",
+					Target: "/container/path",
+				},
+			},
+		},
+	}
+
+	result := renderContainer(spec)
+
+	assert.Contains(t, result, "Volume=/host/path:/container/path",
+		"bind mounts should use traditional syntax (not Quadlet volume reference)")
+	assert.Contains(t, result, "RequiresMountsFor=/host/path",
+		"bind mounts should still require host path to exist")
+}
+
+func TestRenderContainer_MixedDependencies_OnlyInfrastructureRemoved(t *testing.T) {
+	spec := service.Spec{
+		Name:        "myproject-web",
+		Description: "Web service",
+		Container: service.Container{
+			Image:         "nginx:latest",
+			ContainerName: "myproject-web",
+			Mounts: []service.Mount{
+				{
+					Type:   service.MountTypeVolume,
+					Source: "myproject-data",
+					Target: "/data",
+				},
+			},
+			Network: service.NetworkMode{
+				ServiceNetworks: []string{"myproject-backend"},
+			},
+		},
+		DependsOn: []string{"myproject-db", "myproject-cache"},
+		Volumes: []service.Volume{
+			{Name: "myproject-data", External: false},
+		},
+	}
+
+	result := renderContainer(spec)
+
+	assert.Contains(t, result, "Volume=myproject-data.volume:/data")
+	assert.Contains(t, result, "Network=myproject-backend.network")
+	assert.NotContains(t, result, "After=myproject-data.volume")
+	assert.NotContains(t, result, "After=myproject-backend.network")
+
+	assert.Contains(t, result, "After=myproject-db.service",
+		"service dependencies must be kept")
+	assert.Contains(t, result, "After=myproject-cache.service",
+		"service dependencies must be kept")
+	assert.Contains(t, result, "Requires=myproject-db.service")
+	assert.Contains(t, result, "Requires=myproject-cache.service")
 }

@@ -1,7 +1,5 @@
 [Unit]
 Description=App with volume
-After=data.volume
-Requires=data.volume
 
 [Container]
 Label=managed-by=quad-ops
