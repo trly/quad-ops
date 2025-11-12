@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"path/filepath"
+	"sort"
 
 	"github.com/trly/quad-ops/internal/log"
 	"github.com/trly/quad-ops/internal/platform"
@@ -99,6 +100,29 @@ func (r *Renderer) renderService(spec service.Spec) ([]platform.Artifact, error)
 		for i, depName := range spec.DependsOn {
 			dependsOn[i] = r.opts.LabelFor(depName)
 		}
+	}
+
+	// Map external dependencies (cross-project) to launchd labels
+	// Skip optional deps where ExistsInRuntime == false
+	if len(spec.ExternalDependencies) > 0 {
+		for _, dep := range spec.ExternalDependencies {
+			// Skip optional deps that don't exist in runtime
+			if dep.Optional && !dep.ExistsInRuntime {
+				continue
+			}
+			// Format: {prefix}.{project}.{service}
+			externalLabel := r.opts.LabelPrefix + "." + dep.Project + "." + dep.Service
+			dependsOn = append(dependsOn, externalLabel)
+		}
+	}
+
+	// Sort for deterministic output
+	if len(dependsOn) > 0 {
+		// Sort in place for consistent ordering
+		sortedDeps := make([]string, len(dependsOn))
+		copy(sortedDeps, dependsOn)
+		sort.Strings(sortedDeps)
+		dependsOn = sortedDeps
 	}
 
 	// Build plist

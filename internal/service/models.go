@@ -9,13 +9,22 @@ import (
 // It is the core domain model that gets converted from Docker Compose
 // and rendered to platform-specific artifacts (systemd units, launchd plists, etc.).
 type Spec struct {
-	Name        string            // Service name (unique identifier)
-	Description string            // Human-readable description
-	Container   Container         // Container configuration
-	Volumes     []Volume          // Volume mounts
-	Networks    []Network         // Network attachments
-	DependsOn   []string          // Service dependencies (service names)
-	Annotations map[string]string // Platform-agnostic metadata
+	Name                 string               // Service name (unique identifier)
+	Description          string               // Human-readable description
+	Container            Container            // Container configuration
+	Volumes              []Volume             // Volume mounts
+	Networks             []Network            // Network attachments
+	DependsOn            []string             // Service dependencies (service names)
+	ExternalDependencies []ExternalDependency // Cross-project service dependencies
+	Annotations          map[string]string    // Platform-agnostic metadata
+}
+
+// ExternalDependency represents a dependency on a service in another project.
+type ExternalDependency struct {
+	Project         string // Project name (validated, not sanitized)
+	Service         string // Service name (validated, not sanitized)
+	Optional        bool   // If true, warn if missing; if false, error
+	ExistsInRuntime bool   // Populated during validation (batch-aware)
 }
 
 // Container represents container runtime configuration.

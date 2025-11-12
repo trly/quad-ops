@@ -142,15 +142,22 @@ func (c *Converter) convertService(serviceName string, composeService types.Serv
 		sort.Strings(deps)
 	}
 
+	// Extract external dependencies (cross-project)
+	externalDeps, err := c.ExtractExternalDependencies(composeService)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse external dependencies: %w", err)
+	}
+
 	// Create main service spec
 	spec := service.Spec{
-		Name:        sanitizedName,
-		Description: fmt.Sprintf("Service %s from project %s", serviceName, project.Name),
-		Container:   container,
-		Volumes:     c.convertVolumesForService(composeService, project),
-		Networks:    c.convertNetworksForService(composeService, project),
-		DependsOn:   deps,
-		Annotations: copyStringMap(composeService.Labels),
+		Name:                 sanitizedName,
+		Description:          fmt.Sprintf("Service %s from project %s", serviceName, project.Name),
+		Container:            container,
+		Volumes:              c.convertVolumesForService(composeService, project),
+		Networks:             c.convertNetworksForService(composeService, project),
+		DependsOn:            deps,
+		ExternalDependencies: externalDeps,
+		Annotations:          copyStringMap(composeService.Labels),
 	}
 
 	// Add dependencies on init containers
@@ -1000,6 +1007,58 @@ func (c *Converter) convertIPAM(ipam *types.IPAMConfig) *service.IPAM {
 	}
 
 	return result
+}
+
+// ExtractExternalDependencies parses x-quad-ops-depends-on extension to extract cross-project dependencies.
+// It validates project and service names according to Docker Compose specification.
+// Returns nil if the extension is not present.
+func (c *Converter) ExtractExternalDependencies(composeService types.ServiceConfig) ([]service.ExternalDependency, error) {
+	extension, exists := composeService.Extensions["x-quad-ops-depends-on"]
+	if !exists {
+		return nil, nil
+	}
+
+	depList, ok := extension.([]interface{})
+	if !ok {
+		return nil, fmt.Errorf("x-quad-ops-depends-on must be a list")
+	}
+
+	externalDeps := make([]service.ExternalDependency, 0, len(depList))
+	for i, item := range depList {
+		depMap, ok := item.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("x-quad-ops-depends-on[%d]: must be a map with 'project' and 'service' keys", i)
+		}
+
+		// Extract fields with type-safe helpers
+		project, _ := depMap["project"].(string)
+		svc, _ := depMap["service"].(string)
+		optional, _ := depMap["optional"].(bool)
+
+		// Validate required fields
+		if project == "" || svc == "" {
+			return nil, fmt.Errorf("x-quad-ops-depends-on[%d]: must specify both 'project' and 'service'", i)
+		}
+
+		// Validate project name according to compose spec
+		if err := ValidateProjectName(project); err != nil {
+			return nil, fmt.Errorf("x-quad-ops-depends-on[%d]: invalid project name: %w", i, err)
+		}
+
+		// Validate service name according to compose spec
+		if err := ValidateServiceName(svc); err != nil {
+			return nil, fmt.Errorf("x-quad-ops-depends-on[%d]: invalid service name: %w", i, err)
+		}
+
+		dep := service.ExternalDependency{
+			Project:  project,
+			Service:  svc,
+			Optional: optional,
+		}
+		externalDeps = append(externalDeps, dep)
+	}
+
+	return externalDeps, nil
 }
 
 // convertInitContainers converts x-quad-ops-init extension to init container specs.

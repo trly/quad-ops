@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ $# -eq 0 ]; then
+  echo "Usage: begin-work <issue-number>"
+  exit 1
+fi
+
+ISSUE="$1"
+
+cat <<EOF
+Begin work on quad-ops-${ISSUE}. Review any associated design docs first and ask clarifying questions before beginning work.
+As you are working, if you have any questions, stop and ask.
+
+Write tests first that adhere to the established project testing patterns, then implement.
+If any breaking changes are introduced, be sure to list them when implementation is complete.
+EOF

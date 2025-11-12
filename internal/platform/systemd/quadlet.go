@@ -384,6 +384,33 @@ func writeUnitSection(w *QuadletWriter, spec service.Spec) {
 			w.Append("Unit", "Requires", depUnit)
 		}
 	}
+
+	// External dependencies (cross-project) - Always add After=
+	// Required deps: After= + Requires=
+	// Optional deps: After= only (NOT Wants= - we don't want to auto-start them)
+	if len(spec.ExternalDependencies) > 0 {
+		// Sort for deterministic output
+		externalDeps := make([]service.ExternalDependency, len(spec.ExternalDependencies))
+		copy(externalDeps, spec.ExternalDependencies)
+		sort.Slice(externalDeps, func(i, j int) bool {
+			// Sort by project-service for consistent ordering
+			nameI := externalDeps[i].Project + "-" + externalDeps[i].Service
+			nameJ := externalDeps[j].Project + "-" + externalDeps[j].Service
+			return nameI < nameJ
+		})
+
+		for _, dep := range externalDeps {
+			// Format: project-service.service (using same naming as intra-project deps)
+			unitName := dep.Project + "-" + dep.Service + ".service"
+			w.Append("Unit", "After", unitName)
+
+			// Only required dependencies get Requires=
+			if !dep.Optional {
+				w.Append("Unit", "Requires", unitName)
+			}
+			// Note: We do NOT use Wants= for optional deps - we don't want to auto-start them
+		}
+	}
 }
 
 // writeContainerSection builds the [Container] section.
