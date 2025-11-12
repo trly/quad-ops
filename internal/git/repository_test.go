@@ -15,10 +15,10 @@ import (
 )
 
 // setupTest creates a temporary directory and returns config provider for testing.
-func setupTest(t *testing.T) (string, config.Provider, func()) {
-	tmpDir, cleanup := testutil.SetupTempDir(t)
+func setupTest(t *testing.T) (string, config.Provider) {
+	tmpDir := t.TempDir()
 	configProvider := testutil.NewMockConfig(t, testutil.WithRepositoryDir(tmpDir))
-	return tmpDir, configProvider, cleanup
+	return tmpDir, configProvider
 }
 
 // createTestRepo creates a local git repository with an initial commit.
@@ -49,8 +49,7 @@ func createTestRepo(t *testing.T, repoDir string) (*git.Repository, string) {
 }
 
 func TestNewRepository(t *testing.T) {
-	tmpDir, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	tmpDir, configProv := setupTest(t)
 
 	testRepo := config.Repository{
 		Name:      "test-repo",
@@ -66,8 +65,7 @@ func TestNewRepository(t *testing.T) {
 }
 
 func TestSyncRepository(t *testing.T) {
-	_, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	_, configProv := setupTest(t)
 
 	testRepo := config.Repository{
 		Name:      "test-repo",
@@ -83,8 +81,7 @@ func TestSyncRepository(t *testing.T) {
 }
 
 func TestSyncRepositoryAlreadyExists(t *testing.T) {
-	tmpDir, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	tmpDir, configProv := setupTest(t)
 
 	testRepo := config.Repository{
 		Name:      "test-repo",
@@ -110,8 +107,7 @@ func TestSyncRepositoryAlreadyExists(t *testing.T) {
 }
 
 func TestCheckoutTargetWithLocalRepo(t *testing.T) {
-	tmpDir, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	tmpDir, configProv := setupTest(t)
 
 	// Create a real local git repository for testing
 	localRepoDir := filepath.Join(tmpDir, "source-repo")
@@ -139,8 +135,7 @@ func TestCheckoutTargetWithLocalRepo(t *testing.T) {
 }
 
 func TestPullLatest(t *testing.T) {
-	tmpDir, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	tmpDir, configProv := setupTest(t)
 
 	// Create a "remote" repository
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
@@ -192,8 +187,7 @@ func TestPullLatest(t *testing.T) {
 }
 
 func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
-	tmpDir, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	tmpDir, configProv := setupTest(t)
 
 	// Create a "remote" repository
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
@@ -250,8 +244,7 @@ func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
 }
 
 func TestCheckoutTargetBranchFallback(t *testing.T) {
-	tmpDir, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	tmpDir, configProv := setupTest(t)
 
 	// Create a "remote" repository with a branch
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
@@ -282,8 +275,7 @@ func TestCheckoutTargetBranchFallback(t *testing.T) {
 }
 
 func TestCheckoutTargetTag(t *testing.T) {
-	tmpDir, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	tmpDir, configProv := setupTest(t)
 
 	// Create a "remote" repository with a tag
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
@@ -322,8 +314,7 @@ func TestCheckoutTargetTag(t *testing.T) {
 }
 
 func TestCheckoutTargetForceBranchFallback(t *testing.T) {
-	tmpDir, configProv, cleanup := setupTest(t)
-	defer cleanup()
+	tmpDir, configProv := setupTest(t)
 
 	// Create a "remote" repository
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")

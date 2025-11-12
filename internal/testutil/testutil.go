@@ -75,21 +75,6 @@ func NewMockConfig(t testing.TB, opts ...ConfigOption) config.Provider {
 	return configProvider
 }
 
-// SetupTempDir creates a temporary directory and returns it along with cleanup function.
-func SetupTempDir(t testing.TB) (string, func()) {
-	tmpDir, err := os.MkdirTemp("", "quad-ops-test-*")
-	require.NoError(t, err)
-
-	cleanup := func() {
-		_ = os.RemoveAll(tmpDir)
-	}
-
-	// Register cleanup with test framework
-	t.Cleanup(cleanup)
-
-	return tmpDir, cleanup
-}
-
 // testHandler implements slog.Handler to write to testing.TB.
 type testHandler struct {
 	t    testing.TB
