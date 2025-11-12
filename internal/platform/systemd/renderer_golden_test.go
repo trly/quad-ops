@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/service"
 	"github.com/trly/quad-ops/internal/testutil"
@@ -457,8 +458,10 @@ func TestRenderer_GoldenTests(t *testing.T) {
 					expected, err := os.ReadFile(goldenPath)
 					require.NoErrorf(t, err, "Failed to read golden file: %s", goldenPath)
 
-					require.Equal(t, expected, artifact.Content,
-						"Artifact %s content mismatch.\nRun with -update to regenerate golden files.", artifact.Path)
+					if diff := cmp.Diff(string(expected), string(artifact.Content)); diff != "" {
+						t.Errorf("Artifact %s content mismatch (-want +got):\n%s\nRun with -update to regenerate golden files.",
+							artifact.Path, diff)
+					}
 				}
 			}
 		})

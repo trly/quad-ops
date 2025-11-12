@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/service"
@@ -61,7 +63,12 @@ func TestConverter_ConvertProject_MultipleServices(t *testing.T) {
 	require.Len(t, specs, 2)
 
 	names := []string{specs[0].Name, specs[1].Name}
-	assert.ElementsMatch(t, []string{"multi-web", "multi-db"}, names)
+	want := []string{"multi-web", "multi-db"}
+	if diff := cmp.Diff(want, names, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("service names mismatch (-want +got):\n%s", diff)
+	}
 
 	for _, spec := range specs {
 		assert.NoError(t, spec.Validate())
@@ -106,7 +113,12 @@ func TestConverter_ConvertProject_WithDependencies(t *testing.T) {
 	require.NotNil(t, webSpec)
 
 	// Dependencies should be sorted and prefixed
-	assert.ElementsMatch(t, []string{"app-cache", "app-db"}, webSpec.DependsOn)
+	want := []string{"app-cache", "app-db"}
+	if diff := cmp.Diff(want, webSpec.DependsOn, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("dependencies mismatch (-want +got):\n%s", diff)
+	}
 }
 
 // ---------------------------
@@ -441,12 +453,22 @@ func TestConverter_NetworkDependencies_ExplicitNetworks(t *testing.T) {
 	assert.Equal(t, "myapp-web", spec.Name)
 
 	// Service should have both networks in ServiceNetworks
-	assert.ElementsMatch(t, []string{"myapp-backend", "myapp-frontend"}, spec.Container.Network.ServiceNetworks)
+	wantServiceNetworks := []string{"myapp-backend", "myapp-frontend"}
+	if diff := cmp.Diff(wantServiceNetworks, spec.Container.Network.ServiceNetworks, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("service networks mismatch (-want +got):\n%s", diff)
+	}
 
 	// Spec.Networks should contain both networks
 	require.Len(t, spec.Networks, 2)
 	networkNames := []string{spec.Networks[0].Name, spec.Networks[1].Name}
-	assert.ElementsMatch(t, []string{"myapp-backend", "myapp-frontend"}, networkNames)
+	wantNetworkNames := []string{"myapp-backend", "myapp-frontend"}
+	if diff := cmp.Diff(wantNetworkNames, networkNames, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("network names mismatch (-want +got):\n%s", diff)
+	}
 }
 
 func TestConverter_NetworkDependencies_ImplicitDefaultNetwork(t *testing.T) {
@@ -510,10 +532,20 @@ func TestConverter_NetworkDependencies_MultipleDefaultNetworks(t *testing.T) {
 	spec := specs[0]
 
 	// Service with empty networks should get ALL project networks
-	assert.ElementsMatch(t, []string{"myapp-default", "myapp-monitoring"}, spec.Container.Network.ServiceNetworks)
+	wantServiceNetworks := []string{"myapp-default", "myapp-monitoring"}
+	if diff := cmp.Diff(wantServiceNetworks, spec.Container.Network.ServiceNetworks, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("service networks mismatch (-want +got):\n%s", diff)
+	}
 	require.Len(t, spec.Networks, 2)
 	networkNames := []string{spec.Networks[0].Name, spec.Networks[1].Name}
-	assert.ElementsMatch(t, []string{"myapp-default", "myapp-monitoring"}, networkNames)
+	wantNetworkNames := []string{"myapp-default", "myapp-monitoring"}
+	if diff := cmp.Diff(wantNetworkNames, networkNames, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("network names mismatch (-want +got):\n%s", diff)
+	}
 }
 
 func TestConverter_NetworkDependencies_ExternalNetwork(t *testing.T) {
@@ -549,7 +581,12 @@ func TestConverter_NetworkDependencies_ExternalNetwork(t *testing.T) {
 	spec := specs[0]
 
 	// External networks should be in ServiceNetworks
-	assert.ElementsMatch(t, []string{"infrastructure-proxy", "myapp-default"}, spec.Container.Network.ServiceNetworks)
+	wantServiceNetworks := []string{"infrastructure-proxy", "myapp-default"}
+	if diff := cmp.Diff(wantServiceNetworks, spec.Container.Network.ServiceNetworks, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("service networks mismatch (-want +got):\n%s", diff)
+	}
 
 	// Spec.Networks should contain both networks
 	require.Len(t, spec.Networks, 2)

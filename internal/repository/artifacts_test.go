@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/fs"
@@ -87,7 +89,11 @@ func TestFileArtifactStore_Write(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.ElementsMatch(t, tt.expectedPaths, changedPaths)
+			if diff := cmp.Diff(tt.expectedPaths, changedPaths, cmpopts.SortSlices(func(a, b string) bool {
+				return a < b
+			})); diff != "" {
+				t.Errorf("changed paths mismatch (-want +got):\n%s", diff)
+			}
 
 			// Verify files exist with correct content
 			for _, artifact := range tt.artifacts {
@@ -211,7 +217,12 @@ func TestFileArtifactStore_List(t *testing.T) {
 	for i, a := range listed {
 		paths[i] = a.Path
 	}
-	assert.ElementsMatch(t, []string{"app.container", "app.network", "subdir/db.volume"}, paths)
+	want := []string{"app.container", "app.network", "subdir/db.volume"}
+	if diff := cmp.Diff(want, paths, cmpopts.SortSlices(func(a, b string) bool {
+		return a < b
+	})); diff != "" {
+		t.Errorf("artifact paths mismatch (-want +got):\n%s", diff)
+	}
 
 	// Verify content is correct
 	for _, artifact := range listed {
