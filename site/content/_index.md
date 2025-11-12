@@ -113,10 +113,12 @@ This matrix describes [Docker Compose](https://compose-spec.io/)  feature suppor
 
 ## Compose Extensions
 
-Quad-Ops extends [Docker Compose](https://compose-spec.io/)  with **Podman-specific capabilities**:
+Quad-Ops extends [Docker Compose](https://compose-spec.io/)  with powerful capabilities:
 
+- **Cross-project dependencies** (`x-quad-ops-depends-on`) - Declare dependencies on services in other projects
 - **Environment secrets** mapping for secure credential handling
+- **Strict naming validation** - Project and service names follow Docker Compose specification exactly
 - **Volume extensions** for advanced mount options
 - **Build extensions** for enhanced build configurations
 
-See [Docker Compose Support](docs/container-management/docker-compose-support) for complete configuration examples and [Supported Features](docs/podman-systemd/supported-features) for detailed implementation information.
+See [Docker Compose Support](docs/container-management/docker-compose-support) for complete configuration examples and [Cross-Project Dependencies](docs/container-management/cross-project-dependencies) for multi-project architectures.

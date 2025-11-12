@@ -100,9 +100,28 @@ Quad-Ops is **NOT** a Swarm orchestrator. These features are rejected with valid
 
 **Reference:** [Podman Quadlet Documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
 
-## Podman-Specific Extensions
+## Quad-Ops Extensions
 
-### Environment Secrets
+### Cross-Project Dependencies
+
+Declare dependencies on services in other projects:
+
+```yaml
+services:
+  backend:
+    image: myapp:latest
+    x-quad-ops-depends-on:
+      - project: infrastructure
+        service: proxy
+        optional: false  # Fail if not found
+      - project: monitoring
+        service: prometheus
+        optional: true   # Warn if not found
+```
+
+See [Cross-Project Dependencies](../cross-project-dependencies) for detailed documentation.
+
+### Environment Secrets (Podman-Specific)
 
 Map Podman secrets to environment variables:
 
@@ -200,14 +219,30 @@ ls /etc/containers/systemd/
 
 The `validate` command checks for:
 - Docker Compose syntax and structure
+- Project and service name validity
 - Quad-ops extension compatibility  
 - Security requirements (secrets, env vars)
 - DNS naming conventions
 - File path security
 
+## Naming Requirements
+
+Quad-Ops enforces strict naming requirements for project and service names per Docker Compose specification:
+
+**Project names:** `^[a-z0-9][a-z0-9_-]*$`
+- Must start with lowercase letter or digit
+- Examples: `myproject`, `my-project`, `project123`
+
+**Service names:** `^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`
+- Must start with alphanumeric character
+- Examples: `web`, `Web`, `web-api`, `web.api`
+
+Invalid names are rejected with clear error messages. See [Naming Requirements](../naming-requirements) for complete details.
+
 ## Next Steps
 
+- [Naming Requirements](../naming-requirements) - Project and service naming rules
+- [Cross-Project Dependencies](../cross-project-dependencies) - Declaring dependencies across projects
 - [Environment Files](environment-files) - Environment variable management
 - [Build Support](build-support) - Docker build configurations
-- [Supported Features](../podman-systemd/supported-features) - Feature compatibility matrix
 - [Compose Specification](https://compose-spec.io/) - Official Docker Compose documentation

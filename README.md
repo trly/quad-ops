@@ -109,6 +109,66 @@ Use `quad-ops validate` to check your Compose files for unsupported features.
 
 **Reference:** [Podman Quadlet Documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
 
+## Naming Requirements
+
+Quad-Ops enforces strict naming requirements for project and service names per Docker Compose specification.
+
+### Project Names
+
+Pattern: `^[a-z0-9][a-z0-9_-]*$`
+
+- Must start with lowercase letter or digit
+- Can contain only: lowercase letters, digits, dashes, underscores
+- Examples: `myproject`, `my-project`, `my_project`, `project123`
+
+### Service Names
+
+Pattern: `^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`
+
+- Must start with alphanumeric character (upper or lowercase)
+- Can contain: alphanumeric, dashes, underscores, periods
+- Examples: `web`, `Web`, `web-api`, `web.api`, `Service123`
+
+**Invalid names are rejected with clear error messages.**
+
+## Cross-Project Dependencies
+
+Quad-Ops supports declaring dependencies on services in other projects using the `x-quad-ops-depends-on` extension field.
+
+### Example
+
+```yaml
+# project-app/compose.yml
+name: app
+services:
+  backend:
+    image: myapp:latest
+    x-quad-ops-depends-on:
+      - project: infrastructure
+        service: proxy
+        optional: false  # Fail if not found
+      - project: monitoring
+        service: prometheus
+        optional: true   # Warn if not found
+    depends_on:
+      - redis  # Intra-project dependency
+  
+  redis:
+    image: redis:latest
+```
+
+### How It Works
+
+1. **Validation** - Quad-Ops validates that external services exist before deployment
+2. **Ordering** - External dependencies are included in topological startup ordering
+3. **Platform integration** - Maps to systemd `After`/`Requires` or launchd `DependsOn`
+4. **Optional dependencies** - Can be marked as optional (warn if missing instead of failing)
+
+**Requirements:**
+- External service must already be deployed (use `quad-ops up` in dependency project first)
+- Project and service names must follow naming requirements
+- Works on both Linux (systemd) and macOS (launchd)
+
 ## Architecture
 
 Quad-Ops uses a clean, modular architecture with clear separation of concerns:

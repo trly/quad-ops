@@ -123,7 +123,11 @@ quad-ops validate --repo https://github.com/trly/quad-ops.git --compose-dir exam
 quad-ops validate /path/to/your/compose/files
 ```
 
-This step ensures your compose files are valid and compatible with quad-ops extensions.
+This step ensures:
+- Your compose files are valid
+- Project and service names follow [naming requirements](../container-management/naming-requirements/)
+- Quad-ops extensions are compatible
+- Security requirements are met
 
 ### 4. Your First Sync
 

@@ -1,0 +1,45 @@
+# Cross-Project Dependencies Example - Infrastructure Project
+#
+# This is the infrastructure project that provides shared services
+# (proxy and database) that other projects depend on.
+#
+# Deploy this project FIRST:
+#   cd examples/cross-project-deps/infrastructure
+#   quad-ops up
+#
+# This creates:
+#   - infrastructure-proxy.service (nginx reverse proxy)
+#   - infrastructure-db.service (PostgreSQL database)
+
+name: infrastructure
+
+services:
+  proxy:
+    image: nginx:latest
+    ports:
+      - target: 80
+        published: 80
+        mode: host
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - public
+    restart: always
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_PASSWORD: example
+      POSTGRES_DB: appdb
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - backend
+    restart: always
+
+volumes:
+  db-data:
+
+networks:
+  public:
+  backend:
