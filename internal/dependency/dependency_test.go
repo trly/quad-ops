@@ -180,7 +180,8 @@ func TestDependencyGraphCycleDetection(t *testing.T) {
 	// Check topological order fails with improved error message
 	_, err = graph.GetTopologicalOrder()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "dependency graph contains a cycle involving services:")
+	assert.Contains(t, err.Error(), "dependency graph contains a cycle:")
+	assert.Contains(t, err.Error(), "→", "error should show cycle path with arrows")
 	assert.Contains(t, err.Error(), "a")
 	assert.Contains(t, err.Error(), "b")
 	assert.Contains(t, err.Error(), "c")
@@ -343,4 +344,195 @@ func TestCanAddDependency(t *testing.T) {
 	_, err = graph.CanAddDependency("a", "unknown")
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown dependency service")
+}
+
+func TestFindCycle(t *testing.T) {
+	tests := []struct {
+		name         string
+		setupGraph   func(*ServiceDependencyGraph)
+		expectCycle  bool
+		expectedPath []string
+		pathContains []string // Services that must be in the cycle path
+	}{
+		{
+			name: "simple cycle A→B→A",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("a")
+				_ = g.AddService("b")
+				_ = g.AddDependency("b", "a") // b depends on a
+				_ = g.AddDependency("a", "b") // a depends on b (creates cycle)
+			},
+			expectCycle:  true,
+			pathContains: []string{"a", "b"},
+		},
+		{
+			name: "complex cycle A→B→C→D→B",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("a")
+				_ = g.AddService("b")
+				_ = g.AddService("c")
+				_ = g.AddService("d")
+				_ = g.AddDependency("b", "a") // b depends on a
+				_ = g.AddDependency("c", "b") // c depends on b
+				_ = g.AddDependency("d", "c") // d depends on c
+				_ = g.AddDependency("b", "d") // b depends on d (creates cycle b→c→d→b)
+			},
+			expectCycle:  true,
+			pathContains: []string{"b", "c", "d"},
+		},
+		{
+			name: "three node cycle web→api→db→web",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("web")
+				_ = g.AddService("api")
+				_ = g.AddService("db")
+				_ = g.AddDependency("api", "web") // api depends on web
+				_ = g.AddDependency("db", "api")  // db depends on api
+				_ = g.AddDependency("web", "db")  // web depends on db (creates cycle)
+			},
+			expectCycle:  true,
+			pathContains: []string{"web", "api", "db"},
+		},
+		{
+			name: "no cycle - linear chain",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("a")
+				_ = g.AddService("b")
+				_ = g.AddService("c")
+				_ = g.AddDependency("b", "a") // b depends on a
+				_ = g.AddDependency("c", "b") // c depends on b
+			},
+			expectCycle: false,
+		},
+		{
+			name: "no cycle - diamond dependency",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("a")
+				_ = g.AddService("b")
+				_ = g.AddService("c")
+				_ = g.AddService("d")
+				_ = g.AddDependency("b", "a") // b depends on a
+				_ = g.AddDependency("c", "a") // c depends on a
+				_ = g.AddDependency("d", "b") // d depends on b
+				_ = g.AddDependency("d", "c") // d depends on c
+			},
+			expectCycle: false,
+		},
+		{
+			name: "no cycle - empty graph",
+			setupGraph: func(_ *ServiceDependencyGraph) {
+				// No services added
+			},
+			expectCycle: false,
+		},
+		{
+			name: "no cycle - single service",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("a")
+			},
+			expectCycle: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			graph := NewServiceDependencyGraph()
+			tt.setupGraph(graph)
+
+			cycle, err := graph.FindCycle()
+			require.NoError(t, err)
+
+			if tt.expectCycle {
+				assert.NotEmpty(t, cycle, "expected to find a cycle")
+				// Verify all expected services are in the cycle path
+				for _, svc := range tt.pathContains {
+					assert.Contains(t, cycle, svc, "cycle path should contain %s", svc)
+				}
+				// Cycle path should form a loop (first and last should be same)
+				if len(cycle) > 1 {
+					assert.Equal(t, cycle[0], cycle[len(cycle)-1], "cycle path should start and end with same service")
+				}
+			} else {
+				assert.Empty(t, cycle, "expected no cycle")
+			}
+		})
+	}
+}
+
+func TestGetTopologicalOrderWithEnhancedCycleError(t *testing.T) {
+	tests := []struct {
+		name              string
+		setupGraph        func(*ServiceDependencyGraph)
+		expectError       bool
+		errorContains     []string
+		cyclePathContains []string
+	}{
+		{
+			name: "simple cycle with enhanced error",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("web")
+				_ = g.AddService("api")
+				_ = g.AddDependency("api", "web")
+				_ = g.AddDependency("web", "api")
+			},
+			expectError: true,
+			errorContains: []string{
+				"dependency graph contains a cycle",
+				"web",
+				"api",
+			},
+			cyclePathContains: []string{"web", "api"},
+		},
+		{
+			name: "complex cycle with enhanced error",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("web")
+				_ = g.AddService("api")
+				_ = g.AddService("db")
+				_ = g.AddDependency("api", "web")
+				_ = g.AddDependency("db", "api")
+				_ = g.AddDependency("web", "db")
+			},
+			expectError: true,
+			errorContains: []string{
+				"dependency graph contains a cycle",
+				"web",
+				"api",
+				"db",
+			},
+			cyclePathContains: []string{"web", "api", "db"},
+		},
+		{
+			name: "no cycle returns success",
+			setupGraph: func(g *ServiceDependencyGraph) {
+				_ = g.AddService("a")
+				_ = g.AddService("b")
+				_ = g.AddService("c")
+				_ = g.AddDependency("b", "a")
+				_ = g.AddDependency("c", "b")
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			graph := NewServiceDependencyGraph()
+			tt.setupGraph(graph)
+
+			order, err := graph.GetTopologicalOrder()
+
+			if tt.expectError {
+				require.Error(t, err)
+				for _, substr := range tt.errorContains {
+					assert.Contains(t, err.Error(), substr)
+				}
+				// Verify error message is actionable
+				assert.Contains(t, err.Error(), "→", "error should show cycle path with arrows")
+			} else {
+				require.NoError(t, err)
+				assert.NotEmpty(t, order)
+			}
+		})
+	}
 }

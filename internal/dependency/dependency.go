@@ -315,6 +315,13 @@ func (sdg *ServiceDependencyGraph) GetTopologicalOrder() ([]string, error) {
 	}
 
 	if len(order) != len(indeg) {
+		// Find the actual cycle path for better error reporting
+		cycle, err := sdg.FindCycle()
+		if err != nil {
+			return nil, fmt.Errorf("failed to find cycle details: %w", err)
+		}
+
+		// Build remaining services list for debugging
 		remaining := make([]string, 0)
 		for v, d := range indeg {
 			if d > 0 {
@@ -322,6 +329,20 @@ func (sdg *ServiceDependencyGraph) GetTopologicalOrder() ([]string, error) {
 			}
 		}
 		sort.Strings(remaining)
+
+		if len(cycle) > 0 {
+			// Format cycle path with arrows
+			cyclePath := ""
+			for i, svc := range cycle {
+				if i > 0 {
+					cyclePath += " → "
+				}
+				cyclePath += svc
+			}
+			return nil, fmt.Errorf("dependency graph contains a cycle: %s (services involved: %v)", cyclePath, remaining)
+		}
+
+		// Fallback if FindCycle didn't find the cycle (shouldn't happen)
 		return nil, fmt.Errorf("dependency graph contains a cycle involving services: %v", remaining)
 	}
 	return order, nil
@@ -339,6 +360,56 @@ func (sdg *ServiceDependencyGraph) HasCycles() bool {
 	sdg.mu.RUnlock()
 
 	return len(order) != predLen
+}
+
+// FindCycle uses DFS to find a cycle in the dependency graph.
+// Returns the cycle path as a slice of service names, or empty slice if no cycle exists.
+// The returned path starts and ends with the same service to show the complete loop.
+func (sdg *ServiceDependencyGraph) FindCycle() ([]string, error) {
+	sdg.mu.RLock()
+	defer sdg.mu.RUnlock()
+
+	visited := make(map[string]bool)
+	recStack := make(map[string]bool)
+
+	var dfs func(string, []string) ([]string, bool)
+	dfs = func(node string, path []string) ([]string, bool) {
+		visited[node] = true
+		recStack[node] = true
+		path = append(path, node)
+
+		// Explore all dependencies (predecessors) of this node
+		for dep := range sdg.pred[node] {
+			if !visited[dep] {
+				if cycle, found := dfs(dep, path); found {
+					return cycle, true
+				}
+			} else if recStack[dep] {
+				// Found a cycle - extract the cycle path
+				for i, n := range path {
+					if n == dep {
+						// Append the starting node again to complete the loop
+						cyclePath := append(path[i:], dep)
+						return cyclePath, true
+					}
+				}
+			}
+		}
+
+		recStack[node] = false
+		return nil, false
+	}
+
+	// Start DFS from each unvisited node
+	for node := range sdg.pred {
+		if !visited[node] {
+			if cycle, found := dfs(node, []string{}); found {
+				return cycle, nil
+			}
+		}
+	}
+
+	return []string{}, nil
 }
 
 // BuildServiceDependencyGraph builds a dependency graph for all services in a project.
