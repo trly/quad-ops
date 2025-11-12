@@ -2,7 +2,10 @@ services:
   webapp:
     image: docker.io/library/wordpress:latest
     ports:
-      - "8080:80"
+      - target: 80
+        published: 8080
+        protocol: tcp
+        mode: host
     volumes:
       - wp-content:/var/www/html/wp-content
     environment:

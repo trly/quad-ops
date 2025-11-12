@@ -18,7 +18,10 @@ services:
       - backend
       - frontend
     ports:
-      - "8080:80"
+      - target: 80
+        published: 8080
+        protocol: tcp
+        mode: host
 
 volumes:
   db-data:
