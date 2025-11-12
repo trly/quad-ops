@@ -185,6 +185,49 @@ if diff := cmp.Diff(want, got,
 - Simple scalar comparisons → use `assert.Equal`
 - Error checking → use `assert.NoError` / `require.NoError`
 - Boolean conditions → use `assert.True` / `assert.False`
+- Length/emptiness checks → use `assert.Len` / `assert.Empty`
+- Substring/element membership → use `assert.Contains`
+
+**Common go-cmp Patterns:**
+
+```go
+// Pattern 1: Order-dependent slice comparison
+want := []string{"db", "api", "web"}
+if diff := cmp.Diff(want, got); diff != "" {
+    t.Errorf("start order mismatch (-want +got):\n%s", diff)
+}
+
+// Pattern 2: Order-independent slice comparison
+want := []string{"web", "db"}
+if diff := cmp.Diff(want, got, cmpopts.SortSlices(func(a, b string) bool {
+    return a < b
+})); diff != "" {
+    t.Errorf("service names mismatch (-want +got):\n%s", diff)
+}
+
+// Pattern 3: Struct comparison
+want := service.Spec{
+    Name: "test-web",
+    Container: service.Container{
+        Image: "nginx:latest",
+    },
+}
+if diff := cmp.Diff(want, got); diff != "" {
+    t.Errorf("spec mismatch (-want +got):\n%s", diff)
+}
+
+// Pattern 4: Ignore specific fields
+if diff := cmp.Diff(want, got,
+    cmpopts.IgnoreFields(Config{}, "Timestamp")); diff != "" {
+    t.Errorf("config mismatch (-want +got):\n%s", diff)
+}
+
+// Pattern 5: Golden file byte comparison
+want := []byte("expected content")
+if diff := cmp.Diff(string(want), string(got)); diff != "" {
+    t.Errorf("content mismatch (-want +got):\n%s", diff)
+}
+```
 
 #### goleak (Goroutine Leak Detection)
 
