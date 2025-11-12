@@ -181,12 +181,14 @@ func (c *SyncCommand) syncRepositories(ctx context.Context, app *App, opts SyncO
 		return fmt.Errorf("git sync failed: %w", err)
 	}
 
+	// Track all service specs and dependencies (like cmd/up.go)
+	registry := newServiceRegistry()
 	servicesToRestart := make(map[string]bool)
 	allArtifactPaths := make([]string, 0)
 	anyChanges := false
 
 	for _, result := range results {
-		artifactPaths, err := c.handleSyncResult(ctx, app, opts, deps, result, servicesToRestart, &anyChanges)
+		artifactPaths, err := c.handleSyncResult(ctx, app, opts, deps, result, registry, servicesToRestart, &anyChanges)
 		if err != nil {
 			deps.Logger.Error("Failed to process repository", "repo", result.Repository.Name, "error", err)
 		}
@@ -200,7 +202,13 @@ func (c *SyncCommand) syncRepositories(ctx context.Context, app *App, opts SyncO
 		}
 
 		if len(servicesToRestart) > 0 {
-			names := c.sortedServiceNames(servicesToRestart)
+			// Get services in topological order (dependencies first)
+			names, err := c.orderedServiceNames(registry, servicesToRestart)
+			if err != nil {
+				return fmt.Errorf("failed to determine service restart order: %w", err)
+			}
+
+			deps.Logger.Debug("Restarting services in dependency order", "count", len(names), "services", names)
 			restartErrs := deps.Lifecycle.RestartMany(ctx, names)
 			hasErrors := false
 			for name, rerr := range restartErrs {
@@ -241,7 +249,7 @@ func (c *SyncCommand) filterRepositories(repos []config.Repository, opts SyncOpt
 
 // handleSyncResult processes a single repository sync result.
 // Returns the list of artifact paths that were written.
-func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncOptions, deps SyncDeps, result repository.SyncResult, servicesToRestart map[string]bool, anyChanges *bool) ([]string, error) {
+func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncOptions, deps SyncDeps, result repository.SyncResult, registry *serviceRegistry, servicesToRestart map[string]bool, anyChanges *bool) ([]string, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -281,6 +289,14 @@ func (c *SyncCommand) handleSyncResult(ctx context.Context, app *App, opts SyncO
 		}
 
 		deps.Logger.Debug("Processed compose project", "repo", result.Repository.Name, "project", project.Name, "services", len(specs))
+
+		// Register all services with dependencies in the registry
+		for _, spec := range specs {
+			if err := registry.add(spec); err != nil {
+				deps.Logger.Error("Failed to register service", "repo", result.Repository.Name, "service", spec.Name, "error", err)
+				return nil, fmt.Errorf("failed to register service %s: %w", spec.Name, err)
+			}
+		}
 
 		renderResult, err := deps.Renderer.Render(ctx, specs)
 		if err != nil {
@@ -335,13 +351,18 @@ func (c *SyncCommand) trackChangedServices(changedPaths []string, serviceChanges
 	}
 }
 
-// sortedServiceNames returns a sorted slice of service names from the map.
-func (c *SyncCommand) sortedServiceNames(services map[string]bool) []string {
-	names := make([]string, 0, len(services))
-	for name := range services {
+// orderedServiceNames returns service names in topological order (dependencies first).
+// Only includes services marked for restart, but orders them based on full dependency graph.
+func (c *SyncCommand) orderedServiceNames(registry *serviceRegistry, servicesToRestart map[string]bool) ([]string, error) {
+	// Convert map to slice
+	names := make([]string, 0, len(servicesToRestart))
+	for name := range servicesToRestart {
 		names = append(names, name)
 	}
-	return names
+
+	// Use registry to get topologically ordered services
+	// This ensures dependencies restart before dependents
+	return registry.orderAndExpand(names)
 }
 
 // runDiagnosticsIfLinux runs diagnostic checks for unit generation failures (Linux only).

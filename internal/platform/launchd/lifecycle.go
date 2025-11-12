@@ -323,14 +323,15 @@ func (l *Lifecycle) StopMany(ctx context.Context, names []string) map[string]err
 	return results
 }
 
-// RestartMany restarts multiple services in dependency order (sequential processing).
+// RestartMany restarts multiple services in dependency order.
+// Services are processed sequentially to ensure dependencies are restarted before dependents.
 func (l *Lifecycle) RestartMany(ctx context.Context, names []string) map[string]error {
 	l.logger.Debug("Restarting multiple services in dependency order", "count", len(names), "services", names)
 
 	results := make(map[string]error)
 
-	// Process services sequentially in the provided order to respect dependencies.
-	// Services are pre-ordered by the caller based on dependency graph.
+	// Process services SEQUENTIALLY in the provided order (topological)
+	// Do NOT use goroutines - sequential ensures dependencies are ready
 	for _, name := range names {
 		err := l.Restart(ctx, name)
 		results[name] = err

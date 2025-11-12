@@ -500,6 +500,7 @@ func (l *Lifecycle) waitForUnitGeneration(ctx context.Context, serviceName strin
 }
 
 // RestartMany restarts multiple services in dependency order.
+// Services are processed sequentially to ensure dependencies are restarted before dependents.
 func (l *Lifecycle) RestartMany(ctx context.Context, names []string) map[string]error {
 	l.logger.Debug("Restarting multiple services", "count", len(names))
 
@@ -540,26 +541,18 @@ func (l *Lifecycle) RestartMany(ctx context.Context, names []string) map[string]
 	}
 
 	results := make(map[string]error)
-	var mu sync.Mutex
 
-	var wg sync.WaitGroup
+	// Process services SEQUENTIALLY in the provided order (topological)
+	// Do NOT use goroutines - sequential ensures dependencies are ready
 	for _, name := range names {
-		wg.Add(1)
-		go func(svcName string) {
-			defer wg.Done()
+		err := l.Restart(ctx, name)
+		results[name] = err
 
-			err := l.Restart(ctx, svcName)
-			mu.Lock()
-			results[svcName] = err
-			mu.Unlock()
-
-			if err != nil {
-				l.logger.Error("Failed to restart service", "name", svcName, "error", err)
-			}
-		}(name)
+		if err != nil {
+			l.logger.Error("Failed to restart service", "name", name, "error", err)
+			// Continue to attempt remaining services (don't fail-fast)
+		}
 	}
-
-	wg.Wait()
 
 	successCount := 0
 	failedCount := 0

@@ -4,6 +4,7 @@ package systemd
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -103,6 +104,58 @@ func (m *MockConnection) Reload(_ context.Context) error {
 }
 
 func (m *MockConnection) Close() error {
+	return nil
+}
+
+// MockRestartOrderConnection tracks the order of restart calls.
+type MockRestartOrderConnection struct {
+	baseProps    map[string]interface{}
+	restartOrder *[]string
+	mu           *sync.Mutex
+}
+
+func (m *MockRestartOrderConnection) GetUnitProperties(_ context.Context, _ string) (map[string]interface{}, error) {
+	return m.baseProps, nil
+}
+
+func (m *MockRestartOrderConnection) GetUnitProperty(_ context.Context, _, _ string) (*dbusapi.Property, error) {
+	return nil, nil
+}
+
+func (m *MockRestartOrderConnection) ResetFailedUnit(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *MockRestartOrderConnection) StartUnit(_ context.Context, _, _ string) (chan string, error) {
+	ch := make(chan string, 1)
+	ch <- "done"
+	close(ch)
+	return ch, nil
+}
+
+func (m *MockRestartOrderConnection) StopUnit(_ context.Context, _, _ string) (chan string, error) {
+	ch := make(chan string, 1)
+	ch <- "done"
+	close(ch)
+	return ch, nil
+}
+
+func (m *MockRestartOrderConnection) RestartUnit(_ context.Context, name, _ string) (chan string, error) {
+	m.mu.Lock()
+	*m.restartOrder = append(*m.restartOrder, name)
+	m.mu.Unlock()
+
+	ch := make(chan string, 1)
+	ch <- "done"
+	close(ch)
+	return ch, nil
+}
+
+func (m *MockRestartOrderConnection) Reload(_ context.Context) error {
+	return nil
+}
+
+func (m *MockRestartOrderConnection) Close() error {
 	return nil
 }
 
@@ -216,6 +269,39 @@ func TestLifecycle_RestartMany_UnitAvailableForRestart(t *testing.T) {
 	// Should succeed without "Unit not found" errors
 	assert.Len(t, results, 1)
 	assert.NoError(t, results["test-svc"])
+}
+
+func TestLifecycle_RestartMany_SequentialExecution(t *testing.T) {
+	// Verifies RestartMany processes services sequentially in provided order
+	logger := testutil.NewTestLogger(t)
+
+	// Track restart order
+	var restartOrder []string
+	var mu sync.Mutex
+
+	mockFactory := &MockConnectionFactory{}
+	mockConn := &MockRestartOrderConnection{
+		baseProps:    map[string]interface{}{"LoadState": "loaded"},
+		restartOrder: &restartOrder,
+		mu:           &mu,
+	}
+	mockFactory.connection = mockConn
+
+	l := NewLifecycle(nil, mockFactory, false, logger)
+	l.SetUnitGenerationTimeout(1 * time.Second)
+
+	ctx := context.Background()
+	services := []string{"svc-a", "svc-b", "svc-c"}
+	results := l.RestartMany(ctx, services)
+
+	// All should succeed
+	assert.Len(t, results, 3)
+	assert.NoError(t, results["svc-a"])
+	assert.NoError(t, results["svc-b"])
+	assert.NoError(t, results["svc-c"])
+
+	// Verify sequential order (exact match)
+	assert.Equal(t, []string{"svc-a.service", "svc-b.service", "svc-c.service"}, restartOrder)
 }
 
 func TestLifecycle_StartMany_WaitsForUnitGeneration(t *testing.T) {
