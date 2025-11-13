@@ -597,7 +597,7 @@ func writeNetworks(w *QuadletWriter, spec service.Spec, c service.Container) {
 		// Add original service name as network alias for DNS resolution
 		// This allows containers to resolve each other by compose service names
 		if spec.OriginalName != "" {
-			w.Set("Container", "NetworkAlias", spec.OriginalName)
+			w.Append("Container", "NetworkAlias", spec.OriginalName)
 		}
 	}
 }
