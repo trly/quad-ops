@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
@@ -139,9 +140,12 @@ func (r *serviceRegistry) orderAndExpand(names []string) ([]string, error) {
 			continue
 		}
 
-		// Verify service exists
-		if _, ok := r.specs[current]; !ok {
-			return nil, fmt.Errorf("service not found: %s", current)
+		// Verify container service exists (infrastructure services are metadata-only)
+		isInfrastructure := strings.HasSuffix(current, "-network") || strings.HasSuffix(current, "-volume")
+		if !isInfrastructure {
+			if _, ok := r.specs[current]; !ok {
+				return nil, fmt.Errorf("service not found: %s", current)
+			}
 		}
 
 		needed[current] = true
