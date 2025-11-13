@@ -143,7 +143,7 @@ func (a *App) IsPlatformAvailable() bool {
 	return a.platformErr == nil
 }
 
-// newComposeProcessor creates a new compose processor with the repository directory.
-func newComposeProcessor(cfg *config.Settings) ComposeProcessorInterface {
-	return compose.NewSpecProcessor(cfg.RepositoryDir)
+// newComposeProcessor creates a new compose processor.
+func newComposeProcessor(_ *config.Settings) ComposeProcessorInterface {
+	return compose.NewSpecProcessor()
 }

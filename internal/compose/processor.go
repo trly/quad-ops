@@ -10,23 +10,21 @@ import (
 )
 
 // SpecProcessor processes Docker Compose projects into service specs.
-// It wraps Converter to provide the standard Process interface.
-type SpecProcessor struct {
-	converter *Converter
-}
+type SpecProcessor struct{}
 
-// NewSpecProcessor creates a new SpecProcessor with the given working directory.
-func NewSpecProcessor(workingDir string) *SpecProcessor {
-	return &SpecProcessor{
-		converter: NewConverter(workingDir),
-	}
+// NewSpecProcessor creates a new SpecProcessor.
+func NewSpecProcessor() *SpecProcessor {
+	return &SpecProcessor{}
 }
 
 // Process converts a Docker Compose project to service specs.
+// Uses project.WorkingDir for env file discovery.
 func (p *SpecProcessor) Process(_ context.Context, project *types.Project) ([]service.Spec, error) {
 	if project == nil {
 		return nil, fmt.Errorf("project is nil")
 	}
 
-	return p.converter.ConvertProject(project)
+	// Use project's working directory for env file discovery
+	converter := NewConverter(project.WorkingDir)
+	return converter.ConvertProject(project)
 }
