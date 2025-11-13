@@ -74,12 +74,42 @@ func newServiceRegistry() *serviceRegistry {
 func (r *serviceRegistry) add(spec service.Spec) error {
 	r.specs[spec.Name] = spec
 
-	// Add service to dependency graph
+	// Add container service to dependency graph
 	if err := r.graph.AddService(spec.Name); err != nil {
 		return err
 	}
 
-	// Add dependencies
+	// Add volume dependencies
+	// Note: Volume unit files are named {volumeName}.volume, but systemd converts to {volumeName}-volume.service
+	for _, vol := range spec.Volumes {
+		if !vol.External {
+			// Systemd converts .volume to -volume.service
+			volumeServiceName := vol.Name + "-volume"
+			if err := r.graph.AddService(volumeServiceName); err != nil {
+				return err
+			}
+			// Container depends on volume service
+			if err := r.graph.AddDependency(spec.Name, volumeServiceName); err != nil {
+				return err
+			}
+		}
+	}
+
+	// Add network dependencies
+	// Note: Network unit files are named {networkName}.network, but systemd converts to {networkName}-network.service
+	for _, net := range spec.Networks {
+		// Systemd converts .network to -network.service
+		networkServiceName := net.Name + "-network"
+		if err := r.graph.AddService(networkServiceName); err != nil {
+			return err
+		}
+		// Container depends on network service
+		if err := r.graph.AddDependency(spec.Name, networkServiceName); err != nil {
+			return err
+		}
+	}
+
+	// Add service dependencies
 	for _, depName := range spec.DependsOn {
 		if err := r.graph.AddDependency(spec.Name, depName); err != nil {
 			return err
