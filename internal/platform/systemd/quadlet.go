@@ -613,7 +613,7 @@ func writeDNS(w *QuadletWriter, c service.Container) {
 // writeDevices writes device mappings and cgroup rules to container section.
 func writeDevices(w *QuadletWriter, c service.Container) {
 	if len(c.Devices) > 0 {
-		w.AppendSorted("Container", "Device", c.Devices...)
+		w.AppendSorted("Container", "AddDevice", c.Devices...)
 	}
 	if len(c.DeviceCgroupRules) > 0 {
 		rules := make([]string, len(c.DeviceCgroupRules))
