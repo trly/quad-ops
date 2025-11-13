@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/benbjohnson/clock"
@@ -351,44 +353,302 @@ func TestSyncCommand_ReloadOnlyCalledWithChangesOrForce(t *testing.T) {
 
 // TestSyncCommand_RestartChangedServices tests restarting services when anyChanges is true.
 func TestSyncCommand_RestartChangedServices(t *testing.T) {
-	deps := SyncDeps{
-		CommonDeps: CommonDeps{
-			Clock: clock.NewMock(),
-			FileSystem: &FileSystemOps{
-				MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+	t.Run("starts services that aren't running", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoDir := filepath.Join(tmpDir, "test-repo")
+		err := os.MkdirAll(repoDir, 0755)
+		require.NoError(t, err)
+
+		// Create compose file
+		composeContent := `services:
+  web:
+    image: nginx:latest
+`
+		err = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
+		require.NoError(t, err)
+
+		var startedServices []string
+		var restartedServices []string
+
+		mockLifecycle := &MockLifecycle{
+			ReloadFunc: func(_ context.Context) error { return nil },
+			StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+				// Service not running
+				return &platform.ServiceStatus{Name: name, Active: false}, nil
 			},
-			Logger: testutil.NewTestLogger(t),
-		},
-		GitSyncer: &MockGitSyncer{
-			SyncAllFunc: func(_ context.Context, repos []config.Repository) ([]repository.SyncResult, error) {
-				return []repository.SyncResult{
-					{Repository: repos[0], Success: true, Changed: true},
+			StartManyFunc: func(_ context.Context, names []string) map[string]error {
+				startedServices = append(startedServices, names...)
+				return make(map[string]error)
+			},
+			RestartManyFunc: func(_ context.Context, names []string) map[string]error {
+				restartedServices = append(restartedServices, names...)
+				return make(map[string]error)
+			},
+		}
+
+		mockRenderer := &MockRenderer{
+			RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+				return &platform.RenderResult{
+					Artifacts: []platform.Artifact{
+						{Path: "/tmp/test-web.container", Content: []byte("test")},
+					},
+					ServiceChanges: map[string]platform.ChangeStatus{
+						"test-web": {ArtifactPaths: []string{"/tmp/test-web.container"}},
+					},
 				}, nil
 			},
-		},
-		Lifecycle: &MockLifecycle{
-			ReloadFunc: func(_ context.Context) error { return nil },
-		},
-	}
+		}
 
-	app := NewAppBuilder(t).
-		WithConfig(&config.Settings{
-			RepositoryDir: t.TempDir(),
-			Repositories: []config.Repository{
-				{Name: "test-repo"},
+		deps := SyncDeps{
+			CommonDeps: CommonDeps{
+				Clock: clock.NewMock(),
+				FileSystem: &FileSystemOps{
+					MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+				},
+				Logger: testutil.NewTestLogger(t),
 			},
-		}).
-		WithRenderer(&MockRenderer{}).
-		WithLifecycle(&MockLifecycle{}).
-		Build(t)
+			GitSyncer: &MockGitSyncer{
+				SyncAllFunc: func(_ context.Context, repos []config.Repository) ([]repository.SyncResult, error) {
+					return []repository.SyncResult{
+						{Repository: repos[0], Success: true, Changed: true},
+					}, nil
+				},
+			},
+			ComposeProcessor: &MockComposeProcessor{
+				ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+					return []service.Spec{
+						{Name: "test-web", Container: service.Container{Image: "nginx:latest"}},
+					}, nil
+				},
+			},
+			Renderer: mockRenderer,
+			ArtifactStore: &MockArtifactStore{
+				WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+					return []string{"/tmp/test-web.container"}, nil
+				},
+			},
+			Lifecycle: mockLifecycle,
+		}
 
-	syncCmd := NewSyncCommand()
-	opts := SyncOptions{
-		Force: true,
-	}
+		app := NewAppBuilder(t).
+			WithConfig(&config.Settings{
+				RepositoryDir: tmpDir,
+				Repositories: []config.Repository{
+					{Name: "test-repo"},
+				},
+			}).
+			WithRenderer(mockRenderer).
+			WithLifecycle(mockLifecycle).
+			Build(t)
 
-	err := syncCmd.Run(context.Background(), app, opts, deps)
-	require.NoError(t, err)
+		syncCmd := NewSyncCommand()
+		opts := SyncOptions{}
+
+		err = syncCmd.Run(context.Background(), app, opts, deps)
+		require.NoError(t, err)
+		assert.Contains(t, startedServices, "test-web", "Service should be started when not running")
+		assert.Empty(t, restartedServices, "Service should not be restarted when not running")
+	})
+
+	t.Run("restarts services that are running and changed", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoDir := filepath.Join(tmpDir, "test-repo")
+		err := os.MkdirAll(repoDir, 0755)
+		require.NoError(t, err)
+
+		composeContent := `services:
+  web:
+    image: nginx:latest
+`
+		err = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
+		require.NoError(t, err)
+
+		var startedServices []string
+		var restartedServices []string
+
+		mockLifecycle := &MockLifecycle{
+			ReloadFunc: func(_ context.Context) error { return nil },
+			StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+				// Service is running
+				return &platform.ServiceStatus{Name: name, Active: true}, nil
+			},
+			StartManyFunc: func(_ context.Context, names []string) map[string]error {
+				startedServices = append(startedServices, names...)
+				return make(map[string]error)
+			},
+			RestartManyFunc: func(_ context.Context, names []string) map[string]error {
+				restartedServices = append(restartedServices, names...)
+				return make(map[string]error)
+			},
+		}
+
+		mockRenderer := &MockRenderer{
+			RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+				return &platform.RenderResult{
+					Artifacts: []platform.Artifact{
+						{Path: "/tmp/test-web.container", Content: []byte("test")},
+					},
+					ServiceChanges: map[string]platform.ChangeStatus{
+						"test-web": {ArtifactPaths: []string{"/tmp/test-web.container"}},
+					},
+				}, nil
+			},
+		}
+
+		deps := SyncDeps{
+			CommonDeps: CommonDeps{
+				Clock: clock.NewMock(),
+				FileSystem: &FileSystemOps{
+					MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+				},
+				Logger: testutil.NewTestLogger(t),
+			},
+			GitSyncer: &MockGitSyncer{
+				SyncAllFunc: func(_ context.Context, repos []config.Repository) ([]repository.SyncResult, error) {
+					return []repository.SyncResult{
+						{Repository: repos[0], Success: true, Changed: true},
+					}, nil
+				},
+			},
+			ComposeProcessor: &MockComposeProcessor{
+				ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+					return []service.Spec{
+						{Name: "test-web", Container: service.Container{Image: "nginx:latest"}},
+					}, nil
+				},
+			},
+			Renderer: mockRenderer,
+			ArtifactStore: &MockArtifactStore{
+				WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+					return []string{"/tmp/test-web.container"}, nil
+				},
+			},
+			Lifecycle: mockLifecycle,
+		}
+
+		app := NewAppBuilder(t).
+			WithConfig(&config.Settings{
+				RepositoryDir: tmpDir,
+				Repositories: []config.Repository{
+					{Name: "test-repo"},
+				},
+			}).
+			WithRenderer(mockRenderer).
+			WithLifecycle(mockLifecycle).
+			Build(t)
+
+		syncCmd := NewSyncCommand()
+		opts := SyncOptions{}
+
+		err = syncCmd.Run(context.Background(), app, opts, deps)
+		require.NoError(t, err)
+		assert.Empty(t, startedServices, "Service should not be started when already running")
+		assert.Contains(t, restartedServices, "test-web", "Service should be restarted when running and changed")
+	})
+
+	t.Run("handles mixed running and stopped services", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		repoDir := filepath.Join(tmpDir, "test-repo")
+		err := os.MkdirAll(repoDir, 0755)
+		require.NoError(t, err)
+
+		composeContent := `services:
+  web:
+    image: nginx:latest
+  api:
+    image: python:latest
+`
+		err = os.WriteFile(filepath.Join(repoDir, "docker-compose.yml"), []byte(composeContent), 0600)
+		require.NoError(t, err)
+
+		var startedServices []string
+		var restartedServices []string
+
+		mockLifecycle := &MockLifecycle{
+			ReloadFunc: func(_ context.Context) error { return nil },
+			StatusFunc: func(_ context.Context, name string) (*platform.ServiceStatus, error) {
+				// web is running, api is not
+				if name == "test-web" {
+					return &platform.ServiceStatus{Name: name, Active: true}, nil
+				}
+				return &platform.ServiceStatus{Name: name, Active: false}, nil
+			},
+			StartManyFunc: func(_ context.Context, names []string) map[string]error {
+				startedServices = append(startedServices, names...)
+				return make(map[string]error)
+			},
+			RestartManyFunc: func(_ context.Context, names []string) map[string]error {
+				restartedServices = append(restartedServices, names...)
+				return make(map[string]error)
+			},
+		}
+
+		mockRenderer := &MockRenderer{
+			RenderFunc: func(_ context.Context, _ []service.Spec) (*platform.RenderResult, error) {
+				return &platform.RenderResult{
+					Artifacts: []platform.Artifact{
+						{Path: "/tmp/test-web.container", Content: []byte("test")},
+						{Path: "/tmp/test-api.container", Content: []byte("test")},
+					},
+					ServiceChanges: map[string]platform.ChangeStatus{
+						"test-web": {ArtifactPaths: []string{"/tmp/test-web.container"}},
+						"test-api": {ArtifactPaths: []string{"/tmp/test-api.container"}},
+					},
+				}, nil
+			},
+		}
+
+		deps := SyncDeps{
+			CommonDeps: CommonDeps{
+				Clock: clock.NewMock(),
+				FileSystem: &FileSystemOps{
+					MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
+				},
+				Logger: testutil.NewTestLogger(t),
+			},
+			GitSyncer: &MockGitSyncer{
+				SyncAllFunc: func(_ context.Context, repos []config.Repository) ([]repository.SyncResult, error) {
+					return []repository.SyncResult{
+						{Repository: repos[0], Success: true, Changed: true},
+					}, nil
+				},
+			},
+			ComposeProcessor: &MockComposeProcessor{
+				ProcessFunc: func(_ context.Context, _ *types.Project) ([]service.Spec, error) {
+					return []service.Spec{
+						{Name: "test-web", Container: service.Container{Image: "nginx:latest"}},
+						{Name: "test-api", Container: service.Container{Image: "python:latest"}},
+					}, nil
+				},
+			},
+			Renderer: mockRenderer,
+			ArtifactStore: &MockArtifactStore{
+				WriteFunc: func(_ context.Context, _ []platform.Artifact) ([]string, error) {
+					return []string{"/tmp/test-web.container", "/tmp/test-api.container"}, nil
+				},
+			},
+			Lifecycle: mockLifecycle,
+		}
+
+		app := NewAppBuilder(t).
+			WithConfig(&config.Settings{
+				RepositoryDir: tmpDir,
+				Repositories: []config.Repository{
+					{Name: "test-repo"},
+				},
+			}).
+			WithRenderer(mockRenderer).
+			WithLifecycle(mockLifecycle).
+			Build(t)
+
+		syncCmd := NewSyncCommand()
+		opts := SyncOptions{}
+
+		err = syncCmd.Run(context.Background(), app, opts, deps)
+		require.NoError(t, err)
+		assert.Contains(t, startedServices, "test-api", "Stopped service should be started")
+		assert.Contains(t, restartedServices, "test-web", "Running service should be restarted")
+	})
 }
 
 // TestSyncCommand_RestartErrors tests handling when no services need restart (logs errors gracefully).

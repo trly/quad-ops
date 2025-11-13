@@ -227,27 +227,8 @@ func (c *SyncCommand) syncRepositories(ctx context.Context, app *App, opts SyncO
 		}
 
 		if len(servicesToRestart) > 0 {
-			// Get services in topological order (dependencies first)
-			names, err := c.orderedServiceNames(registry, servicesToRestart)
-			if err != nil {
-				return fmt.Errorf("failed to determine service restart order: %w", err)
-			}
-
-			deps.Logger.Debug("Restarting services in dependency order", "count", len(names), "services", names)
-			restartErrs := deps.Lifecycle.RestartMany(ctx, names)
-			hasErrors := false
-			for name, rerr := range restartErrs {
-				if rerr != nil {
-					deps.Logger.Error("Failed to restart service", "service", name, "error", rerr)
-					hasErrors = true
-				} else {
-					deps.Logger.Info("Service restarted", "service", name)
-				}
-			}
-
-			// Run diagnostics if any services failed and we're on Linux
-			if hasErrors {
-				c.runDiagnosticsIfLinux(ctx, app, deps, allArtifactPaths)
+			if err := c.startAndRestartServices(ctx, app, deps, registry, servicesToRestart, allArtifactPaths); err != nil {
+				return err
 			}
 		}
 	} else {
@@ -432,6 +413,88 @@ func (c *SyncCommand) orderedServiceNames(registry *serviceRegistry, servicesToR
 	// Use registry to get topologically ordered services
 	// This ensures dependencies restart before dependents
 	return registry.orderAndExpand(names)
+}
+
+// startAndRestartServices handles starting stopped services and restarting running services.
+func (c *SyncCommand) startAndRestartServices(ctx context.Context, app *App, deps SyncDeps, registry *serviceRegistry, servicesToRestart map[string]bool, allArtifactPaths []string) error {
+	// Get services in topological order (dependencies first)
+	names, err := c.orderedServiceNames(registry, servicesToRestart)
+	if err != nil {
+		return fmt.Errorf("failed to determine service restart order: %w", err)
+	}
+
+	// Query status for all services to determine which need starting vs restarting
+	servicesToStart := make(map[string]bool)
+	servicesToActuallyRestart := make(map[string]bool)
+
+	for _, name := range names {
+		status, err := deps.Lifecycle.Status(ctx, name)
+		if err != nil {
+			// If we can't query status, assume service needs starting
+			deps.Logger.Debug("Failed to query service status, will attempt start", "service", name, "error", err)
+			servicesToStart[name] = true
+			continue
+		}
+
+		if status.Active {
+			// Service is running and changed, needs restart
+			servicesToActuallyRestart[name] = true
+		} else {
+			// Service is not running, needs start
+			servicesToStart[name] = true
+		}
+	}
+
+	// Start services that aren't running
+	if len(servicesToStart) > 0 {
+		orderedStartNames, err := c.orderedServiceNames(registry, servicesToStart)
+		if err != nil {
+			return fmt.Errorf("failed to determine service start order: %w", err)
+		}
+
+		deps.Logger.Debug("Starting services in dependency order", "count", len(orderedStartNames), "services", orderedStartNames)
+		startErrs := deps.Lifecycle.StartMany(ctx, orderedStartNames)
+		for name, serr := range startErrs {
+			if serr != nil {
+				deps.Logger.Error("Failed to start service", "service", name, "error", serr)
+			} else {
+				deps.Logger.Info("Service started", "service", name)
+			}
+		}
+	}
+
+	// Restart services that are already running and changed
+	if len(servicesToActuallyRestart) > 0 {
+		orderedRestartNames, err := c.orderedServiceNames(registry, servicesToActuallyRestart)
+		if err != nil {
+			return fmt.Errorf("failed to determine service restart order: %w", err)
+		}
+
+		deps.Logger.Debug("Restarting services in dependency order", "count", len(orderedRestartNames), "services", orderedRestartNames)
+		restartErrs := deps.Lifecycle.RestartMany(ctx, orderedRestartNames)
+		for name, rerr := range restartErrs {
+			if rerr != nil {
+				deps.Logger.Error("Failed to restart service", "service", name, "error", rerr)
+			} else {
+				deps.Logger.Info("Service restarted", "service", name)
+			}
+		}
+	}
+
+	// Run diagnostics if any services failed
+	hasErrors := false
+	for _, name := range names {
+		status, err := deps.Lifecycle.Status(ctx, name)
+		if err != nil || !status.Active {
+			hasErrors = true
+			break
+		}
+	}
+	if hasErrors {
+		c.runDiagnosticsIfLinux(ctx, app, deps, allArtifactPaths)
+	}
+
+	return nil
 }
 
 // runDiagnosticsIfLinux runs diagnostic checks for unit generation failures (Linux only).
