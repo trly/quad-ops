@@ -2,6 +2,7 @@
   "services": [
     {
       "Name": "ports-matrix_web",
+      "OriginalName": "web",
       "Description": "Service web from project ports-matrix",
       "Container": {
         "Image": "nginx:latest",

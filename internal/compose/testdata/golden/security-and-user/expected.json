@@ -2,6 +2,7 @@
   "services": [
     {
       "Name": "security-and-user_app",
+      "OriginalName": "app",
       "Description": "Service app from project security-and-user",
       "Container": {
         "Image": "myapp:1.0",

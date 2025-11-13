@@ -6,6 +6,7 @@ Wants=network-online.target
 Label=managed-by=quad-ops
 Image=alpine:latest
 Network=infrastructure_proxy.network
+NetworkAlias=app
 
 [Service]
 Restart=no

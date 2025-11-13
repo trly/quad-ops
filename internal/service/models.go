@@ -9,7 +9,8 @@ import (
 // It is the core domain model that gets converted from Docker Compose
 // and rendered to platform-specific artifacts (systemd units, launchd plists, etc.).
 type Spec struct {
-	Name                 string               // Service name (unique identifier)
+	Name                 string               // Service name (unique identifier, may be prefixed)
+	OriginalName         string               // Original unprefixed service name (for DNS aliases)
 	Description          string               // Human-readable description
 	Container            Container            // Container configuration
 	Volumes              []Volume             // Volume mounts

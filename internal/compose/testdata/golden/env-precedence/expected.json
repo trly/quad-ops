@@ -2,6 +2,7 @@
   "services": [
     {
       "Name": "env-precedence_app",
+      "OriginalName": "app",
       "Description": "Service app from project env-precedence",
       "Container": {
         "Image": "testapp:1.0",

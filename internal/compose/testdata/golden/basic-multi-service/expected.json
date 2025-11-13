@@ -2,6 +2,7 @@
   "services": [
     {
       "Name": "basic-multi-service_app",
+      "OriginalName": "app",
       "Description": "Service app from project basic-multi-service",
       "Container": {
         "Image": "myapp:1.0",
@@ -126,6 +127,7 @@
     },
     {
       "Name": "basic-multi-service_db",
+      "OriginalName": "db",
       "Description": "Service db from project basic-multi-service",
       "Container": {
         "Image": "postgres:15",
@@ -240,6 +242,7 @@
     },
     {
       "Name": "basic-multi-service_web",
+      "OriginalName": "web",
       "Description": "Service web from project basic-multi-service",
       "Container": {
         "Image": "nginx:1.25",

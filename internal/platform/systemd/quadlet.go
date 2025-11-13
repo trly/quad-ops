@@ -434,7 +434,7 @@ func writeContainerSection(w *QuadletWriter, spec service.Spec) {
 	writeEnvironment(w, c)
 	writePorts(w, c)
 	writeMounts(w, c)
-	writeNetworks(w, c)
+	writeNetworks(w, spec, c)
 	writeDNS(w, c)
 	writeDevices(w, c)
 	writeExecution(w, c)
@@ -580,7 +580,7 @@ func writeMounts(w *QuadletWriter, c service.Container) {
 }
 
 // writeNetworks writes network configuration to container section.
-func writeNetworks(w *QuadletWriter, c service.Container) {
+func writeNetworks(w *QuadletWriter, spec service.Spec, c service.Container) {
 	if c.Network.Mode != "" && c.Network.Mode != "bridge" {
 		w.Set("Container", "Network", c.Network.Mode)
 	}
@@ -593,6 +593,11 @@ func writeNetworks(w *QuadletWriter, c service.Container) {
 		sort.Strings(networks)
 		for _, net := range networks {
 			w.Append("Container", "Network", net+UnitSuffixNetwork)
+		}
+		// Add original service name as network alias for DNS resolution
+		// This allows containers to resolve each other by compose service names
+		if spec.OriginalName != "" {
+			w.Set("Container", "NetworkAlias", spec.OriginalName)
 		}
 	}
 }

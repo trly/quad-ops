@@ -8,6 +8,7 @@ Label=managed-by=quad-ops
 Image=nginx:latest
 PublishPort=8080:80
 Network=frontend.network
+NetworkAlias=web
 
 [Service]
 Restart=no

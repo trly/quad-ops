@@ -8,6 +8,7 @@ Label=managed-by=quad-ops
 Image=immich-server:latest
 Network=default.network
 Network=infrastructure_proxy.network
+NetworkAlias=immich-server
 
 [Service]
 Restart=no

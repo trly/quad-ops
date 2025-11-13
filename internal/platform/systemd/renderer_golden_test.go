@@ -85,8 +85,9 @@ func TestRenderer_GoldenTests(t *testing.T) {
 			artifactCount: 2,
 			specs: []service.Spec{
 				{
-					Name:        "app",
-					Description: "App with network",
+					Name:         "app",
+					OriginalName: "app",
+					Description:  "App with network",
 					Networks: []service.Network{
 						{
 							Name:     "backend",
@@ -161,7 +162,8 @@ func TestRenderer_GoldenTests(t *testing.T) {
 			artifactCount: 2,
 			specs: []service.Spec{
 				{
-					Name: "app",
+					Name:         "app",
+					OriginalName: "app",
 					Networks: []service.Network{
 						{
 							Name:     "infrastructure_proxy",
@@ -184,8 +186,9 @@ func TestRenderer_GoldenTests(t *testing.T) {
 			artifactCount: 3,
 			specs: []service.Spec{
 				{
-					Name:        "immich-server",
-					Description: "Immich server with multiple networks",
+					Name:         "immich-server",
+					OriginalName: "immich-server",
+					Description:  "Immich server with multiple networks",
 					Networks: []service.Network{
 						{
 							Name:     "default",
@@ -392,8 +395,9 @@ func TestRenderer_GoldenTests(t *testing.T) {
 			artifactCount: 2,
 			specs: []service.Spec{
 				{
-					Name:        "web",
-					Description: "Web server with networks and ports",
+					Name:         "web",
+					OriginalName: "web",
+					Description:  "Web server with networks and ports",
 					Networks: []service.Network{
 						{Name: "frontend", Driver: "bridge"},
 					},

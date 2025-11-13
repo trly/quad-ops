@@ -151,6 +151,7 @@ func (c *Converter) convertService(serviceName string, composeService types.Serv
 	// Create main service spec
 	spec := service.Spec{
 		Name:                 sanitizedName,
+		OriginalName:         serviceName,
 		Description:          fmt.Sprintf("Service %s from project %s", serviceName, project.Name),
 		Container:            container,
 		Volumes:              c.convertVolumesForService(composeService, project),
