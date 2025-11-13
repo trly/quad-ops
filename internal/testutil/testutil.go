@@ -91,9 +91,9 @@ func (h *testHandler) Handle(_ context.Context, record slog.Record) error {
 }
 
 func (h *testHandler) WithAttrs(_ []slog.Attr) slog.Handler {
-	return h // For simplicity, ignore attributes in tests
+	return &testHandler{t: h.t, opts: h.opts}
 }
 
 func (h *testHandler) WithGroup(_ string) slog.Handler {
-	return h // For simplicity, ignore groups in tests
+	return &testHandler{t: h.t, opts: h.opts}
 }

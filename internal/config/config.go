@@ -104,16 +104,6 @@ func (p *defaultConfigProvider) InitConfig() *Settings {
 
 // Internal function to initialize configuration.
 func initConfigInternal() (*Settings, error) {
-	cfg := &Settings{
-		RepositoryDir:    DefaultRepositoryDir,
-		SyncInterval:     DefaultSyncInterval,
-		QuadletDir:       DefaultQuadletDir,
-		UserMode:         DefaultUserMode,
-		Verbose:          DefaultVerbose,
-		UnitStartTimeout: DefaultUnitStartTimeout,
-		ImagePullTimeout: DefaultImagePullTimeout,
-	}
-
 	viper.SetDefault("repositoryDir", DefaultRepositoryDir)
 	viper.SetDefault("syncInterval", DefaultSyncInterval)
 	viper.SetDefault("quadletDir", DefaultQuadletDir)
@@ -134,7 +124,18 @@ func initConfigInternal() (*Settings, error) {
 		}
 	}
 
-	if err := viper.Unmarshal(cfg); err != nil {
+	cfg := &Settings{
+		RepositoryDir:    viper.GetString("repositoryDir"),
+		SyncInterval:     viper.GetDuration("syncInterval"),
+		QuadletDir:       viper.GetString("quadletDir"),
+		UserMode:         viper.GetBool("userMode"),
+		Verbose:          viper.GetBool("verbose"),
+		UnitStartTimeout: viper.GetDuration("unitStartTimeout"),
+		ImagePullTimeout: viper.GetDuration("imagePullTimeout"),
+	}
+
+	// Get repositories array if present
+	if err := viper.UnmarshalKey("repositories", &cfg.Repositories); err != nil {
 		return nil, err
 	}
 
