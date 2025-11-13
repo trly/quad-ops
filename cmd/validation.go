@@ -97,6 +97,7 @@ func validateExternalDependencies(
 }
 
 // validateExternalResources checks that external networks and volumes exist.
+// Batch-aware: checks in-memory specs first before calling podman.
 func validateExternalResources(
 	ctx context.Context,
 	specs []service.Spec,
@@ -104,6 +105,26 @@ func validateExternalResources(
 ) error {
 	var missingNetworks []string
 	var missingVolumes []string
+
+	// Build map of networks being created in this batch (non-external)
+	batchNetworks := make(map[string]bool)
+	for _, spec := range specs {
+		for _, net := range spec.Networks {
+			if !net.External {
+				batchNetworks[net.Name] = true
+			}
+		}
+	}
+
+	// Build map of volumes being created in this batch (non-external)
+	batchVolumes := make(map[string]bool)
+	for _, spec := range specs {
+		for _, vol := range spec.Volumes {
+			if !vol.External {
+				batchVolumes[vol.Name] = true
+			}
+		}
+	}
 
 	// Collect unique external networks
 	externalNets := make(map[string]bool)
@@ -115,8 +136,14 @@ func validateExternalResources(
 		}
 	}
 
-	// Check networks via podman
+	// Check networks: first check batch, then podman
 	for netName := range externalNets {
+		// Skip if being created in this batch
+		if batchNetworks[netName] {
+			continue
+		}
+
+		// Not in batch, check podman runtime
 		_, err := runner.CombinedOutput(ctx, "podman", "network", "inspect", netName)
 		if err != nil {
 			missingNetworks = append(missingNetworks, netName)
@@ -133,8 +160,14 @@ func validateExternalResources(
 		}
 	}
 
-	// Check volumes via podman
+	// Check volumes: first check batch, then podman
 	for volName := range externalVols {
+		// Skip if being created in this batch
+		if batchVolumes[volName] {
+			continue
+		}
+
+		// Not in batch, check podman runtime
 		_, err := runner.CombinedOutput(ctx, "podman", "volume", "inspect", volName)
 		if err != nil {
 			missingVolumes = append(missingVolumes, volName)
