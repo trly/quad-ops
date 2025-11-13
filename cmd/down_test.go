@@ -184,6 +184,8 @@ func TestDownCommand_NoServicesFound(t *testing.T) {
 
 	app := NewAppBuilder(t).
 		WithArtifactStore(artifactStore).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
 		Build(t)
 
 	downCmd := NewDownCommand()
@@ -205,6 +207,8 @@ func TestDownCommand_ArtifactStoreListError(t *testing.T) {
 
 	app := NewAppBuilder(t).
 		WithArtifactStore(artifactStore).
+		WithRenderer(&MockRenderer{}).
+		WithLifecycle(&MockLifecycle{}).
 		Build(t)
 
 	downCmd := NewDownCommand()

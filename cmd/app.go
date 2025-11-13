@@ -12,10 +12,7 @@ import (
 	"github.com/trly/quad-ops/internal/execx"
 	"github.com/trly/quad-ops/internal/fs"
 	"github.com/trly/quad-ops/internal/log"
-	"github.com/trly/quad-ops/internal/platform/launchd"
-	platsystemd "github.com/trly/quad-ops/internal/platform/systemd"
 	"github.com/trly/quad-ops/internal/repository"
-	"github.com/trly/quad-ops/internal/systemd"
 	"github.com/trly/quad-ops/internal/validate"
 )
 
@@ -107,59 +104,9 @@ func (a *App) initPlatform() {
 			return
 		}
 
-		targetOS := a.os
-		if targetOS == "" {
-			targetOS = runtime.GOOS
-		}
-
-		switch targetOS {
-		case "linux":
-			// Systemd platform
-			a.Logger.Debug("Initializing platform: systemd (Linux)")
-
-			// Create systemd factory for platform components
-			systemdFactory := systemd.NewDefaultFactory(a.ConfigProvider, a.Logger)
-
-			// Initialize renderer
-			a.renderer = platsystemd.NewRenderer(a.Logger)
-
-			// Initialize lifecycle
-			unitManager := systemdFactory.GetUnitManager()
-			connectionFactory := systemdFactory.GetConnectionFactory()
-			a.lifecycle = platsystemd.NewLifecycle(unitManager, connectionFactory, a.Config.UserMode, a.Logger)
-
-		case "darwin":
-			// Launchd platform (macOS)
-			a.Logger.Debug("Initializing platform: launchd (macOS)")
-
-			// Create launchd options from config settings
-			launchdOpts := launchd.OptionsFromSettings(
-				a.Config.RepositoryDir,
-				a.Config.QuadletDir,
-				a.Config.UserMode,
-			)
-
-			// Initialize renderer
-			renderer, err := launchd.NewRenderer(launchdOpts, a.Logger)
-			if err != nil {
-				a.platformErr = fmt.Errorf("failed to create launchd renderer: %w", err)
-				return
-			}
-			a.renderer = renderer
-
-			// Initialize lifecycle
-			lifecycle, err := launchd.NewLifecycle(launchdOpts, a.Runner, a.Logger)
-			if err != nil {
-				a.platformErr = fmt.Errorf("failed to create launchd lifecycle: %w", err)
-				return
-			}
-			a.lifecycle = lifecycle
-
-		default:
-			a.platformErr = &UnsupportedPlatformError{
-				Platform: targetOS,
-				Feature:  "service management",
-			}
+		// Call platform-specific initialization (implemented in app_linux.go / app_darwin.go)
+		if err := a.initPlatformComponents(); err != nil {
+			a.platformErr = err
 		}
 	})
 }
@@ -190,16 +137,7 @@ func (a *App) GetLifecycle(_ context.Context) (LifecycleInterface, error) {
 		return nil, a.platformErr
 	}
 
-	// Validate that we got the expected platform implementation
-	targetOS := a.os
-	if targetOS == "" {
-		targetOS = runtime.GOOS
-	}
-	if targetOS == "linux" {
-		if _, ok := a.lifecycle.(*platsystemd.Lifecycle); !ok {
-			a.Logger.Warn("Expected systemd lifecycle on Linux", "got", fmt.Sprintf("%T", a.lifecycle))
-		}
-	}
+	// Platform implementation validated at compile time via build tags
 
 	return a.lifecycle, nil
 }
