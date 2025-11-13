@@ -75,7 +75,7 @@ Support all container runtime features that work with standalone Podman:
 - **Imports**: Group stdlib, external packages, then internal (`github.com/trly/quad-ops/internal/*`)
 - **Comments**: Package-level godoc required, exported functions documented
 - **Error handling**: Wrap errors with context using `fmt.Errorf("context: %w", err)`
-- **Naming**: Service specs use sanitized names via `service.SanitizeName()`, unit files prefixed with project name
+- **Naming**: Service specs use `compose.Prefix(project, name)` for consistent naming, validated via `Validate*()` constraints
 - **Validation**: All specs validated via `spec.Validate()` before rendering
 - **Linters**: errcheck, govet, staticcheck, unused, revive, gosec, misspell enabled via golangci-lint
 

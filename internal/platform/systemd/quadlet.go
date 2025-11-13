@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/podman"
 	"github.com/trly/quad-ops/internal/service"
 )
@@ -393,15 +394,15 @@ func writeUnitSection(w *QuadletWriter, spec service.Spec) {
 		externalDeps := make([]service.ExternalDependency, len(spec.ExternalDependencies))
 		copy(externalDeps, spec.ExternalDependencies)
 		sort.Slice(externalDeps, func(i, j int) bool {
-			// Sort by project-service for consistent ordering
-			nameI := externalDeps[i].Project + "-" + externalDeps[i].Service
-			nameJ := externalDeps[j].Project + "-" + externalDeps[j].Service
+			// Sort by project_service for consistent ordering (using Prefix logic)
+			nameI := compose.Prefix(externalDeps[i].Project, externalDeps[i].Service)
+			nameJ := compose.Prefix(externalDeps[j].Project, externalDeps[j].Service)
 			return nameI < nameJ
 		})
 
 		for _, dep := range externalDeps {
-			// Format: project-service.service (using same naming as intra-project deps)
-			unitName := dep.Project + "-" + dep.Service + ".service"
+			// Format: project_service.service (using Prefix for consistency with intra-project deps)
+			unitName := compose.Prefix(dep.Project, dep.Service) + ".service"
 			w.Append("Unit", "After", unitName)
 
 			// Only required dependencies get Requires=
