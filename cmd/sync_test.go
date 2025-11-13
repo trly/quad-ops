@@ -38,30 +38,6 @@ func TestSyncCommand_ValidationFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), "systemd not found")
 }
 
-// TestSyncCommand_UnsupportedPlatform tests handling of unsupported platform.
-func TestSyncCommand_UnsupportedPlatform(t *testing.T) {
-	// Don't set renderer/lifecycle - let platform initialization fail naturally
-	app := NewAppBuilder(t).WithOS("windows").Build(t)
-
-	deps := SyncDeps{
-		CommonDeps: CommonDeps{
-			Clock: clock.NewMock(),
-			FileSystem: &FileSystemOps{
-				MkdirAllFunc: func(_ string, _ fs.FileMode) error { return nil },
-			},
-			Logger: testutil.NewTestLogger(t),
-		},
-		GitSyncer: repository.NewGitSyncer(app.ConfigProvider, testutil.NewTestLogger(t)),
-	}
-
-	syncCmd := NewSyncCommand()
-	opts := SyncOptions{}
-
-	err := syncCmd.Run(context.Background(), app, opts, deps)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "platform not supported")
-}
-
 // TestSyncCommand_DirectoryCreationFailure tests quadlet directory creation failure.
 func TestSyncCommand_DirectoryCreationFailure(t *testing.T) {
 	deps := SyncDeps{

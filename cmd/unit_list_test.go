@@ -507,43 +507,6 @@ func TestListCommand_Run_TableDriven(t *testing.T) {
 	}
 }
 
-func TestListCommand_GetLifecycleError(t *testing.T) {
-	artifacts := []platform.Artifact{
-		{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},
-	}
-
-	repoArtifactStore := &MockArtifactStore{
-		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
-			return artifacts, nil
-		},
-	}
-
-	artifactStore := &MockArtifactStore{
-		ListFunc: func(_ context.Context) ([]platform.Artifact, error) {
-			return []platform.Artifact{}, nil
-		},
-	}
-
-	// Don't set lifecycle - let platform initialization fail naturally
-	app := NewAppBuilder(t).
-		WithRepoArtifactStore(repoArtifactStore).
-		WithArtifactStore(artifactStore).
-		WithOS("unsupported-platform").
-		Build(t)
-
-	listCommand := NewListCommand()
-	opts := ListOptions{Status: true}
-	deps := ListDeps{
-		CommonDeps:        NewCommonDeps(app.Logger),
-		RepoArtifactStore: repoArtifactStore,
-		ArtifactStore:     artifactStore,
-	}
-
-	err := listCommand.Run(context.Background(), app, opts, deps)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get lifecycle")
-}
-
 func TestListCommand_MixedArtifactTypes(t *testing.T) {
 	artifacts := []platform.Artifact{
 		{Path: "dev.trly.quad-ops.web.container", Hash: "abc123", Mode: 0644},

@@ -216,17 +216,14 @@ type AppBuilder struct {
 	artifactStore     repository.ArtifactStore
 	repoArtifactStore repository.ArtifactStore
 	composeProcessor  ComposeProcessorInterface
-	os                string
 }
 
 // NewAppBuilder creates a new AppBuilder with sensible defaults.
-// Defaults to Linux platform to avoid platform initialization unless explicitly testing platform features.
 func NewAppBuilder(t *testing.T) *AppBuilder {
 	return &AppBuilder{
 		logger:    testutil.NewTestLogger(t),
 		config:    &config.Settings{Verbose: false},
 		validator: &MockValidator{},
-		os:        "linux", // Default to linux to avoid platform-specific initialization
 	}
 }
 
@@ -252,11 +249,6 @@ func (b *AppBuilder) WithRenderer(r RendererInterface) *AppBuilder {
 
 func (b *AppBuilder) WithLifecycle(l LifecycleInterface) *AppBuilder {
 	b.lifecycle = l
-	return b
-}
-
-func (b *AppBuilder) WithOS(os string) *AppBuilder {
-	b.os = os
 	return b
 }
 
@@ -288,6 +280,5 @@ func (b *AppBuilder) Build(t *testing.T) *App {
 		ArtifactStore:     b.artifactStore,
 		RepoArtifactStore: b.repoArtifactStore,
 		ComposeProcessor:  b.composeProcessor,
-		os:                b.os,
 	}
 }

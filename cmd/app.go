@@ -4,7 +4,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"sync"
 
 	"github.com/trly/quad-ops/internal/compose"
@@ -48,7 +47,6 @@ type App struct {
 	renderer     RendererInterface
 	lifecycle    LifecycleInterface
 	platformErr  error
-	os           string // For testing, defaults to runtime.GOOS
 
 	Validator    SystemValidator
 	OutputFormat string
@@ -87,9 +85,6 @@ func NewApp(logger log.Logger, configProv config.Provider) (*App, error) {
 		GitSyncer:         gitSyncer,
 		ComposeProcessor:  composeProcessor,
 
-		// Platform components initialized lazily
-		os: runtime.GOOS,
-
 		Validator: validator,
 	}, nil
 }
@@ -101,12 +96,6 @@ func (a *App) initPlatform() {
 	a.platformOnce.Do(func() {
 		// If renderer and lifecycle are already set (test injection), skip initialization
 		if a.renderer != nil && a.lifecycle != nil {
-			return
-		}
-
-		// Validate platform matches build target (for testing mocked OS values)
-		if (runtime.GOOS == "linux" && a.os != "linux") || (runtime.GOOS == "darwin" && a.os != "darwin") {
-			a.platformErr = fmt.Errorf("platform not supported: %s (compiled for %s)", a.os, runtime.GOOS)
 			return
 		}
 
