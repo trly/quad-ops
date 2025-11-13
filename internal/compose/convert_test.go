@@ -424,11 +424,11 @@ func TestConverter_NetworkDependencies_ExplicitNetworks(t *testing.T) {
 		Name: "myapp",
 		Networks: map[string]types.NetworkConfig{
 			"frontend": {
-				Name:   "frontend",
+				Name:   "myapp_frontend",
 				Driver: "bridge",
 			},
 			"backend": {
-				Name:   "backend",
+				Name:   "myapp_backend",
 				Driver: "bridge",
 			},
 		},
@@ -476,7 +476,7 @@ func TestConverter_NetworkDependencies_ImplicitDefaultNetwork(t *testing.T) {
 		Name: "myapp",
 		Networks: map[string]types.NetworkConfig{
 			"default": {
-				Name:   "default",
+				Name:   "myapp_default",
 				Driver: "bridge",
 			},
 		},
@@ -507,11 +507,11 @@ func TestConverter_NetworkDependencies_MultipleDefaultNetworks(t *testing.T) {
 		Name: "myapp",
 		Networks: map[string]types.NetworkConfig{
 			"default": {
-				Name:   "default",
+				Name:   "myapp_default",
 				Driver: "bridge",
 			},
 			"monitoring": {
-				Name:   "monitoring",
+				Name:   "myapp_monitoring",
 				Driver: "bridge",
 			},
 		},
@@ -553,7 +553,7 @@ func TestConverter_NetworkDependencies_ExternalNetwork(t *testing.T) {
 		Name: "myapp",
 		Networks: map[string]types.NetworkConfig{
 			"default": {
-				Name:   "default",
+				Name:   "myapp_default",
 				Driver: "bridge",
 			},
 			"infrastructure-proxy": {
@@ -606,7 +606,7 @@ func TestConverter_NetworkDependencies_ExternalNetworkNotInProject(t *testing.T)
 		Name: "llm",
 		Networks: map[string]types.NetworkConfig{
 			"default": {
-				Name:   "default",
+				Name:   "llm_default",
 				Driver: "bridge",
 			},
 		},
@@ -652,7 +652,7 @@ func TestConverter_NetworkDependencies_BridgeMode(t *testing.T) {
 		Name: "myapp",
 		Networks: map[string]types.NetworkConfig{
 			"backend": {
-				Name:   "backend",
+				Name:   "myapp_backend",
 				Driver: "bridge",
 			},
 		},
@@ -713,15 +713,15 @@ func TestConverter_VolumeDependencies_ExplicitVolumes(t *testing.T) {
 		Name: "myapp",
 		Volumes: map[string]types.VolumeConfig{
 			"data": {
-				Name:   "data",
+				Name:   "myapp_data",
 				Driver: "local",
 			},
 			"logs": {
-				Name:   "logs",
+				Name:   "myapp_logs",
 				Driver: "local",
 			},
 			"cache": {
-				Name:   "cache",
+				Name:   "myapp_cache",
 				Driver: "local",
 			},
 		},
@@ -757,11 +757,11 @@ func TestConverter_VolumeDependencies_MultipleVolumes(t *testing.T) {
 		Name: "myapp",
 		Volumes: map[string]types.VolumeConfig{
 			"data": {
-				Name:   "data",
+				Name:   "myapp_data",
 				Driver: "local",
 			},
 			"logs": {
-				Name:   "logs",
+				Name:   "myapp_logs",
 				Driver: "local",
 			},
 		},
@@ -831,7 +831,7 @@ func TestConverter_VolumeDependencies_BindMountsOnly(t *testing.T) {
 		Name: "myapp",
 		Volumes: map[string]types.VolumeConfig{
 			"data": {
-				Name:   "data",
+				Name:   "myapp_data",
 				Driver: "local",
 			},
 		},
@@ -876,7 +876,7 @@ func TestConverter_VolumeDependencies_MixedMounts(t *testing.T) {
 		Name: "myapp",
 		Volumes: map[string]types.VolumeConfig{
 			"data": {
-				Name:   "data",
+				Name:   "myapp_data",
 				Driver: "local",
 			},
 		},
@@ -928,7 +928,7 @@ func TestConverter_VolumeDependencies_ExternalVolumes(t *testing.T) {
 				External: types.External(true),
 			},
 			"local-data": {
-				Name:   "local-data",
+				Name:   "myapp_local-data",
 				Driver: "local",
 			},
 		},
@@ -989,7 +989,7 @@ func TestConverter_VolumeDependencies_SharedVolume(t *testing.T) {
 		Name: "myapp",
 		Volumes: map[string]types.VolumeConfig{
 			"shared": {
-				Name:   "shared",
+				Name:   "myapp_shared", // compose-go auto-prefixes this
 				Driver: "local",
 			},
 		},
@@ -1049,19 +1049,19 @@ func TestPrefix(t *testing.T) {
 			want:         "myapp_web",
 		},
 		{
-			name:         "already prefixed with hyphen",
+			name:         "resource name starts with project name but not prefixed",
 			projectName:  "myapp",
 			resourceName: "myapp-web",
-			want:         "myapp-web",
+			want:         "myapp_myapp-web",
 		},
 		{
-			name:         "already prefixed with underscore",
+			name:         "always prefix even if looks prefixed",
 			projectName:  "myapp",
 			resourceName: "myapp_web",
-			want:         "myapp_web",
+			want:         "myapp_myapp_web", // Double prefix - use external:true or name: to override
 		},
 		{
-			name:         "partial match not considered prefixed",
+			name:         "partial match also gets prefixed",
 			projectName:  "app",
 			resourceName: "myapp-web",
 			want:         "app_myapp-web",

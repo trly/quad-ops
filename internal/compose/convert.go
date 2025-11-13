@@ -430,15 +430,14 @@ func buildNetworkMode(composeService types.ServiceConfig, project *types.Project
 			if IsExternal(projectNet.External) {
 				continue
 			}
-			resolvedName := networkName
+			// Use projectNet.Name if set (already prefixed by compose-go), otherwise prefix the map key
+			name := networkName
 			if projectNet.Name != "" {
-				resolvedName = projectNet.Name
+				name = projectNet.Name
+			} else {
+				name = Prefix(project.Name, networkName)
 			}
-			sanitizedName := resolvedName
-			if !strings.Contains(resolvedName, project.Name) {
-				sanitizedName = Prefix(project.Name, resolvedName)
-			}
-			networkMode.ServiceNetworks = append(networkMode.ServiceNetworks, sanitizedName)
+			networkMode.ServiceNetworks = append(networkMode.ServiceNetworks, name)
 		}
 	} else {
 		// Explicit networks
@@ -451,15 +450,14 @@ func buildNetworkMode(composeService types.ServiceConfig, project *types.Project
 				networkMode.ServiceNetworks = append(networkMode.ServiceNetworks, netName)
 				continue
 			}
-			resolvedName := netName
+			// Use projectNet.Name if set (already prefixed by compose-go), otherwise prefix the map key
+			name := netName
 			if projectNet.Name != "" {
-				resolvedName = projectNet.Name
+				name = projectNet.Name
+			} else {
+				name = Prefix(project.Name, netName)
 			}
-			sanitizedName := resolvedName
-			if !strings.Contains(resolvedName, project.Name) {
-				sanitizedName = Prefix(project.Name, resolvedName)
-			}
-			networkMode.ServiceNetworks = append(networkMode.ServiceNetworks, sanitizedName)
+			networkMode.ServiceNetworks = append(networkMode.ServiceNetworks, name)
 		}
 	}
 
@@ -850,22 +848,17 @@ func (c *Converter) convertVolumesForService(composeService types.ServiceConfig,
 			continue
 		}
 
-		// Resolve volume name from project definition
-		resolvedName := volumeName
+		// Resolve volume name: use projectVol.Name if set (already prefixed by compose-go),
+		// otherwise prefix the map key for non-external volumes
+		name := volumeName
 		if projectVol.Name != "" {
-			resolvedName = projectVol.Name
-		}
-
-		// Apply project prefix unless external
-		var sanitizedName string
-		if IsExternal(projectVol.External) {
-			sanitizedName = resolvedName
-		} else {
-			sanitizedName = Prefix(project.Name, resolvedName)
+			name = projectVol.Name
+		} else if !IsExternal(projectVol.External) {
+			name = Prefix(project.Name, volumeName)
 		}
 
 		volume := service.Volume{
-			Name:     sanitizedName,
+			Name:     name,
 			Driver:   projectVol.Driver,
 			Options:  projectVol.DriverOpts,
 			Labels:   copyStringMap(projectVol.Labels),
@@ -909,22 +902,17 @@ func (c *Converter) convertNetworksForService(composeService types.ServiceConfig
 				continue
 			}
 
-			// Resolve network name from project definition
-			resolvedName := networkName
+			// Resolve network name: use projectNet.Name if set (already prefixed by compose-go),
+			// otherwise prefix the map key for non-external networks
+			name := networkName
 			if projectNet.Name != "" {
-				resolvedName = projectNet.Name
-			}
-
-			// Apply project prefix unless external
-			var sanitizedName string
-			if IsExternal(projectNet.External) {
-				sanitizedName = resolvedName
-			} else {
-				sanitizedName = Prefix(project.Name, resolvedName)
+				name = projectNet.Name
+			} else if !IsExternal(projectNet.External) {
+				name = Prefix(project.Name, networkName)
 			}
 
 			network := service.Network{
-				Name:     sanitizedName,
+				Name:     name,
 				Driver:   projectNet.Driver,
 				Options:  projectNet.DriverOpts,
 				Labels:   copyStringMap(projectNet.Labels),
@@ -950,15 +938,17 @@ func (c *Converter) convertNetworksForService(composeService types.ServiceConfig
 				continue
 			}
 
-			// Resolve network name
+			// Resolve network name: use net.Name if set (already prefixed by compose-go),
+			// otherwise prefix the map key
 			networkName := name
 			if net.Name != "" {
 				networkName = net.Name
+			} else {
+				networkName = Prefix(project.Name, name)
 			}
-			sanitizedName := Prefix(project.Name, networkName)
 
 			network := service.Network{
-				Name:     sanitizedName,
+				Name:     networkName,
 				Driver:   net.Driver,
 				Options:  net.DriverOpts,
 				Labels:   copyStringMap(net.Labels),
@@ -1362,14 +1352,11 @@ func (c *Converter) convertSecrets(composeService types.ServiceConfig, project *
 }
 
 // Prefix creates a prefixed resource name using project name and resource name.
-// No sanitization is performed; the projectName must already be valid according to
-// the service name regex: ^[a-zA-Z0-9][a-zA-Z0-9_.-]*$.
-// If the name is already prefixed (starts with projectName_ or projectName-), returns it unchanged.
+// Always prefixes, matching Docker Compose behavior. Use `external: true` or `name:`
+// field in compose.yaml to override auto-generated names.
 func Prefix(projectName, resourceName string) string {
-	// Don't double-prefix
-	if strings.HasPrefix(resourceName, projectName+"_") || strings.HasPrefix(resourceName, projectName+"-") {
-		return resourceName
-	}
+	// Always prefix non-external resources, matching Docker Compose behavior.
+	// Use `external: true` or `name:` field in compose to override.
 	return fmt.Sprintf("%s_%s", projectName, resourceName)
 }
 
