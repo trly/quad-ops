@@ -1,7 +1,7 @@
 {
   "services": [
     {
-      "Name": "env-precedence-app",
+      "Name": "env-precedence_app",
       "Description": "Service app from project env-precedence",
       "Container": {
         "Image": "testapp:1.0",
@@ -52,7 +52,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "env-precedence-app",
+        "ContainerName": "env-precedence_app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,

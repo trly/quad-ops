@@ -1,7 +1,7 @@
 {
   "services": [
     {
-      "Name": "healthcheck-variants-app",
+      "Name": "healthcheck-variants_app",
       "Description": "Service app from project healthcheck-variants",
       "Container": {
         "Image": "myapp:1.0",
@@ -50,7 +50,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "healthcheck-variants-app",
+        "ContainerName": "healthcheck-variants_app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,
@@ -103,7 +103,7 @@
       "Annotations": null
     },
     {
-      "Name": "healthcheck-variants-disabled",
+      "Name": "healthcheck-variants_disabled",
       "Description": "Service disabled from project healthcheck-variants",
       "Container": {
         "Image": "nohealth:1.0",
@@ -142,7 +142,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "healthcheck-variants-disabled",
+        "ContainerName": "healthcheck-variants_disabled",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,
@@ -195,7 +195,7 @@
       "Annotations": null
     },
     {
-      "Name": "healthcheck-variants-web",
+      "Name": "healthcheck-variants_web",
       "Description": "Service web from project healthcheck-variants",
       "Container": {
         "Image": "nginx:latest",
@@ -246,7 +246,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "healthcheck-variants-web",
+        "ContainerName": "healthcheck-variants_web",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,

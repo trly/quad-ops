@@ -321,7 +321,7 @@ func TestConverter_ConvertProject_WithExternalDependencies(t *testing.T) {
 	require.Len(t, specs, 1)
 
 	spec := specs[0]
-	assert.Equal(t, "app-backend", spec.Name)
+	assert.Equal(t, "app_backend", spec.Name)
 	require.Len(t, spec.ExternalDependencies, 2)
 
 	want := []service.ExternalDependency{
@@ -374,7 +374,7 @@ func TestConverter_ConvertProject_WithBothIntraAndExternalDeps(t *testing.T) {
 
 	var webSpec *service.Spec
 	for i := range specs {
-		if specs[i].Name == "app-web" {
+		if specs[i].Name == "app_web" {
 			webSpec = &specs[i]
 			break
 		}
@@ -382,7 +382,7 @@ func TestConverter_ConvertProject_WithBothIntraAndExternalDeps(t *testing.T) {
 	require.NotNil(t, webSpec)
 
 	// Should have intra-project dependency
-	assert.Equal(t, []string{"app-api"}, webSpec.DependsOn)
+	assert.Equal(t, []string{"app_api"}, webSpec.DependsOn)
 
 	// Should have external dependency
 	want := []service.ExternalDependency{

@@ -1,7 +1,7 @@
 {
   "services": [
     {
-      "Name": "basic-multi-service-app",
+      "Name": "basic-multi-service_app",
       "Description": "Service app from project basic-multi-service",
       "Container": {
         "Image": "myapp:1.0",
@@ -18,7 +18,7 @@
         "Ports": null,
         "Mounts": [
           {
-            "Source": "basic-multi-service-app-data",
+            "Source": "basic-multi-service_app-data",
             "Target": "/data",
             "Type": "volume",
             "ReadOnly": false,
@@ -53,7 +53,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "basic-multi-service-app",
+        "ContainerName": "basic-multi-service_app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,
@@ -125,7 +125,7 @@
       "Annotations": null
     },
     {
-      "Name": "basic-multi-service-db",
+      "Name": "basic-multi-service_db",
       "Description": "Service db from project basic-multi-service",
       "Container": {
         "Image": "postgres:15",
@@ -143,7 +143,7 @@
         "Ports": null,
         "Mounts": [
           {
-            "Source": "basic-multi-service-db-data",
+            "Source": "basic-multi-service_db-data",
             "Target": "/var/lib/postgresql/data",
             "Type": "volume",
             "ReadOnly": false,
@@ -178,7 +178,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "basic-multi-service-db",
+        "ContainerName": "basic-multi-service_db",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,
@@ -239,7 +239,7 @@
       "Annotations": null
     },
     {
-      "Name": "basic-multi-service-web",
+      "Name": "basic-multi-service_web",
       "Description": "Service web from project basic-multi-service",
       "Container": {
         "Image": "nginx:1.25",
@@ -285,7 +285,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "basic-multi-service-web",
+        "ContainerName": "basic-multi-service_web",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,
@@ -334,7 +334,7 @@
         }
       ],
       "DependsOn": [
-        "basic-multi-service-app"
+        "basic-multi-service_app"
       ],
       "ExternalDependencies": null,
       "Annotations": null

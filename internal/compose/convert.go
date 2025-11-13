@@ -1370,7 +1370,7 @@ func Prefix(projectName, resourceName string) string {
 	if strings.HasPrefix(resourceName, projectName+"_") || strings.HasPrefix(resourceName, projectName+"-") {
 		return resourceName
 	}
-	return fmt.Sprintf("%s-%s", projectName, resourceName)
+	return fmt.Sprintf("%s_%s", projectName, resourceName)
 }
 
 // FindEnvFiles discovers environment files for a service in a working directory.

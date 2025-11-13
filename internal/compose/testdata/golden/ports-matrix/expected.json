@@ -1,7 +1,7 @@
 {
   "services": [
     {
-      "Name": "ports-matrix-web",
+      "Name": "ports-matrix_web",
       "Description": "Service web from project ports-matrix",
       "Container": {
         "Image": "nginx:latest",
@@ -95,7 +95,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "ports-matrix-web",
+        "ContainerName": "ports-matrix_web",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,

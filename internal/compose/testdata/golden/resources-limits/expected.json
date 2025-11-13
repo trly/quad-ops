@@ -1,7 +1,7 @@
 {
   "services": [
     {
-      "Name": "resources-limits-app",
+      "Name": "resources-limits_app",
       "Description": "Service app from project resources-limits",
       "Container": {
         "Image": "myapp:1.0",
@@ -40,7 +40,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "resources-limits-app",
+        "ContainerName": "resources-limits_app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,

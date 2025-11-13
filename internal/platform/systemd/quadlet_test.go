@@ -142,14 +142,14 @@ func TestRenderContainer_NamedVolume_UsesQuadletSyntax(t *testing.T) {
 			Mounts: []service.Mount{
 				{
 					Type:   service.MountTypeVolume,
-					Source: "myproject-data",
+					Source: "myproject_data",
 					Target: "/app/data",
 				},
 			},
 		},
 		Volumes: []service.Volume{
 			{
-				Name:     "myproject-data",
+				Name:     "myproject_data",
 				External: false,
 			},
 		},
@@ -157,11 +157,11 @@ func TestRenderContainer_NamedVolume_UsesQuadletSyntax(t *testing.T) {
 
 	result := renderContainer(spec)
 
-	assert.Contains(t, result, "Volume=myproject-data.volume:/app/data",
+	assert.Contains(t, result, "Volume=myproject_data.volume:/app/data",
 		"named volume should use Quadlet .volume suffix syntax")
-	assert.NotContains(t, result, "After=myproject-data.volume",
+	assert.NotContains(t, result, "After=myproject_data.volume",
 		"should NOT have manual After= for volume (Quadlet adds automatically)")
-	assert.NotContains(t, result, "Requires=myproject-data.volume",
+	assert.NotContains(t, result, "Requires=myproject_data.volume",
 		"should NOT have manual Requires= for volume (Quadlet adds automatically)")
 }
 
@@ -242,7 +242,7 @@ func TestRenderContainer_MultipleNamedVolumes_AllUseQuadletSyntax(t *testing.T) 
 			Mounts: []service.Mount{
 				{
 					Type:   service.MountTypeVolume,
-					Source: "myproject-data",
+					Source: "myproject_data",
 					Target: "/data",
 				},
 				{
@@ -253,18 +253,18 @@ func TestRenderContainer_MultipleNamedVolumes_AllUseQuadletSyntax(t *testing.T) 
 			},
 		},
 		Volumes: []service.Volume{
-			{Name: "myproject-data", External: false},
+			{Name: "myproject_data", External: false},
 			{Name: "myproject-config", External: false},
 		},
 	}
 
 	result := renderContainer(spec)
 
-	assert.Contains(t, result, "Volume=myproject-data.volume:/data")
+	assert.Contains(t, result, "Volume=myproject_data.volume:/data")
 	assert.Contains(t, result, "Volume=myproject-config.volume:/config")
-	assert.NotContains(t, result, "After=myproject-data.volume")
+	assert.NotContains(t, result, "After=myproject_data.volume")
 	assert.NotContains(t, result, "After=myproject-config.volume")
-	assert.NotContains(t, result, "Requires=myproject-data.volume")
+	assert.NotContains(t, result, "Requires=myproject_data.volume")
 	assert.NotContains(t, result, "Requires=myproject-config.volume")
 }
 
@@ -303,7 +303,7 @@ func TestRenderContainer_MixedDependencies_OnlyInfrastructureRemoved(t *testing.
 			Mounts: []service.Mount{
 				{
 					Type:   service.MountTypeVolume,
-					Source: "myproject-data",
+					Source: "myproject_data",
 					Target: "/data",
 				},
 			},
@@ -313,15 +313,15 @@ func TestRenderContainer_MixedDependencies_OnlyInfrastructureRemoved(t *testing.
 		},
 		DependsOn: []string{"myproject-db", "myproject-cache"},
 		Volumes: []service.Volume{
-			{Name: "myproject-data", External: false},
+			{Name: "myproject_data", External: false},
 		},
 	}
 
 	result := renderContainer(spec)
 
-	assert.Contains(t, result, "Volume=myproject-data.volume:/data")
+	assert.Contains(t, result, "Volume=myproject_data.volume:/data")
 	assert.Contains(t, result, "Network=myproject-backend.network")
-	assert.NotContains(t, result, "After=myproject-data.volume")
+	assert.NotContains(t, result, "After=myproject_data.volume")
 	assert.NotContains(t, result, "After=myproject-backend.network")
 
 	assert.Contains(t, result, "After=myproject-db.service",

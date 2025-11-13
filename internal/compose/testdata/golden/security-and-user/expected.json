@@ -1,7 +1,7 @@
 {
   "services": [
     {
-      "Name": "security-and-user-app",
+      "Name": "security-and-user_app",
       "Description": "Service app from project security-and-user",
       "Container": {
         "Image": "myapp:1.0",
@@ -52,7 +52,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "myapp-host",
-        "ContainerName": "security-and-user-app",
+        "ContainerName": "security-and-user_app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": true,

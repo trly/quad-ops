@@ -22,14 +22,14 @@ func TestSystemdUnitNameForService(t *testing.T) {
 			name:     "basic service name",
 			project:  "infra",
 			svc:      "db",
-			expected: "infra-db.service",
-		},
-		{
+			expected: "infra_db.service",
+			},
+			{
 			name:     "service with hyphen",
 			project:  "my-app",
 			svc:      "api-server",
-			expected: "my-app-api-server.service",
-		},
+			expected: "my-app_api-server.service",
+			},
 	}
 
 	for _, tt := range tests {
@@ -84,7 +84,7 @@ func TestValidateExternalDependencies_AllExist(t *testing.T) {
 
 	mockLifecycle := &MockLifecycle{
 		ExistsFunc: func(_ context.Context, name string) (bool, error) {
-			assert.Equal(t, "infra-db.service", name)
+			assert.Equal(t, "infra_db.service", name)
 			return true, nil
 		},
 	}
@@ -118,7 +118,7 @@ func TestValidateExternalDependencies_RequiredMissing(t *testing.T) {
 	err := validateExternalDependencies(ctx, specs, mockLifecycle, logger, "systemd")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "required external services not found")
-	assert.Contains(t, err.Error(), "infra-api")
+	assert.Contains(t, err.Error(), "infra_api")
 	assert.Contains(t, err.Error(), "ensure dependency projects are deployed first")
 
 	// Verify ExistsInRuntime flag was set to false
@@ -157,7 +157,7 @@ func TestValidateExternalDependencies_BatchAware(t *testing.T) {
 
 	specs := []service.Spec{
 		{
-			Name: "infra-db",
+			Name: "infra_db",
 		},
 		{
 			Name: "app-web",
@@ -206,7 +206,7 @@ func TestValidateExternalDependencies_PlatformAwareSystemd(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify systemd-specific unit name was used
-	assert.Equal(t, "infra-proxy.service", checkedName)
+	assert.Equal(t, "infra_proxy.service", checkedName)
 }
 
 func TestValidateExternalDependencies_PlatformAwareLaunchd(t *testing.T) {
@@ -272,7 +272,7 @@ func TestValidateExternalDependencies_MultipleServices(t *testing.T) {
 	err := validateExternalDependencies(ctx, specs, mockLifecycle, logger, "systemd")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "required external services not found")
-	assert.Contains(t, err.Error(), "infra-queue")
+	assert.Contains(t, err.Error(), "infra_queue")
 }
 
 func TestValidateExternalResources_AllExist(t *testing.T) {
@@ -471,9 +471,9 @@ func TestValidateExternalDependencies_MixedRequiredOptional(t *testing.T) {
 	}
 
 	existingServices := map[string]bool{
-		"infra-db.service":              true,  // Exists
-		"monitoring-prometheus.service": false, // Missing but optional
-		"infra-cache.service":           false, // Missing and required
+		"infra_db.service":               true,  // Exists
+		"monitoring_prometheus.service":  false, // Missing but optional
+		"infra_cache.service":            false, // Missing and required
 	}
 
 	mockLifecycle := &MockLifecycle{
@@ -484,7 +484,7 @@ func TestValidateExternalDependencies_MixedRequiredOptional(t *testing.T) {
 
 	err := validateExternalDependencies(ctx, specs, mockLifecycle, logger, "systemd")
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "infra-cache")
+	assert.Contains(t, err.Error(), "infra_cache")
 	assert.NotContains(t, err.Error(), "monitoring-prometheus")
 
 	// Verify flags were set correctly
@@ -520,7 +520,7 @@ func TestValidateExternalDependencies_SortedErrorOutput(t *testing.T) {
 
 	// Error should list missing services
 	errMsg := err.Error()
-	assert.Contains(t, errMsg, "alpha-apple")
-	assert.Contains(t, errMsg, "mike-mango")
-	assert.Contains(t, errMsg, "zulu-zebra")
+	assert.Contains(t, errMsg, "alpha_apple")
+	assert.Contains(t, errMsg, "mike_mango")
+	assert.Contains(t, errMsg, "zulu_zebra")
 }

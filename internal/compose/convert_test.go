@@ -36,7 +36,7 @@ func TestConverter_ConvertProject_BasicService(t *testing.T) {
 	require.Len(t, specs, 1)
 
 	spec := specs[0]
-	assert.Equal(t, "test-web", spec.Name)
+	assert.Equal(t, "test_web", spec.Name)
 	assert.Equal(t, "nginx:latest", spec.Container.Image)
 	assert.NoError(t, spec.Validate())
 }
@@ -63,7 +63,7 @@ func TestConverter_ConvertProject_MultipleServices(t *testing.T) {
 	require.Len(t, specs, 2)
 
 	names := []string{specs[0].Name, specs[1].Name}
-	want := []string{"multi-web", "multi-db"}
+	want := []string{"multi_web", "multi_db"}
 	if diff := cmp.Diff(want, names, cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
 	})); diff != "" {
@@ -105,7 +105,7 @@ func TestConverter_ConvertProject_WithDependencies(t *testing.T) {
 
 	var webSpec *service.Spec
 	for i := range specs {
-		if specs[i].Name == "app-web" {
+		if specs[i].Name == "app_web" {
 			webSpec = &specs[i]
 			break
 		}
@@ -113,7 +113,7 @@ func TestConverter_ConvertProject_WithDependencies(t *testing.T) {
 	require.NotNil(t, webSpec)
 
 	// Dependencies should be sorted and prefixed
-	want := []string{"app-cache", "app-db"}
+	want := []string{"app_cache", "app_db"}
 	if diff := cmp.Diff(want, webSpec.DependsOn, cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
 	})); diff != "" {
@@ -206,7 +206,7 @@ func TestConverter_ValidateProject_SwarmDriverRejected(t *testing.T) {
 				Name:       "test",
 				WorkingDir: "/test",
 				Configs: map[string]types.ConfigObjConfig{
-					"app-config": {
+					"app_config": {
 						Driver: "swarm",
 					},
 				},
@@ -450,10 +450,10 @@ func TestConverter_NetworkDependencies_ExplicitNetworks(t *testing.T) {
 	require.Len(t, specs, 1)
 
 	spec := specs[0]
-	assert.Equal(t, "myapp-web", spec.Name)
+	assert.Equal(t, "myapp_web", spec.Name)
 
 	// Service should have both networks in ServiceNetworks
-	wantServiceNetworks := []string{"myapp-backend", "myapp-frontend"}
+	wantServiceNetworks := []string{"myapp_backend", "myapp_frontend"}
 	if diff := cmp.Diff(wantServiceNetworks, spec.Container.Network.ServiceNetworks, cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
 	})); diff != "" {
@@ -463,7 +463,7 @@ func TestConverter_NetworkDependencies_ExplicitNetworks(t *testing.T) {
 	// Spec.Networks should contain both networks
 	require.Len(t, spec.Networks, 2)
 	networkNames := []string{spec.Networks[0].Name, spec.Networks[1].Name}
-	wantNetworkNames := []string{"myapp-backend", "myapp-frontend"}
+	wantNetworkNames := []string{"myapp_backend", "myapp_frontend"}
 	if diff := cmp.Diff(wantNetworkNames, networkNames, cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
 	})); diff != "" {
@@ -497,9 +497,9 @@ func TestConverter_NetworkDependencies_ImplicitDefaultNetwork(t *testing.T) {
 	spec := specs[0]
 
 	// Service without explicit networks should use project default networks
-	assert.Contains(t, spec.Container.Network.ServiceNetworks, "myapp-default")
+	assert.Contains(t, spec.Container.Network.ServiceNetworks, "myapp_default")
 	require.Len(t, spec.Networks, 1)
-	assert.Equal(t, "myapp-default", spec.Networks[0].Name)
+	assert.Equal(t, "myapp_default", spec.Networks[0].Name)
 }
 
 func TestConverter_NetworkDependencies_MultipleDefaultNetworks(t *testing.T) {
@@ -532,7 +532,7 @@ func TestConverter_NetworkDependencies_MultipleDefaultNetworks(t *testing.T) {
 	spec := specs[0]
 
 	// Service with empty networks should get ALL project networks
-	wantServiceNetworks := []string{"myapp-default", "myapp-monitoring"}
+	wantServiceNetworks := []string{"myapp_default", "myapp_monitoring"}
 	if diff := cmp.Diff(wantServiceNetworks, spec.Container.Network.ServiceNetworks, cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
 	})); diff != "" {
@@ -540,7 +540,7 @@ func TestConverter_NetworkDependencies_MultipleDefaultNetworks(t *testing.T) {
 	}
 	require.Len(t, spec.Networks, 2)
 	networkNames := []string{spec.Networks[0].Name, spec.Networks[1].Name}
-	wantNetworkNames := []string{"myapp-default", "myapp-monitoring"}
+	wantNetworkNames := []string{"myapp_default", "myapp_monitoring"}
 	if diff := cmp.Diff(wantNetworkNames, networkNames, cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
 	})); diff != "" {
@@ -581,7 +581,7 @@ func TestConverter_NetworkDependencies_ExternalNetwork(t *testing.T) {
 	spec := specs[0]
 
 	// External networks should be in ServiceNetworks
-	wantServiceNetworks := []string{"infrastructure-proxy", "myapp-default"}
+	wantServiceNetworks := []string{"infrastructure-proxy", "myapp_default"}
 	if diff := cmp.Diff(wantServiceNetworks, spec.Container.Network.ServiceNetworks, cmpopts.SortSlices(func(a, b string) bool {
 		return a < b
 	})); diff != "" {
@@ -631,7 +631,7 @@ func TestConverter_NetworkDependencies_ExternalNetworkNotInProject(t *testing.T)
 
 	// External network should be in ServiceNetworks WITHOUT project prefix
 	assert.ElementsMatch(t,
-		[]string{"infrastructure-proxy", "llm-default"},
+		[]string{"infrastructure-proxy", "llm_default"},
 		spec.Container.Network.ServiceNetworks)
 
 	// Spec.Networks should have both networks
@@ -677,7 +677,7 @@ func TestConverter_NetworkDependencies_BridgeMode(t *testing.T) {
 
 	// Even with explicit bridge mode, service should have network in ServiceNetworks
 	assert.Equal(t, "bridge", spec.Container.Network.Mode)
-	assert.Contains(t, spec.Container.Network.ServiceNetworks, "myapp-backend")
+	assert.Contains(t, spec.Container.Network.ServiceNetworks, "myapp_backend")
 }
 
 func TestConverter_NetworkDependencies_NoNetworks(t *testing.T) {
@@ -749,7 +749,7 @@ func TestConverter_VolumeDependencies_ExplicitVolumes(t *testing.T) {
 
 	// Service should only depend on volumes it actually uses
 	assert.Len(t, spec.Volumes, 1)
-	assert.Equal(t, "myapp-data", spec.Volumes[0].Name)
+	assert.Equal(t, "myapp_data", spec.Volumes[0].Name)
 }
 
 func TestConverter_VolumeDependencies_MultipleVolumes(t *testing.T) {
@@ -794,7 +794,7 @@ func TestConverter_VolumeDependencies_MultipleVolumes(t *testing.T) {
 
 	assert.Len(t, spec.Volumes, 2)
 	volumeNames := []string{spec.Volumes[0].Name, spec.Volumes[1].Name}
-	assert.ElementsMatch(t, []string{"myapp-data", "myapp-logs"}, volumeNames)
+	assert.ElementsMatch(t, []string{"myapp_data", "myapp_logs"}, volumeNames)
 }
 
 func TestConverter_VolumeDependencies_NoVolumes(t *testing.T) {
@@ -913,7 +913,7 @@ func TestConverter_VolumeDependencies_MixedMounts(t *testing.T) {
 
 	// Should only depend on named volumes
 	assert.Len(t, spec.Volumes, 1)
-	assert.Equal(t, "myapp-data", spec.Volumes[0].Name)
+	assert.Equal(t, "myapp_data", spec.Volumes[0].Name)
 
 	// All mounts should still be in Container.Mounts
 	assert.Len(t, spec.Container.Mounts, 3)
@@ -980,7 +980,7 @@ func TestConverter_VolumeDependencies_ExternalVolumes(t *testing.T) {
 	assert.True(t, externalVol.External)
 
 	// Local volume should be prefixed
-	assert.Equal(t, "myapp-local-data", localVol.Name)
+	assert.Equal(t, "myapp_local-data", localVol.Name)
 	assert.False(t, localVol.External)
 }
 
@@ -1027,7 +1027,7 @@ func TestConverter_VolumeDependencies_SharedVolume(t *testing.T) {
 	// Both services should have the shared volume
 	for _, spec := range specs {
 		assert.Len(t, spec.Volumes, 1)
-		assert.Equal(t, "myapp-shared", spec.Volumes[0].Name)
+		assert.Equal(t, "myapp_shared", spec.Volumes[0].Name)
 	}
 }
 
@@ -1046,7 +1046,7 @@ func TestPrefix(t *testing.T) {
 			name:         "basic prefix",
 			projectName:  "myapp",
 			resourceName: "web",
-			want:         "myapp-web",
+			want:         "myapp_web",
 		},
 		{
 			name:         "already prefixed with hyphen",
@@ -1064,7 +1064,7 @@ func TestPrefix(t *testing.T) {
 			name:         "partial match not considered prefixed",
 			projectName:  "app",
 			resourceName: "myapp-web",
-			want:         "app-myapp-web",
+			want:         "app_myapp-web",
 		},
 	}
 

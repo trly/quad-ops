@@ -1,7 +1,7 @@
 {
   "services": [
     {
-      "Name": "mounts-matrix-app",
+      "Name": "mounts-matrix_app",
       "Description": "Service app from project mounts-matrix",
       "Container": {
         "Image": "myapp:1.0",
@@ -80,7 +80,7 @@
             }
           },
           {
-            "Source": "mounts-matrix-app-data",
+            "Source": "mounts-matrix_app-data",
             "Target": "/app/storage",
             "Type": "volume",
             "ReadOnly": false,
@@ -89,7 +89,7 @@
             "TmpfsOptions": null
           },
           {
-            "Source": "mounts-matrix-cache",
+            "Source": "mounts-matrix_cache",
             "Target": "/tmp/cache",
             "Type": "volume",
             "ReadOnly": false,
@@ -124,7 +124,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "mounts-matrix-app",
+        "ContainerName": "mounts-matrix_app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,
