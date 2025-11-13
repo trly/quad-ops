@@ -431,7 +431,7 @@ func buildNetworkMode(composeService types.ServiceConfig, project *types.Project
 				continue
 			}
 			// Use projectNet.Name if set (already prefixed by compose-go), otherwise prefix the map key
-			name := networkName
+			var name string
 			if projectNet.Name != "" {
 				name = projectNet.Name
 			} else {
@@ -451,7 +451,7 @@ func buildNetworkMode(composeService types.ServiceConfig, project *types.Project
 				continue
 			}
 			// Use projectNet.Name if set (already prefixed by compose-go), otherwise prefix the map key
-			name := netName
+			var name string
 			if projectNet.Name != "" {
 				name = projectNet.Name
 			} else {
@@ -940,7 +940,7 @@ func (c *Converter) convertNetworksForService(composeService types.ServiceConfig
 
 			// Resolve network name: use net.Name if set (already prefixed by compose-go),
 			// otherwise prefix the map key
-			networkName := name
+			var networkName string
 			if net.Name != "" {
 				networkName = net.Name
 			} else {
