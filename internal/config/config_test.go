@@ -17,6 +17,14 @@ func resetViper() {
 // TestInitConfig tests the InitConfig function.
 func TestInitConfig(t *testing.T) {
 	resetViper()
+
+	// Prevent viper from loading any real config files
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatal(err)
+	}
+
 	provider := NewConfigProvider()
 	cfg := provider.GetConfig()
 

@@ -40,6 +40,8 @@ func TestSyncCommand_ValidationFailure(t *testing.T) {
 
 // TestSyncCommand_UnsupportedPlatform tests handling of unsupported platform.
 func TestSyncCommand_UnsupportedPlatform(t *testing.T) {
+	app := NewAppBuilder(t).WithOS("windows").Build(t)
+
 	deps := SyncDeps{
 		CommonDeps: CommonDeps{
 			Clock: clock.NewMock(),
@@ -48,10 +50,8 @@ func TestSyncCommand_UnsupportedPlatform(t *testing.T) {
 			},
 			Logger: testutil.NewTestLogger(t),
 		},
+		GitSyncer: repository.NewGitSyncer(app.ConfigProvider, testutil.NewTestLogger(t)),
 	}
-
-	// Build app with unsupported platform (e.g., windows)
-	app := NewAppBuilder(t).WithOS("windows").Build(t)
 
 	syncCmd := NewSyncCommand()
 	opts := SyncOptions{}
