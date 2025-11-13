@@ -104,6 +104,12 @@ func (a *App) initPlatform() {
 			return
 		}
 
+		// Validate platform matches build target (for testing mocked OS values)
+		if (runtime.GOOS == "linux" && a.os != "linux") || (runtime.GOOS == "darwin" && a.os != "darwin") {
+			a.platformErr = fmt.Errorf("platform not supported: %s (compiled for %s)", a.os, runtime.GOOS)
+			return
+		}
+
 		// Call platform-specific initialization (implemented in app_linux.go / app_darwin.go)
 		if err := a.initPlatformComponents(); err != nil {
 			a.platformErr = err
