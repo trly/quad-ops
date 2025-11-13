@@ -1,25 +1,25 @@
 services:
   web:
-  image: docker.io/library/nginx:alpine
+    image: docker.io/library/nginx:alpine
     ports:
-      - "8080:80"
+      - target: 80
+        published: 8080
+        mode: host
     x-quad-ops-init:
-      - image: docker.io/library/busybox:latest
-        command: ["sh", "-c", "echo 'Initializing web service...' && sleep 2"]
-      - image: docker.io/library/alpine:latest
-        command: "mkdir -p /shared/data && echo 'Setup complete' > /shared/data/status"
+      image: docker.io/library/busybox:latest
+      command: ["sh", "-c", "mkdir -p /shared && echo '<h1>Initialized</h1>' > /shared/index.html"]
     volumes:
       - shared-data:/shared
 
   database:
-  image: docker.io/library/postgres:15-alpine
+    image: docker.io/library/postgres:15-alpine
     environment:
       POSTGRES_DB: myapp
       POSTGRES_USER: user
       POSTGRES_PASSWORD: securepassword
     x-quad-ops-init:
-      - image: docker.io/library/postgres:15-alpine
-        command: ["sh", "-c", "echo 'Running database migration...' && sleep 3"]
+      image: docker.io/library/busybox:latest
+      command: ["sh", "-c", "echo 'Preparing database initialization...' && sleep 1"]
     volumes:
       - db-data:/var/lib/postgresql/data
 
