@@ -524,6 +524,7 @@ func TestListCommand_GetLifecycleError(t *testing.T) {
 		},
 	}
 
+	// Don't set lifecycle - let platform initialization fail naturally
 	app := NewAppBuilder(t).
 		WithRepoArtifactStore(repoArtifactStore).
 		WithArtifactStore(artifactStore).

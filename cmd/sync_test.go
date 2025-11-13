@@ -40,6 +40,7 @@ func TestSyncCommand_ValidationFailure(t *testing.T) {
 
 // TestSyncCommand_UnsupportedPlatform tests handling of unsupported platform.
 func TestSyncCommand_UnsupportedPlatform(t *testing.T) {
+	// Don't set renderer/lifecycle - let platform initialization fail naturally
 	app := NewAppBuilder(t).WithOS("windows").Build(t)
 
 	deps := SyncDeps{
