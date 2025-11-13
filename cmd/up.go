@@ -444,12 +444,44 @@ func (c *UpCommand) Run(ctx context.Context, app *App, opts UpOptions, deps UpDe
 		return nil
 	}
 
-	// 7. Start services in dependency order using Lifecycle.StartMany
-	deps.Logger.Info("Starting services in dependency order",
-		"count", len(orderedServices),
-		"order", orderedServices)
+	// 7. Separate infrastructure (networks/volumes) from container services
+	// Infrastructure services need Restart to ensure backing resources exist
+	// Note: orderedServices is already in topological order (dependencies first),
+	// and containers depend on their networks/volumes (see registry.add()),
+	// so infrastructure services are guaranteed to appear before containers.
+	infraServices := make([]string, 0)
+	containerServices := make([]string, 0)
+	for _, svc := range orderedServices {
+		if strings.HasSuffix(svc, "-network") || strings.HasSuffix(svc, "-volume") {
+			infraServices = append(infraServices, svc)
+		} else {
+			containerServices = append(containerServices, svc)
+		}
+	}
 
-	startErrors := deps.Lifecycle.StartMany(ctx, orderedServices)
+	// 8. Restart infrastructure services to ensure backing resources exist
+	// This handles the case where resources were pruned externally
+	startErrors := make(map[string]error)
+	if len(infraServices) > 0 {
+		deps.Logger.Info("Restarting infrastructure services",
+			"count", len(infraServices),
+			"services", infraServices)
+		infraErrors := deps.Lifecycle.RestartMany(ctx, infraServices)
+		for svc, err := range infraErrors {
+			startErrors[svc] = err
+		}
+	}
+
+	// 9. Start container services
+	if len(containerServices) > 0 {
+		deps.Logger.Info("Starting container services",
+			"count", len(containerServices),
+			"services", containerServices)
+		containerErrors := deps.Lifecycle.StartMany(ctx, containerServices)
+		for svc, err := range containerErrors {
+			startErrors[svc] = err
+		}
+	}
 
 	// Log results
 	successCount := 0

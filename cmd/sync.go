@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/trly/quad-ops/internal/compose"
@@ -452,13 +453,42 @@ func (c *SyncCommand) startAndRestartServices(ctx context.Context, app *App, dep
 			return fmt.Errorf("failed to determine service start order: %w", err)
 		}
 
-		deps.Logger.Debug("Starting services in dependency order", "count", len(orderedStartNames), "services", orderedStartNames)
-		startErrs := deps.Lifecycle.StartMany(ctx, orderedStartNames)
-		for name, serr := range startErrs {
-			if serr != nil {
-				deps.Logger.Error("Failed to start service", "service", name, "error", serr)
+		// Separate infrastructure services from container services
+		// Note: orderedStartNames is in topological order (dependencies first),
+		// guaranteeing infrastructure services appear before containers.
+		infraServices := make([]string, 0)
+		containerServices := make([]string, 0)
+		for _, svc := range orderedStartNames {
+			if strings.HasSuffix(svc, "-network") || strings.HasSuffix(svc, "-volume") {
+				infraServices = append(infraServices, svc)
 			} else {
-				deps.Logger.Info("Service started", "service", name)
+				containerServices = append(containerServices, svc)
+			}
+		}
+
+		// Restart infrastructure services to ensure backing resources exist
+		if len(infraServices) > 0 {
+			deps.Logger.Debug("Restarting infrastructure services", "count", len(infraServices), "services", infraServices)
+			infraErrs := deps.Lifecycle.RestartMany(ctx, infraServices)
+			for name, serr := range infraErrs {
+				if serr != nil {
+					deps.Logger.Error("Failed to restart infrastructure service", "service", name, "error", serr)
+				} else {
+					deps.Logger.Info("Infrastructure service restarted", "service", name)
+				}
+			}
+		}
+
+		// Start container services
+		if len(containerServices) > 0 {
+			deps.Logger.Debug("Starting container services", "count", len(containerServices), "services", containerServices)
+			startErrs := deps.Lifecycle.StartMany(ctx, containerServices)
+			for name, serr := range startErrs {
+				if serr != nil {
+					deps.Logger.Error("Failed to start service", "service", name, "error", serr)
+				} else {
+					deps.Logger.Info("Service started", "service", name)
+				}
 			}
 		}
 	}

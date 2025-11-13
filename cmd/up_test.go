@@ -719,8 +719,16 @@ func TestUpCommand_NetworkVolumeDependencies(t *testing.T) {
 				ReloadFunc: func(_ context.Context) error {
 					return nil
 				},
+				RestartManyFunc: func(_ context.Context, names []string) map[string]error {
+					startOrder = append(startOrder, names...)
+					result := make(map[string]error)
+					for _, name := range names {
+						result[name] = nil
+					}
+					return result
+				},
 				StartManyFunc: func(_ context.Context, names []string) map[string]error {
-					startOrder = names
+					startOrder = append(startOrder, names...)
 					result := make(map[string]error)
 					for _, name := range names {
 						result[name] = nil
