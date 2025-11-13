@@ -95,7 +95,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "ports-matrix_web",
+        "ContainerName": "ports-matrix-web",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,

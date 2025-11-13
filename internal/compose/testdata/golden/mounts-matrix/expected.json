@@ -124,7 +124,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "mounts-matrix_app",
+        "ContainerName": "mounts-matrix-app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,

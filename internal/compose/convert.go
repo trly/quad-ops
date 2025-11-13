@@ -219,7 +219,7 @@ func (c *Converter) convertContainer(composeService types.ServiceConfig, service
 		Build:             build,
 		Labels:            copyStringMap(composeService.Labels),
 		Hostname:          composeService.Hostname,
-		ContainerName:     Prefix(project.Name, serviceName),
+		ContainerName:     toContainerName(Prefix(project.Name, serviceName)),
 		Entrypoint:        composeService.Entrypoint,
 		Init:              composeService.Init != nil && *composeService.Init,
 		ReadOnly:          composeService.ReadOnly,
@@ -1371,6 +1371,12 @@ func Prefix(projectName, resourceName string) string {
 		return resourceName
 	}
 	return fmt.Sprintf("%s_%s", projectName, resourceName)
+}
+
+// toContainerName converts resource names to valid Podman container names.
+// Replaces underscores with hyphens since Podman requires DNS-compatible names.
+func toContainerName(name string) string {
+	return strings.ReplaceAll(name, "_", "-")
 }
 
 // FindEnvFiles discovers environment files for a service in a working directory.

@@ -52,7 +52,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "env-precedence_app",
+        "ContainerName": "env-precedence-app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,

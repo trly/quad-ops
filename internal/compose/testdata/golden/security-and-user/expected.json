@@ -52,7 +52,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "myapp-host",
-        "ContainerName": "security-and-user_app",
+        "ContainerName": "security-and-user-app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": true,

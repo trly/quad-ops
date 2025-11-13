@@ -23,13 +23,13 @@ func TestSystemdUnitNameForService(t *testing.T) {
 			project:  "infra",
 			svc:      "db",
 			expected: "infra_db.service",
-			},
-			{
+		},
+		{
 			name:     "service with hyphen",
 			project:  "my-app",
 			svc:      "api-server",
 			expected: "my-app_api-server.service",
-			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -471,9 +471,9 @@ func TestValidateExternalDependencies_MixedRequiredOptional(t *testing.T) {
 	}
 
 	existingServices := map[string]bool{
-		"infra_db.service":               true,  // Exists
-		"monitoring_prometheus.service":  false, // Missing but optional
-		"infra_cache.service":            false, // Missing and required
+		"infra_db.service":              true,  // Exists
+		"monitoring_prometheus.service": false, // Missing but optional
+		"infra_cache.service":           false, // Missing and required
 	}
 
 	mockLifecycle := &MockLifecycle{

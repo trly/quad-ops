@@ -40,7 +40,7 @@
         "Build": null,
         "Labels": null,
         "Hostname": "",
-        "ContainerName": "resources-limits_app",
+        "ContainerName": "resources-limits-app",
         "Entrypoint": null,
         "Init": false,
         "ReadOnly": false,
