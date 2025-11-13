@@ -2,14 +2,14 @@ name: sysctls-test
 
 services:
   router:
-    image: nginx:alpine
+    image: docker.io/library/nginx:alpine
     sysctls:
       net.ipv4.ip_forward: "1"
       net.core.somaxconn: "1024"
     restart: unless-stopped
 
   database:
-    image: postgres:15-alpine
+    image: docker.io/library/postgres:15-alpine
     sysctls:
       kernel.shmmax: "68719476736"
       kernel.shmall: "4294967296"

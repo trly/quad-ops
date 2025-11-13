@@ -16,7 +16,7 @@ Controls how the container's PID namespace is configured:
 ```yaml
 services:
   app:
-    image: alpine:latest
+    image: docker.io/library/alpine:latest
     pid: host
 ```
 
@@ -32,7 +32,7 @@ Controls inter-process communication namespace:
 ```yaml
 services:
   app:
-    image: alpine:latest
+    image: docker.io/library/alpine:latest
     ipc: shareable
 ```
 
@@ -47,7 +47,7 @@ Controls cgroup namespace mode:
 ```yaml
 services:
   app:
-    image: alpine:latest
+    image: docker.io/library/alpine:latest
     cgroup: private
 ```
 

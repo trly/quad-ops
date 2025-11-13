@@ -15,7 +15,7 @@ name: infrastructure
 
 services:
   proxy:
-    image: nginx:latest
+    image: docker.io/library/nginx:latest
     ports:
       - target: 80
         published: 80
@@ -27,7 +27,7 @@ services:
     restart: always
 
   db:
-    image: postgres:15
+    image: docker.io/library/postgres:15
     environment:
       POSTGRES_PASSWORD: example
       POSTGRES_DB: appdb

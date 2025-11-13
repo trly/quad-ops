@@ -1,9 +1,9 @@
 services:
   redis:
-    image: redis:7
+    image: docker.io/library/redis:7
     shm_size: 64m
   postgres:
-    image: postgres:15
+    image: docker.io/library/postgres:15
     shm_size: 1g
     environment:
       POSTGRES_PASSWORD: secret

@@ -24,7 +24,7 @@ name: app
 
 services:
   backend:
-    image: node:18
+    image: docker.io/library/node:18
     # Cross-project dependencies on infrastructure services
     x-quad-ops-depends-on:
       - project: infrastructure
@@ -44,5 +44,5 @@ services:
     restart: always
 
   redis:
-    image: redis:latest
+    image: docker.io/library/redis:latest
     restart: always

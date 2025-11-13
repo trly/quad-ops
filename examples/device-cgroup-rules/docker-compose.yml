@@ -1,6 +1,6 @@
 services:
   input-device-app:
-    image: alpine:latest
+    image: docker.io/library/alpine:latest
     # Allow access to all /dev/input/* devices (mice, keyboards, joysticks)
     # Format: 'type major:minor permissions'
     # - type: 'a' (all), 'b' (block), 'c' (character)
@@ -11,7 +11,7 @@ services:
     command: sleep infinity
 
   multi-device-app:
-    image: alpine:latest
+    image: docker.io/library/alpine:latest
     # Allow multiple device types
     device_cgroup_rules:
       - 'c 13:* rmw'     # All /dev/input/* devices
@@ -20,7 +20,7 @@ services:
     command: sleep infinity
 
   specific-device-app:
-    image: alpine:latest
+    image: docker.io/library/alpine:latest
     # Allow specific device with exact major:minor
     device_cgroup_rules:
       - 'c 13:64 r'  # Read-only access to specific input device

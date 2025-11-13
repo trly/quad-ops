@@ -1,7 +1,7 @@
 services:
   # Database service with ulimits for file handles
   postgres:
-    image: postgres:15
+    image: docker.io/library/postgres:15
     environment:
       POSTGRES_PASSWORD: secret
     ulimits:
@@ -14,7 +14,7 @@ services:
 
   # Web server with high file descriptor limits
   nginx:
-    image: nginx:latest
+    image: docker.io/library/nginx:latest
     ulimits:
       nofile: 65536  # Short syntax
     ports:

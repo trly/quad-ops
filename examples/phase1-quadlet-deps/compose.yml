@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15
+    image: docker.io/library/postgres:15
     volumes:
       - db-data:/var/lib/postgresql/data
     networks:
@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: example
 
   web:
-    image: nginx:latest
+    image: docker.io/library/nginx:latest
     depends_on:
       - db
     volumes:
