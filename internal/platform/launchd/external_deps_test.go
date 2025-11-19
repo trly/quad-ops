@@ -35,7 +35,7 @@ func TestLaunchdRender_ExternalDependencies_Required(t *testing.T) {
 		},
 	}
 
-	opts := DefaultOptions()
+	opts := testOptions()
 	plist, deps := buildTestPlist(t, spec, opts)
 
 	// Required external deps should be in DependsOn
@@ -62,7 +62,7 @@ func TestLaunchdRender_ExternalDependencies_Optional(t *testing.T) {
 		},
 	}
 
-	opts := DefaultOptions()
+	opts := testOptions()
 	plist, deps := buildTestPlist(t, spec, opts)
 
 	// Optional external deps that exist should be in DependsOn
@@ -89,7 +89,7 @@ func TestLaunchdRender_ExternalDependencies_OptionalMissing(t *testing.T) {
 		},
 	}
 
-	opts := DefaultOptions()
+	opts := testOptions()
 	plist, deps := buildTestPlist(t, spec, opts)
 
 	// Optional missing deps should NOT be in DependsOn
@@ -134,7 +134,7 @@ func TestLaunchdRender_ExternalDependencies_Multiple(t *testing.T) {
 		},
 	}
 
-	opts := DefaultOptions()
+	opts := testOptions()
 	plist, deps := buildTestPlist(t, spec, opts)
 
 	// Required deps should be present
@@ -169,7 +169,7 @@ func TestLaunchdRender_ExternalDependencies_WithIntraProjectDeps(t *testing.T) {
 		},
 	}
 
-	opts := DefaultOptions()
+	opts := testOptions()
 	plist, deps := buildTestPlist(t, spec, opts)
 
 	// Intra-project deps
@@ -196,7 +196,7 @@ func TestLaunchdRender_ExternalDependencies_Sorted(t *testing.T) {
 		},
 	}
 
-	opts := DefaultOptions()
+	opts := testOptions()
 	plist, _ := buildTestPlist(t, spec, opts)
 
 	// DependsOn should be sorted
