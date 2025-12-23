@@ -20,7 +20,7 @@ Repository configuration defines how Quad-Ops manages individual Git repositorie
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `ref` | string | `main` | Git reference to checkout (branch, tag, or commit hash) |
+| `ref` | string | remote HEAD | Git reference to checkout (branch, tag, or commit hash) |
 | `composeDir` | string | `""` | Subdirectory containing Docker Compose files |
 
 ## Git Repository Sources
@@ -88,6 +88,10 @@ repositories:
 
 ## Directory Structure
 
+Quad-Ops **recursively** scans for compose files from the scan root. The scan root is the repository root when `composeDir` is not set, or the specified subdirectory when it is. All compose files found anywhere in the directory tree are loaded as separate projects.
+
+Recognized compose file names (in priority order): `compose.yaml`, `compose.yml`, `docker-compose.yaml`, `docker-compose.yml`.
+
 ### Root-Level Compose Files
 
 For repositories with Docker Compose files in the root:
@@ -96,7 +100,7 @@ For repositories with Docker Compose files in the root:
 repositories:
   - name: simple-app
     url: https://github.com/user/simple-app.git
-    # Looks for: docker-compose.yml, docker-compose.yaml, compose.yml, compose.yaml
+    # Recursively scans the repository root for compose files
 ```
 
 ### Subdirectory Compose Files
@@ -108,7 +112,7 @@ repositories:
   - name: complex-app
     url: https://github.com/user/complex-app.git
     composeDir: deploy/docker
-    # Looks in: deploy/docker/ for compose files
+    # Recursively scans deploy/docker/ for compose files
 ```
 
 ### Multiple Environment Structure
@@ -126,55 +130,97 @@ repositories:
 
 ## Naming Conventions
 
-### Repository Names
+### Unit Name Prefixes
 
-Repository names become prefixes for all generated units:
+Generated unit names use the pattern `{project}-{service}.container`, where the **project name is the directory containing the compose file** — not the repository name.
+
+When compose files are at the repository root, the project name matches the repository name (since the repository is cloned into a directory named after `name`):
 
 ```yaml
 repositories:
-  - name: myapp  # Creates units like: myapp-web.container, myapp-db.container
+  - name: myapp  # Cloned to .../myapp/, project name = "myapp"
     url: https://github.com/user/myapp.git
+    # Creates units like: myapp-web.container, myapp-db.container
 ```
 
-**Best practices:**
+When `composeDir` is set, the project name is the **last path component** of the compose file's directory:
+
+```yaml
+repositories:
+  - name: app-dev
+    url: https://github.com/user/app.git
+    composeDir: environments/dev
+    # Project name = "dev", creates units like: dev-web.container
+```
+
+**Best practices for repository names:**
 - Use lowercase names
 - Use hyphens instead of underscores
 - Keep names concise but descriptive
 - Avoid special characters
 
-### Container Naming Examples
+### Systemd Unit Examples
 
 ```yaml
-# Repository: myapp, Service: web
-# Container hostname: myapp-web
+# Repository: myapp (no composeDir), Service: web
+# Quadlet file: myapp-web.container
 # Systemd unit: myapp-web.service
 ```
 
 ## Authentication
 
+Quad-Ops uses [go-git](https://github.com/go-git/go-git) for repository operations, which has different authentication behavior than the native `git` CLI. Notably, go-git does **not** support Git credential helpers, `.netrc` files, or environment variables like `GIT_USERNAME`.
+
 ### SSH Key Authentication
 
-For private repositories using SSH:
+SSH repositories require a running SSH agent with keys loaded. go-git connects to the agent via the `SSH_AUTH_SOCK` environment variable — it does **not** read key files from `~/.ssh/` directly.
 
 ```bash
-# Ensure SSH key is available
-ssh-add ~/.ssh/id_rsa
+# Start the SSH agent (if not already running)
+eval "$(ssh-agent -s)"
+
+# Add your key to the agent
+ssh-add ~/.ssh/id_ed25519
+
+# Verify the agent has your key
+ssh-add -l
 
 # Test access
 ssh -T git@github.com
 ```
 
-### HTTPS with Tokens
+{{< hint warning >}}
+If `SSH_AUTH_SOCK` is not set or no agent is running, SSH clones will fail. When running Quad-Ops as a systemd service, ensure the agent socket is available in the service environment.
+{{< /hint >}}
 
-For private HTTPS repositories, configure Git credentials:
+### HTTPS Repositories
+
+For **public** HTTPS repositories, no authentication is needed.
+
+For **private** HTTPS repositories, go-git only supports credentials embedded in the URL:
+
+```yaml
+repositories:
+  - name: private-app
+    url: https://username:token@github.com/user/private-app.git
+```
+
+{{< hint danger >}}
+Embedding credentials in URLs is stored in your configuration file. Ensure the file has appropriate permissions (`chmod 600`) and never commit it to version control.
+{{< /hint >}}
+
+### Host Key Verification
+
+For SSH repositories, go-git verifies host keys against known hosts files in this order:
+
+1. Files listed in the `SSH_KNOWN_HOSTS` environment variable
+2. `~/.ssh/known_hosts`
+3. `/etc/ssh/ssh_known_hosts`
+
+If the remote host is not found in any of these files, the connection will fail. Add the host key before first use:
 
 ```bash
-# Store credentials (use with caution in production)
-git config --global credential.helper store
-
-# Or use environment variables
-export GIT_USERNAME=token
-export GIT_PASSWORD=ghp_your_token_here
+ssh-keyscan github.com >> ~/.ssh/known_hosts
 ```
 
 ## Advanced Examples
@@ -244,14 +290,11 @@ repositories:
 # Test repository access
 git ls-remote https://github.com/user/repo.git
 
-# Validate configuration
-quad-ops config validate
-
-# Check repository status
-quad-ops unit list -t all
+# Validate compose files
+quad-ops validate
 ```
 
 ## Next Steps
 
-- [Container Management](../container-management) - Learn how Quad-Ops processes Docker Compose files
-- [Getting Started](../getting-started) - Set up your first repository
+- [Quick Start](../quick-start/) - Set up your first repository
+- [Command Reference](../command-reference/) - Available commands and options

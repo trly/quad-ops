@@ -35,13 +35,14 @@ Thumbs.db
 # Build output directory
 bin/
 dist/
+build/generated-units/
 
 configs/*
 !configs/config.yaml.example
 
 # quad-ops
 *.db
-quad-ops
+/quad-ops
 config.yml
 
 # beads history (ephemeral)

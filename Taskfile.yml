@@ -10,12 +10,25 @@ tasks:
       - task: fmt
       - task: lint
       - task: test
-      - go build -o {{.BINARY_NAME}} cmd/quad-ops/main.go
+      - go build -o {{.BINARY_NAME}} ./cmd/quad-ops
+
+  gen-units:
+    desc: Generate systemd units from compose files
+    deps:
+      - build
+    cmds:
+      - mkdir -p build/generated-units
+      - ./{{.BINARY_NAME}} sync --config configs/config.yaml.example
 
   test:
     desc: Run all tests
     cmds:
       - gotestsum --format pkgname --format-icons text -- -coverprofile=coverage.out -v ./...
+
+  integration_test:
+    desc: Run integration tests
+    cmds:
+      - gotestsum --format pkgname --format-icons text -- -tags=integration -v ./...
 
   lint:
     desc: Run linter
@@ -26,4 +39,11 @@ tasks:
     desc: Format code
     cmds:
       - go fmt ./...
+
+  run:
+    desc: Run the application (e.g. task run -- sync)
+    deps:
+      - build
+    cmds:
+      - ./{{.BINARY_NAME}} {{.CLI_ARGS}}
 

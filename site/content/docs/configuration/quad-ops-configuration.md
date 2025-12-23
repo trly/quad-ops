@@ -13,7 +13,6 @@ By default, Quad-Ops looks for configuration files in the following locations:
 
 - `/etc/quad-ops/config.yaml` (system-wide)
 - `~/.config/quad-ops/config.yaml` (user mode)
-- `./config.yaml` (current directory)
 
 You can specify a custom configuration file using the `--config` flag:
 
@@ -28,23 +27,20 @@ quad-ops --config /path/to/config.yaml sync
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `repositoryDir` | string | `/var/lib/quad-ops` | Directory where Git repositories are cloned |
-| `syncInterval` | duration | `5m` | Interval between automatic repository synchronization |
 | `quadletDir` | string | `/etc/containers/systemd` | Directory for Podman Quadlet unit files |
-| `userMode` | boolean | `false` | Enable user-mode (rootless) operation |
-| `verbose` | boolean | `false` | Enable verbose logging output |
-| `unitStartTimeout` | duration | `10s` | Timeout for systemd unit start operations |
-| `imagePullTimeout` | duration | `30s` | Timeout for systemd units during image pull phases (sync operations) |
 
 
 
-## User Mode Configuration
+## Rootless (User Mode) Configuration
 
-For rootless operation, user mode changes several default paths:
+For rootless operation as a non-root user, Quad-Ops automatically adjusts default paths based on the effective UID:
 
-| Setting | System Mode | User Mode |
+| Setting | System Mode (root) | User Mode (non-root) |
 |---------|-------------|-----------|
 | `repositoryDir` | `/var/lib/quad-ops` | `~/.local/share/quad-ops` |
 | `quadletDir` | `/etc/containers/systemd` | `~/.config/containers/systemd` |
+
+To override these defaults, explicitly set the paths in your configuration file.
 
 ## Example Configuration
 
@@ -61,12 +57,7 @@ repositories:
 ```yaml
 # Global settings
 repositoryDir: /var/lib/quad-ops
-syncInterval: 10m
 quadletDir: /etc/containers/systemd
-userMode: false
-verbose: true
-unitStartTimeout: 15s
-imagePullTimeout: 60s
 
 # Repository definitions
 repositories:
@@ -85,9 +76,6 @@ repositories:
 
 ```yaml
 # Development environment
-syncInterval: 1m
-verbose: true
-
 repositories:
   - name: dev-app
     url: https://github.com/company/app.git
@@ -96,9 +84,6 @@ repositories:
 
 ```yaml
 # Production environment
-syncInterval: 30m
-verbose: false
-
 repositories:
   - name: prod-app
     url: https://github.com/company/app.git
@@ -111,10 +96,8 @@ Quad-Ops validates the configuration file on startup and will report errors for:
 
 - Invalid YAML syntax
 - Missing required fields
-- Invalid duration formats
-- Duplicate repository names
 
 ## Next Steps
 
 - [Repository Configuration](repository-configuration) - Learn about repository-specific options
-- [Getting Started](../getting-started) - Set up your first Quad-Ops deployment
+- [Quick Start](../quick-start/) - Set up your first Quad-Ops deployment

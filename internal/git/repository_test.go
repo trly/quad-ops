@@ -1,6 +1,7 @@
 package git
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,15 +11,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/stretchr/testify/require"
-	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/testutil"
 )
 
-// setupTest creates a temporary directory and returns config provider for testing.
-func setupTest(t *testing.T) (string, config.Provider) {
-	tmpDir := t.TempDir()
-	configProvider := testutil.NewMockConfig(t, testutil.WithRepositoryDir(tmpDir))
-	return tmpDir, configProvider
+// setupTest creates a temporary directory for testing.
+func setupTest(t *testing.T) string {
+	return t.TempDir()
 }
 
 // createTestRepo creates a local git repository with an initial commit.
@@ -48,81 +45,61 @@ func createTestRepo(t *testing.T, repoDir string) (*git.Repository, string) {
 	return repo, commit.String()
 }
 
-func TestNewRepository(t *testing.T) {
-	tmpDir, configProv := setupTest(t)
+func TestNew(t *testing.T) {
+	tmpDir := setupTest(t)
 
-	testRepo := config.Repository{
-		Name:      "test-repo",
-		URL:       "https://github.com/test/repo.git",
-		Reference: "main",
-	}
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", "https://github.com/test/repo.git", "main", "", repoPath)
 
-	repo := NewGitRepository(testRepo, configProv)
-
-	require.Equal(t, testRepo.URL, repo.URL)
-	require.Equal(t, filepath.Join(tmpDir, testRepo.Name), repo.Path)
-	require.Equal(t, testRepo.Reference, repo.Reference)
+	require.Equal(t, "test-repo", repo.Name)
+	require.Equal(t, "https://github.com/test/repo.git", repo.URL)
+	require.Equal(t, "main", repo.Reference)
+	require.Equal(t, "", repo.ComposeDir)
+	require.Equal(t, repoPath, repo.Path)
 }
 
 func TestSyncRepository(t *testing.T) {
-	_, configProv := setupTest(t)
+	tmpDir := setupTest(t)
 
-	testRepo := config.Repository{
-		Name:      "test-repo",
-		URL:       "https://github.com/test/repo.git",
-		Reference: "main",
-	}
-
-	repo := NewGitRepository(testRepo, configProv)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", "https://github.com/test/repo.git", "main", "", repoPath)
 
 	// Test invalid repository URL
-	err := repo.SyncRepository()
+	err := repo.Sync(context.Background())
 	require.Error(t, err, "Expected error for invalid repository URL")
 }
 
 func TestSyncRepositoryAlreadyExists(t *testing.T) {
-	tmpDir, configProv := setupTest(t)
+	tmpDir := setupTest(t)
 
-	testRepo := config.Repository{
-		Name:      "test-repo",
-		URL:       "https://github.com/test/repo.git",
-		Reference: "main",
-	}
-
-	repo := NewGitRepository(testRepo, configProv)
-	require.Equal(t, "main", repo.Reference)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", "https://github.com/test/repo.git", "main", "", repoPath)
 
 	// Create the repository directory to simulate existing repo
-	repoDir := filepath.Join(tmpDir, testRepo.Name)
-	require.NoError(t, os.MkdirAll(repoDir, 0700))
+	require.NoError(t, os.MkdirAll(repoPath, 0700))
 
 	// Create a .git directory to simulate an existing git repository
-	gitDir := filepath.Join(repoDir, ".git")
+	gitDir := filepath.Join(repoPath, ".git")
 	require.NoError(t, os.MkdirAll(gitDir, 0700))
 
-	// Test that SyncRepository handles existing repository case
+	// Test that Sync handles existing repository case
 	// This should fail because we've created a fake .git directory without proper git structure
-	err := repo.SyncRepository()
+	err := repo.Sync(context.Background())
 	require.Error(t, err, "Expected error for invalid existing repository structure")
 }
 
 func TestCheckoutTargetWithLocalRepo(t *testing.T) {
-	tmpDir, configProv := setupTest(t)
+	tmpDir := setupTest(t)
 
 	// Create a real local git repository for testing
 	localRepoDir := filepath.Join(tmpDir, "source-repo")
 	_, commitHash := createTestRepo(t, localRepoDir)
 
-	testRepo := config.Repository{
-		Name:      "test-repo",
-		URL:       localRepoDir,
-		Reference: commitHash,
-	}
-
-	repo := NewGitRepository(testRepo, configProv)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", localRepoDir, commitHash, "", repoPath)
 
 	// Test syncing and checking out specific commit
-	err := repo.SyncRepository()
+	err := repo.Sync(context.Background())
 	require.NoError(t, err)
 
 	// Verify the repository was synced and the correct commit was checked out
@@ -135,21 +112,17 @@ func TestCheckoutTargetWithLocalRepo(t *testing.T) {
 }
 
 func TestPullLatest(t *testing.T) {
-	tmpDir, configProv := setupTest(t)
+	tmpDir := setupTest(t)
 
 	// Create a "remote" repository
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
 	remoteRepo, _ := createTestRepo(t, remoteRepoDir)
 
-	testRepo := config.Repository{
-		Name: "test-repo",
-		URL:  remoteRepoDir,
-	}
-
-	repo := NewGitRepository(testRepo, configProv)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", remoteRepoDir, "", "", repoPath)
 
 	// Initial sync to clone the repository
-	err := repo.SyncRepository()
+	err := repo.Sync(context.Background())
 	require.NoError(t, err)
 
 	// Create another commit in the remote repository
@@ -173,7 +146,7 @@ func TestPullLatest(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test pullLatest - should pull the new commit
-	err = repo.pullLatest()
+	err = repo.pullLatest(context.Background())
 	require.NoError(t, err)
 
 	// Verify the new commit was pulled
@@ -182,26 +155,22 @@ func TestPullLatest(t *testing.T) {
 	require.Equal(t, newCommit.String(), ref.Hash().String())
 
 	// Test pullLatest again - should be already up to date
-	err = repo.pullLatest()
+	err = repo.pullLatest(context.Background())
 	require.NoError(t, err)
 }
 
 func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
-	tmpDir, configProv := setupTest(t)
+	tmpDir := setupTest(t)
 
 	// Create a "remote" repository
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
 	remoteRepo, firstCommitHash := createTestRepo(t, remoteRepoDir)
 
-	testRepo := config.Repository{
-		Name: "test-repo",
-		URL:  remoteRepoDir,
-	}
-
-	repo := NewGitRepository(testRepo, configProv)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", remoteRepoDir, "", "", repoPath)
 
 	// First sync - should clone the repository
-	err := repo.SyncRepository()
+	err := repo.Sync(context.Background())
 	require.NoError(t, err)
 
 	// Verify first commit is checked out
@@ -230,11 +199,10 @@ func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a new Repository instance to simulate running the command again
-	repo2 := NewGitRepository(testRepo, configProv)
+	repo2 := New("test-repo", remoteRepoDir, "", "", repoPath)
 
 	// Second sync - should open existing repo and pull latest changes
-	// This tests the git.ErrRepositoryAlreadyExists path (lines 46-56)
-	err = repo2.SyncRepository()
+	err = repo2.Sync(context.Background())
 	require.NoError(t, err)
 
 	// Verify the second commit was pulled
@@ -244,24 +212,29 @@ func TestSyncRepositoryExistingRepoFlow(t *testing.T) {
 }
 
 func TestCheckoutTargetBranchFallback(t *testing.T) {
-	tmpDir, configProv := setupTest(t)
+	tmpDir := setupTest(t)
 
 	// Create a "remote" repository with a branch
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
-	_, commitHash := createTestRepo(t, remoteRepoDir)
+	remoteRepo, commitHash := createTestRepo(t, remoteRepoDir)
 
-	testRepo := config.Repository{
-		Name:      "test-repo",
-		URL:       remoteRepoDir,
-		Reference: "main", // Use branch name instead of commit hash
-	}
+	// Create "main" branch (repo initializes with "master" by default)
+	remoteWorktree, err := remoteRepo.Worktree()
+	require.NoError(t, err)
 
-	repo := NewGitRepository(testRepo, configProv)
+	mainBranchRef := plumbing.NewBranchReferenceName("main")
+	err = remoteWorktree.Checkout(&git.CheckoutOptions{
+		Branch: mainBranchRef,
+		Create: true,
+	})
+	require.NoError(t, err)
+
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", remoteRepoDir, "main", "", repoPath)
 
 	// Sync repository - this will trigger checkoutTarget with branch name
-	// First it will try to checkout "main" as a commit hash (which will fail)
-	// Then it will fall back to checking out as a branch (lines 87-91)
-	err := repo.SyncRepository()
+	// ResolveRevision will resolve "main" to the commit hash, then checkout as branch
+	err = repo.Sync(context.Background())
 	require.NoError(t, err)
 
 	// Verify the correct commit was checked out
@@ -269,13 +242,13 @@ func TestCheckoutTargetBranchFallback(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commitHash, ref.Hash().String())
 
-	// Verify we're on a branch (git uses "master" by default, not "main")
+	// Verify we're on the main branch
 	require.True(t, ref.Name().IsBranch(), "Expected to be on a branch")
-	require.Contains(t, []string{"main", "master"}, ref.Name().Short())
+	require.Equal(t, "main", ref.Name().Short())
 }
 
 func TestCheckoutTargetTag(t *testing.T) {
-	tmpDir, configProv := setupTest(t)
+	tmpDir := setupTest(t)
 
 	// Create a "remote" repository with a tag
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
@@ -293,18 +266,12 @@ func TestCheckoutTargetTag(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRepo := config.Repository{
-		Name:      "test-repo",
-		URL:       remoteRepoDir,
-		Reference: tagName, // Use tag name
-	}
-
-	repo := NewGitRepository(testRepo, configProv)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", remoteRepoDir, tagName, "", repoPath)
 
 	// Sync repository - this will trigger checkoutTarget with tag name
-	// First it will try to checkout the tag as a commit hash (which will fail)
-	// Then it will fall back to checking out as a branch/tag (lines 87-91)
-	err = repo.SyncRepository()
+	// ResolveRevision will resolve the tag to the commit hash, then checkout
+	err = repo.Sync(context.Background())
 	require.NoError(t, err)
 
 	// Verify the correct commit was checked out
@@ -314,7 +281,7 @@ func TestCheckoutTargetTag(t *testing.T) {
 }
 
 func TestCheckoutTargetForceBranchFallback(t *testing.T) {
-	tmpDir, configProv := setupTest(t)
+	tmpDir := setupTest(t)
 
 	// Create a "remote" repository
 	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
@@ -349,18 +316,12 @@ func TestCheckoutTargetForceBranchFallback(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	testRepo := config.Repository{
-		Name:      "test-repo",
-		URL:       remoteRepoDir,
-		Reference: "feature", // Use branch name that is NOT a valid commit hash
-	}
-
-	repo := NewGitRepository(testRepo, configProv)
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", remoteRepoDir, "feature", "", repoPath)
 
 	// Sync repository - this will trigger checkoutTarget with branch name
-	// "feature" is not a valid commit hash, so it will fail the first checkout
-	// and fall back to the branch checkout (lines 87-91)
-	err = repo.SyncRepository()
+	// ResolveRevision will resolve "feature" to the commit hash, then checkout
+	err = repo.Sync(context.Background())
 	require.NoError(t, err)
 
 	// Verify the feature branch commit was checked out
@@ -373,21 +334,55 @@ func TestCheckoutTargetForceBranchFallback(t *testing.T) {
 	require.Equal(t, "feature", ref.Name().Short())
 }
 
-func TestNewGitRepository(t *testing.T) {
-	configProvider := testutil.NewMockConfig(t,
-		testutil.WithRepositoryDir("/test/custom/repo/dir"),
-		testutil.WithVerbose(true))
+func TestCheckoutRef(t *testing.T) {
+	tmpDir := setupTest(t)
 
-	repo := config.Repository{
-		Name: "test-repo",
-		URL:  "https://example.com/repo.git",
-	}
+	// Create a "remote" repository with two commits
+	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
+	remoteRepo, firstCommitHash := createTestRepo(t, remoteRepoDir)
 
-	gitRepo := NewGitRepository(repo, configProvider)
+	remoteWorktree, err := remoteRepo.Worktree()
+	require.NoError(t, err)
 
-	require.Equal(t, "test-repo", gitRepo.Name)
-	require.Equal(t, "https://example.com/repo.git", gitRepo.URL)
-	require.Equal(t, "/test/custom/repo/dir/test-repo", gitRepo.Path)
-	require.True(t, gitRepo.verbose)
-	require.NotNil(t, gitRepo.logger)
+	testFile := filepath.Join(remoteRepoDir, "test.txt")
+	require.NoError(t, os.WriteFile(testFile, []byte("updated"), 0o600))
+	_, err = remoteWorktree.Add("test.txt")
+	require.NoError(t, err)
+
+	_, err = remoteWorktree.Commit("second commit", &git.CommitOptions{
+		Author: &object.Signature{
+			Name:  "Test User",
+			Email: "test@example.com",
+			When:  time.Now(),
+		},
+	})
+	require.NoError(t, err)
+
+	// Clone the repo at latest
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", remoteRepoDir, "", "", repoPath)
+	require.NoError(t, repo.Sync(context.Background()))
+
+	// CheckoutRef to the first commit without pulling
+	require.NoError(t, repo.CheckoutRef(firstCommitHash))
+
+	hash, err := repo.GetCurrentCommitHash()
+	require.NoError(t, err)
+	require.Equal(t, firstCommitHash, hash)
+}
+
+func TestCheckoutRefNonExistentRepo(t *testing.T) {
+	repo := New("missing", "", "", "", "/nonexistent/path")
+	err := repo.CheckoutRef("abc123")
+	require.Error(t, err)
+}
+
+func TestNewWithAllFields(t *testing.T) {
+	repo := New("test-repo", "https://example.com/repo.git", "main", "examples", "/test/path")
+
+	require.Equal(t, "test-repo", repo.Name)
+	require.Equal(t, "https://example.com/repo.git", repo.URL)
+	require.Equal(t, "main", repo.Reference)
+	require.Equal(t, "examples", repo.ComposeDir)
+	require.Equal(t, "/test/path", repo.Path)
 }

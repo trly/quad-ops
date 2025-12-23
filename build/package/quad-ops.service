@@ -4,14 +4,6 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
-ExecStart=/usr/local/bin/quad-ops sync --daemon
-ExecStartPost=-/usr/local/bin/quad-ops up
-Restart=always
-RestartSec=10
-KillMode=mixed
-TimeoutStopSec=30
-WatchdogSec=60
-
-[Install]
-WantedBy=multi-user.target default.target
+Type=oneshot
+ExecStart=/usr/local/bin/quad-ops sync
+ExecStart=/usr/local/bin/quad-ops up

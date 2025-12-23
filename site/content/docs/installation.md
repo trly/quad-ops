@@ -9,40 +9,27 @@ This guide provides step-by-step manual installation instructions for users who 
 
 > **Quick Start Available:** For faster installation, see our [Quick Start](../quick-start/) guide using the automated installer script.
 
-## Platform Support
-
-Quad-Ops supports both Linux and macOS with automatic platform detection:
-
-- **Linux**: systemd + Podman Quadlet (fully supported)
-- **macOS**: Podman support with manual daemon (launchd integration planned)
-
 ## Prerequisites
 
-### Linux
 - [Podman](https://podman.io/docs/installation) 4.0+
 - [Git](https://git-scm.com/downloads)
 - systemd-based Linux distribution
-
-### macOS
-- [Podman](https://podman.io/docs/installation) 4.0+
-- [Git](https://git-scm.com/downloads)
-- macOS 10.15+
 
 ## Manual Installation
 
 ### Option 1: Install Prebuilt Binary (Recommended)
 
-**Linux (amd64):**
 ```bash
 # Download latest release (update version as needed)
-wget https://github.com/trly/quad-ops/releases/latest/download/quad-ops_linux_amd64.tar.gz
+VERSION=$(curl -s https://api.github.com/repos/trly/quad-ops/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+wget "https://github.com/trly/quad-ops/releases/download/${VERSION}/quad-ops_${VERSION#v}_linux_amd64.tar.gz"
 
 # Verify checksum (optional but recommended)
-wget https://github.com/trly/quad-ops/releases/latest/download/quad-ops_checksums.txt
-sha256sum -c quad-ops_checksums.txt --ignore-missing
+wget "https://github.com/trly/quad-ops/releases/download/${VERSION}/quad-ops_${VERSION#v}_checksums.txt"
+sha256sum -c "quad-ops_${VERSION#v}_checksums.txt" --ignore-missing
 
 # Extract the binary
-tar -xzf quad-ops_linux_amd64.tar.gz
+tar -xzf "quad-ops_${VERSION#v}_linux_amd64.tar.gz"
 
 # Install binary to standard location
 sudo mv quad-ops /usr/local/bin/
@@ -50,23 +37,7 @@ sudo chmod +x /usr/local/bin/quad-ops
 sudo chown root:root /usr/local/bin/quad-ops
 
 # Verify installation
-quad-ops --version
-```
-
-**macOS (arm64 - Apple Silicon):**
-```bash
-# Download latest release
-curl -LO https://github.com/trly/quad-ops/releases/latest/download/quad-ops_darwin_arm64.tar.gz
-
-# Extract the binary
-tar -xzf quad-ops_darwin_arm64.tar.gz
-
-# Install binary
-sudo mv quad-ops /usr/local/bin/
-sudo chmod +x /usr/local/bin/quad-ops
-
-# Verify installation
-quad-ops --version
+quad-ops version
 ```
 
 ### Option 2: Install from Source
@@ -77,7 +48,7 @@ git clone https://github.com/trly/quad-ops.git
 cd quad-ops
 
 # Build the binary
-go build -o quad-ops cmd/quad-ops/main.go
+go build -o quad-ops ./cmd/quad-ops
 
 # Install to system directory
 sudo mv quad-ops /usr/local/bin/
@@ -98,111 +69,9 @@ sudo mv config.yaml.example /etc/quad-ops/
 sudo cp /etc/quad-ops/config.yaml.example /etc/quad-ops/config.yaml
 ```
 
-### Install Systemd Service (Optional - Linux only)
-
-```bash
-# Download systemd service file
-wget https://raw.githubusercontent.com/trly/quad-ops/main/build/package/quad-ops.service
-
-# Install service file
-sudo mv quad-ops.service /etc/systemd/system/
-sudo systemctl daemon-reload
-```
-
-> **macOS Note**: Systemd services are Linux-only. macOS users can run `quad-ops daemon` manually or create a launchd plist until native launchd support is implemented.
-
 ## Basic Configuration
 
 ### Creating Your First Project
-
-Edit your configuration file at `/etc/quad-ops/config.yaml`:
-
-```yaml
-# Global settings
-syncInterval: 5m
-
-# Sample repository using quad-ops examples
-repositories:
-  - name: quad-ops-examples
-    url: "https://github.com/trly/quad-ops.git"
-    ref: "main"
-    composeDir: "examples/multi-service"
-```
-
-## Running Your First Sync
-
-```bash
-# Perform the initial synchronization
-sudo quad-ops sync
-```
-
-This will:
-1. Clone the quad-ops repository
-2. Find the Docker Compose file in the examples directory
-3. Convert it to Podman Quadlet units
-4. Load the units into systemd
-5. Start the containers
-
-## Verifying Your Setup
-
-### Check Quad-Ops Units
-
-```bash
-# List all units managed by quad-ops
-sudo quad-ops unit list -t all
-```
-
-You should see output similar to:
-
-```
-ID  Name                                Type       Unit State  SHA1                                      Cleanup Policy  Updated At
-1   quad-ops-multi-service-db           container  active      c79f25a54e5aca33d8bdf7e4b4776969959aa4b4  keep            2025-04-21 22:45:15 +0000 UTC
-2   quad-ops-multi-service-webapp       container  active      106a63b255e897348957b4b2cee17a6e9e4d0e00  keep            2025-04-21 22:45:15 +0000 UTC
-3   quad-ops-multi-service-db-data      volume     active      05763d60c00d6ef3f4f8a026083877eb6545c48b  keep            2025-04-21 22:45:15 +0000 UTC
-4   quad-ops-multi-service-wp-content   volume     active      05763d60c00d6ef3f4f8a026083877eb6545c48b  keep            2025-04-21 22:45:15 +0000 UTC
-5   quad-ops-multi-service-app-network  network    active      479a643178b4bb4d2fdd8d6193c749e34c35ce83  keep            2025-04-21 22:45:15 +0000 UTC
-```
-
-### Check Running Containers
-
-```bash
-# Use podman to verify containers are running
-sudo podman ps
-```
-
-You should see WordPress and MariaDB containers running:
-
-```
-CONTAINER ID  IMAGE                               COMMAND               CREATED      STATUS      PORTS                 NAMES
-a31ba0448047  docker.io/library/mariadb:latest    mariadbd              3 hours ago  Up 3 hours  3306/tcp              quad-ops-multi-service-db
-731cd5df42ff  docker.io/library/wordpress:latest  apache2-foregroun...  3 hours ago  Up 3 hours  0.0.0.0:8080->80/tcp  quad-ops-multi-service-webapp
-```
-
-### Accessing Your Application
-
-Open your browser and navigate to `http://localhost:8080` to see the WordPress site from the example.
-
-## Managing Services
-
-Quad-Ops creates systemd units that you can manage with standard systemd commands:
-
-```bash
-# Restart a container
-sudo systemctl restart quad-ops-multi-service-webapp
-
-# Stop a container
-sudo systemctl stop quad-ops-multi-service-webapp
-
-# Start a container
-sudo systemctl start quad-ops-multi-service-webapp
-
-# View logs
-sudo journalctl -u quad-ops-multi-service-webapp
-```
-
-## Using Your Own Docker Compose Files
-
-### 1. Creating Your First Project Repository
 
 Create a Git repository with a Docker Compose file:
 
@@ -214,8 +83,6 @@ git init
 
 # Create a simple Docker Compose file
 cat > docker-compose.yaml << 'EOF'
-version: '3.8'
-
 services:
   web:
     image: docker.io/library/nginx:latest
@@ -237,69 +104,53 @@ git add .
 git commit -m "Initial commit with Nginx Docker Compose"
 ```
 
-### 2. Update Quad-Ops Configuration
-
-Add your new repository to `/etc/quad-ops/config.yaml`:
+Edit your configuration file at `/etc/quad-ops/config.yaml`:
 
 ```yaml
-# Global settings
-syncInterval: 5m
-
 repositories:
-  - name: quad-ops
-    url: "https://github.com/trly/quad-ops.git"
-    ref: "main"
-    composeDir: "examples"
-
   - name: my-project
     url: "file:///home/yourusername/my-quad-ops-project"
 ```
 
-### 3. Sync Your Project
+## Running Your First Sync
 
 ```bash
+# Sync repositories and write systemd unit files
 sudo quad-ops sync
 ```
 
-### 4. Verify Deployment
+This will:
+1. Clone the configured repository
+2. Find the Docker Compose file
+3. Convert it to Podman Quadlet units
+4. Write the units to the quadlet directory
+
+## Verifying Your Setup
+
+### Check Running Containers
 
 ```bash
-sudo quad-ops unit list -t container
+# Use podman to verify containers are running
 sudo podman ps
 ```
 
-## Setting Up for Production
+## Managing
 
-### Linux - Systemd Service
-
-For continuous operation, enable the systemd service:
+Quad-Ops creates systemd units that you can manage with standard systemd commands:
 
 ```bash
-# Enable and start the service
-sudo systemctl enable --now quad-ops
+# Restart a container
+sudo systemctl restart my-project-web
 
-# Check service status
-sudo systemctl status quad-ops
+# Stop a container
+sudo systemctl stop my-project-web
+
+# Start a container
+sudo systemctl start my-project-web
 
 # View logs
-sudo journalctl -u quad-ops -f
+sudo journalctl -u my-project-web
 ```
-
-For more advanced setups including user services and template services, see the [Systemd Service](../configuration/systemd-service/) guide.
-
-### macOS - Manual Daemon
-
-macOS users can run the daemon manually:
-
-```bash
-# Run the daemon (stays in foreground)
-quad-ops daemon
-
-# Or run in background with logs
-nohup quad-ops daemon > /var/log/quad-ops.log 2>&1 &
-```
-
-> **Coming Soon**: Native launchd integration for macOS will provide automatic service management similar to systemd on Linux.
 
 ## Docker Compose Tips for Quad-Ops
 
@@ -341,6 +192,5 @@ Congratulations! You now have Quad-Ops manually installed and running. Here are 
 For more detailed information, check out these guides:
 
 - [Quick Start](../quick-start/) - Automated installation for future deployments
-- [Docker Compose Support](../docker-compose/)
-- [Systemd Service Configuration](../configuration/systemd-service/)
-- [Dependency Management](../dependency-management/)
+- [Repository Configuration](../configuration/repository-configuration/) - Repository and compose file options
+- [Command Reference](../command-reference/) - Available commands and options

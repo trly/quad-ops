@@ -5,52 +5,33 @@ weight: 20
 
 # Systemd Service
 
-For production use, Quad-Ops should run as a systemd service to continuously monitor your Git repositories and update your container infrastructure.
+For production use, Quad-Ops runs as a systemd oneshot service paired with a timer to periodically sync your Git repositories and start your container infrastructure.
 
 ## Installation Options
 
 | Option | Description | Use Case |
 |--------|-------------|----------|
 | **System-wide** | Runs as root, manages system-wide containers | Production servers |
-| **User mode** | Runs as a regular user, manages rootless containers | Development environments, shared servers |
+| **Template (per-user)** | Runs as a specific user, manages rootless containers | Development environments, shared servers |
 
 ## System-Wide Service
 
 ```bash
-# Download the service file from GitHub
+# Download the service and timer files from GitHub
 sudo curl -L -o /etc/systemd/system/quad-ops.service \
   https://raw.githubusercontent.com/trly/quad-ops/main/build/package/quad-ops.service
+sudo curl -L -o /etc/systemd/system/quad-ops.timer \
+  https://raw.githubusercontent.com/trly/quad-ops/main/build/package/quad-ops.timer
 
-# Enable and start the service
+# Enable and start the timer
 sudo systemctl daemon-reload
-sudo systemctl enable quad-ops
-sudo systemctl start quad-ops
+sudo systemctl enable --now quad-ops.timer
+
+# Run an immediate sync
+sudo systemctl start quad-ops.service
 
 # View logs
 sudo journalctl -u quad-ops -f
-```
-
-## User Mode Service
-
-```bash
-# Create config directories
-mkdir -p ~/.config/quad-ops
-mkdir -p ~/.config/systemd/user/
-
-# Download the user service file from GitHub
-curl -L -o ~/.config/systemd/user/quad-ops.service \
-  https://raw.githubusercontent.com/trly/quad-ops/main/build/package/quad-ops-user.service
-
-# Enable lingering (required for service to run after logout)
-loginctl enable-linger $(whoami)
-
-# Enable and start the service
-systemctl --user daemon-reload
-systemctl --user enable quad-ops
-systemctl --user start quad-ops
-
-# View logs
-journalctl --user -u quad-ops -f
 ```
 
 ## Template Service (for specific users)
@@ -58,14 +39,18 @@ journalctl --user -u quad-ops -f
 System administrators can run quad-ops for specific users using the template service:
 
 ```bash
-# Download the template service file from GitHub
+# Download the template service and timer files from GitHub
 sudo curl -L -o /etc/systemd/system/quad-ops@.service \
   https://raw.githubusercontent.com/trly/quad-ops/main/build/package/quad-ops@.service
+sudo curl -L -o /etc/systemd/system/quad-ops@.timer \
+  https://raw.githubusercontent.com/trly/quad-ops/main/build/package/quad-ops@.timer
 
-# Enable and start for specific users
+# Enable and start the timer for a specific user
 sudo systemctl daemon-reload
-sudo systemctl enable quad-ops@username
-sudo systemctl start quad-ops@username
+sudo systemctl enable --now quad-ops@username.timer
+
+# Run an immediate sync for a specific user
+sudo systemctl start quad-ops@username.service
 
 # View logs for specific user
 sudo journalctl -u quad-ops@username -f
@@ -73,7 +58,7 @@ sudo journalctl -u quad-ops@username -f
 
 ## Service Customization
 
-Use systemd override files to customize service behavior without modifying the original service files.
+Use systemd override files to customize service behavior without modifying the original unit files.
 
 **Note:** When overriding `ExecStart`, you must first clear it with an empty `ExecStart=` line, then set the new value.
 
@@ -86,29 +71,8 @@ sudo systemctl edit quad-ops
 # Add this content to the override file:
 [Service]
 ExecStart=
-ExecStart=/usr/local/bin/quad-ops sync --daemon --config /path/to/custom/config.yaml
-```
-
-```bash
-# For user service
-systemctl --user edit quad-ops
-
-# Add this content to the override file:
-[Service]
-ExecStart=
-ExecStart=%h/.local/bin/quad-ops sync --daemon --config %h/.config/quad-ops/custom-config.yaml
-```
-
-### Custom Sync Interval
-
-```bash
-# For system service
-sudo systemctl edit quad-ops
-
-# Add this content to the override file:
-[Service]
-ExecStart=
-ExecStart=/usr/local/bin/quad-ops sync --daemon --sync-interval 2m
+ExecStart=/usr/local/bin/quad-ops sync --config /path/to/custom/config.yaml
+ExecStart=/usr/local/bin/quad-ops up --config /path/to/custom/config.yaml
 ```
 
 ### Enable Verbose Logging
@@ -120,21 +84,30 @@ sudo systemctl edit quad-ops
 # Add this content to the override file:
 [Service]
 ExecStart=
-ExecStart=/usr/local/bin/quad-ops sync --daemon --verbose
+ExecStart=/usr/local/bin/quad-ops sync --verbose
+ExecStart=/usr/local/bin/quad-ops up --verbose
+```
+
+### Custom Sync Interval
+
+Override the timer frequency by editing the timer unit:
+
+```bash
+sudo systemctl edit quad-ops.timer
+
+# Add this content to the override file:
+[Timer]
+OnUnitActiveSec=
+OnUnitActiveSec=10min
 ```
 
 ### Apply Override Changes
 
-After creating override files, reload systemd and restart the service:
+After creating override files, reload systemd and restart the timer:
 
 ```bash
-# For system service
 sudo systemctl daemon-reload
-sudo systemctl restart quad-ops
-
-# For user service
-systemctl --user daemon-reload
-systemctl --user restart quad-ops
+sudo systemctl restart quad-ops.timer
 ```
 
 ### Required Directories

@@ -21,10 +21,8 @@ quad-ops [global-options] <command> [command-options] [arguments]
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--config` | | Path to configuration file |
-| `--verbose` | `-v` | Enable verbose output |
-| `--user` | `-u` | Run in rootless user mode |
-| `--quadlet-dir` | | Override unit output directory |
-| `--repository-dir` | | Override git checkout directory |
+| `--debug` | | Enable debug output |
+| `--verbose` | | Enable verbose output |
 | `--help` | `-h` | Show help information |
 
 ## Available Commands
@@ -37,33 +35,15 @@ quad-ops <command> --help
 
 # Examples
 quad-ops sync --help
-quad-ops unit list --help
+quad-ops validate --help
 ```
 
 ### Core Operations
 
-- **[sync](sync)** - Synchronize repositories and deploy containers
-- **[daemon](daemon)** - Run quad-ops as a daemon with periodic synchronization
-- **[up](up)** - Start all or specific services
-- **[down](down)** - Stop and remove services
-- **[validate](validate)** - Validate Docker Compose files and quad-ops extensions
+- **[sync](sync)** - Sync repositories and write systemd unit files to quadlet directory
+- **[up](up)** - Start managed services
+- **[down](down)** - Stop managed services
+- **[validate](validate)** - Validate compose files for use with quad-ops
 - **[update](update)** - Update quad-ops to the latest version
-- **[version](version)** - Show version information and check for updates
-
-### System Health
-
-- **[doctor](doctor)** - Check system health and configuration
-
-### Image Management
-
-- **[image pull](image)** - Pull container images from repositories
-
-### Unit Management
-
-- **[unit list](unit/list)** - List deployed units and their status
-- **[unit show](unit/show)** - Display detailed unit information
-
-### Configuration
-
-- **[config](config)** - Configuration management commands
+- **[version](version)** - Print version information
 

@@ -2,72 +2,51 @@
 package git
 
 import (
+	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing"
-	"github.com/trly/quad-ops/internal/config"
-	"github.com/trly/quad-ops/internal/log"
 )
 
-// Repository represents a Git repository with its local path, remote URL,
-// and an instance of the underlying git repository.
+// Repository represents a Git repository to sync to a local path.
 type Repository struct {
-	config.Repository
-	Path    string
-	repo    *git.Repository
-	verbose bool `yaml:"-"`
-	logger  log.Logger
+	Name       string // repository identifier
+	URL        string // remote git URL
+	Reference  string // git ref: branch, tag, or commit hash
+	ComposeDir string // optional subdirectory in repo containing compose files
+	Path       string // local path where repository will be cloned/synced
+	repo       *git.Repository
 }
 
-// NewGitRepository creates a new Repository instance with explicit config provider.
-func NewGitRepository(repository config.Repository, configProvider config.Provider) *Repository {
-	cfg := configProvider.GetConfig()
+// New creates a new Repository instance.
+func New(name, url, ref, composeDir, path string) *Repository {
 	return &Repository{
-		Repository: repository,
-		Path:       filepath.Join(cfg.RepositoryDir, repository.Name),
-		verbose:    cfg.Verbose,
-		logger:     log.NewLogger(cfg.Verbose),
+		Name:       name,
+		URL:        url,
+		Reference:  ref,
+		ComposeDir: composeDir,
+		Path:       path,
 	}
 }
 
-// NewGitRepositoryWithLogger creates a new Repository instance with explicit dependencies.
-func NewGitRepositoryWithLogger(repository config.Repository, configProvider config.Provider, logger log.Logger) *Repository {
-	cfg := configProvider.GetConfig()
-	return &Repository{
-		Repository: repository,
-		Path:       filepath.Join(cfg.RepositoryDir, repository.Name),
-		verbose:    cfg.Verbose,
-		logger:     logger,
-	}
-}
-
-// SyncRepository clones the remote repository to the local path if it doesn't exist,
+// Sync clones the remote repository to the local path if it doesn't exist,
 // or opens the existing repository and pulls the latest changes if it does.
 // It returns an error if any Git operations fail.
-func (r *Repository) SyncRepository() error {
-	r.logger.Debug("Syncing repository", "path", filepath.Base(r.Path))
-
+// Context can be used to signal cancellation.
+func (r *Repository) Sync(ctx context.Context) error {
 	cloneOptions := &git.CloneOptions{URL: r.URL}
-	if r.verbose {
-		cloneOptions.Progress = os.Stdout
-	}
 
 	repo, err := git.PlainClone(r.Path, false, cloneOptions)
-
 	if err != nil {
 		if err == git.ErrRepositoryAlreadyExists {
-			r.logger.Debug("Repository already exists, opening", "path", r.Path)
-
 			repo, err = git.PlainOpen(r.Path)
 			if err != nil {
 				return err
 			}
 
 			r.repo = repo
-			if err := r.pullLatest(); err != nil {
+			if err := r.pullLatest(ctx); err != nil {
 				return err
 			}
 		} else {
@@ -78,41 +57,43 @@ func (r *Repository) SyncRepository() error {
 	r.repo = repo
 
 	if r.Reference != "" {
-		r.logger.Debug("Checking out target", "ref", r.Reference)
 		return r.checkoutTarget()
 	}
 	return nil
 }
 
 // checkoutTarget attempts to checkout the target reference, which can be a commit hash,
-// tag, or branch.
+// tag, or branch. It tries to checkout as a branch first, then falls back to hash checkout.
 func (r *Repository) checkoutTarget() error {
+	// Resolve the reference to get the actual commit hash
+	hash, err := r.repo.ResolveRevision(plumbing.Revision(r.Reference))
+	if err != nil {
+		return fmt.Errorf("reference %q not found: %w", r.Reference, err)
+	}
+
 	worktree, err := r.repo.Worktree()
 	if err != nil {
 		return err
 	}
-	r.logger.Debug("Attempting to checkout target as commit hash", "hash", r.Reference)
 
-	hash := plumbing.NewHash(r.Reference)
+	// Try to checkout as a branch first to keep HEAD attached
+	branchRef := plumbing.NewBranchReferenceName(r.Reference)
 	err = worktree.Checkout(&git.CheckoutOptions{
-		Hash: hash,
+		Branch: branchRef,
+		Create: false,
 	})
 	if err == nil {
 		return nil
 	}
-	r.logger.Debug("Attempting to checkout target as branch/tag", "ref", r.Reference)
 
-	return worktree.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.NewBranchReferenceName(r.Reference),
-	})
+	// Fall back to checkout by hash (for tags, commits, or non-existent branches)
+	return worktree.Checkout(&git.CheckoutOptions{Hash: *hash})
 }
 
 // pullLatest pulls the latest changes from the remote repository.
 // It returns an error if any Git operations fail, except when the repository
 // is already up to date.
-func (r *Repository) pullLatest() error {
-	r.logger.Debug("Pulling latest changes from origin")
-
+func (r *Repository) pullLatest(_ context.Context) error {
 	worktree, err := r.repo.Worktree()
 	if err != nil {
 		return err
@@ -122,10 +103,19 @@ func (r *Repository) pullLatest() error {
 	if err != nil && err != git.NoErrAlreadyUpToDate {
 		return err
 	}
-	if err == git.NoErrAlreadyUpToDate {
-		r.logger.Debug("Repository is already up to date")
-	}
 	return nil
+}
+
+// CheckoutRef opens an existing repository and checks out the given reference
+// without fetching from the remote. Used for rollback to a known commit.
+func (r *Repository) CheckoutRef(ref string) error {
+	repo, err := git.PlainOpen(r.Path)
+	if err != nil {
+		return fmt.Errorf("failed to open repository: %w", err)
+	}
+	r.repo = repo
+	r.Reference = ref
+	return r.checkoutTarget()
 }
 
 // GetCurrentCommitHash returns the current HEAD commit hash.

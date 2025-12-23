@@ -1,195 +1,57 @@
-// Package config provides configuration management for quad-ops
+// Package config provides application configuration structures and utilities.
 package config
 
 import (
 	"os"
 	"path/filepath"
-	"runtime"
-	"time"
-
-	"github.com/spf13/viper"
 )
 
-// Provider defines the interface for configuration providers.
-type Provider interface {
-	// GetConfig returns the current application configuration.
-	GetConfig() *Settings
-	// SetConfig sets the application configuration.
-	SetConfig(c *Settings)
-	// InitConfig initializes the application configuration.
-	InitConfig() *Settings
-	// SetConfigFilePath sets the configuration file path.
-	SetConfigFilePath(p string)
+// AppConfig represents the application configuration loaded from a YAML file.
+type AppConfig struct {
+	RepositoryDir string `yaml:"repositoryDir,omitempty"`
+	QuadletDir    string `yaml:"quadletDir,omitempty"`
+	Repositories  []struct {
+		Name       string `yaml:"name"`
+		URL        string `yaml:"url"`
+		Ref        string `yaml:"ref,omitempty"`
+		ComposeDir string `yaml:"composeDir,omitempty"`
+	} `yaml:"repositories"`
 }
 
-// defaultConfigProvider implements the Provider interface.
-type defaultConfigProvider struct {
-	cfg *Settings
+// IsUserMode returns true if running as non-root user (uid != 0).
+func IsUserMode() bool {
+	return os.Getuid() != 0
 }
 
-// NewDefaultConfigProvider creates a new default config provider.
-func NewDefaultConfigProvider() Provider {
-	return &defaultConfigProvider{}
-}
-
-// NewConfigProvider creates and initializes a new config provider.
-func NewConfigProvider() Provider {
-	provider := &defaultConfigProvider{}
-	provider.cfg = provider.InitConfig()
-	return provider
-}
-
-// Default configuration values for the quad-ops system.
-// These constants define the default values for various configuration
-// settings, such as the repository directory, sync interval, quadlet
-// directory, database path, user mode, and verbosity.
-const (
-	DefaultRepositoryDir     = "/var/lib/quad-ops"
-	DefaultSyncInterval      = 5 * time.Minute
-	DefaultQuadletDir        = "/etc/containers/systemd"
-	DefaultUserRepositoryDir = "$HOME/.local/share/quad-ops"
-	DefaultUserQuadletDir    = "$HOME/.config/containers/systemd"
-	DefaultUserMode          = false
-	DefaultVerbose           = false
-	DefaultUnitStartTimeout  = 10 * time.Second
-	DefaultImagePullTimeout  = 30 * time.Second
-)
-
-// Repository represents a repository that is managed by the quad-ops system.
-// It contains information about the repository, including its name, URL, target
-// directory, and compose directory.
-type Repository struct {
-	Name       string `yaml:"name"`
-	URL        string `yaml:"url"`
-	Reference  string `yaml:"ref,omitempty"`
-	ComposeDir string `yaml:"composeDir,omitempty"`
-}
-
-// Settings represents the configuration for the quad-ops system. It contains
-// various settings such as the repository directory, sync interval, quadlet
-// directory, database path, user mode, and verbosity.
-type Settings struct {
-	RepositoryDir    string        `yaml:"repositoryDir"`
-	SyncInterval     time.Duration `yaml:"syncInterval"`
-	QuadletDir       string        `yaml:"quadletDir"`
-	Repositories     []Repository  `yaml:"repositories"`
-	UserMode         bool          `yaml:"userMode"`
-	Verbose          bool          `yaml:"verbose"`
-	UnitStartTimeout time.Duration `yaml:"unitStartTimeout"`
-	ImagePullTimeout time.Duration `yaml:"imagePullTimeout"`
-}
-
-// Implementation of ConfigProvider methods for defaultConfigProvider
-
-func (p *defaultConfigProvider) SetConfig(c *Settings) {
-	p.cfg = c
-}
-
-func (p *defaultConfigProvider) GetConfig() *Settings {
-	return p.cfg
-}
-
-func (p *defaultConfigProvider) SetConfigFilePath(path string) {
-	viper.SetConfigFile(path)
-}
-
-func (p *defaultConfigProvider) InitConfig() *Settings {
-	cfg, err := initConfigInternal()
-	if err != nil {
-		panic(err)
+// GetRepositoryDir returns the repository directory, using the default based on user mode if not configured.
+func (c *AppConfig) GetRepositoryDir() string {
+	if c.RepositoryDir != "" {
+		return c.RepositoryDir
 	}
-	p.cfg = cfg
-	return p.cfg
-}
-
-// Internal function to initialize configuration.
-func initConfigInternal() (*Settings, error) {
-	viper.SetDefault("repositoryDir", DefaultRepositoryDir)
-	viper.SetDefault("syncInterval", DefaultSyncInterval)
-	viper.SetDefault("quadletDir", DefaultQuadletDir)
-	viper.SetDefault("userMode", DefaultUserMode)
-	viper.SetDefault("verbose", DefaultVerbose)
-	viper.SetDefault("unitStartTimeout", DefaultUnitStartTimeout)
-	viper.SetDefault("imagePullTimeout", DefaultImagePullTimeout)
-
-	viper.SetConfigName("config")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(os.ExpandEnv("$HOME/.config/quad-ops"))
-	viper.AddConfigPath("/etc/quad-ops")
-	viper.AddConfigPath(".")
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, err
-		}
+	if IsUserMode() {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, ".local/share/quad-ops")
 	}
+	return "/var/lib/quad-ops"
+}
 
-	cfg := &Settings{
-		RepositoryDir:    viper.GetString("repositoryDir"),
-		SyncInterval:     viper.GetDuration("syncInterval"),
-		QuadletDir:       viper.GetString("quadletDir"),
-		UserMode:         viper.GetBool("userMode"),
-		Verbose:          viper.GetBool("verbose"),
-		UnitStartTimeout: viper.GetDuration("unitStartTimeout"),
-		ImagePullTimeout: viper.GetDuration("imagePullTimeout"),
+// GetStateFilePath returns the path to the deployment state file.
+func (c *AppConfig) GetStateFilePath() string {
+	if IsUserMode() {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, ".local/state/quad-ops/state.json")
 	}
+	return "/var/lib/quad-ops/state.json"
+}
 
-	// Get repositories array if present
-	if err := viper.UnmarshalKey("repositories", &cfg.Repositories); err != nil {
-		return nil, err
+// GetQuadletDir returns the quadlet directory, using the default based on user mode if not configured.
+func (c *AppConfig) GetQuadletDir() string {
+	if c.QuadletDir != "" {
+		return c.QuadletDir
 	}
-
-	// Apply platform-specific defaults if values are still at defaults
-	applyPlatformDefaults(cfg)
-
-	return cfg, nil
-}
-
-// applyPlatformDefaults adjusts configuration for platform-specific defaults.
-// Only applies macOS defaults when values are unset or still at Linux defaults.
-func applyPlatformDefaults(cfg *Settings) {
-	if runtime.GOOS == "darwin" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return
-		}
-
-		// Apply macOS defaults only if still at Linux defaults
-		if cfg.QuadletDir == DefaultQuadletDir {
-			cfg.QuadletDir = filepath.Join(homeDir, "Library", "LaunchAgents")
-		}
-
-		if cfg.RepositoryDir == DefaultRepositoryDir {
-			cfg.RepositoryDir = filepath.Join(homeDir, "Library", "Application Support", "dev.trly.quad-ops")
-		}
+	if IsUserMode() {
+		home, _ := os.UserHomeDir()
+		return filepath.Join(home, ".config/containers/systemd")
 	}
-}
-
-// MockProvider is a test implementation of Provider for testing purposes.
-type MockProvider struct {
-	Config         *Settings
-	ConfigFilePath string
-}
-
-// GetConfig returns the mock configuration.
-func (m *MockProvider) GetConfig() *Settings {
-	return m.Config
-}
-
-// SetConfig sets the mock configuration (for testing convenience).
-func (m *MockProvider) SetConfig(config *Settings) {
-	m.Config = config
-}
-
-// InitConfig initializes the mock configuration (returns existing config).
-func (m *MockProvider) InitConfig() *Settings {
-	if m.Config == nil {
-		m.Config = &Settings{}
-	}
-	return m.Config
-}
-
-// SetConfigFilePath sets the mock configuration file path.
-func (m *MockProvider) SetConfigFilePath(path string) {
-	m.ConfigFilePath = path
+	return "/etc/containers/systemd"
 }

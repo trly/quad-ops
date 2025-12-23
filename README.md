@@ -12,13 +12,27 @@ Quad-Ops is a lightweight GitOps framework for Podman containers managed by [Qua
 
 - **GitOps workflow** - Monitor multiple Git repositories for container configurations
 - **Standard Docker Compose** - Full support for Docker Compose files (services, networks, volumes, secrets)
-- **Cross-platform** - Works on Linux (systemd/Quadlet) and macOS (launchd) with Podman
-- **Smart change detection** - SHA256-based detection prevents unnecessary service restarts
-- **Init containers** - Run initialization containers before main services start (similar to Kubernetes)
-- **Intelligent restarts** - Only restarts services whose artifacts actually changed
-- **Podman-specific features** - Support for exposing secrets as environment variables
+- **Quadlet integration** - Generates native systemd Quadlet unit files
 - **Flexible deployment** - Works in both system-wide and user (rootless) modes
-- **Production-ready** - Built with dependency injection, comprehensive test coverage (582+ tests)
+- **Validation** - Check Compose files for compatibility before deployment
+
+## CLI Commands
+
+```bash
+quad-ops sync          # Sync repositories and write systemd unit files to quadlet directory
+quad-ops validate      # Validate compose files for use with quad-ops
+quad-ops dependencies  # Print dependencies for all repositories in the configuration
+quad-ops update        # Update quad-ops to the latest version
+quad-ops version       # Print version information
+```
+
+### Global Options
+
+```
+--config    Path to config file
+--debug     Enable debug mode
+--verbose   Enable verbose output
+```
 
 ## Compose Specification Support
 
@@ -131,76 +145,43 @@ Pattern: `^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`
 
 **Invalid names are rejected with clear error messages.**
 
-## Cross-Project Dependencies
-
-Quad-Ops supports declaring dependencies on services in other projects using the `x-quad-ops-depends-on` extension field.
-
-### Example
-
-```yaml
-# project-app/compose.yml
-name: app
-services:
-  backend:
-    image: myapp:latest
-    x-quad-ops-depends-on:
-      - project: infrastructure
-        service: proxy
-        optional: false  # Fail if not found
-      - project: monitoring
-        service: prometheus
-        optional: true   # Warn if not found
-    depends_on:
-      - redis  # Intra-project dependency
-  
-  redis:
-    image: redis:latest
-```
-
-### How It Works
-
-1. **Validation** - Quad-Ops validates that external services exist before deployment
-2. **Ordering** - External dependencies are included in topological startup ordering
-3. **Platform integration** - Maps to systemd `After`/`Requires` or launchd `DependsOn`
-4. **Optional dependencies** - Can be marked as optional (warn if missing instead of failing)
-
-**Requirements:**
-- External service must already be deployed (use `quad-ops up` in dependency project first)
-- Project and service names must follow naming requirements
-- Works on both Linux (systemd) and macOS (launchd)
-
 ## Architecture
 
-Quad-Ops uses a clean, modular architecture with clear separation of concerns:
-
-```
-Docker Compose → Service Specs → Platform Artifacts → Service Lifecycle
-     ↓               ↓                 ↓                    ↓
-   Reader        Converter         Renderer             Lifecycle
-                                                         Manager
-```
+Quad-Ops uses a modular architecture:
 
 1. **Compose Reader** - Parses Docker Compose YAML files
-2. **Spec Converter** - Converts to platform-agnostic service specifications
-3. **Platform Renderer** - Generates platform-specific artifacts (Quadlet units on Linux, launchd plists on macOS)
-4. **Lifecycle Manager** - Manages service start/stop/restart via systemd or launchd
-5. **Change Detection** - SHA256 hashing ensures only changed services restart
-
-This architecture makes it easy to:
-- Add new platforms (Windows services, etc.)
-- Test components in isolation with dependency injection
-- Understand and maintain the codebase
-
-For detailed architecture information, see [ARCHITECTURE.md](ARCHITECTURE.md).
+2. **Platform Renderer** - Generates Quadlet unit files for systemd
 
 ## Configuration Example
 
 ```yaml
+syncInterval: "5m"           # How often to sync repositories (optional)
+repositoryDir: "/var/lib/quad-ops"  # Where to clone repositories (optional)
+quadletDir: "/etc/containers/systemd"  # Where to write Quadlet units (optional)
+
 repositories:
-  - name: quad-ops-compose  # Repository name (required)
+  - name: my-containers       # Repository name (required)
     url: "https://github.com/example/repo.git"  # Git repository URL (required)
-    ref: "main"  # Git reference to checkout: branch, tag, or commit hash (optional)
-    composeDir: "compose"  # Subdirectory where Docker Compose files are located (optional)
+    ref: "main"               # Git reference: branch, tag, or commit (optional)
+    composeDir: "compose"     # Subdirectory with Compose files (optional)
+```
+
+Default directories:
+- **System mode** (root): `/var/lib/quad-ops` for repos, `/etc/containers/systemd` for Quadlet units
+- **User mode** (rootless): `~/.local/share/quad-ops` for repos, `~/.config/containers/systemd` for Quadlet units
+
+## Getting Started
+
+```bash
+# Sync repositories and generate Quadlet unit files
+quad-ops sync
+
+# Validate compose files before deployment
+quad-ops validate /path/to/compose.yml
+
+# Reload systemd and start services
+systemctl daemon-reload
+systemctl start <service-name>
 ```
 
 ## Getting Started with Development
@@ -211,7 +192,6 @@ git clone https://github.com/trly/quad-ops.git
 cd quad-ops
 
 # Install task runner (if not already installed)
-# macOS: brew install go-task/tap/go-task
 # Linux: sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b ~/.local/bin
 
 # Build, lint, test, and format (all-in-one)
@@ -228,10 +208,8 @@ go build -o quad-ops cmd/quad-ops/main.go  # Build binary only
 
 ### Quick Install (Recommended)
 
-Linux and macOS are both supported with automatic platform detection:
-
 ```bash
-# System-wide installation (Linux and macOS)
+# System-wide installation
 curl -fsSL https://raw.githubusercontent.com/trly/quad-ops/main/install.sh | bash
 
 # User installation (rootless containers)
@@ -239,9 +217,8 @@ curl -fsSL https://raw.githubusercontent.com/trly/quad-ops/main/install.sh | bas
 ```
 
 The installer automatically:
-- Detects your platform (Linux/macOS) and architecture (amd64/arm64)
+- Detects your architecture (amd64/arm64)
 - Downloads and verifies the correct binary
-- Installs systemd services (Linux only)
 - Sets up example configuration files
 
 ### Manual Installation
@@ -256,9 +233,4 @@ sudo mv quad-ops /usr/local/bin/
 # Copy the example config file
 sudo mkdir -p /etc/quad-ops
 sudo cp configs/config.yaml.example /etc/quad-ops/config.yaml
-
-# Linux only: Install the systemd service file (optional)
-sudo cp build/quad-ops.service /etc/systemd/system/quad-ops.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now quad-ops
 ```

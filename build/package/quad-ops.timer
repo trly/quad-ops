@@ -1,0 +1,10 @@
+[Unit]
+Description=Quad-Ops Sync Timer
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

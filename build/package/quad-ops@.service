@@ -1,17 +1,10 @@
 [Unit]
-Description=Quad-Ops Container Manager
+Description=Quad-Ops Container Manager for %i
 After=network-online.target
 Wants=network-online.target
 
 [Service]
-Type=notify
-ExecStart=/usr/local/bin/quad-ops sync --daemon -u
-ExecStartPost=-/usr/local/bin/quad-ops -u up
-Restart=always
-RestartSec=10
-KillMode=mixed
-TimeoutStopSec=30
-WatchdogSec=60
-
-[Install]
-WantedBy=default.target
+Type=oneshot
+User=%i
+ExecStart=/usr/local/bin/quad-ops sync
+ExecStart=/usr/local/bin/quad-ops up
