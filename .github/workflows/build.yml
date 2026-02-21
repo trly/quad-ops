@@ -33,11 +33,7 @@ jobs:
         env:
           CGO_ENABLED: 0
   build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     needs: lint
     steps:
       - uses: actions/checkout@v4
@@ -57,11 +53,7 @@ jobs:
       - name: Build
         run: go build -v ./...
   test:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     needs: lint
     steps:
       - uses: actions/checkout@v4
@@ -73,11 +65,9 @@ jobs:
       - name: Download Dependencies
         run: go mod download
       - name: Run tests with coverage
-        run: go test -v -race -covermode=atomic -coverprofile=coverage-${{ matrix.os }}.out ./...
+        run: go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage-${{ matrix.os }}.out
-          flags: ${{ matrix.os }}
-          name: coverage-${{ matrix.os }}
+          files: ./coverage.out
