@@ -1821,7 +1821,7 @@ services:
 func TestGetServiceSecrets_WithSecrets(t *testing.T) {
 	service := types.ServiceConfig{
 		Extensions: map[string]interface{}{
-			"x-podman-env-secrets": map[string]interface{}{
+			"x-podman-env-secrets": map[string]interface{}{ //nolint:gosec // test data, not real credentials
 				"db_password":  "DB_PASSWORD",
 				"api_key":      "API_KEY",
 				"oauth_secret": "OAUTH_SECRET",
