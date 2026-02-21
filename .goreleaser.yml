@@ -6,7 +6,7 @@ before:
     - go generate ./...
 
 builds:
-  - main: ./cmd/quad-ops/main.go
+  - main: ./cmd/quad-ops
     binary: quad-ops
     goos:
       - linux
