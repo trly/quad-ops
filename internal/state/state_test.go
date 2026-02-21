@@ -102,8 +102,8 @@ func TestSaveToUnwritablePath(t *testing.T) {
 
 func TestSaveToUnwritableFile(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.Chmod(dir, 0o555))
-	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+	require.NoError(t, os.Chmod(dir, 0o555))       //nolint:gosec // intentionally restrictive for test
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) }) //nolint:gosec // restore permissions for cleanup
 
 	s := &State{Repositories: make(map[string]RepoState)}
 	err := s.Save(filepath.Join(dir, "state.json"))
