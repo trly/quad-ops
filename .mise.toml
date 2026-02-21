@@ -1,5 +1,5 @@
 [tools]
-go = "1.25.0"
+go = "1.25.7"
 golangci-lint = "latest"
 gotestsum = "latest"
 hugo-extended = "0.148.2"
