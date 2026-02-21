@@ -68,4 +68,45 @@ func TestLoadCorruptFile(t *testing.T) {
 
 	_, err := Load(path)
 	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to parse state file")
+}
+
+func TestLoadUnreadableFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	require.NoError(t, os.WriteFile(path, []byte("{}"), 0o000))
+
+	_, err := Load(path)
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to read state file")
+}
+
+func TestLoadNullRepositories(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"repositories":null}`), 0o644))
+
+	s, err := Load(path)
+	require.NoError(t, err)
+	assert.NotNil(t, s.Repositories)
+	assert.Empty(t, s.Repositories)
+}
+
+func TestSaveToUnwritablePath(t *testing.T) {
+	s := &State{Repositories: make(map[string]RepoState)}
+
+	err := s.Save("/proc/nonexistent/subdir/state.json")
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to create state directory")
+}
+
+func TestSaveToUnwritableFile(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.Chmod(dir, 0o555))
+	t.Cleanup(func() { os.Chmod(dir, 0o755) })
+
+	s := &State{Repositories: make(map[string]RepoState)}
+	err := s.Save(filepath.Join(dir, "state.json"))
+	assert.Error(t, err)
+	assert.ErrorContains(t, err, "failed to write state file")
 }

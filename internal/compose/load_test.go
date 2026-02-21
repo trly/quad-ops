@@ -1888,3 +1888,438 @@ func TestGetServiceSecrets_InvalidType(t *testing.T) {
 	secrets := GetServiceSecrets(service)
 	assert.Empty(t, secrets)
 }
+
+// TestErrorTypes tests Error() and Unwrap() for all error types.
+func TestErrorTypes(t *testing.T) {
+	cause := fmt.Errorf("underlying cause")
+
+	t.Run("fileNotFoundError", func(t *testing.T) {
+		err := &fileNotFoundError{path: "/some/path", cause: cause}
+		assert.Contains(t, err.Error(), "/some/path")
+		assert.Equal(t, cause, err.Unwrap())
+		assert.True(t, IsFileNotFoundError(err))
+		assert.False(t, IsFileNotFoundError(fmt.Errorf("other")))
+	})
+
+	t.Run("invalidYAMLError", func(t *testing.T) {
+		err := &invalidYAMLError{cause: cause}
+		assert.Contains(t, err.Error(), "invalid YAML")
+		assert.Equal(t, cause, err.Unwrap())
+		assert.True(t, IsInvalidYAMLError(err))
+		assert.False(t, IsInvalidYAMLError(fmt.Errorf("other")))
+	})
+
+	t.Run("validationError without cause", func(t *testing.T) {
+		err := &validationError{message: "bad field"}
+		assert.Contains(t, err.Error(), "bad field")
+		assert.Nil(t, err.Unwrap())
+	})
+
+	t.Run("validationError with cause", func(t *testing.T) {
+		err := &validationError{message: "bad field", cause: cause}
+		assert.Contains(t, err.Error(), "bad field")
+		assert.Contains(t, err.Error(), "underlying cause")
+		assert.Equal(t, cause, err.Unwrap())
+	})
+
+	t.Run("pathError", func(t *testing.T) {
+		err := &pathError{path: "/bad/path", cause: cause}
+		assert.Contains(t, err.Error(), "/bad/path")
+		assert.Equal(t, cause, err.Unwrap())
+	})
+
+	t.Run("loaderError", func(t *testing.T) {
+		err := &loaderError{cause: cause}
+		assert.Contains(t, err.Error(), "failed to load compose file")
+		assert.Equal(t, cause, err.Unwrap())
+		assert.True(t, IsLoaderError(err))
+		assert.False(t, IsLoaderError(fmt.Errorf("other")))
+	})
+
+	t.Run("quadletCompatibilityError without cause", func(t *testing.T) {
+		err := &quadletCompatibilityError{message: "not compatible"}
+		assert.Contains(t, err.Error(), "not compatible")
+		assert.Nil(t, err.Unwrap())
+	})
+
+	t.Run("quadletCompatibilityError with cause", func(t *testing.T) {
+		err := &quadletCompatibilityError{message: "not compatible", cause: cause}
+		assert.Contains(t, err.Error(), "not compatible")
+		assert.Contains(t, err.Error(), "underlying cause")
+		assert.Equal(t, cause, err.Unwrap())
+	})
+}
+
+// TestLoadAll_ContextCancellation tests that LoadAll respects context cancellation.
+func TestLoadAll_ContextCancellation(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := LoadAll(ctx, tmpDir, nil)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// TestLoadAll_PathIsFile tests that LoadAll rejects a file path.
+func TestLoadAll_PathIsFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "compose.yaml")
+	require.NoError(t, os.WriteFile(filePath, []byte("version: '3'\nservices:\n  app:\n    image: busybox\n"), 0o644))
+
+	ctx := context.Background()
+	_, err := LoadAll(ctx, filePath, nil)
+
+	require.Error(t, err)
+	assert.True(t, IsPathError(err))
+}
+
+// TestLoadAll_EmptyDirectory tests LoadAll with no compose files.
+func TestLoadAll_EmptyDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	ctx := context.Background()
+	projects, err := LoadAll(ctx, tmpDir, nil)
+
+	require.NoError(t, err)
+	assert.Empty(t, projects)
+}
+
+// TestLoadAll_WithFailedProject tests that LoadAll continues on individual project errors.
+func TestLoadAll_WithFailedProject(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	goodDir := filepath.Join(tmpDir, "good")
+	badDir := filepath.Join(tmpDir, "bad")
+	require.NoError(t, os.MkdirAll(goodDir, 0o755))
+	require.NoError(t, os.MkdirAll(badDir, 0o755))
+
+	require.NoError(t, os.WriteFile(
+		filepath.Join(goodDir, "compose.yaml"),
+		[]byte("version: '3'\nservices:\n  app:\n    image: busybox\n"),
+		0o644,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(badDir, "compose.yaml"),
+		[]byte("version: '3'\nservices:\n  app:\n    image: busybox\n    privileged: true\n"),
+		0o644,
+	))
+
+	ctx := context.Background()
+	projects, err := LoadAll(ctx, tmpDir, nil)
+
+	require.NoError(t, err)
+	assert.Len(t, projects, 2)
+
+	var successes, failures int
+	for _, p := range projects {
+		if p.Error == nil {
+			successes++
+		} else {
+			failures++
+		}
+	}
+	assert.Equal(t, 1, successes)
+	assert.Equal(t, 1, failures)
+}
+
+// TestValidateQuadletCompatibility_NilProject tests nil project handling.
+func TestValidateQuadletCompatibility_NilProject(t *testing.T) {
+	err := validateQuadletCompatibility(context.Background(), nil)
+
+	require.Error(t, err)
+	assert.True(t, IsQuadletCompatibilityError(err))
+}
+
+// TestValidateQuadletCompatibility_ContextCancellation tests context cancellation.
+func TestValidateQuadletCompatibility_ContextCancellation(t *testing.T) {
+	project := &types.Project{
+		Name: "test",
+		Services: types.Services{
+			"app": {Name: "app", Image: "busybox"},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := validateQuadletCompatibility(ctx, project)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// TestValidateQuadletCompatibility_HostNetworkWithPorts tests host network mode with port publishing.
+func TestValidateQuadletCompatibility_HostNetworkWithPorts(t *testing.T) {
+	project := &types.Project{
+		Name: "test",
+		Services: types.Services{
+			"app": {
+				Name:        "app",
+				Image:       "nginx:latest",
+				NetworkMode: "host",
+				Ports: []types.ServicePortConfig{
+					{Target: 80, Published: "8080"},
+				},
+			},
+		},
+	}
+
+	err := validateQuadletCompatibility(context.Background(), project)
+
+	require.Error(t, err)
+	assert.True(t, IsQuadletCompatibilityError(err))
+	assert.Contains(t, err.Error(), "host")
+	assert.Contains(t, err.Error(), "ports")
+}
+
+// TestValidateQuadletCompatibility_CustomNetworkMode tests unsupported custom network mode.
+func TestValidateQuadletCompatibility_CustomNetworkMode(t *testing.T) {
+	project := &types.Project{
+		Name: "test",
+		Services: types.Services{
+			"app": {
+				Name:        "app",
+				Image:       "nginx:latest",
+				NetworkMode: "container:other",
+			},
+		},
+	}
+
+	err := validateQuadletCompatibility(context.Background(), project)
+
+	require.Error(t, err)
+	assert.True(t, IsQuadletCompatibilityError(err))
+	assert.Contains(t, err.Error(), "unsupported network mode")
+}
+
+// TestIsServiceNameReference tests the isServiceNameReference function.
+func TestIsServiceNameReference(t *testing.T) {
+	tests := []struct {
+		mode     string
+		expected bool
+	}{
+		{"", false},
+		{"private", false},
+		{"shareable", false},
+		{"service:other", true},
+		{"container:mycontainer", true},
+		{"host", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.mode, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isServiceNameReference(tt.mode))
+		})
+	}
+}
+
+// TestIsValidEnvVarName_EdgeCases tests edge cases for env var name validation.
+func TestIsValidEnvVarName_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{"empty string", "", false},
+		{"single underscore", "_", true},
+		{"digits only", "123", false},
+		{"valid with digits", "A1B2", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isValidEnvVarName(tt.input))
+		})
+	}
+}
+
+// TestIsValidSecretName_EdgeCases tests edge cases for secret name validation.
+func TestIsValidSecretName_EdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected bool
+	}{
+		{"empty string", "", false},
+		{"single char", "a", true},
+		{"only dots", "...", true},
+		{"only dashes", "---", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isValidSecretName(tt.input))
+		})
+	}
+}
+
+// TestCheckServiceSecrets tests checking a service for missing secrets.
+func TestCheckServiceSecrets(t *testing.T) {
+	t.Run("nil available secrets", func(t *testing.T) {
+		service := types.ServiceConfig{
+			Extensions: map[string]interface{}{
+				"x-podman-env-secrets": map[string]interface{}{
+					"my_secret": "SECRET",
+				},
+			},
+		}
+		missing := CheckServiceSecrets(service, nil)
+		assert.Nil(t, missing)
+	})
+
+	t.Run("no secrets in service", func(t *testing.T) {
+		service := types.ServiceConfig{}
+		available := map[string]struct{}{"some_secret": {}}
+		missing := CheckServiceSecrets(service, available)
+		assert.Nil(t, missing)
+	})
+
+	t.Run("all secrets available", func(t *testing.T) {
+		service := types.ServiceConfig{
+			Extensions: map[string]interface{}{
+				"x-podman-env-secrets": map[string]interface{}{
+					"db_pass": "DB_PASSWORD",
+				},
+			},
+		}
+		available := map[string]struct{}{"db_pass": {}}
+		missing := CheckServiceSecrets(service, available)
+		assert.Empty(t, missing)
+	})
+
+	t.Run("missing secrets", func(t *testing.T) {
+		service := types.ServiceConfig{
+			Extensions: map[string]interface{}{
+				"x-podman-env-secrets": map[string]interface{}{
+					"db_pass":    "DB_PASSWORD",
+					"api_key":    "API_KEY",
+					"jwt_secret": "JWT_SECRET",
+				},
+			},
+		}
+		available := map[string]struct{}{"db_pass": {}}
+		missing := CheckServiceSecrets(service, available)
+		assert.Len(t, missing, 2)
+		assert.Contains(t, missing, "api_key")
+		assert.Contains(t, missing, "jwt_secret")
+	})
+}
+
+// TestFilterServicesWithMissingSecrets tests filtering services with missing secrets.
+func TestFilterServicesWithMissingSecrets(t *testing.T) {
+	t.Run("nil project", func(t *testing.T) {
+		skipped, err := FilterServicesWithMissingSecrets(context.Background(), nil, nil)
+		assert.NoError(t, err)
+		assert.Nil(t, skipped)
+	})
+
+	t.Run("all secrets available", func(t *testing.T) {
+		project := &types.Project{
+			Name: "test",
+			Services: types.Services{
+				"app": {
+					Name:  "app",
+					Image: "busybox",
+					Extensions: map[string]interface{}{
+						"x-podman-env-secrets": map[string]interface{}{
+							"db_pass": "DB_PASSWORD",
+						},
+					},
+				},
+			},
+		}
+		available := map[string]struct{}{"db_pass": {}}
+		skipped, err := FilterServicesWithMissingSecrets(context.Background(), project, available)
+		assert.NoError(t, err)
+		assert.Empty(t, skipped)
+		assert.Len(t, project.Services, 1)
+	})
+
+	t.Run("removes service with missing secrets", func(t *testing.T) {
+		project := &types.Project{
+			Name: "test",
+			Services: types.Services{
+				"app": {
+					Name:  "app",
+					Image: "busybox",
+					Extensions: map[string]interface{}{
+						"x-podman-env-secrets": map[string]interface{}{
+							"missing_secret": "SECRET",
+						},
+					},
+				},
+				"web": {
+					Name:  "web",
+					Image: "nginx",
+				},
+			},
+		}
+		available := map[string]struct{}{}
+		skipped, err := FilterServicesWithMissingSecrets(context.Background(), project, available)
+		assert.NoError(t, err)
+		assert.Len(t, skipped, 1)
+		assert.Equal(t, "app", skipped[0].ServiceName)
+		assert.Contains(t, skipped[0].MissingSecrets, "missing_secret")
+		assert.Len(t, project.Services, 1)
+		_, ok := project.Services["web"]
+		assert.True(t, ok)
+	})
+
+	t.Run("service without secrets is kept", func(t *testing.T) {
+		project := &types.Project{
+			Name: "test",
+			Services: types.Services{
+				"web": {
+					Name:  "web",
+					Image: "nginx",
+				},
+			},
+		}
+		available := map[string]struct{}{}
+		skipped, err := FilterServicesWithMissingSecrets(context.Background(), project, available)
+		assert.NoError(t, err)
+		assert.Empty(t, skipped)
+		assert.Len(t, project.Services, 1)
+	})
+}
+
+// TestParseServiceDependencies_ContextCancellation tests context cancellation.
+func TestParseServiceDependencies_ContextCancellation(t *testing.T) {
+	project := &types.Project{
+		Name: "test",
+		Services: types.Services{
+			"app": {Name: "app", Image: "busybox"},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := parseServiceDependencies(ctx, project)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.Canceled)
+}
+
+// TestValidateQuadletCompatibility_UnsupportedIpcModeNotServiceRef tests non-service IPC reference.
+func TestValidateQuadletCompatibility_UnsupportedIpcModeNotServiceRef(t *testing.T) {
+	project := &types.Project{
+		Name: "test",
+		Services: types.Services{
+			"app": {
+				Name:  "app",
+				Image: "nginx:latest",
+				Ipc:   "host",
+			},
+		},
+	}
+
+	err := validateQuadletCompatibility(context.Background(), project)
+
+	require.Error(t, err)
+	assert.True(t, IsQuadletCompatibilityError(err))
+	assert.Contains(t, err.Error(), "unsupported IPC mode")
+}

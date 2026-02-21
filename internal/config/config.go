@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 )
 
+// getuid is the function used to retrieve the current user ID.
+// It is a variable to allow tests to simulate root/non-root environments.
+var getuid = os.Getuid
+
 // AppConfig represents the application configuration loaded from a YAML file.
 type AppConfig struct {
 	RepositoryDir string `yaml:"repositoryDir,omitempty"`
@@ -20,7 +24,7 @@ type AppConfig struct {
 
 // IsUserMode returns true if running as non-root user (uid != 0).
 func IsUserMode() bool {
-	return os.Getuid() != 0
+	return getuid() != 0
 }
 
 // GetRepositoryDir returns the repository directory, using the default based on user mode if not configured.

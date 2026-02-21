@@ -377,6 +377,29 @@ func TestCheckoutRefNonExistentRepo(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestGetCurrentCommitHashUninitialized(t *testing.T) {
+	repo := New("test", "https://example.com/repo.git", "", "", "/tmp/nope")
+
+	hash, err := repo.GetCurrentCommitHash()
+	require.Error(t, err)
+	require.Empty(t, hash)
+	require.ErrorContains(t, err, "repository not initialized")
+}
+
+func TestCheckoutTargetInvalidReference(t *testing.T) {
+	tmpDir := setupTest(t)
+
+	remoteRepoDir := filepath.Join(tmpDir, "remote-repo")
+	createTestRepo(t, remoteRepoDir)
+
+	repoPath := filepath.Join(tmpDir, "test-repo")
+	repo := New("test-repo", remoteRepoDir, "nonexistent-ref", "", repoPath)
+
+	err := repo.Sync(context.Background())
+	require.Error(t, err)
+	require.ErrorContains(t, err, "not found")
+}
+
 func TestNewWithAllFields(t *testing.T) {
 	repo := New("test-repo", "https://example.com/repo.git", "main", "examples", "/test/path")
 

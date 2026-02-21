@@ -299,7 +299,7 @@ func isServiceNameReference(mode string) bool {
 		return false
 	}
 	// Check for service: or container: prefix
-	return len(mode) > 8 && (mode[:8] == "service:" || mode[:10] == "container:")
+	return strings.HasPrefix(mode, "service:") || strings.HasPrefix(mode, "container:")
 }
 
 // isSupportedSecurityOpt checks if a security_opt value is supported by Quadlet.
