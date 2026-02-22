@@ -6,4 +6,3 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/quad-ops sync
-ExecStart=/usr/local/bin/quad-ops up

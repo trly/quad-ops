@@ -40,9 +40,7 @@ quad-ops validate --help
 
 ### Core Operations
 
-- **[sync](sync)** - Sync repositories and write systemd unit files to quadlet directory
-- **[up](up)** - Start managed services
-- **[down](down)** - Stop managed services
+- **[sync](sync)** - Sync repositories, generate Quadlet units, pull images, and start services
 - **[validate](validate)** - Validate compose files for use with quad-ops
 - **[update](update)** - Update quad-ops to the latest version
 - **[version](version)** - Print version information

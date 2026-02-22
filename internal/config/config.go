@@ -43,7 +43,7 @@ func (c *AppConfig) GetRepositoryDir() string {
 func (c *AppConfig) GetStateFilePath() string {
 	if IsUserMode() {
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, ".local/state/quad-ops/state.json")
+		return filepath.Join(home, ".config/quad-ops/state.json")
 	}
 	return "/var/lib/quad-ops/state.json"
 }

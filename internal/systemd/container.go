@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/trly/quad-ops/internal/config"
 	"gopkg.in/ini.v1"
 )
 
@@ -50,6 +51,14 @@ func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig) U
 
 	// Add [Unit] section for service dependencies
 	buildUnitSection(file, projectName, svc)
+
+	// Add [Install] section so the unit starts on boot
+	installSection, _ := file.NewSection("Install")
+	if config.IsUserMode() {
+		_, _ = installSection.NewKey("WantedBy", "default.target")
+	} else {
+		_, _ = installSection.NewKey("WantedBy", "multi-user.target")
+	}
 
 	return Unit{
 		Name: fmt.Sprintf("%s-%s.container", projectName, serviceName),

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/trly/quad-ops/internal/config"
+	"github.com/trly/quad-ops/internal/state"
 	"github.com/trly/quad-ops/internal/systemd"
 	"gopkg.in/ini.v1"
 )
@@ -88,6 +90,110 @@ func TestRunWithNoRepositories(t *testing.T) {
 	err := sync.Run(globals)
 	if err != nil {
 		t.Errorf("expected no error with no repositories, got %v", err)
+	}
+}
+
+// TestCleanupStaleUnitsRemovesFiles tests that stale unit files are removed from disk.
+func TestCleanupStaleUnitsRemovesFiles(t *testing.T) {
+	quadletDir := t.TempDir()
+
+	// Create stale unit files
+	staleFiles := []string{"app-old.container", "app-oldnet.network", "app-oldvol.volume"}
+	for _, name := range staleFiles {
+		if err := os.WriteFile(filepath.Join(quadletDir, name), []byte("[Unit]"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// Create a unit that should NOT be removed
+	keepFile := filepath.Join(quadletDir, "app-keep.container")
+	if err := os.WriteFile(keepFile, []byte("[Unit]"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sync := &SyncCmd{}
+	globals := &Globals{
+		AppCfg: &config.AppConfig{},
+	}
+	// Override quadlet dir to our temp dir
+	globals.AppCfg.QuadletDir = quadletDir
+
+	ctx := context.Background()
+	sync.cleanupStaleUnits(ctx, globals, staleFiles)
+
+	// Stale files should be removed
+	for _, name := range staleFiles {
+		path := filepath.Join(quadletDir, name)
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Errorf("expected stale unit %s to be removed", name)
+		}
+	}
+
+	// Keep file should still exist
+	if _, err := os.Stat(keepFile); os.IsNotExist(err) {
+		t.Error("expected keep file to still exist")
+	}
+}
+
+// TestDiffUnits tests the set difference computation.
+func TestDiffUnits(t *testing.T) {
+	old := map[string]struct{}{
+		"app-web.container": {},
+		"app-db.container":  {},
+		"app-net.network":   {},
+	}
+	current := map[string]struct{}{
+		"app-web.container": {},
+	}
+
+	stale := diffUnits(old, current)
+	if len(stale) != 2 {
+		t.Fatalf("expected 2 stale units, got %d", len(stale))
+	}
+
+	staleSet := make(map[string]struct{})
+	for _, s := range stale {
+		staleSet[s] = struct{}{}
+	}
+	if _, ok := staleSet["app-db.container"]; !ok {
+		t.Error("expected app-db.container in stale units")
+	}
+	if _, ok := staleSet["app-net.network"]; !ok {
+		t.Error("expected app-net.network in stale units")
+	}
+}
+
+// TestDiffUnitsNoChanges tests that no stale units are returned when sets match.
+func TestDiffUnitsNoChanges(t *testing.T) {
+	units := map[string]struct{}{
+		"app-web.container": {},
+	}
+
+	stale := diffUnits(units, units)
+	if len(stale) != 0 {
+		t.Errorf("expected no stale units, got %d", len(stale))
+	}
+}
+
+// TestCollectAllManagedUnits tests aggregation across multiple repos.
+func TestCollectAllManagedUnits(t *testing.T) {
+	s := &state.State{
+		Repositories: make(map[string]state.RepoState),
+		ManagedUnits: map[string][]string{
+			"repo-a": {"a-web.container", "a-net.network"},
+			"repo-b": {"b-api.container"},
+		},
+	}
+
+	result := collectAllManagedUnits(s)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 units, got %d", len(result))
+	}
+
+	for _, expected := range []string{"a-web.container", "a-net.network", "b-api.container"} {
+		if _, ok := result[expected]; !ok {
+			t.Errorf("expected %s in result", expected)
+		}
 	}
 }
 

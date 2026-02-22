@@ -42,9 +42,7 @@ type Globals struct {
 type CLI struct {
 	Globals
 
-	Sync     SyncCmd     `cmd:"" help:"sync repositories and write systemd unit files to quadlet directory"`
-	Up       UpCmd       `cmd:"" help:"start managed services"`
-	Down     DownCmd     `cmd:"" help:"stop managed services"`
+	Sync     SyncCmd     `cmd:"" help:"sync repositories, write systemd unit files, and start services"`
 	Update   UpdateCmd   `cmd:"" help:"update quad-ops to the latest version"`
 	Validate ValidateCmd `cmd:"" help:"validate compose files for use with quad-ops"`
 	Version  VersionCmd  `cmd:"" help:"print version information"`

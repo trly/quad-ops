@@ -43,14 +43,19 @@ quad-ops sync [flags]
 
 The `sync` command is the core operation of Quad-Ops. It performs a complete synchronization cycle:
 
-1. **Repository Updates** - Clone new repositories or pull latest changes
-2. **File Discovery** - Scan for Docker Compose files in configured locations
-3. **Conversion** - Generate Podman Quadlet units from compose configurations
-4. **Deployment** - Write units to the quadlet directory
+1. **Repository Updates** — Clone new repositories or pull latest changes
+2. **File Discovery** — Scan for Docker Compose files in configured locations
+3. **Conversion** — Generate Podman Quadlet units from compose configurations
+4. **Deployment** — Write units to the quadlet directory
+5. **Stale Unit Cleanup** — Stop, disable, and remove units no longer defined by any compose project
+6. **Image Pull** — Pre-pull container images to avoid systemd start timeouts
+7. **Service Activation** — Reload the systemd daemon and start container services
 
 This command is safe to run repeatedly and will only make necessary changes.
 
-Use `--rollback` to revert to the previous sync state if something goes wrong.
+### Rollback
+
+Use `--rollback` to revert each repository to its previous commit and regenerate units. Services are restarted from the rolled-back configuration.
 
 ## Examples
 
@@ -70,4 +75,10 @@ quad-ops sync --verbose
 
 ```bash
 quad-ops sync --config /path/to/config.yaml
+```
+
+### Rollback to the previous state
+
+```bash
+quad-ops sync --rollback
 ```

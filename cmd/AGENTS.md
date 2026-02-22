@@ -11,9 +11,7 @@ CLI entrypoint for quad-ops using the Kong CLI framework.
 
 | Command | File | Description |
 |---------|------|-------------|
-| `sync` | sync.go | Sync repositories and generate Quadlet units from compose files (supports `--rollback`) |
-| `up` | up.go | Start managed services (optionally filtered by project/service), pre-pulls images |
-| `down` | down.go | Stop managed services (optionally filtered by project/service) |
+| `sync` | sync.go | Sync repositories, generate Quadlet units, pull images, enable and start services (supports `--rollback`) |
 | `validate` | validate.go | Validate compose files (by path or from configured repositories) |
 | `update` | update.go | Self-update quad-ops binary |
 | `version` | version.go | Print version info and check for updates |

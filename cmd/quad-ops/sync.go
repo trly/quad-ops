@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/trly/quad-ops/internal/compose"
 	"github.com/trly/quad-ops/internal/git"
@@ -47,49 +49,65 @@ func (s *SyncCmd) Run(globals *Globals) error {
 	return s.runSync(globals, deployState, stateFilePath)
 }
 
-// runSync performs the normal sync: pull latest, generate units, record state.
+// runSync performs the normal sync: pull latest, generate units, record state,
+// then enable and start services for repos where all compose files passed validation.
 func (s *SyncCmd) runSync(globals *Globals, deployState *state.State, stateFilePath string) error {
 	ctx := context.Background()
 	failed := 0
 
+	// Snapshot all currently managed units before sync
+	oldManagedUnits := collectAllManagedUnits(deployState)
+
+	// Track services and images to start for repos with zero failures
+	var servicesToStart []string
+	imageSet := make(map[string]struct{})
+
 	for _, repo := range globals.AppCfg.Repositories {
 		repoPath := filepath.Join(globals.AppCfg.GetRepositoryDir(), repo.Name)
 
-		if err := s.syncRepository(ctx, globals, deployState, repo.Name, repo.URL, repo.Ref, repo.ComposeDir, repoPath); err != nil {
+		services, images, err := s.syncRepository(ctx, globals, deployState, repo.Name, repo.URL, repo.Ref, repo.ComposeDir, repoPath)
+		if err != nil {
 			fmt.Printf("  ERROR: %v\n", err)
 			failed++
+			continue
+		}
+
+		servicesToStart = append(servicesToStart, services...)
+		for _, img := range images {
+			imageSet[img] = struct{}{}
 		}
 	}
 
-	if failed > 0 {
-		return fmt.Errorf("%d repository(ies) failed to sync", failed)
+	// Clear managed units for repos no longer in config
+	configuredRepos := make(map[string]struct{})
+	for _, repo := range globals.AppCfg.Repositories {
+		configuredRepos[repo.Name] = struct{}{}
+	}
+	for repoName := range deployState.ManagedUnits {
+		if _, ok := configuredRepos[repoName]; !ok {
+			deployState.SetManagedUnits(repoName, nil)
+		}
 	}
 
-	if err := deployState.Save(stateFilePath); err != nil {
-		return fmt.Errorf("failed to save state: %w", err)
+	images := make([]string, 0, len(imageSet))
+	for img := range imageSet {
+		images = append(images, img)
 	}
 
-	// Reload systemd daemon to pick up new/changed units
-	client, err := systemd.New(ctx, systemd.ScopeAuto)
-	if err != nil {
-		return fmt.Errorf("failed to connect to systemd: %w", err)
-	}
-	defer func() { _ = client.Close() }()
-
-	if err := client.DaemonReload(ctx); err != nil {
-		return fmt.Errorf("failed to reload systemd daemon: %w", err)
-	}
-	if globals.Verbose {
-		fmt.Println("Reloaded systemd daemon")
-	}
-
-	return nil
+	return s.finalize(ctx, globals, deployState, stateFilePath, oldManagedUnits, servicesToStart, images, failed, "sync")
 }
 
 // runRollback restores each repository to its previous commit and regenerates units.
 func (s *SyncCmd) runRollback(globals *Globals, deployState *state.State, stateFilePath string) error {
 	ctx := context.Background()
 	failed := 0
+
+	// Snapshot all currently managed units before rollback
+	oldManagedUnits := collectAllManagedUnits(deployState)
+
+	// Track services and images to start for repos with zero failures
+	var servicesToStart []string
+	imageSet := make(map[string]struct{})
 
 	for _, repo := range globals.AppCfg.Repositories {
 		repoPath := filepath.Join(globals.AppCfg.GetRepositoryDir(), repo.Name)
@@ -110,18 +128,94 @@ func (s *SyncCmd) runRollback(globals *Globals, deployState *state.State, stateF
 			continue
 		}
 
-		if err := s.generateUnits(ctx, globals, gitRepo, repo.ComposeDir, repoPath); err != nil {
-			fmt.Printf("  ERROR: %v\n", err)
+		unitNames, images, genErr := s.generateUnits(ctx, globals, repo.ComposeDir, repoPath)
+
+		// Always record state to reflect what is actually on disk so that
+		// stale unit detection remains accurate even after partial failures.
+		deployState.SetCommit(repo.Name, prev)
+		deployState.SetManagedUnits(repo.Name, unitNames)
+
+		if genErr != nil {
+			fmt.Printf("  ERROR: %v\n", genErr)
 			failed++
 			continue
 		}
 
-		// Swap current and previous so another rollback goes forward again
-		deployState.SetCommit(repo.Name, prev)
+		// Only start services if all compose files in this repo passed
+		for _, name := range unitNames {
+			if strings.HasSuffix(name, ".container") {
+				serviceName := strings.TrimSuffix(name, ".container") + ".service"
+				servicesToStart = append(servicesToStart, serviceName)
+			}
+		}
+		for _, img := range images {
+			imageSet[img] = struct{}{}
+		}
 	}
 
-	if failed > 0 {
-		return fmt.Errorf("%d repository(ies) failed to rollback", failed)
+	allImages := make([]string, 0, len(imageSet))
+	for img := range imageSet {
+		allImages = append(allImages, img)
+	}
+
+	return s.finalize(ctx, globals, deployState, stateFilePath, oldManagedUnits, servicesToStart, allImages, failed, "rollback")
+}
+
+// syncRepository processes a single repository and writes its units to quadletdir.
+// Returns the list of service units to start and images to pull for this repo.
+func (s *SyncCmd) syncRepository(ctx context.Context, globals *Globals, deployState *state.State, name, url, ref, composeDir, repoPath string) ([]string, []string, error) {
+	if globals.Verbose {
+		fmt.Printf("Syncing repository: %s\n", name)
+	}
+
+	// Sync the repository to the latest state
+	gitRepo := git.New(name, url, ref, composeDir, repoPath)
+	if err := gitRepo.Sync(ctx); err != nil {
+		return nil, nil, fmt.Errorf("failed to sync git repository: %w", err)
+	}
+
+	// Get the current commit hash
+	commitHash, err := gitRepo.GetCurrentCommitHash()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get current commit hash: %w", err)
+	}
+	if globals.Verbose {
+		fmt.Printf("  Current revision: %s\n", commitHash[:7])
+	}
+
+	unitNames, images, genErr := s.generateUnits(ctx, globals, composeDir, repoPath)
+
+	// Always record state to reflect what is actually on disk so that
+	// stale unit detection remains accurate even after partial failures.
+	deployState.SetCommit(name, commitHash)
+	deployState.SetManagedUnits(name, unitNames)
+
+	if genErr != nil {
+		return nil, nil, genErr
+	}
+
+	// Derive service names from container units
+	var services []string
+	for _, unitName := range unitNames {
+		if strings.HasSuffix(unitName, ".container") {
+			serviceName := strings.TrimSuffix(unitName, ".container") + ".service"
+			services = append(services, serviceName)
+		}
+	}
+
+	return services, images, nil
+}
+
+// finalize performs post-sync/rollback cleanup: stale unit removal, state
+// persistence, systemd daemon reload, and service activation. It always
+// runs — even on partial failure — so that successfully-processed repos
+// stay consistent.
+func (s *SyncCmd) finalize(ctx context.Context, globals *Globals, deployState *state.State, stateFilePath string, oldManagedUnits map[string]struct{}, servicesToStart, images []string, failed int, action string) error {
+	newManagedUnits := collectAllManagedUnits(deployState)
+	staleUnits := diffUnits(oldManagedUnits, newManagedUnits)
+
+	if len(staleUnits) > 0 {
+		s.cleanupStaleUnits(ctx, globals, staleUnits)
 	}
 
 	if err := deployState.Save(stateFilePath); err != nil {
@@ -141,40 +235,36 @@ func (s *SyncCmd) runRollback(globals *Globals, deployState *state.State, stateF
 		fmt.Println("Reloaded systemd daemon")
 	}
 
+	// Pull images before starting services to avoid systemd timeout
+	if err := pullImages(images, globals.Verbose); err != nil {
+		return fmt.Errorf("failed to pull images: %w", err)
+	}
+
+	// Start services for repos that fully passed validation.
+	// Quadlet-generated units are produced by systemd's generator and cannot
+	// be enabled (they are transient); DaemonReload + Start is sufficient.
+	if len(servicesToStart) > 0 {
+		if globals.Verbose {
+			fmt.Printf("Starting %d service(s)...\n", len(servicesToStart))
+		}
+		if err := client.Start(ctx, servicesToStart...); err != nil {
+			return fmt.Errorf("some services failed to start: %w", err)
+		}
+		if globals.Verbose {
+			fmt.Printf("Started %d service(s)\n", len(servicesToStart))
+		}
+	}
+
+	if failed > 0 {
+		return fmt.Errorf("%d repository(ies) failed to %s", failed, action)
+	}
+
 	return nil
 }
 
-// syncRepository processes a single repository and writes its units to quadletdir.
-func (s *SyncCmd) syncRepository(ctx context.Context, globals *Globals, deployState *state.State, name, url, ref, composeDir, repoPath string) error {
-	if globals.Verbose {
-		fmt.Printf("Syncing repository: %s\n", name)
-	}
-
-	// Sync the repository to the latest state
-	gitRepo := git.New(name, url, ref, composeDir, repoPath)
-	if err := gitRepo.Sync(ctx); err != nil {
-		return fmt.Errorf("failed to sync git repository: %w", err)
-	}
-
-	// Get the current commit hash
-	commitHash, err := gitRepo.GetCurrentCommitHash()
-	if err != nil {
-		return fmt.Errorf("failed to get current commit hash: %w", err)
-	}
-	if globals.Verbose {
-		fmt.Printf("  Current revision: %s\n", commitHash[:7])
-	}
-
-	if err := s.generateUnits(ctx, globals, gitRepo, composeDir, repoPath); err != nil {
-		return err
-	}
-
-	deployState.SetCommit(name, commitHash)
-	return nil
-}
-
-// generateUnits loads compose files and writes the resulting quadlet units.
-func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, _ *git.Repository, composeDir, repoPath string) error {
+// generateUnits loads compose files, writes the resulting quadlet units,
+// and returns the list of unit filenames written and images referenced.
+func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, composeDir, repoPath string) ([]string, []string, error) {
 	// Determine the directory containing compose files
 	composeSourceDir := repoPath
 	if composeDir != "" {
@@ -184,17 +274,19 @@ func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, _ *git.Re
 	// Load all compose projects from the repository
 	loadedProjects, err := compose.LoadAll(ctx, composeSourceDir, nil)
 	if err != nil {
-		return fmt.Errorf("failed to load compose files: %w", err)
+		return nil, nil, fmt.Errorf("failed to load compose files: %w", err)
 	}
 
 	if len(loadedProjects) == 0 {
 		if globals.Verbose {
 			fmt.Printf("  No compose files found in %s\n", composeSourceDir)
 		}
-		return nil
+		return nil, nil, nil
 	}
 
 	quadletDir := globals.AppCfg.GetQuadletDir()
+	var unitNames []string
+	imageSet := make(map[string]struct{})
 
 	// Process each loaded project
 	for _, lp := range loadedProjects {
@@ -220,12 +312,24 @@ func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, _ *git.Re
 		// Convert compose project to systemd units
 		units, err := systemd.Convert(lp.Project)
 		if err != nil {
-			return fmt.Errorf("failed to convert compose project %s: %w", lp.FilePath, err)
+			fmt.Printf("  WARNING: failed to convert %s: %v\n", lp.FilePath, err)
+			continue
 		}
 
 		// Write each unit to a file in quadletdir
 		if err := s.writeUnits(units, quadletDir); err != nil {
-			return fmt.Errorf("failed to write units for %s: %w", lp.FilePath, err)
+			return unitNames, nil, fmt.Errorf("failed to write units for %s: %w", lp.FilePath, err)
+		}
+
+		for _, u := range units {
+			unitNames = append(unitNames, u.Name)
+		}
+
+		// Collect images for pre-pulling
+		for _, svc := range lp.Project.Services {
+			if svc.Image != "" {
+				imageSet[svc.Image] = struct{}{}
+			}
 		}
 
 		if globals.Verbose {
@@ -237,7 +341,12 @@ func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, _ *git.Re
 		}
 	}
 
-	return nil
+	images := make([]string, 0, len(imageSet))
+	for img := range imageSet {
+		images = append(images, img)
+	}
+
+	return unitNames, images, nil
 }
 
 // writeUnits writes each unit to a separate file in the quadlet directory.
@@ -265,4 +374,103 @@ func (s *SyncCmd) writeUnits(units []systemd.Unit, quadletDir string) error {
 	}
 
 	return nil
+}
+
+// cleanupStaleUnits stops, disables, and removes quadlet unit files
+// that are no longer defined by any compose project.
+func (s *SyncCmd) cleanupStaleUnits(ctx context.Context, globals *Globals, staleUnits []string) {
+	quadletDir := globals.AppCfg.GetQuadletDir()
+
+	// Identify container services to stop and disable
+	var servicesToStop []string
+	for _, unit := range staleUnits {
+		if strings.HasSuffix(unit, ".container") {
+			serviceName := strings.TrimSuffix(unit, ".container") + ".service"
+			servicesToStop = append(servicesToStop, serviceName)
+		}
+	}
+
+	if len(servicesToStop) > 0 {
+		client, err := systemd.New(ctx, systemd.ScopeAuto)
+		if err != nil {
+			fmt.Printf("  WARNING: failed to connect to systemd for cleanup: %v\n", err)
+		} else {
+			if globals.Verbose {
+				fmt.Printf("Stopping %d stale service(s)...\n", len(servicesToStop))
+			}
+			if err := client.Stop(ctx, servicesToStop...); err != nil {
+				fmt.Printf("  WARNING: failed to stop some stale services: %v\n", err)
+			}
+			if err := client.Disable(ctx, servicesToStop...); err != nil {
+				fmt.Printf("  WARNING: failed to disable some stale services: %v\n", err)
+			}
+			_ = client.Close()
+		}
+	}
+
+	// Remove stale unit files from quadlet directory
+	for _, unit := range staleUnits {
+		path := filepath.Join(quadletDir, unit)
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			fmt.Printf("  WARNING: failed to remove stale unit %s: %v\n", unit, err)
+		} else if globals.Verbose {
+			fmt.Printf("  Removed stale unit: %s\n", unit)
+		}
+	}
+}
+
+// pullImages pulls the given container images using podman.
+func pullImages(images []string, verbose bool) error {
+	if len(images) == 0 {
+		return nil
+	}
+
+	total := len(images)
+	if verbose {
+		fmt.Printf("Pulling %d image(s)...\n", total)
+	}
+
+	for i, image := range images {
+		if verbose {
+			fmt.Printf("  [%d/%d] Pulling %s\n", i+1, total, image)
+		}
+
+		cmd := exec.Command("podman", "pull", image) //nolint:gosec // image names from validated compose files
+		if verbose {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				return fmt.Errorf("failed to pull image %s: %w", image, err)
+			}
+		} else {
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				return fmt.Errorf("failed to pull image %s: %w\n%s", image, err, string(output))
+			}
+		}
+	}
+
+	return nil
+}
+
+// collectAllManagedUnits returns a set of all unit filenames across all repositories.
+func collectAllManagedUnits(deployState *state.State) map[string]struct{} {
+	result := make(map[string]struct{})
+	for _, units := range deployState.ManagedUnits {
+		for _, u := range units {
+			result[u] = struct{}{}
+		}
+	}
+	return result
+}
+
+// diffUnits returns unit names present in oldUnits but not in newUnits.
+func diffUnits(oldUnits, newUnits map[string]struct{}) []string {
+	var stale []string
+	for u := range oldUnits {
+		if _, ok := newUnits[u]; !ok {
+			stale = append(stale, u)
+		}
+	}
+	return stale
 }

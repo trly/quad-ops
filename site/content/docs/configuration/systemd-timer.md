@@ -5,7 +5,7 @@ weight: 20
 
 # Systemd Timer
 
-Quad-Ops ships systemd unit files in [`build/package/`](https://github.com/trly/quad-ops/tree/main/build/package) that run it as a oneshot service triggered by a timer. On each timer tick the service runs `quad-ops sync` followed by `quad-ops up`, pulling the latest Git configuration and reconciling your container infrastructure.
+Quad-Ops ships systemd unit files in [`build/package/`](https://github.com/trly/quad-ops/tree/main/build/package) that run it as a oneshot service triggered by a timer. On each timer tick the service runs `quad-ops sync`, which pulls the latest Git configuration, generates Quadlet units, pre-pulls container images, and starts services.
 
 ## Unit Files
 
@@ -20,10 +20,9 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/local/bin/quad-ops sync
-ExecStart=/usr/local/bin/quad-ops up
 ```
 
-Runs as root. The `oneshot` type means systemd waits for each `ExecStart` command to finish before starting the next, so `sync` always completes before `up` begins. The service requires network connectivity via the `network-online.target` dependency.
+Runs as root. The `oneshot` type means systemd waits for the command to finish. The service requires network connectivity via the `network-online.target` dependency.
 
 ### `quad-ops.timer` — System-Wide Timer
 
@@ -58,7 +57,6 @@ Wants=network-online.target
 Type=oneshot
 User=%i
 ExecStart=/usr/local/bin/quad-ops sync
-ExecStart=/usr/local/bin/quad-ops up
 ```
 
 A systemd template unit — the `%i` specifier is replaced by the instance name (the part after `@`). When enabled as `quad-ops@alice.service`, the service runs as user `alice` and manages that user's rootless containers.
@@ -142,11 +140,10 @@ sudo systemctl edit quad-ops
 [Service]
 ExecStart=
 ExecStart=/usr/local/bin/quad-ops sync --config /path/to/config.yaml
-ExecStart=/usr/local/bin/quad-ops up --config /path/to/config.yaml
 ```
 
 {{< hint warning >}}
-When overriding `ExecStart` in a `oneshot` service, you must first clear it with an empty `ExecStart=` line, then provide all new commands.
+When overriding `ExecStart` in a `oneshot` service, you must first clear it with an empty `ExecStart=` line, then provide the new command.
 {{< /hint >}}
 
 ### Verbose Logging
@@ -157,7 +154,6 @@ sudo systemctl edit quad-ops
 [Service]
 ExecStart=
 ExecStart=/usr/local/bin/quad-ops sync --verbose
-ExecStart=/usr/local/bin/quad-ops up --verbose
 ```
 
 ### Custom Timer Interval

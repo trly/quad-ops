@@ -18,6 +18,7 @@ type RepoState struct {
 // State holds the deployment state for all repositories.
 type State struct {
 	Repositories map[string]RepoState `json:"repositories"`
+	ManagedUnits map[string][]string  `json:"managed_units,omitempty"`
 }
 
 // Load reads the state file from disk. Returns an empty state if the file does not exist.
@@ -37,6 +38,10 @@ func Load(path string) (*State, error) {
 
 	if s.Repositories == nil {
 		s.Repositories = make(map[string]RepoState)
+	}
+
+	if s.ManagedUnits == nil {
+		s.ManagedUnits = make(map[string][]string)
 	}
 
 	return s, nil
@@ -75,4 +80,14 @@ func (s *State) SetCommit(repoName, commitHash string) {
 // Returns empty string if no previous state exists.
 func (s *State) GetPrevious(repoName string) string {
 	return s.Repositories[repoName].Previous
+}
+
+// SetManagedUnits records the quadlet unit filenames managed for a repository.
+func (s *State) SetManagedUnits(repoName string, units []string) {
+	s.ManagedUnits[repoName] = units
+}
+
+// GetManagedUnits returns the quadlet unit filenames managed for a repository.
+func (s *State) GetManagedUnits(repoName string) []string {
+	return s.ManagedUnits[repoName]
 }

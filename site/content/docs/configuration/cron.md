@@ -15,7 +15,7 @@ sudo crontab -e
 
 ```cron
 # Sync repositories and start services every 5 minutes
-*/5 * * * * /usr/local/bin/quad-ops sync && /usr/local/bin/quad-ops up
+*/5 * * * * /usr/local/bin/quad-ops sync
 ```
 
 ## User Mode (rootless)
@@ -26,7 +26,7 @@ crontab -e
 
 ```cron
 # Sync repositories and start services every 5 minutes
-*/5 * * * * /usr/local/bin/quad-ops sync && /usr/local/bin/quad-ops up
+*/5 * * * * /usr/local/bin/quad-ops sync
 ```
 
 Quad-Ops automatically detects user mode and uses the appropriate default paths (`~/.local/share/quad-ops`, `~/.config/containers/systemd`).
@@ -34,7 +34,7 @@ Quad-Ops automatically detects user mode and uses the appropriate default paths 
 ## Custom Config Path
 
 ```cron
-*/5 * * * * /usr/local/bin/quad-ops sync --config /path/to/config.yaml && /usr/local/bin/quad-ops up --config /path/to/config.yaml
+*/5 * * * * /usr/local/bin/quad-ops sync --config /path/to/config.yaml
 ```
 
 ## Logging Output
@@ -42,5 +42,5 @@ Quad-Ops automatically detects user mode and uses the appropriate default paths 
 Redirect output to a log file for troubleshooting:
 
 ```cron
-*/5 * * * * /usr/local/bin/quad-ops sync && /usr/local/bin/quad-ops up >> /var/log/quad-ops.log 2>&1
+*/5 * * * * /usr/local/bin/quad-ops sync >> /var/log/quad-ops.log 2>&1
 ```

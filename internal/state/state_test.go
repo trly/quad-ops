@@ -100,6 +100,60 @@ func TestSaveToUnwritablePath(t *testing.T) {
 	assert.ErrorContains(t, err, "failed to create state directory")
 }
 
+func TestSetAndGetManagedUnits(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		ManagedUnits: make(map[string][]string),
+	}
+
+	// Initially empty
+	assert.Empty(t, s.GetManagedUnits("my-repo"))
+
+	// Set units
+	units := []string{"app-web.container", "app-db.container", "app-data.volume"}
+	s.SetManagedUnits("my-repo", units)
+	assert.Equal(t, units, s.GetManagedUnits("my-repo"))
+
+	// Update with fewer units (service removed)
+	s.SetManagedUnits("my-repo", []string{"app-web.container"})
+	assert.Equal(t, []string{"app-web.container"}, s.GetManagedUnits("my-repo"))
+
+	// Clear units
+	s.SetManagedUnits("my-repo", nil)
+	assert.Nil(t, s.GetManagedUnits("my-repo"))
+}
+
+func TestManagedUnitsPersistence(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		ManagedUnits: make(map[string][]string),
+	}
+	s.SetCommit("my-repo", "abc123")
+	s.SetManagedUnits("my-repo", []string{"app-web.container", "app-net.network"})
+
+	require.NoError(t, s.Save(path))
+
+	loaded, err := Load(path)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"app-web.container", "app-net.network"}, loaded.GetManagedUnits("my-repo"))
+}
+
+func TestLoadInitializesManagedUnits(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+
+	// Write state without managed_units field (pre-existing state file)
+	require.NoError(t, os.WriteFile(path, []byte(`{"repositories":{"r":{"current":"abc"}}}`), 0o644))
+
+	s, err := Load(path)
+	require.NoError(t, err)
+	assert.NotNil(t, s.ManagedUnits)
+	assert.Empty(t, s.ManagedUnits)
+}
+
 func TestSaveToUnwritableFile(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.Chmod(dir, 0o555))       //nolint:gosec // intentionally restrictive for test

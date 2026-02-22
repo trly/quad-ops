@@ -39,7 +39,7 @@ func TestGetRepositoryDir_DefaultUserMode(t *testing.T) {
 func TestGetStateFilePath_DefaultUserMode(t *testing.T) {
 	cfg := &AppConfig{}
 	home, _ := os.UserHomeDir()
-	expected := filepath.Join(home, ".local/state/quad-ops/state.json")
+	expected := filepath.Join(home, ".config/quad-ops/state.json")
 	assert.Equal(t, expected, cfg.GetStateFilePath())
 }
 
