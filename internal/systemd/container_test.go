@@ -57,7 +57,7 @@ func TestBuildContainer_BasicContainer(t *testing.T) {
 	svc := &types.ServiceConfig{
 		Image: "alpine:latest",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "testproject-myservice.container", unit.Name)
 	assert.NotNil(t, unit.File)
@@ -67,7 +67,7 @@ func TestBuildContainer_BasicContainer(t *testing.T) {
 // TestBuildContainer_MissingImage tests that Image is required.
 func TestBuildContainer_MissingImage(t *testing.T) {
 	svc := &types.ServiceConfig{}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Empty(t, getValue(unit, "Image"))
 }
@@ -78,7 +78,7 @@ func TestBuildContainer_ContainerName(t *testing.T) {
 		Image:         "alpine:latest",
 		ContainerName: "my-container",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "my-container", getValue(unit, "ContainerName"))
 }
@@ -89,7 +89,7 @@ func TestBuildContainer_WithEntrypoint(t *testing.T) {
 		Image:      "alpine:latest",
 		Entrypoint: types.ShellCommand{"/bin/sh", "-c"},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	entrypoint := getValue(unit, "Entrypoint")
 	assert.NotEmpty(t, entrypoint)
@@ -102,7 +102,7 @@ func TestBuildContainer_WithCommand(t *testing.T) {
 		Image:   "alpine:latest",
 		Command: types.ShellCommand{"sleep", "infinity"},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	exec := getValue(unit, "Exec")
 	assert.NotEmpty(t, exec)
@@ -115,7 +115,7 @@ func TestBuildContainer_WithWorkingDir(t *testing.T) {
 		Image:      "alpine:latest",
 		WorkingDir: "/app",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "/app", getValue(unit, "WorkingDir"))
 }
@@ -126,7 +126,7 @@ func TestBuildContainer_WithUser(t *testing.T) {
 		Image: "alpine:latest",
 		User:  "nobody",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "nobody", getValue(unit, "User"))
 }
@@ -137,7 +137,7 @@ func TestBuildContainer_WithGroupAdd(t *testing.T) {
 		Image:    "alpine:latest",
 		GroupAdd: []string{"sudo", "wheel"},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "Group")
 	assert.Len(t, vals, 2)
@@ -151,7 +151,7 @@ func TestBuildContainer_WithHostname(t *testing.T) {
 		Image:    "alpine:latest",
 		Hostname: "myhost",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "myhost", getValue(unit, "HostName"))
 }
@@ -162,7 +162,7 @@ func TestBuildContainer_WithDomainName(t *testing.T) {
 		Image:      "alpine:latest",
 		DomainName: "example.com",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	// Note: Podman uses HostName for both hostname and domain
 	assert.Contains(t, getValue(unit, "HostName"), "example.com")
@@ -186,7 +186,7 @@ func TestBuildContainer_WithPullPolicy(t *testing.T) {
 				Image:      "alpine:latest",
 				PullPolicy: tt.policy,
 			}
-			unit := BuildContainer("testproject", "myservice", svc)
+			unit := BuildContainer("testproject", "myservice", svc, nil)
 
 			assert.Equal(t, tt.expected, getValue(unit, "Pull"))
 		})
@@ -202,7 +202,7 @@ func TestBuildContainer_WithLabels(t *testing.T) {
 			"version": "1.0",
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "myapp", getValue(unit, "Label.app"))
 	assert.Equal(t, "1.0", getValue(unit, "Label.version"))
@@ -219,7 +219,7 @@ func TestBuildContainer_WithEnvironment(t *testing.T) {
 			"BAZ": &bazVal,
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	envVals := getValues(unit, "Environment")
 	assert.Len(t, envVals, 2)
@@ -236,7 +236,7 @@ func TestBuildContainer_WithDNS(t *testing.T) {
 			"1.1.1.1",
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "DNS")
 	assert.Len(t, vals, 2)
@@ -253,7 +253,7 @@ func TestBuildContainer_WithDNSSearch(t *testing.T) {
 			"local",
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "DNSSearch")
 	assert.Len(t, vals, 2)
@@ -270,7 +270,7 @@ func TestBuildContainer_WithDNSOpts(t *testing.T) {
 			"timeout:2",
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "DNSOption")
 	assert.Len(t, vals, 2)
@@ -287,7 +287,7 @@ func TestBuildContainer_WithExtraHosts(t *testing.T) {
 			"db.example.com":  []string{"192.168.1.101"},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "AddHost")
 	assert.Len(t, vals, 2)
@@ -313,7 +313,7 @@ func TestBuildContainer_WithPorts(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	ports := getValues(unit, "PublishPort")
 	assert.Len(t, ports, 2)
@@ -341,7 +341,7 @@ func TestBuildContainer_WithVolumes(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "Volume")
 	assert.Len(t, vals, 2)
@@ -355,7 +355,7 @@ func TestBuildContainer_WithTmpfs(t *testing.T) {
 		Image: "alpine:latest",
 		Tmpfs: []string{"/tmp", "/run"},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "Tmpfs")
 	assert.Len(t, vals, 2)
@@ -375,7 +375,7 @@ func TestBuildContainer_WithDevices(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "AddDevice")
 	assert.Len(t, vals, 1)
@@ -389,7 +389,7 @@ func TestBuildContainer_WithCapabilities(t *testing.T) {
 		CapAdd:  []string{"NET_ADMIN", "SYS_ADMIN"},
 		CapDrop: []string{"NET_RAW"},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	addCaps := getValues(unit, "AddCapability")
 	assert.Len(t, addCaps, 2)
@@ -407,7 +407,7 @@ func TestBuildContainer_WithPrivileged(t *testing.T) {
 		Image:      "alpine:latest",
 		Privileged: true,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "true", getValue(unit, "Privileged"))
 }
@@ -437,7 +437,7 @@ func TestBuildContainer_WithSecurityOpt(t *testing.T) {
 				Image:       "alpine:latest",
 				SecurityOpt: []string{tc.opt},
 			}
-			unit := BuildContainer("testproject", "myservice", svc)
+			unit := BuildContainer("testproject", "myservice", svc, nil)
 
 			assert.Equal(t, tc.expected, getValue(unit, tc.key))
 		})
@@ -453,7 +453,7 @@ func TestBuildContainer_WithSecurityOptMask(t *testing.T) {
 			"unmask=ALL",
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	masks := getValues(unit, "Mask")
 	assert.Len(t, masks, 1)
@@ -470,7 +470,7 @@ func TestBuildContainer_WithIpc(t *testing.T) {
 		Image: "alpine:latest",
 		Ipc:   "host",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "host", getValue(unit, "Ipc"))
 }
@@ -481,7 +481,7 @@ func TestBuildContainer_WithPid(t *testing.T) {
 		Image: "alpine:latest",
 		Pid:   "host",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "host", getValue(unit, "Pid"))
 }
@@ -492,7 +492,7 @@ func TestBuildContainer_WithNetworkMode(t *testing.T) {
 		Image:       "alpine:latest",
 		NetworkMode: "host",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "host", getValue(unit, "Network"))
 }
@@ -506,15 +506,53 @@ func TestBuildContainer_WithMultipleNetworks(t *testing.T) {
 			"proxy":   {},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	// Should set bridge mode for multiple networks
 	assert.Equal(t, "bridge", getValue(unit, "Network"))
 	// Should include all networks as shadow values
 	networks := getValues(unit, "Network")
-	assert.Contains(t, networks, "default")
-	assert.Contains(t, networks, "proxy")
+	assert.Contains(t, networks, "testproject-default.network")
+	assert.Contains(t, networks, "testproject-proxy.network")
 	assert.Len(t, networks, 3) // bridge mode + 2 networks
+}
+
+// TestBuildContainer_WithExternalNetwork tests that external networks use the Podman network name.
+func TestBuildContainer_WithExternalNetwork(t *testing.T) {
+	svc := &types.ServiceConfig{
+		Image: "alpine:latest",
+		Networks: map[string]*types.ServiceNetworkConfig{
+			"default":  {},
+			"external": {},
+		},
+	}
+	projectNetworks := types.Networks{
+		"default":  types.NetworkConfig{},
+		"external": types.NetworkConfig{External: true, Name: "my-external-net"},
+	}
+	unit := BuildContainer("testproject", "myservice", svc, projectNetworks)
+
+	networks := getValues(unit, "Network")
+	assert.Contains(t, networks, "testproject-default.network")
+	assert.Contains(t, networks, "my-external-net")
+	assert.Len(t, networks, 3) // bridge + 2 networks
+}
+
+// TestBuildContainer_WithExternalNetworkNoName tests external network without explicit name.
+func TestBuildContainer_WithExternalNetworkNoName(t *testing.T) {
+	svc := &types.ServiceConfig{
+		Image: "alpine:latest",
+		Networks: map[string]*types.ServiceNetworkConfig{
+			"shared": {},
+		},
+	}
+	projectNetworks := types.Networks{
+		"shared": types.NetworkConfig{External: true},
+	}
+	unit := BuildContainer("testproject", "myservice", svc, projectNetworks)
+
+	networks := getValues(unit, "Network")
+	assert.Contains(t, networks, "shared")
 }
 
 // TestBuildContainer_WithReadOnly tests that read-only filesystem is mapped.
@@ -523,7 +561,7 @@ func TestBuildContainer_WithReadOnly(t *testing.T) {
 		Image:    "alpine:latest",
 		ReadOnly: true,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "true", getValue(unit, "ReadOnly"))
 }
@@ -536,7 +574,7 @@ func TestBuildContainer_WithMemory(t *testing.T) {
 		MemSwapLimit:   1073741824, // 1GB
 		MemReservation: 268435456,  // 256MB
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "536870912", getValue(unit, "Memory"))
 	assert.Equal(t, "1073741824", getValue(unit, "MemorySwap"))
@@ -551,7 +589,7 @@ func TestBuildContainer_WithCPU(t *testing.T) {
 		CPUShares: 1024,
 		CPUSet:    "0,1",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "0.5", getValue(unit, "Cpus"))
 	assert.Equal(t, "1024", getValue(unit, "CpuWeight"))
@@ -564,7 +602,7 @@ func TestBuildContainer_WithOomKillDisable(t *testing.T) {
 		Image:          "alpine:latest",
 		OomKillDisable: true,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "-999", getValue(unit, "OomScoreAdj"))
 }
@@ -575,7 +613,7 @@ func TestBuildContainer_WithOomScoreAdj(t *testing.T) {
 		Image:       "alpine:latest",
 		OomScoreAdj: 100,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "100", getValue(unit, "OomScoreAdj"))
 }
@@ -586,7 +624,7 @@ func TestBuildContainer_WithPidsLimit(t *testing.T) {
 		Image:     "alpine:latest",
 		PidsLimit: 1024,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "1024", getValue(unit, "PidsLimit"))
 }
@@ -597,7 +635,7 @@ func TestBuildContainer_WithShmSize(t *testing.T) {
 		Image:   "alpine:latest",
 		ShmSize: 67108864, // 64MB
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "67108864", getValue(unit, "ShmSize"))
 }
@@ -611,7 +649,7 @@ func TestBuildContainer_WithSysctls(t *testing.T) {
 			"kernel.shmmax":       "68719476736",
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "1", getValue(unit, "Sysctl.net.ipv4.ip_forward"))
 	assert.Equal(t, "68719476736", getValue(unit, "Sysctl.kernel.shmmax"))
@@ -628,7 +666,7 @@ func TestBuildContainer_WithUlimits(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "1024:2048", getValue(unit, "Ulimit.nofile"))
 }
@@ -639,7 +677,7 @@ func TestBuildContainer_WithTty(t *testing.T) {
 		Image: "alpine:latest",
 		Tty:   true,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "true", getValue(unit, "Tty"))
 }
@@ -650,7 +688,7 @@ func TestBuildContainer_WithStdinOpen(t *testing.T) {
 		Image:     "alpine:latest",
 		StdinOpen: true,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "true", getValue(unit, "Interactive"))
 }
@@ -661,7 +699,7 @@ func TestBuildContainer_WithStopSignal(t *testing.T) {
 		Image:      "alpine:latest",
 		StopSignal: "SIGTERM",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "SIGTERM", getValue(unit, "StopSignal"))
 }
@@ -673,7 +711,7 @@ func TestBuildContainer_WithStopGracePeriod(t *testing.T) {
 		Image:           "alpine:latest",
 		StopGracePeriod: &dur,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "30", getValue(unit, "StopTimeout"))
 }
@@ -684,7 +722,7 @@ func TestBuildContainer_WithRestart(t *testing.T) {
 		Image:   "alpine:latest",
 		Restart: "unless-stopped",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	// Restart should be in [Service] section, not [Container]
 	assert.Equal(t, "", getValue(unit, "Restart"))
@@ -709,7 +747,7 @@ func TestBuildContainer_WithRestartPolicies(t *testing.T) {
 				Image:   "alpine:latest",
 				Restart: tt.compose,
 			}
-			unit := BuildContainer("testproject", "myservice", svc)
+			unit := BuildContainer("testproject", "myservice", svc, nil)
 			assert.Equal(t, tt.expected, getServiceValue(unit, "Restart"))
 		})
 	}
@@ -722,7 +760,7 @@ func TestBuildContainer_WithInit(t *testing.T) {
 		Image: "alpine:latest",
 		Init:  &init,
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "true", getValue(unit, "RunInit"))
 }
@@ -733,7 +771,7 @@ func TestBuildContainer_WithLogDriver(t *testing.T) {
 		Image:     "alpine:latest",
 		LogDriver: "json-file",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "json-file", getValue(unit, "LogDriver"))
 }
@@ -747,7 +785,7 @@ func TestBuildContainer_WithLogOpts(t *testing.T) {
 			"max-file": "3",
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "10m", getValue(unit, "LogOpt.max-size"))
 	assert.Equal(t, "3", getValue(unit, "LogOpt.max-file"))
@@ -764,7 +802,7 @@ func TestBuildContainer_ExtensionGlobalArgs(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "PodmanArgs")
 	assert.Len(t, vals, 2)
@@ -783,7 +821,7 @@ func TestBuildContainer_ExtensionContainerArgs(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "PodmanArgs")
 	assert.Len(t, vals, 2)
@@ -842,7 +880,7 @@ func TestBuildContainer_AllFieldsTogether(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "myimage:latest", getValue(unit, "Image"))
 	assert.Equal(t, "my-container", getValue(unit, "ContainerName"))
@@ -867,7 +905,7 @@ func TestBuildContainer_SectionStructure(t *testing.T) {
 	svc := &types.ServiceConfig{
 		Image: "alpine:latest",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	require.NotNil(t, unit.File)
 	section := unit.File.Section("Container")
@@ -891,7 +929,7 @@ func TestBuildContainer_NameDerivation(t *testing.T) {
 			svc := &types.ServiceConfig{
 				Image: "alpine:latest",
 			}
-			unit := BuildContainer(tt.project, tt.service, svc)
+			unit := BuildContainer(tt.project, tt.service, svc, nil)
 			assert.Equal(t, tt.expectedUnit, unit.Name)
 		})
 	}
@@ -909,7 +947,7 @@ func TestBuildContainer_ExtensionInvalidTypes(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "PodmanArgs")
 	assert.Len(t, vals, 2)
@@ -927,7 +965,7 @@ func TestBuildContainer_SecurityOpts(t *testing.T) {
 			"no-new-privileges",
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Equal(t, "unconfined", getValue(unit, "AppArmor"))
 	assert.Equal(t, "/etc/seccomp.json", getValue(unit, "SeccompProfile"))
@@ -951,7 +989,7 @@ func TestBuildContainer_HealthCheck(t *testing.T) {
 			StartPeriod: &startPeriod,
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Contains(t, getValue(unit, "HealthCmd"), "curl")
 	assert.Contains(t, getValue(unit, "HealthInterval"), "10")
@@ -970,7 +1008,7 @@ func TestBuildContainer_WithAnnotations(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "Annotation")
 	assert.Len(t, vals, 2)
@@ -989,7 +1027,7 @@ func TestBuildContainer_WithMounts(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	vals := getValues(unit, "Mount")
 	assert.Len(t, vals, 2)
@@ -1011,7 +1049,7 @@ func TestBuildContainer_EmptyOptionals(t *testing.T) {
 		NetworkMode:   "",
 		PullPolicy:    "",
 	}
-	unit := BuildContainer("testproject", "myservice", svc)
+	unit := BuildContainer("testproject", "myservice", svc, nil)
 
 	assert.Empty(t, getValue(unit, "ContainerName"))
 	assert.Empty(t, getValue(unit, "WorkingDir"))
@@ -1033,7 +1071,7 @@ func TestBuildContainer_WithEnvSecrets(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("testproject", "api", svc)
+	unit := BuildContainer("testproject", "api", svc, nil)
 
 	secrets := getValues(unit, "Secret")
 	assert.Len(t, secrets, 3)
@@ -1050,7 +1088,7 @@ func TestBuildContainer_WithEnvSecretsEmpty(t *testing.T) {
 			"x-quad-ops-env-secrets": map[string]string{},
 		},
 	}
-	unit := BuildContainer("testproject", "api", svc)
+	unit := BuildContainer("testproject", "api", svc, nil)
 
 	secrets := getValues(unit, "Secret")
 	assert.Empty(t, secrets)
@@ -1061,7 +1099,7 @@ func TestBuildContainer_NoEnvSecrets(t *testing.T) {
 	svc := &types.ServiceConfig{
 		Image: "myapp:latest",
 	}
-	unit := BuildContainer("testproject", "api", svc)
+	unit := BuildContainer("testproject", "api", svc, nil)
 
 	secrets := getValues(unit, "Secret")
 	assert.Empty(t, secrets)
@@ -1078,7 +1116,7 @@ func TestBuildContainer_InternalDependencies(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildContainer("myproject", "web", svc)
+	unit := BuildContainer("myproject", "web", svc, nil)
 
 	requires := getUnitValues(unit, "Requires")
 	after := getUnitValues(unit, "After")
@@ -1097,7 +1135,7 @@ func TestBuildContainer_NoDependencies(t *testing.T) {
 	svc := &types.ServiceConfig{
 		Image: "myapp:latest",
 	}
-	unit := BuildContainer("myproject", "api", svc)
+	unit := BuildContainer("myproject", "api", svc, nil)
 
 	requires := getUnitValues(unit, "Requires")
 	after := getUnitValues(unit, "After")
@@ -1114,7 +1152,7 @@ func TestBuildContainer_EmptyDependencies(t *testing.T) {
 			"x-quad-ops-dependencies": map[string]string{},
 		},
 	}
-	unit := BuildContainer("myproject", "api", svc)
+	unit := BuildContainer("myproject", "api", svc, nil)
 
 	requires := getUnitValues(unit, "Requires")
 	after := getUnitValues(unit, "After")

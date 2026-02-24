@@ -12,12 +12,14 @@ import (
 )
 
 // BuildContainer converts a compose service into a container unit file.
-func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig) Unit {
+// projectNetworks provides the project-level network configs so that external
+// networks can be referenced by name rather than as Quadlet unit files.
+func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig, projectNetworks types.Networks) Unit {
 	file := ini.Empty(ini.LoadOptions{AllowShadows: true})
 	section, _ := file.NewSection("Container")
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string) // For keys with repeated values
-	buildContainerSection(svc, sectionMap, shadowMap)
+	buildContainerSection(projectName, svc, sectionMap, shadowMap, projectNetworks)
 
 	// Copy sectionMap to ini section
 	for key, value := range sectionMap {
@@ -115,7 +117,7 @@ func mapRestartPolicy(composeRestart string) string {
 }
 
 //nolint:gocyclo // High complexity is necessary due to mapping many container configuration options
-func buildContainerSection(svc *types.ServiceConfig, section map[string]string, shadows map[string][]string) { // nolint:whitespace
+func buildContainerSection(projectName string, svc *types.ServiceConfig, section map[string]string, shadows map[string][]string, projectNetworks types.Networks) { // nolint:whitespace
 	// Image: required field
 	if svc.Image != "" {
 		section["Image"] = svc.Image
@@ -308,8 +310,22 @@ func buildContainerSection(svc *types.ServiceConfig, section map[string]string, 
 		section["Pid"] = svc.Pid
 	}
 
-	// Networks: map service networks first
-	networks := svc.NetworksByPriority()
+	// Networks: map service networks to Quadlet .network unit references,
+	// except external networks which are referenced by their Podman network name.
+	rawNetworks := svc.NetworksByPriority()
+	networks := make([]string, 0, len(rawNetworks))
+	for _, n := range rawNetworks {
+		if net, ok := projectNetworks[n]; ok && bool(net.External) {
+			// External networks already exist in Podman; use the network name directly.
+			if net.Name != "" {
+				networks = append(networks, net.Name)
+			} else {
+				networks = append(networks, n)
+			}
+		} else {
+			networks = append(networks, fmt.Sprintf("%s-%s.network", projectName, n))
+		}
+	}
 
 	// Network mode: set explicit mode if specified
 	if svc.NetworkMode != "" {

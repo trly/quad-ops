@@ -84,6 +84,63 @@ func TestConvert_AllExternalNetworksProducesNoNetworkUnits(t *testing.T) {
 	}
 }
 
+func TestConvert_ResolvesRelativeBindMountPaths(t *testing.T) {
+	project := &types.Project{
+		Name:       "testproject",
+		WorkingDir: "/srv/repos/myapp",
+		Services: types.Services{
+			"web": types.ServiceConfig{
+				Image: "nginx:latest",
+				Volumes: []types.ServiceVolumeConfig{
+					{
+						Type:   types.VolumeTypeBind,
+						Source: "./Caddyfile",
+						Target: "/Caddyfile",
+					},
+					{
+						Type:   types.VolumeTypeBind,
+						Source: "config/nginx.conf",
+						Target: "/etc/nginx/nginx.conf",
+					},
+					{
+						Type:   types.VolumeTypeBind,
+						Source: "/etc/ssl/certs",
+						Target: "/certs",
+					},
+					{
+						Type:   types.VolumeTypeVolume,
+						Source: "data",
+						Target: "/data",
+					},
+				},
+			},
+		},
+	}
+
+	units, err := Convert(project)
+	require.NoError(t, err)
+
+	var containerUnit Unit
+	for _, u := range units {
+		if hasExtension(u.Name, ".container") {
+			containerUnit = u
+		}
+	}
+
+	vals := containerUnit.File.Section("Container").Key("Volume").ValueWithShadows()
+	require.Len(t, vals, 4)
+
+	// Relative paths should be resolved to absolute
+	assert.Contains(t, vals[0]+vals[1]+vals[2]+vals[3], "/srv/repos/myapp/Caddyfile:")
+	assert.Contains(t, vals[0]+vals[1]+vals[2]+vals[3], "/srv/repos/myapp/config/nginx.conf:")
+
+	// Absolute bind mount should remain unchanged
+	assert.Contains(t, vals[0]+vals[1]+vals[2]+vals[3], "/etc/ssl/certs:/certs:")
+
+	// Named volume should remain unchanged
+	assert.Contains(t, vals[0]+vals[1]+vals[2]+vals[3], "data:/data:")
+}
+
 func hasExtension(name, ext string) bool {
 	return len(name) > len(ext) && name[len(name)-len(ext):] == ext
 }
