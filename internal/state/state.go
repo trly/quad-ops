@@ -26,7 +26,7 @@ func Load(path string) (*State, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-				return &State{
+			return &State{
 				Repositories: make(map[string]RepoState),
 				ManagedUnits: make(map[string][]string),
 			}, nil
