@@ -137,8 +137,8 @@ func TestConvert_ResolvesRelativeBindMountPaths(t *testing.T) {
 	// Absolute bind mount should remain unchanged
 	assert.Contains(t, vals[0]+vals[1]+vals[2]+vals[3], "/etc/ssl/certs:/certs:")
 
-	// Named volume should remain unchanged
-	assert.Contains(t, vals[0]+vals[1]+vals[2]+vals[3], "data:/data:")
+	// Named volume should reference the Quadlet .volume unit
+	assert.Contains(t, vals[0]+vals[1]+vals[2]+vals[3], "testproject-data.volume:/data:")
 }
 
 func hasExtension(name, ext string) bool {

@@ -14,12 +14,12 @@ import (
 // BuildContainer converts a compose service into a container unit file.
 // projectNetworks provides the project-level network configs so that external
 // networks can be referenced by name rather than as Quadlet unit files.
-func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig, projectNetworks types.Networks) Unit {
+func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig, projectNetworks types.Networks, projectVolumes types.Volumes) Unit {
 	file := ini.Empty(ini.LoadOptions{AllowShadows: true})
 	section, _ := file.NewSection("Container")
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string) // For keys with repeated values
-	buildContainerSection(projectName, svc, sectionMap, shadowMap, projectNetworks)
+	buildContainerSection(projectName, svc, sectionMap, shadowMap, projectNetworks, projectVolumes)
 
 	// Copy sectionMap to ini section
 	for key, value := range sectionMap {
@@ -117,7 +117,7 @@ func mapRestartPolicy(composeRestart string) string {
 }
 
 //nolint:gocyclo // High complexity is necessary due to mapping many container configuration options
-func buildContainerSection(projectName string, svc *types.ServiceConfig, section map[string]string, shadows map[string][]string, projectNetworks types.Networks) { // nolint:whitespace
+func buildContainerSection(projectName string, svc *types.ServiceConfig, section map[string]string, shadows map[string][]string, projectNetworks types.Networks, projectVolumes types.Volumes) { // nolint:whitespace
 	// Image: required field
 	if svc.Image != "" {
 		section["Image"] = svc.Image
@@ -238,8 +238,19 @@ func buildContainerSection(projectName string, svc *types.ServiceConfig, section
 	}
 
 	// Volumes: mount volumes
+	// Named volumes are mapped to Quadlet .volume unit references so that
+	// systemd creates proper Requires/After dependencies. External volumes
+	// are referenced by their Podman volume name directly.
 	for _, vol := range svc.Volumes {
-		// ServiceVolumeConfig can be rendered via String() method
+		if vol.Type == types.VolumeTypeVolume && vol.Source != "" {
+			if projVol, ok := projectVolumes[vol.Source]; ok && bool(projVol.External) {
+				if projVol.Name != "" {
+					vol.Source = projVol.Name
+				}
+			} else {
+				vol.Source = fmt.Sprintf("%s-%s.volume", projectName, vol.Source)
+			}
+		}
 		shadows["Volume"] = append(shadows["Volume"], vol.String())
 	}
 

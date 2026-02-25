@@ -37,7 +37,7 @@ func Convert(project *types.Project) ([]Unit, error) {
 	// Convert services
 	for svcName, svc := range project.Services {
 		resolveBindMountPaths(&svc, project.WorkingDir)
-		units = append(units, BuildContainer(projectName, svcName, &svc, project.Networks))
+		units = append(units, BuildContainer(projectName, svcName, &svc, project.Networks, project.Volumes))
 	}
 
 	return units, nil
