@@ -26,7 +26,10 @@ func Load(path string) (*State, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return &State{Repositories: make(map[string]RepoState)}, nil
+				return &State{
+				Repositories: make(map[string]RepoState),
+				ManagedUnits: make(map[string][]string),
+			}, nil
 		}
 		return nil, fmt.Errorf("failed to read state file: %w", err)
 	}
@@ -84,6 +87,9 @@ func (s *State) GetPrevious(repoName string) string {
 
 // SetManagedUnits records the quadlet unit filenames managed for a repository.
 func (s *State) SetManagedUnits(repoName string, units []string) {
+	if s.ManagedUnits == nil {
+		s.ManagedUnits = make(map[string][]string)
+	}
 	s.ManagedUnits[repoName] = units
 }
 
