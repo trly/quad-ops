@@ -38,11 +38,11 @@ func TestBuildNetwork_BasicNetwork(t *testing.T) {
 	assert.Equal(t, "testproject-mynetwork.network", unit.Name)
 	assert.NotNil(t, unit.File)
 	assert.NotNil(t, unit.File.Section("Network"))
-	assert.Equal(t, "true", getNetValue(unit, "DNS"), "DNS should be enabled by default")
+	assert.Empty(t, getNetValue(unit, "DNS"), "DNS should not be set by default (Podman enables DNS resolution automatically)")
 }
 
-// TestBuildNetwork_DNSEnabledByDefault tests that DNS is always enabled unless explicitly disabled or overridden.
-func TestBuildNetwork_DNSEnabledByDefault(t *testing.T) {
+// TestBuildNetwork_DNSNotSetByDefault tests that DNS is not set unless explicitly configured via driver opts.
+func TestBuildNetwork_DNSNotSetByDefault(t *testing.T) {
 	tests := []struct {
 		name        string
 		driverOpts  map[string]string
@@ -51,20 +51,15 @@ func TestBuildNetwork_DNSEnabledByDefault(t *testing.T) {
 		{
 			name:        "no driver opts",
 			driverOpts:  nil,
-			expectedDNS: "true",
+			expectedDNS: "",
 		},
 		{
 			name:        "unrelated driver opts",
 			driverOpts:  map[string]string{"gateway": "192.168.1.1"},
-			expectedDNS: "true",
-		},
-		{
-			name:        "disable_dns overrides default",
-			driverOpts:  map[string]string{"disable_dns": "true"},
 			expectedDNS: "",
 		},
 		{
-			name:        "explicit dns server replaces default",
+			name:        "explicit dns server",
 			driverOpts:  map[string]string{"dns": "8.8.8.8"},
 			expectedDNS: "8.8.8.8",
 		},

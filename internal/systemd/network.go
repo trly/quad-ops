@@ -71,11 +71,6 @@ func buildNetworkSection(_ string, net *types.NetworkConfig, section map[string]
 		mapIPAMConfig(net.Ipam.Config, section)
 	}
 
-	// Enable DNS by default for container name resolution
-	if section["DisableDNS"] != "true" && len(shadows["DNS"]) == 0 {
-		section["DNS"] = "true"
-	}
-
 	// x-quad-ops-podman-args: list of global podman arguments
 	if globalArgs, ok := net.Extensions["x-quad-ops-podman-args"].([]interface{}); ok {
 		for _, arg := range globalArgs {
