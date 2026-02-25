@@ -4,7 +4,7 @@
 
 - **Dev server**: `hugo server -D` (serves locally with drafts)
 - **Dev server (background)**: `tmux new-session -d -s hugo-dev 'cd site && hugo server -D'` (from project root)
-- **Build**: `hugo` (builds static site to public/ directory)  
+- **Build**: `hugo` (builds static site to public/ directory)
 - **Build with drafts**: `hugo -D`
 - **Clean**: `rm -rf public/`
 

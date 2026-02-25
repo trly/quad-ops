@@ -351,4 +351,3 @@ if command -v "$BINARY_NAME" >/dev/null 2>&1 || [[ -x "$FINAL_BINARY_PATH" ]]; t
 else
   print_warn "Binary installed but not found in PATH. Use full path: $FINAL_BINARY_PATH"
 fi
-

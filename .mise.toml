@@ -5,5 +5,5 @@ gotestsum = "latest"
 hugo-extended = "0.148.2"
 node = "22"
 pnpm = "latest"
+pre-commit = "latest"
 task = "latest"
-

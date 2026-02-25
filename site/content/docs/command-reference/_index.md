@@ -44,4 +44,3 @@ quad-ops validate --help
 - **[validate](validate)** - Validate compose files for use with quad-ops
 - **[update](update)** - Update quad-ops to the latest version
 - **[version](version)** - Print version information
-

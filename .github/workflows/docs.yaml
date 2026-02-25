@@ -14,7 +14,7 @@ on:
     branches: [main]
     paths:
       - 'site/**'
-    
+
   workflow_dispatch:
 
 permissions:

@@ -110,7 +110,7 @@ func TestMultipleVolumes(t *testing.T) {
         },
     }
     unit := BuildContainer("web", svc)
-    
+
     vals := getValues(unit, "Volume")
     assert.Len(t, vals, 2)
     assert.Contains(t, vals[0], "data")

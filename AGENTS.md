@@ -42,4 +42,3 @@ site/             # Hugo documentation site
 - Internal packages follow standard Go project layout
 - Quadlet unit files are systemd-compatible `.container`, `.network`, `.volume` files
 - Support both system-wide (`/etc/containers/systemd`) and user (`~/.config/containers/systemd`) modes
-

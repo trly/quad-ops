@@ -46,4 +46,3 @@ tasks:
       - build
     cmds:
       - ./{{.BINARY_NAME}} {{.CLI_ARGS}}
-

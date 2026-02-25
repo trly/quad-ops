@@ -257,4 +257,3 @@ networks:
   bad-net:
     driver: overlay                            # rejected (only 'bridge')
 ```
-
