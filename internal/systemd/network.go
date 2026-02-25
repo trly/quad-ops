@@ -61,6 +61,16 @@ func buildNetworkSection(_ string, net *types.NetworkConfig, section map[string]
 		section[fmt.Sprintf("Label.%s", k)] = v
 	}
 
+	// Internal: restrict external access
+	if net.Internal {
+		section["Internal"] = "true"
+	}
+
+	// EnableIPv6: enable dual-stack networking
+	if net.EnableIPv6 != nil && *net.EnableIPv6 {
+		section["IPv6"] = "true"
+	}
+
 	// DriverOpts mapping to Podman systemd directives
 	if len(net.DriverOpts) > 0 {
 		mapNetworkDriverOpts(net.DriverOpts, section, shadows)

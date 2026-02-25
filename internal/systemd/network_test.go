@@ -616,13 +616,32 @@ func TestBuildNetwork_MacvlanDriver(t *testing.T) {
 func TestBuildNetwork_InternalNetwork(t *testing.T) {
 	net := &types.NetworkConfig{
 		Internal: true,
-		DriverOpts: map[string]string{
-			"internal": "true",
-		},
 	}
 	unit := BuildNetwork("testproject", "internal-net", net)
 
 	assert.Equal(t, "true", getNetValue(unit, "Internal"))
+}
+
+// TestBuildNetwork_EnableIPv6 tests that the top-level enable_ipv6 compose field is mapped.
+func TestBuildNetwork_EnableIPv6(t *testing.T) {
+	enabled := true
+	net := &types.NetworkConfig{
+		EnableIPv6: &enabled,
+	}
+	unit := BuildNetwork("testproject", "mynetwork", net)
+
+	assert.Equal(t, "true", getNetValue(unit, "IPv6"))
+}
+
+// TestBuildNetwork_EnableIPv6False tests that enable_ipv6=false does not set IPv6.
+func TestBuildNetwork_EnableIPv6False(t *testing.T) {
+	disabled := false
+	net := &types.NetworkConfig{
+		EnableIPv6: &disabled,
+	}
+	unit := BuildNetwork("testproject", "mynetwork", net)
+
+	assert.Empty(t, getNetValue(unit, "IPv6"))
 }
 
 // TestBuildNetwork_IPAMConfigWithNilPool tests IPAM configuration with nil pool entries.
