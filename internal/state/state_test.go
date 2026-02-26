@@ -164,3 +164,155 @@ func TestSaveToUnwritableFile(t *testing.T) {
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "failed to write state file")
 }
+
+func TestSetAndGetUnitState(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		UnitStates:   make(map[string]UnitState),
+	}
+
+	_, ok := s.GetUnitState("app-web.container")
+	assert.False(t, ok)
+
+	us := UnitState{
+		ContentHash: "abc123",
+		BindMountHashes: map[string]string{
+			"/repo/nginx.conf": "def456",
+		},
+	}
+	s.SetUnitState("app-web.container", us)
+
+	got, ok := s.GetUnitState("app-web.container")
+	assert.True(t, ok)
+	assert.Equal(t, us, got)
+}
+
+func TestRemoveUnitState(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		UnitStates: map[string]UnitState{
+			"app-web.container": {ContentHash: "abc123"},
+		},
+	}
+
+	s.RemoveUnitState("app-web.container")
+	_, ok := s.GetUnitState("app-web.container")
+	assert.False(t, ok)
+}
+
+func TestChangedUnitsDetectsContentChange(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		UnitStates: map[string]UnitState{
+			"app-web.container": {ContentHash: "old-hash"},
+			"app-db.container":  {ContentHash: "unchanged"},
+		},
+	}
+
+	newStates := map[string]UnitState{
+		"app-web.container": {ContentHash: "new-hash"},
+		"app-db.container":  {ContentHash: "unchanged"},
+	}
+
+	changed := s.ChangedUnits(newStates)
+	assert.Equal(t, []string{"app-web.container"}, changed)
+}
+
+func TestChangedUnitsDetectsBindMountChange(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		UnitStates: map[string]UnitState{
+			"app-web.container": {
+				ContentHash:     "same-hash",
+				BindMountHashes: map[string]string{"/repo/nginx.conf": "old-file-hash"},
+			},
+		},
+	}
+
+	newStates := map[string]UnitState{
+		"app-web.container": {
+			ContentHash:     "same-hash",
+			BindMountHashes: map[string]string{"/repo/nginx.conf": "new-file-hash"},
+		},
+	}
+
+	changed := s.ChangedUnits(newStates)
+	assert.Equal(t, []string{"app-web.container"}, changed)
+}
+
+func TestChangedUnitsExcludesNewUnits(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		UnitStates:   make(map[string]UnitState),
+	}
+
+	newStates := map[string]UnitState{
+		"app-new.container": {ContentHash: "brand-new"},
+	}
+
+	changed := s.ChangedUnits(newStates)
+	assert.Empty(t, changed)
+}
+
+func TestChangedUnitsNoChanges(t *testing.T) {
+	us := UnitState{
+		ContentHash:     "hash",
+		BindMountHashes: map[string]string{"/repo/config.yml": "file-hash"},
+	}
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		UnitStates:   map[string]UnitState{"app-web.container": us},
+	}
+
+	newStates := map[string]UnitState{"app-web.container": us}
+
+	changed := s.ChangedUnits(newStates)
+	assert.Empty(t, changed)
+}
+
+func TestUnitStatesPersistence(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		ManagedUnits: make(map[string][]string),
+		UnitStates:   make(map[string]UnitState),
+	}
+	s.SetUnitState("app-web.container", UnitState{
+		ContentHash:     "abc123",
+		BindMountHashes: map[string]string{"/repo/nginx.conf": "def456"},
+	})
+
+	require.NoError(t, s.Save(path))
+
+	loaded, err := Load(path)
+	require.NoError(t, err)
+
+	got, ok := loaded.GetUnitState("app-web.container")
+	assert.True(t, ok)
+	assert.Equal(t, "abc123", got.ContentHash)
+	assert.Equal(t, map[string]string{"/repo/nginx.conf": "def456"}, got.BindMountHashes)
+}
+
+func TestLoadInitializesUnitStates(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+
+	// Write state without unit_states field (pre-existing state file)
+	require.NoError(t, os.WriteFile(path, []byte(`{"repositories":{"r":{"current":"abc"}}}`), 0o644))
+
+	s, err := Load(path)
+	require.NoError(t, err)
+	assert.NotNil(t, s.UnitStates)
+	assert.Empty(t, s.UnitStates)
+}
+
+func TestSetUnitStateInitializesNilMap(t *testing.T) {
+	s := &State{Repositories: make(map[string]RepoState)}
+	s.SetUnitState("app.container", UnitState{ContentHash: "hash"})
+
+	got, ok := s.GetUnitState("app.container")
+	assert.True(t, ok)
+	assert.Equal(t, "hash", got.ContentHash)
+}

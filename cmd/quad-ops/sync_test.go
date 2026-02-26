@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/compose-spec/compose-go/v2/types"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/state"
 	"github.com/trly/quad-ops/internal/systemd"
@@ -118,8 +121,22 @@ func TestCleanupStaleUnitsRemovesFiles(t *testing.T) {
 	// Override quadlet dir to our temp dir
 	globals.AppCfg.QuadletDir = quadletDir
 
+	deployState := &state.State{
+		Repositories: make(map[string]state.RepoState),
+		ManagedUnits: make(map[string][]string),
+		UnitStates: map[string]state.UnitState{
+			"app-old.container": {ContentHash: "abc"},
+		},
+	}
+
 	ctx := context.Background()
-	sync.cleanupStaleUnits(ctx, globals, staleFiles)
+	sync.cleanupStaleUnits(ctx, globals, deployState, staleFiles)
+
+	// Verify unit state was cleaned up for stale container
+	_, ok := deployState.GetUnitState("app-old.container")
+	if ok {
+		t.Error("expected unit state for app-old.container to be removed")
+	}
 
 	// Stale files should be removed
 	for _, name := range staleFiles {
@@ -205,4 +222,126 @@ func createTestIniFile(sectionName string, keys map[string]string) *ini.File {
 		_, _ = section.NewKey(k, v)
 	}
 	return file
+}
+
+func TestComputeUnitStateContentHash(t *testing.T) {
+	unit := systemd.Unit{
+		Name: "app-web.container",
+		File: createTestIniFile("Container", map[string]string{"Image": "nginx:latest"}),
+	}
+	project := &types.Project{
+		Name:       "app",
+		WorkingDir: t.TempDir(),
+	}
+
+	us := computeUnitState(unit, project, project.WorkingDir)
+	assert.NotEmpty(t, us.ContentHash)
+	assert.Empty(t, us.BindMountHashes)
+
+	// Same content produces same hash
+	us2 := computeUnitState(unit, project, project.WorkingDir)
+	assert.Equal(t, us.ContentHash, us2.ContentHash)
+}
+
+func TestComputeUnitStateDifferentContentDifferentHash(t *testing.T) {
+	unit1 := systemd.Unit{
+		Name: "app-web.container",
+		File: createTestIniFile("Container", map[string]string{"Image": "nginx:1.0"}),
+	}
+	unit2 := systemd.Unit{
+		Name: "app-web.container",
+		File: createTestIniFile("Container", map[string]string{"Image": "nginx:2.0"}),
+	}
+	project := &types.Project{
+		Name:       "app",
+		WorkingDir: t.TempDir(),
+	}
+
+	us1 := computeUnitState(unit1, project, project.WorkingDir)
+	us2 := computeUnitState(unit2, project, project.WorkingDir)
+	assert.NotEqual(t, us1.ContentHash, us2.ContentHash)
+}
+
+func TestCollectBindMountHashesInProjectDir(t *testing.T) {
+	repoDir := t.TempDir()
+	confFile := filepath.Join(repoDir, "nginx.conf")
+	require.NoError(t, os.WriteFile(confFile, []byte("server {}"), 0o644))
+
+	project := &types.Project{
+		Name:       "app",
+		WorkingDir: repoDir,
+		Services: types.Services{
+			"web": {
+				Image: "nginx:latest",
+				Volumes: []types.ServiceVolumeConfig{
+					{Type: types.VolumeTypeBind, Source: "nginx.conf", Target: "/etc/nginx/nginx.conf"},
+				},
+			},
+		},
+	}
+
+	hashes := collectBindMountHashes(project, repoDir)
+	assert.Len(t, hashes, 1)
+	assert.Contains(t, hashes, confFile)
+	assert.NotEmpty(t, hashes[confFile])
+}
+
+func TestCollectBindMountHashesSkipsExternalPaths(t *testing.T) {
+	repoDir := t.TempDir()
+	project := &types.Project{
+		Name:       "app",
+		WorkingDir: repoDir,
+		Services: types.Services{
+			"web": {
+				Image: "nginx:latest",
+				Volumes: []types.ServiceVolumeConfig{
+					{Type: types.VolumeTypeBind, Source: "/etc/timezone", Target: "/etc/timezone"},
+				},
+			},
+		},
+	}
+
+	hashes := collectBindMountHashes(project, repoDir)
+	assert.Empty(t, hashes)
+}
+
+func TestCollectBindMountHashesSkipsDirectories(t *testing.T) {
+	repoDir := t.TempDir()
+	subDir := filepath.Join(repoDir, "config")
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+
+	project := &types.Project{
+		Name:       "app",
+		WorkingDir: repoDir,
+		Services: types.Services{
+			"web": {
+				Image: "nginx:latest",
+				Volumes: []types.ServiceVolumeConfig{
+					{Type: types.VolumeTypeBind, Source: subDir, Target: "/config"},
+				},
+			},
+		},
+	}
+
+	hashes := collectBindMountHashes(project, repoDir)
+	assert.Empty(t, hashes)
+}
+
+func TestCollectBindMountHashesSkipsNamedVolumes(t *testing.T) {
+	repoDir := t.TempDir()
+	project := &types.Project{
+		Name:       "app",
+		WorkingDir: repoDir,
+		Services: types.Services{
+			"db": {
+				Image: "postgres:latest",
+				Volumes: []types.ServiceVolumeConfig{
+					{Type: types.VolumeTypeVolume, Source: "pgdata", Target: "/var/lib/postgresql/data"},
+				},
+			},
+		},
+	}
+
+	hashes := collectBindMountHashes(project, repoDir)
+	assert.Empty(t, hashes)
 }
