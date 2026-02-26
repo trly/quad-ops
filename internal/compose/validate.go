@@ -131,12 +131,6 @@ func validateSecuritySettings(serviceName string, service types.ServiceConfig) e
 		}
 	}
 
-	if service.Privileged {
-		return &quadletCompatibilityError{
-			message: fmt.Sprintf("service %q uses 'privileged' mode which is not supported by podman-systemd; systemd provides alternative security models", serviceName),
-		}
-	}
-
 	if service.User != "" {
 		return &quadletCompatibilityError{
 			message: fmt.Sprintf("service %q uses 'user' which has limited support in podman-systemd; configure user mapping through systemd directives instead", serviceName),

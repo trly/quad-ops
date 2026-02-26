@@ -929,7 +929,7 @@ func TestValidateQuadletCompatibility_CapDrop(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestValidateQuadletCompatibility_Privileged tests that privileged mode is rejected.
+// TestValidateQuadletCompatibility_Privileged tests that privileged mode is accepted.
 func TestValidateQuadletCompatibility_Privileged(t *testing.T) {
 	trueVal := true
 	project := &types.Project{
@@ -945,9 +945,7 @@ func TestValidateQuadletCompatibility_Privileged(t *testing.T) {
 
 	err := validateQuadletCompatibility(context.Background(), project)
 
-	require.Error(t, err)
-	assert.True(t, IsQuadletCompatibilityError(err))
-	assert.Contains(t, err.Error(), "privileged")
+	assert.NoError(t, err)
 }
 
 // TestValidateQuadletCompatibility_User tests that user configuration is rejected.
@@ -2003,7 +2001,7 @@ func TestLoadAll_WithFailedProject(t *testing.T) {
 	))
 	require.NoError(t, os.WriteFile(
 		filepath.Join(badDir, "compose.yaml"),
-		[]byte("version: '3'\nservices:\n  app:\n    image: busybox\n    privileged: true\n"),
+		[]byte("version: '3'\nservices:\n  app:\n    image: busybox\n    network_mode: none\n"),
 		0o644,
 	))
 
