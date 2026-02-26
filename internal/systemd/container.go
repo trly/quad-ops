@@ -19,7 +19,7 @@ func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig, p
 	section, _ := file.NewSection("Container")
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string) // For keys with repeated values
-	buildContainerSection(projectName, svc, sectionMap, shadowMap, projectNetworks, projectVolumes)
+	buildContainerSection(projectName, serviceName, svc, sectionMap, shadowMap, projectNetworks, projectVolumes)
 
 	// Copy sectionMap to ini section
 	for key, value := range sectionMap {
@@ -117,15 +117,17 @@ func mapRestartPolicy(composeRestart string) string {
 }
 
 //nolint:gocyclo // High complexity is necessary due to mapping many container configuration options
-func buildContainerSection(projectName string, svc *types.ServiceConfig, section map[string]string, shadows map[string][]string, projectNetworks types.Networks, projectVolumes types.Volumes) { // nolint:whitespace
+func buildContainerSection(projectName, serviceName string, svc *types.ServiceConfig, section map[string]string, shadows map[string][]string, projectNetworks types.Networks, projectVolumes types.Volumes) { // nolint:whitespace
 	// Image: required field
 	if svc.Image != "" {
 		section["Image"] = svc.Image
 	}
 
-	// ContainerName: explicit name mapping
+	// ContainerName: use explicit name if set, otherwise default to <project>-<service>
 	if svc.ContainerName != "" {
 		section["ContainerName"] = svc.ContainerName
+	} else {
+		section["ContainerName"] = fmt.Sprintf("%s-%s", projectName, serviceName)
 	}
 
 	// Entrypoint: override image entrypoint

@@ -1074,7 +1074,7 @@ func TestBuildContainer_EmptyOptionals(t *testing.T) {
 	}
 	unit := BuildContainer("testproject", "myservice", svc, nil, nil)
 
-	assert.Empty(t, getValue(unit, "ContainerName"))
+	assert.Equal(t, "testproject-myservice", getValue(unit, "ContainerName"))
 	assert.Empty(t, getValue(unit, "WorkingDir"))
 	assert.Empty(t, getValue(unit, "User"))
 	assert.Empty(t, getValue(unit, "LogDriver"))
