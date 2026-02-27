@@ -14,29 +14,7 @@ func BuildNetwork(projectName, netName string, net *types.NetworkConfig) Unit {
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string) // For keys with repeated values
 	buildNetworkSection(netName, net, sectionMap, shadowMap)
-	// Copy sectionMap to ini section
-	for key, value := range sectionMap {
-		_, _ = section.NewKey(key, value)
-	}
-
-	// Add shadow keys for repeated directives
-	for key, values := range shadowMap {
-		if len(values) == 0 {
-			continue
-		}
-		k, _ := section.GetKey(key)
-		if k == nil {
-			k, _ = section.NewKey(key, values[0])
-		} else {
-			k.SetValue(values[0])
-		}
-		for _, v := range values[1:] {
-			if err := k.AddShadow(v); err != nil {
-				// Ignore errors adding shadows, they should not occur in normal operation
-				continue
-			}
-		}
-	}
+	writeOrderedSection(section, sectionMap, shadowMap)
 
 	return Unit{
 		Name: fmt.Sprintf("%s-%s.network", projectName, netName),

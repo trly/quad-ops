@@ -2,6 +2,7 @@ package systemd
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -21,29 +22,7 @@ func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig, p
 	shadowMap := make(map[string][]string) // For keys with repeated values
 	buildContainerSection(projectName, serviceName, svc, sectionMap, shadowMap, projectNetworks, projectVolumes)
 
-	// Copy sectionMap to ini section
-	for key, value := range sectionMap {
-		_, _ = section.NewKey(key, value)
-	}
-
-	// Add shadow keys for repeated directives
-	for key, values := range shadowMap {
-		if len(values) == 0 {
-			continue
-		}
-		k, _ := section.GetKey(key)
-		if k == nil {
-			k, _ = section.NewKey(key, values[0])
-		} else {
-			k.SetValue(values[0])
-		}
-		for _, v := range values[1:] {
-			if err := k.AddShadow(v); err != nil {
-				// Ignore errors adding shadows, they should not occur in normal operation
-				continue
-			}
-		}
-	}
+	writeOrderedSection(section, sectionMap, shadowMap)
 
 	// Add [Service] section for restart policy
 	if svc.Restart != "" {
@@ -85,18 +64,7 @@ func buildUnitSection(file *ini.File, projectName string, svc *types.ServiceConf
 		unitShadows["After"] = append(unitShadows["After"], unitName)
 	}
 
-	// Write shadow keys to [Unit] section
-	for key, values := range unitShadows {
-		if len(values) == 0 {
-			continue
-		}
-		k, _ := unitSection.NewKey(key, values[0])
-		for _, v := range values[1:] {
-			if err := k.AddShadow(v); err != nil {
-				continue
-			}
-		}
-	}
+	writeOrderedSection(unitSection, nil, unitShadows)
 }
 
 // mapRestartPolicy converts Docker Compose restart policies to systemd equivalents.
@@ -487,6 +455,12 @@ func buildContainerSection(projectName, serviceName string, svc *types.ServiceCo
 			}
 		}
 	}
+
+	// Sort shadow values derived from map iteration for deterministic output
+	slices.Sort(shadows["AddHost"])
+	slices.Sort(shadows["Annotation"])
+	slices.Sort(shadows["Environment"])
+	slices.Sort(shadows["Secret"])
 }
 
 // formatPort converts a ServicePortConfig to systemd PublishPort format.

@@ -279,6 +279,21 @@ func (s *SyncCmd) finalize(ctx context.Context, globals *Globals, deployState *s
 		}
 	}
 
+	// Exclude already-restarted services from the start list
+	if len(servicesToRestart) > 0 {
+		restartedSet := make(map[string]struct{}, len(servicesToRestart))
+		for _, svc := range servicesToRestart {
+			restartedSet[svc] = struct{}{}
+		}
+		var remaining []string
+		for _, svc := range servicesToStart {
+			if _, restarted := restartedSet[svc]; !restarted {
+				remaining = append(remaining, svc)
+			}
+		}
+		servicesToStart = remaining
+	}
+
 	// Start all services to ensure everything is running.
 	// Quadlet-generated units are produced by systemd's generator and cannot
 	// be enabled (they are transient); DaemonReload + Start is sufficient.

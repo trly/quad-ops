@@ -13,10 +13,7 @@ func BuildVolume(projectName, volName string, vol *types.VolumeConfig) Unit {
 	section, _ := file.NewSection("Volume")
 	sectionMap := make(map[string]string)
 	buildVolumeSection(volName, vol, sectionMap)
-	// Copy sectionMap to ini section
-	for key, value := range sectionMap {
-		_, _ = section.NewKey(key, value)
-	}
+	writeOrderedSection(section, sectionMap, nil)
 
 	return Unit{
 		Name: fmt.Sprintf("%s-%s.volume", projectName, volName),
