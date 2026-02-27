@@ -521,6 +521,22 @@ func TestBuildContainer_WithNetworkMode(t *testing.T) {
 	assert.Equal(t, "host", getValue(unit, "Network"))
 }
 
+// TestBuildContainer_WithNetworkModeIgnoresNetworks tests that network_mode: host
+// does not emit additional Network= directives even when service networks are defined.
+func TestBuildContainer_WithNetworkModeIgnoresNetworks(t *testing.T) {
+	svc := &types.ServiceConfig{
+		Image:       "alpine:latest",
+		NetworkMode: "host",
+		Networks: map[string]*types.ServiceNetworkConfig{
+			"default": {},
+		},
+	}
+	unit := BuildContainer("testproject", "myservice", svc, nil, nil)
+
+	networks := getValues(unit, "Network")
+	assert.Equal(t, []string{"host"}, networks)
+}
+
 // TestBuildContainer_WithMultipleNetworks tests that multiple networks are mapped.
 func TestBuildContainer_WithMultipleNetworks(t *testing.T) {
 	svc := &types.ServiceConfig{

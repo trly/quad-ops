@@ -340,15 +340,17 @@ func buildContainerSection(projectName, serviceName string, svc *types.ServiceCo
 		}
 	}
 
-	// Network mode: set explicit mode if specified
+	// Network mode: set explicit mode if specified.
+	// When a network mode is set, skip adding individual networks—Podman
+	// rejects multiple Network= directives with non-bridge modes.
 	if svc.NetworkMode != "" {
 		section["Network"] = svc.NetworkMode
 	} else if svc.Net != "" {
 		section["Network"] = svc.Net
+	} else {
+		// Add networks as shadow keys
+		shadows["Network"] = append(shadows["Network"], networks...)
 	}
-
-	// Add networks as shadow keys
-	shadows["Network"] = append(shadows["Network"], networks...)
 
 	// ReadOnly: read-only filesystem
 	if svc.ReadOnly {
