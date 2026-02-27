@@ -424,7 +424,7 @@ func TestBuildContainer_WithCapabilities(t *testing.T) {
 	assert.Equal(t, "NET_RAW", dropCaps[0])
 }
 
-// TestBuildContainer_WithPrivileged tests that privileged mode is mapped.
+// TestBuildContainer_WithPrivileged tests that privileged mode is mapped via PodmanArgs.
 func TestBuildContainer_WithPrivileged(t *testing.T) {
 	svc := &types.ServiceConfig{
 		Image:      "alpine:latest",
@@ -432,7 +432,8 @@ func TestBuildContainer_WithPrivileged(t *testing.T) {
 	}
 	unit := BuildContainer("testproject", "myservice", svc, nil, nil)
 
-	assert.Equal(t, "true", getValue(unit, "Privileged"))
+	vals := getValues(unit, "PodmanArgs")
+	assert.Contains(t, vals, "--privileged")
 }
 
 // TestBuildContainer_WithSecurityOpt tests that security options are mapped to Quadlet keys.

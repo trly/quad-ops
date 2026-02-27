@@ -308,9 +308,9 @@ func buildContainerSection(projectName, serviceName string, svc *types.ServiceCo
 		}
 	}
 
-	// Privileged: privileged mode
+	// Privileged: privileged mode (Quadlet has no native Privileged key, use PodmanArgs)
 	if svc.Privileged {
-		section["Privileged"] = "true"
+		shadows["PodmanArgs"] = append(shadows["PodmanArgs"], "--privileged")
 	}
 
 	// Ipc: IPC mode
