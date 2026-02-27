@@ -227,6 +227,25 @@ func TestBuildContainer_WithEnvironment(t *testing.T) {
 	assert.Contains(t, envVals, "BAZ=qux")
 }
 
+// TestBuildContainer_WithEnvironmentSpaces tests that values with spaces are quoted.
+func TestBuildContainer_WithEnvironmentSpaces(t *testing.T) {
+	keyVal := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA"
+	simpleVal := "bar"
+	svc := &types.ServiceConfig{
+		Image: "alpine:latest",
+		Environment: types.MappingWithEquals{
+			"KEY":    &keyVal,
+			"SIMPLE": &simpleVal,
+		},
+	}
+	unit := BuildContainer("testproject", "myservice", svc, nil, nil)
+
+	envVals := getValues(unit, "Environment")
+	assert.Len(t, envVals, 2)
+	assert.Contains(t, envVals, `KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA"`)
+	assert.Contains(t, envVals, "SIMPLE=bar")
+}
+
 // TestBuildContainer_WithDNS tests that DNS servers are mapped.
 func TestBuildContainer_WithDNS(t *testing.T) {
 	svc := &types.ServiceConfig{

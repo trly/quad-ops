@@ -185,10 +185,16 @@ func buildContainerSection(projectName, serviceName string, svc *types.ServiceCo
 	}
 
 	// Environment: environment variables (use shadows for repeated Environment= keys)
+	// Values containing spaces must be quoted so systemd does not split them
+	// into separate assignments (e.g. KEY="ssh-ed25519 AAAA...").
 	for k, v := range svc.Environment {
 		// v is a *string in MappingWithEquals
 		if v != nil {
-			shadows["Environment"] = append(shadows["Environment"], fmt.Sprintf("%s=%s", k, *v))
+			entry := fmt.Sprintf("%s=%s", k, *v)
+			if strings.ContainsAny(*v, " \t") {
+				entry = fmt.Sprintf(`%s="%s"`, k, *v)
+			}
+			shadows["Environment"] = append(shadows["Environment"], entry)
 		}
 	}
 
