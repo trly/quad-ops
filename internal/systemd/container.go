@@ -345,11 +345,6 @@ func buildContainerSection(projectName, serviceName string, svc *types.ServiceCo
 		section["Network"] = svc.NetworkMode
 	} else if svc.Net != "" {
 		section["Network"] = svc.Net
-	} else if len(networks) > 1 {
-		// Multiple networks require bridge mode in Podman, but don't set it as
-		// a Network= key. Instead, prepend it to the networks list so it becomes
-		// the first Network= directive, and subsequent networks are shadow keys.
-		networks = append([]string{"bridge"}, networks...)
 	}
 
 	// Add networks as shadow keys

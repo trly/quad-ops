@@ -521,7 +521,7 @@ func TestBuildContainer_WithNetworkMode(t *testing.T) {
 	assert.Equal(t, "host", getValue(unit, "Network"))
 }
 
-// TestBuildContainer_WithMultipleNetworks tests that multiple networks use bridge mode.
+// TestBuildContainer_WithMultipleNetworks tests that multiple networks are mapped.
 func TestBuildContainer_WithMultipleNetworks(t *testing.T) {
 	svc := &types.ServiceConfig{
 		Image: "alpine:latest",
@@ -532,13 +532,10 @@ func TestBuildContainer_WithMultipleNetworks(t *testing.T) {
 	}
 	unit := BuildContainer("testproject", "myservice", svc, nil, nil)
 
-	// Should set bridge mode for multiple networks
-	assert.Equal(t, "bridge", getValue(unit, "Network"))
-	// Should include all networks as shadow values
 	networks := getValues(unit, "Network")
 	assert.Contains(t, networks, "testproject-default.network")
 	assert.Contains(t, networks, "testproject-proxy.network")
-	assert.Len(t, networks, 3) // bridge mode + 2 networks
+	assert.Len(t, networks, 2)
 }
 
 // TestBuildContainer_WithExternalNetwork tests that external networks use the Podman network name.
@@ -559,7 +556,7 @@ func TestBuildContainer_WithExternalNetwork(t *testing.T) {
 	networks := getValues(unit, "Network")
 	assert.Contains(t, networks, "testproject-default.network")
 	assert.Contains(t, networks, "my-external-net")
-	assert.Len(t, networks, 3) // bridge + 2 networks
+	assert.Len(t, networks, 2)
 }
 
 // TestBuildContainer_WithExternalNetworkNoName tests external network without explicit name.
