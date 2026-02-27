@@ -64,6 +64,10 @@ func buildUnitSection(file *ini.File, projectName string, svc *types.ServiceConf
 		unitShadows["After"] = append(unitShadows["After"], unitName)
 	}
 
+	// Sort shadow values derived from map iteration for deterministic output
+	slices.Sort(unitShadows["Requires"])
+	slices.Sort(unitShadows["After"])
+
 	writeOrderedSection(unitSection, nil, unitShadows)
 }
 
