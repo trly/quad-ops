@@ -13,9 +13,9 @@ weight: 0
 
 ## GitOps for Quadlet
 ![GitHub License](https://img.shields.io/github/license/trly/quad-ops)
-![Docs Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/build.yml)
-![Build Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/docs.yaml?label=docs)
-![CodeQL Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/build.yml?label=codeql)
+![Build Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/build.yml)
+![Docs Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/docs.yaml?label=docs)
+![CodeQL Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/trly/quad-ops/codeql.yml?label=codeql)
 ![GitHub Release](https://img.shields.io/github/v/release/trly/quad-ops)
 [![codecov](https://codecov.io/gh/trly/quad-ops/graph/badge.svg?token=ID6CGJPXR6)](https://codecov.io/gh/trly/quad-ops)
 
@@ -87,6 +87,7 @@ services:
     read_only: true                            # → ReadOnly
 
     # Security
+    privileged: true                            # → PodmanArgs --privileged
     cap_add: [NET_ADMIN]                       # → AddCapability
     cap_drop: [ALL]                            # → DropCapability
     group_add: ["wheel"]                       # → Group
@@ -222,7 +223,6 @@ The following features will produce quadlet compatibility errors during validati
 services:
   bad:
     image: nginx
-    privileged: true                           # rejected
     user: "nobody"                             # rejected — use systemd user mapping
     tmpfs: [/tmp]                              # rejected — use volumes or x-quad-ops-mounts
     profiles: [debug]                          # rejected
@@ -235,7 +235,7 @@ services:
     ipc: container:other                       # rejected
     security_opt:
       - apparmor=unconfined                    # rejected
-    stop_signal: SIGINT                        # rejected (only SIGTERM or SIGKILL)
+    stop_signal: SIGINT                        # rejected (only SIGTERM, SIGKILL, TERM, or KILL)
     logging:
       driver: splunk                           # rejected (only json-file or journald)
     depends_on:

@@ -1,8 +1,5 @@
 # Global application settings
 
-# Sync interval - how often to check for repository updates
-syncInterval: 5m
-
 # Directory paths (these have sensible defaults based on system/user mode)
 # repositoryDir: "/var/lib/quad-ops"        # System mode default
 # repositoryDir: "~/.local/share/quad-ops"  # User mode default

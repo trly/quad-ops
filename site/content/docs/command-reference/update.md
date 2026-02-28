@@ -26,15 +26,17 @@ quad-ops update
 Output when update available:
 
 ```
+Current version: v1.2.3
 Checking for updates...
-A new version is available: v1.3.0
-Downloading update...
-Update completed successfully!
+Update available! New version: v1.3.0
+Downloading and applying update...
+Update completed successfully! Please restart quad-ops to use the new version.
 ```
 
 Output when already current:
 
 ```
+Current version: v1.2.3
 Checking for updates...
 You are already running the latest version.
 ```

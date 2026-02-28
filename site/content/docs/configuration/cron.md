@@ -5,7 +5,7 @@ weight: 25
 
 # Cron
 
-As an alternative to [systemd timers](systemd-service), Quad-Ops can be scheduled with cron.
+As an alternative to [systemd timers](systemd-timer), Quad-Ops can be scheduled with cron.
 
 ## System-Wide (root)
 

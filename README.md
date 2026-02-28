@@ -16,24 +16,6 @@ Quad-Ops is a lightweight GitOps framework for Podman containers managed by [Qua
 - **Flexible deployment** - Works in both system-wide and user (rootless) modes
 - **Validation** - Check Compose files for compatibility before deployment
 
-## CLI Commands
-
-```bash
-quad-ops sync          # Sync repositories and write systemd unit files to quadlet directory
-quad-ops validate      # Validate compose files for use with quad-ops
-quad-ops dependencies  # Print dependencies for all repositories in the configuration
-quad-ops update        # Update quad-ops to the latest version
-quad-ops version       # Print version information
-```
-
-### Global Options
-
-```
---config    Path to config file
---debug     Enable debug mode
---verbose   Enable verbose output
-```
-
 ## Compose Specification Support
 
 Quad-Ops converts standard Docker Compose files to Podman Quadlet units. It supports all container runtime features that work with standalone Podman.
@@ -41,7 +23,7 @@ Quad-Ops converts standard Docker Compose files to Podman Quadlet units. It supp
 ### Fully Supported
 
 **Core container configuration:**
-- `image`, `build`, `command`, `entrypoint`, `working_dir`, `user`, `hostname`
+- `image`, `build`, `command`, `entrypoint`, `working_dir`, `hostname`
 
 **Environment and labels:**
 - `environment`, `env_file`, `labels`, `annotations`
@@ -50,30 +32,29 @@ Quad-Ops converts standard Docker Compose files to Podman Quadlet units. It supp
 - `networks` (bridge, host, custom networks)
 - `ports` (host mode only)
 - `dns`, `dns_search`, `dns_opt`, `extra_hosts`
-- `network_mode` (bridge, host, none, container:name)
+- `network_mode` (bridge, host)
 
 **Storage:**
-- `volumes` (bind mounts, named volumes, tmpfs)
+- `volumes` (bind mounts, named volumes)
 - `secrets` with file/content/environment sources
-- `configs` with file/content/environment sources
 
 **Resources:**
-- `memory`, `cpu_shares`, `cpu_quota`, `cpu_period`
+- `memory`, `cpus`, `cpu_shares`, `cpuset`
 - `pids_limit`, `shm_size`, `sysctls`, `ulimits`
 
 **Security:**
 - `cap_add`, `cap_drop`, `privileged`, `security_opt`, `read_only`
-- `group_add`, `pid` mode, `ipc` mode, `cgroup_parent`
+- `group_add`, `pid` mode, `ipc` mode (private, shareable)
 
 **Devices and hardware:**
-- `devices`, `device_cgroup_rules`
-- `runtime` (e.g., nvidia for GPU support)
+- `devices`
 
 **Health and lifecycle:**
 - `healthcheck` (test, interval, timeout, retries, start_period)
 - `restart` (maps to systemd restart policies)
-- `stop_signal`, `stop_grace_period`
-- `depends_on` (maps to systemd After/Requires)
+- `stop_signal` (SIGTERM, SIGKILL), `stop_grace_period`
+- `depends_on` with `service_started` condition (maps to systemd After/Requires)
+- `tty`, `stdin_open`, `init`, `pull_policy`
 
 ### Partially Supported
 
@@ -88,18 +69,19 @@ Quad-Ops converts standard Docker Compose files to Podman Quadlet units. It supp
 - `deploy.resources.reservations` (partial - depends on cgroups v2)
 
 **Dependency conditions:**
-- All `depends_on` conditions (`service_started`, `service_healthy`, `service_completed_successfully`) map to systemd `After` + `Requires`
-- No health-based startup gating (Quadlet limitation)
+- `depends_on` with `service_started` maps to systemd `After` + `Requires`
+- NOT supported: `service_healthy`, `service_completed_successfully` conditions
 
 **Logging:**
-- Supported: `journald`, `k8s-file`, `none`, `passthrough`
-- NOT supported: Custom drivers not supported by Podman
+- Supported: `json-file`, `journald`
+- NOT supported: Other logging drivers
 
 ### Not Supported - Use Alternatives
 
 **Standard Compose fields:**
+- `user` - Use systemd user mapping instead
+- `tmpfs` - Use named volumes, bind mounts, or `x-quad-ops-mounts`
 - `volumes_from` - Use named volumes or bind mounts
-- `stdin_open`, `tty` - Interactive mode not practical in systemd units
 - `extends` - Use YAML anchors or include directives
 
 ### Explicitly Out of Scope - Swarm Orchestration
@@ -123,67 +105,6 @@ Use `quad-ops validate` to check your Compose files for unsupported features.
 
 **Reference:** [Podman Quadlet Documentation](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
 
-## Naming Requirements
-
-Quad-Ops enforces strict naming requirements for project and service names per Docker Compose specification.
-
-### Project Names
-
-Pattern: `^[a-z0-9][a-z0-9_-]*$`
-
-- Must start with lowercase letter or digit
-- Can contain only: lowercase letters, digits, dashes, underscores
-- Examples: `myproject`, `my-project`, `my_project`, `project123`
-
-### Service Names
-
-Pattern: `^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`
-
-- Must start with alphanumeric character (upper or lowercase)
-- Can contain: alphanumeric, dashes, underscores, periods
-- Examples: `web`, `Web`, `web-api`, `web.api`, `Service123`
-
-**Invalid names are rejected with clear error messages.**
-
-## Architecture
-
-Quad-Ops uses a modular architecture:
-
-1. **Compose Reader** - Parses Docker Compose YAML files
-2. **Platform Renderer** - Generates Quadlet unit files for systemd
-
-## Configuration Example
-
-```yaml
-syncInterval: "5m"           # How often to sync repositories (optional)
-repositoryDir: "/var/lib/quad-ops"  # Where to clone repositories (optional)
-quadletDir: "/etc/containers/systemd"  # Where to write Quadlet units (optional)
-
-repositories:
-  - name: my-containers       # Repository name (required)
-    url: "https://github.com/example/repo.git"  # Git repository URL (required)
-    ref: "main"               # Git reference: branch, tag, or commit (optional)
-    composeDir: "compose"     # Subdirectory with Compose files (optional)
-```
-
-Default directories:
-- **System mode** (root): `/var/lib/quad-ops` for repos, `/etc/containers/systemd` for Quadlet units
-- **User mode** (rootless): `~/.local/share/quad-ops` for repos, `~/.config/containers/systemd` for Quadlet units
-
-## Getting Started
-
-```bash
-# Sync repositories and generate Quadlet unit files
-quad-ops sync
-
-# Validate compose files before deployment
-quad-ops validate /path/to/compose.yml
-
-# Reload systemd and start services
-systemctl daemon-reload
-systemctl start <service-name>
-```
-
 ## Getting Started with Development
 
 ```bash
@@ -201,36 +122,6 @@ task build
 task test          # Run all tests
 task lint          # Run golangci-lint
 task fmt           # Format code
-go build -o quad-ops cmd/quad-ops/main.go  # Build binary only
+go build -o quad-ops ./cmd/quad-ops  # Build binary only
 ```
 
-## Installation
-
-### Quick Install (Recommended)
-
-```bash
-# System-wide installation
-curl -fsSL https://raw.githubusercontent.com/trly/quad-ops/main/install.sh | bash
-
-# User installation (rootless containers)
-curl -fsSL https://raw.githubusercontent.com/trly/quad-ops/main/install.sh | bash -s -- --user
-```
-
-The installer automatically:
-- Detects your architecture (amd64/arm64)
-- Downloads and verifies the correct binary
-- Sets up example configuration files
-
-### Manual Installation
-
-```bash
-# Build the binary
-go build -o quad-ops cmd/quad-ops/main.go
-
-# Move to system directory
-sudo mv quad-ops /usr/local/bin/
-
-# Copy the example config file
-sudo mkdir -p /etc/quad-ops
-sudo cp configs/config.yaml.example /etc/quad-ops/config.yaml
-```
