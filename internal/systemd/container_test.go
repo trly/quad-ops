@@ -1165,11 +1165,9 @@ func TestBuildContainer_NoEnvSecrets(t *testing.T) {
 func TestBuildContainer_InternalDependencies(t *testing.T) {
 	svc := &types.ServiceConfig{
 		Image: "myapp:latest",
-		Extensions: map[string]any{
-			"x-quad-ops-dependencies": map[string]string{
-				"db":    "service_started",
-				"cache": "service_started",
-			},
+		DependsOn: types.DependsOnConfig{
+			"db":    {Condition: "service_started"},
+			"cache": {Condition: "service_started"},
 		},
 	}
 	unit := BuildContainer("myproject", "web", svc, nil, nil)
@@ -1203,10 +1201,8 @@ func TestBuildContainer_NoDependencies(t *testing.T) {
 // TestBuildContainer_EmptyDependencies tests that empty deps don't create Unit section.
 func TestBuildContainer_EmptyDependencies(t *testing.T) {
 	svc := &types.ServiceConfig{
-		Image: "myapp:latest",
-		Extensions: map[string]any{
-			"x-quad-ops-dependencies": map[string]string{},
-		},
+		Image:     "myapp:latest",
+		DependsOn: types.DependsOnConfig{},
 	}
 	unit := BuildContainer("myproject", "api", svc, nil, nil)
 

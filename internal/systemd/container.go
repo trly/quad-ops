@@ -50,15 +50,14 @@ func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig, p
 // buildUnitSection adds the [Unit] section with Requires/After directives
 // based on intra-project service dependencies from depends_on.
 func buildUnitSection(file *ini.File, projectName string, svc *types.ServiceConfig) {
-	deps, ok := svc.Extensions["x-quad-ops-dependencies"].(map[string]string)
-	if !ok || len(deps) == 0 {
+	if len(svc.DependsOn) == 0 {
 		return
 	}
 
 	unitSection, _ := file.NewSection("Unit")
 	unitShadows := make(map[string][]string)
 
-	for depName := range deps {
+	for depName := range svc.DependsOn {
 		unitName := fmt.Sprintf("%s-%s.service", projectName, depName)
 		unitShadows["Requires"] = append(unitShadows["Requires"], unitName)
 		unitShadows["After"] = append(unitShadows["After"], unitName)

@@ -157,8 +157,8 @@ func Load(ctx context.Context, path string, opts *LoadOptions) (*types.Project, 
 		return nil, err
 	}
 
-	// Parse service dependencies and env secrets
-	if err := parseServiceDependencies(ctx, project); err != nil {
+	// Parse service-level extensions (e.g. env secrets)
+	if err := parseServiceExtensions(ctx, project); err != nil {
 		return nil, err
 	}
 
@@ -331,7 +331,7 @@ func parseEnvLines(content string) []string {
 	return lines
 }
 
-// parseEnvSecretsMapping extracts and validates the x-podman-env-secrets extension.
+// parseEnvSecretsMapping extracts and validates the x-quad-ops-env-secrets extension.
 // Maps Podman secret names to environment variable names.
 // Returns a map of secret name -> env var name, or an error if invalid.
 func parseEnvSecretsMapping(serviceName string, service types.ServiceConfig) (map[string]string, error) {
@@ -339,7 +339,7 @@ func parseEnvSecretsMapping(serviceName string, service types.ServiceConfig) (ma
 		return map[string]string{}, nil
 	}
 
-	envSecretsRaw, ok := service.Extensions["x-podman-env-secrets"]
+	envSecretsRaw, ok := service.Extensions["x-quad-ops-env-secrets"]
 	if !ok || envSecretsRaw == nil {
 		return map[string]string{}, nil
 	}
@@ -349,7 +349,7 @@ func parseEnvSecretsMapping(serviceName string, service types.ServiceConfig) (ma
 	if !ok {
 		return nil, &validationError{
 			message: fmt.Sprintf(
-				"invalid x-podman-env-secrets in service %q: must be an object, got %T",
+				"invalid x-quad-ops-env-secrets in service %q: must be an object, got %T",
 				serviceName, envSecretsRaw,
 			),
 		}
@@ -361,7 +361,7 @@ func parseEnvSecretsMapping(serviceName string, service types.ServiceConfig) (ma
 		if !ok {
 			return nil, &validationError{
 				message: fmt.Sprintf(
-					"invalid x-podman-env-secrets in service %q: environment variable name for %q must be string, got %T",
+					"invalid x-quad-ops-env-secrets in service %q: environment variable name for %q must be string, got %T",
 					serviceName, secretName, envVarRaw,
 				),
 			}
@@ -371,7 +371,7 @@ func parseEnvSecretsMapping(serviceName string, service types.ServiceConfig) (ma
 		if !isValidSecretName(secretName) {
 			return nil, &validationError{
 				message: fmt.Sprintf(
-					"invalid x-podman-env-secrets in service %q: invalid secret name %q (must match ^[a-zA-Z0-9_.-]+$)",
+					"invalid x-quad-ops-env-secrets in service %q: invalid secret name %q (must match ^[a-zA-Z0-9_.-]+$)",
 					serviceName, secretName,
 				),
 			}
@@ -381,7 +381,7 @@ func parseEnvSecretsMapping(serviceName string, service types.ServiceConfig) (ma
 		if !isValidEnvVarName(envVar) {
 			return nil, &validationError{
 				message: fmt.Sprintf(
-					"invalid x-podman-env-secrets in service %q: invalid environment variable name %q (must match ^[A-Z_][A-Z0-9_]*$)",
+					"invalid x-quad-ops-env-secrets in service %q: invalid environment variable name %q (must match ^[A-Z_][A-Z0-9_]*$)",
 					serviceName, envVar,
 				),
 			}
@@ -433,9 +433,9 @@ func isUpperAlphaNumeric(ch rune) bool {
 	return (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
 }
 
-// parseServiceDependencies extracts intra-project dependencies from depends_on
-// and parses env secrets for all services in the project.
-func parseServiceDependencies(ctx context.Context, project *types.Project) error {
+// parseServiceExtensions parses and validates service-level extensions
+// (e.g. env secrets) for all services in the project.
+func parseServiceExtensions(ctx context.Context, project *types.Project) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -443,47 +443,22 @@ func parseServiceDependencies(ctx context.Context, project *types.Project) error
 	}
 
 	for serviceName, service := range project.Services {
-		// Parse intra-project dependencies from depends_on
-		intraProjectDeps := parseIntraProjectDependencies(service)
-
-		// Parse environment variable to secret mappings from x-podman-env-secrets extension
+		// Parse and validate environment variable to secret mappings
 		envSecrets, err := parseEnvSecretsMapping(serviceName, service)
 		if err != nil {
 			return err
 		}
 
-		// Store dependencies back in service for later access
-		if service.Extensions == nil {
-			service.Extensions = make(map[string]any)
-		}
-
-		if len(intraProjectDeps) > 0 {
-			service.Extensions["x-quad-ops-dependencies"] = intraProjectDeps
-		}
-
-		// Store parsed env secrets mapping for systemd conversion
+		// Store validated env secrets as typed map for systemd conversion
 		if len(envSecrets) > 0 {
+			if service.Extensions == nil {
+				service.Extensions = make(map[string]any)
+			}
 			service.Extensions["x-quad-ops-env-secrets"] = envSecrets
 		}
 	}
 
 	return nil
-}
-
-// parseIntraProjectDependencies extracts depends_on conditions from a service.
-// Returns a map of service name to condition string (e.g., "service_started").
-func parseIntraProjectDependencies(service types.ServiceConfig) map[string]string {
-	intraProjectDeps := make(map[string]string)
-
-	for serviceName, dep := range service.DependsOn {
-		condition := dep.Condition
-		if condition == "" {
-			condition = "service_started" // compose-spec default
-		}
-		intraProjectDeps[serviceName] = condition
-	}
-
-	return intraProjectDeps
 }
 
 // isAlphaNumeric checks if a rune is a letter (upper or lowercase) or digit.

@@ -74,7 +74,7 @@ func validateQuadletCompatibility(ctx context.Context, project *types.Project) e
 	for volumeName, vol := range project.Volumes {
 		if vol.Driver != "" && vol.Driver != "local" {
 			return &quadletCompatibilityError{
-				message: fmt.Sprintf("volume %q uses unsupported driver %q; only 'local' driver is supported", volumeName, vol.Driver),
+				message: fmt.Sprintf("volume %q uses unsupported driver %q; only 'local' driver is supported; alternatively use x-quad-ops-volume-args to pass driver options directly", volumeName, vol.Driver),
 			}
 		}
 	}
@@ -83,7 +83,7 @@ func validateQuadletCompatibility(ctx context.Context, project *types.Project) e
 	for networkName, net := range project.Networks {
 		if net.Driver != "" && net.Driver != "bridge" {
 			return &quadletCompatibilityError{
-				message: fmt.Sprintf("network %q uses unsupported driver %q; only 'bridge' driver is supported", networkName, net.Driver),
+				message: fmt.Sprintf("network %q uses unsupported driver %q; only 'bridge' driver is supported; alternatively use x-quad-ops-network-args to pass driver options directly", networkName, net.Driver),
 			}
 		}
 	}
@@ -126,25 +126,25 @@ func validateSecuritySettings(serviceName string, service types.ServiceConfig) e
 	for _, opt := range service.SecurityOpt {
 		if !isSupportedSecurityOpt(opt) {
 			return &quadletCompatibilityError{
-				message: fmt.Sprintf("service %q uses unsupported security_opt %q; supported options: label=disable, label=nested, label=type:*, label=level:*, label=filetype:*, no-new-privileges, seccomp=*, mask=*, unmask=*", serviceName, opt),
+				message: fmt.Sprintf("service %q uses unsupported security_opt %q; supported options: label=disable, label=nested, label=type:*, label=level:*, label=filetype:*, no-new-privileges, seccomp=*, mask=*, unmask=*; alternatively use x-quad-ops-podman-args with '--security-opt=%s'", serviceName, opt, opt),
 			}
 		}
 	}
 
 	if service.User != "" {
 		return &quadletCompatibilityError{
-			message: fmt.Sprintf("service %q uses 'user' which has limited support in podman-systemd; configure user mapping through systemd directives instead", serviceName),
+			message: fmt.Sprintf("service %q uses 'user' which has limited support in podman-systemd; configure user mapping through systemd directives instead, or use x-quad-ops-podman-args with '--user=%s'", serviceName, service.User),
 		}
 	}
 
 	if service.Ipc != "" && service.Ipc != "private" && service.Ipc != "shareable" {
 		if isServiceNameReference(service.Ipc) {
 			return &quadletCompatibilityError{
-				message: fmt.Sprintf("service %q uses IPC mode %q which references another container; podman-systemd does not support container-specific IPC sharing", serviceName, service.Ipc),
+				message: fmt.Sprintf("service %q uses IPC mode %q which references another container; podman-systemd does not support container-specific IPC sharing; alternatively use x-quad-ops-podman-args with '--ipc=%s'", serviceName, service.Ipc, service.Ipc),
 			}
 		}
 		return &quadletCompatibilityError{
-			message: fmt.Sprintf("service %q uses unsupported IPC mode %q; only 'private' and 'shareable' are supported", serviceName, service.Ipc),
+			message: fmt.Sprintf("service %q uses unsupported IPC mode %q; only 'private' and 'shareable' are supported; alternatively use x-quad-ops-podman-args with '--ipc=%s'", serviceName, service.Ipc, service.Ipc),
 		}
 	}
 
@@ -190,13 +190,13 @@ func validateNetworking(serviceName string, service types.ServiceConfig) error {
 
 	if service.NetworkMode == "none" {
 		return &quadletCompatibilityError{
-			message: fmt.Sprintf("service %q uses unsupported network mode %q; use 'bridge' or 'host'", serviceName, service.NetworkMode),
+			message: fmt.Sprintf("service %q uses unsupported network mode %q; use 'bridge' or 'host', or use x-quad-ops-podman-args with '--network=%s'", serviceName, service.NetworkMode, service.NetworkMode),
 		}
 	}
 
 	if service.NetworkMode != "host" && service.NetworkMode != "bridge" {
 		return &quadletCompatibilityError{
-			message: fmt.Sprintf("service %q uses unsupported network mode %q; only 'bridge' and 'host' are supported", serviceName, service.NetworkMode),
+			message: fmt.Sprintf("service %q uses unsupported network mode %q; only 'bridge' and 'host' are supported; alternatively use x-quad-ops-podman-args with '--network=%s'", serviceName, service.NetworkMode, service.NetworkMode),
 		}
 	}
 
@@ -224,7 +224,7 @@ func validateServiceFeatures(serviceName string, service types.ServiceConfig) er
 	if service.Logging != nil && service.Logging.Driver != "" {
 		if service.Logging.Driver != "json-file" && service.Logging.Driver != "journald" {
 			return &quadletCompatibilityError{
-				message: fmt.Sprintf("service %q uses logging driver %q; only 'json-file' and 'journald' are supported by podman-systemd", serviceName, service.Logging.Driver),
+				message: fmt.Sprintf("service %q uses logging driver %q; only 'json-file' and 'journald' are supported by podman-systemd; alternatively use x-quad-ops-podman-args with '--log-driver=%s'", serviceName, service.Logging.Driver, service.Logging.Driver),
 			}
 		}
 	}
@@ -232,14 +232,14 @@ func validateServiceFeatures(serviceName string, service types.ServiceConfig) er
 	// Check stop signal
 	if service.StopSignal != "" && !isSupportedStopSignal(service.StopSignal) {
 		return &quadletCompatibilityError{
-			message: fmt.Sprintf("service %q uses stop signal %q; only 'SIGTERM' and 'SIGKILL' are supported by podman-systemd", serviceName, service.StopSignal),
+			message: fmt.Sprintf("service %q uses stop signal %q; only 'SIGTERM' and 'SIGKILL' are supported by podman-systemd; alternatively use x-quad-ops-podman-args with '--stop-signal=%s'", serviceName, service.StopSignal, service.StopSignal),
 		}
 	}
 
 	// Check tmpfs
 	if len(service.Tmpfs) > 0 {
 		return &quadletCompatibilityError{
-			message: fmt.Sprintf("service %q uses 'tmpfs' which is not supported by podman-systemd; use named volumes or bind mounts instead", serviceName),
+			message: fmt.Sprintf("service %q uses 'tmpfs' which is not supported by podman-systemd; use x-quad-ops-mounts with 'type=tmpfs,destination=<path>' or x-quad-ops-podman-args with '--tmpfs=<path>'", serviceName),
 		}
 	}
 
@@ -342,13 +342,13 @@ type MissingSecretsResult struct {
 }
 
 // GetServiceSecrets returns the list of secret names used by a service.
-// It reads from the x-podman-env-secrets extension.
+// It reads from the x-quad-ops-env-secrets extension.
 func GetServiceSecrets(service types.ServiceConfig) []string {
 	if service.Extensions == nil {
 		return nil
 	}
 
-	envSecretsRaw, ok := service.Extensions["x-podman-env-secrets"]
+	envSecretsRaw, ok := service.Extensions["x-quad-ops-env-secrets"]
 	if !ok || envSecretsRaw == nil {
 		return nil
 	}

@@ -1285,87 +1285,6 @@ func TestValidateQuadletCompatibility_Profiles(t *testing.T) {
 	assert.Contains(t, err.Error(), "profiles")
 }
 
-func TestParseIntraProjectDependencies(t *testing.T) {
-	tests := []struct {
-		name     string
-		service  types.ServiceConfig
-		expected map[string]string
-	}{
-		{
-			name:     "empty depends_on",
-			service:  types.ServiceConfig{},
-			expected: map[string]string{},
-		},
-		{
-			name: "single dependency with condition",
-			service: types.ServiceConfig{
-				DependsOn: types.DependsOnConfig{
-					"db": types.ServiceDependency{
-						Condition: "service_healthy",
-					},
-				},
-			},
-			expected: map[string]string{
-				"db": "service_healthy",
-			},
-		},
-		{
-			name: "dependency without condition defaults to service_started",
-			service: types.ServiceConfig{
-				DependsOn: types.DependsOnConfig{
-					"redis": types.ServiceDependency{
-						Condition: "",
-					},
-				},
-			},
-			expected: map[string]string{
-				"redis": "service_started",
-			},
-		},
-		{
-			name: "multiple dependencies with mixed conditions",
-			service: types.ServiceConfig{
-				DependsOn: types.DependsOnConfig{
-					"db": types.ServiceDependency{
-						Condition: "service_healthy",
-					},
-					"cache": types.ServiceDependency{
-						Condition: "",
-					},
-					"queue": types.ServiceDependency{
-						Condition: "service_started",
-					},
-				},
-			},
-			expected: map[string]string{
-				"db":    "service_healthy",
-				"cache": "service_started",
-				"queue": "service_started",
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := parseIntraProjectDependencies(tt.service)
-
-			if len(result) != len(tt.expected) {
-				t.Fatalf("expected %d dependencies, got %d", len(tt.expected), len(result))
-			}
-
-			for key, expectedVal := range tt.expected {
-				gotVal, ok := result[key]
-				if !ok {
-					t.Errorf("missing dependency: %s", key)
-				}
-				if gotVal != expectedVal {
-					t.Errorf("dependency %s: expected %q, got %q", key, expectedVal, gotVal)
-				}
-			}
-		})
-	}
-}
-
 func TestIsAlphaNumeric(t *testing.T) {
 	tests := []struct {
 		ch       rune
@@ -1494,7 +1413,7 @@ services:
 	}
 }
 
-// TestParseEnvSecretsMapping_ValidMapping tests parsing a valid x-podman-env-secrets extension.
+// TestParseEnvSecretsMapping_ValidMapping tests parsing a valid x-quad-ops-env-secrets extension.
 func TestParseEnvSecretsMapping_ValidMapping(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -1506,7 +1425,7 @@ func TestParseEnvSecretsMapping_ValidMapping(t *testing.T) {
 			name: "simple mapping",
 			service: &types.ServiceConfig{
 				Extensions: map[string]interface{}{
-					"x-podman-env-secrets": map[string]interface{}{
+					"x-quad-ops-env-secrets": map[string]interface{}{
 						"db_password": "DATABASE_PASSWORD",
 						"api_secret":  "API_KEY",
 					},
@@ -1522,7 +1441,7 @@ func TestParseEnvSecretsMapping_ValidMapping(t *testing.T) {
 			name: "empty extension",
 			service: &types.ServiceConfig{
 				Extensions: map[string]interface{}{
-					"x-podman-env-secrets": map[string]interface{}{},
+					"x-quad-ops-env-secrets": map[string]interface{}{},
 				},
 			},
 			expectedSecrets: map[string]string{},
@@ -1546,7 +1465,7 @@ func TestParseEnvSecretsMapping_ValidMapping(t *testing.T) {
 			name: "secret names with dashes and dots",
 			service: &types.ServiceConfig{
 				Extensions: map[string]interface{}{
-					"x-podman-env-secrets": map[string]interface{}{
+					"x-quad-ops-env-secrets": map[string]interface{}{
 						"jwt-secret.prod":       "JWT_SECRET",
 						"my_secret-db.password": "DB_PASS",
 					},
@@ -1631,7 +1550,7 @@ func TestParseEnvSecretsMapping_InvalidEnvVarName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := &types.ServiceConfig{
 				Extensions: map[string]interface{}{
-					"x-podman-env-secrets": map[string]interface{}{
+					"x-quad-ops-env-secrets": map[string]interface{}{
 						tt.secret: tt.envVar,
 					},
 				},
@@ -1698,7 +1617,7 @@ func TestParseEnvSecretsMapping_InvalidSecretName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := &types.ServiceConfig{
 				Extensions: map[string]interface{}{
-					"x-podman-env-secrets": map[string]interface{}{
+					"x-quad-ops-env-secrets": map[string]interface{}{
 						tt.secret: tt.envVar,
 					},
 				},
@@ -1752,7 +1671,7 @@ func TestParseEnvSecretsMapping_InvalidTypes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := &types.ServiceConfig{
 				Extensions: map[string]interface{}{
-					"x-podman-env-secrets": tt.extension,
+					"x-quad-ops-env-secrets": tt.extension,
 				},
 			}
 
@@ -1767,7 +1686,7 @@ func TestParseEnvSecretsMapping_InvalidTypes(t *testing.T) {
 	}
 }
 
-// TestParseEnvSecretsMapping_IntegrationWithLoad tests that x-podman-env-secrets is parsed during Load.
+// TestParseEnvSecretsMapping_IntegrationWithLoad tests that x-quad-ops-env-secrets is parsed during Load.
 func TestParseEnvSecretsMapping_IntegrationWithLoad(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -1776,7 +1695,7 @@ name: test-project
 services:
   api:
     image: myapi:latest
-    x-podman-env-secrets:
+    x-quad-ops-env-secrets:
       db_password_secret: DATABASE_PASSWORD
       api_key_secret: API_KEY
       jwt_secret: JWT_SECRET
@@ -1819,7 +1738,7 @@ services:
 func TestGetServiceSecrets_WithSecrets(t *testing.T) {
 	service := types.ServiceConfig{
 		Extensions: map[string]interface{}{
-			"x-podman-env-secrets": map[string]interface{}{ //nolint:gosec // test data, not real credentials
+			"x-quad-ops-env-secrets": map[string]interface{}{ //nolint:gosec // test data, not real credentials
 				"db_password":  "DB_PASSWORD",
 				"api_key":      "API_KEY",
 				"oauth_secret": "OAUTH_SECRET",
@@ -1861,7 +1780,7 @@ func TestGetServiceSecrets_NoSecrets(t *testing.T) {
 			name: "nil env secrets value",
 			service: types.ServiceConfig{
 				Extensions: map[string]interface{}{
-					"x-podman-env-secrets": nil,
+					"x-quad-ops-env-secrets": nil,
 				},
 			},
 		},
@@ -1879,7 +1798,7 @@ func TestGetServiceSecrets_NoSecrets(t *testing.T) {
 func TestGetServiceSecrets_InvalidType(t *testing.T) {
 	service := types.ServiceConfig{
 		Extensions: map[string]interface{}{
-			"x-podman-env-secrets": "not a map",
+			"x-quad-ops-env-secrets": "not a map",
 		},
 	}
 
@@ -2159,7 +2078,7 @@ func TestCheckServiceSecrets(t *testing.T) {
 	t.Run("nil available secrets", func(t *testing.T) {
 		service := types.ServiceConfig{
 			Extensions: map[string]interface{}{
-				"x-podman-env-secrets": map[string]interface{}{
+				"x-quad-ops-env-secrets": map[string]interface{}{
 					"my_secret": "SECRET",
 				},
 			},
@@ -2178,7 +2097,7 @@ func TestCheckServiceSecrets(t *testing.T) {
 	t.Run("all secrets available", func(t *testing.T) {
 		service := types.ServiceConfig{
 			Extensions: map[string]interface{}{
-				"x-podman-env-secrets": map[string]interface{}{
+				"x-quad-ops-env-secrets": map[string]interface{}{
 					"db_pass": "DB_PASSWORD",
 				},
 			},
@@ -2191,7 +2110,7 @@ func TestCheckServiceSecrets(t *testing.T) {
 	t.Run("missing secrets", func(t *testing.T) {
 		service := types.ServiceConfig{
 			Extensions: map[string]interface{}{
-				"x-podman-env-secrets": map[string]interface{}{
+				"x-quad-ops-env-secrets": map[string]interface{}{
 					"db_pass":    "DB_PASSWORD",
 					"api_key":    "API_KEY",
 					"jwt_secret": "JWT_SECRET",
@@ -2222,7 +2141,7 @@ func TestFilterServicesWithMissingSecrets(t *testing.T) {
 					Name:  "app",
 					Image: "busybox",
 					Extensions: map[string]interface{}{
-						"x-podman-env-secrets": map[string]interface{}{
+						"x-quad-ops-env-secrets": map[string]interface{}{
 							"db_pass": "DB_PASSWORD",
 						},
 					},
@@ -2244,7 +2163,7 @@ func TestFilterServicesWithMissingSecrets(t *testing.T) {
 					Name:  "app",
 					Image: "busybox",
 					Extensions: map[string]interface{}{
-						"x-podman-env-secrets": map[string]interface{}{
+						"x-quad-ops-env-secrets": map[string]interface{}{
 							"missing_secret": "SECRET",
 						},
 					},
@@ -2284,8 +2203,8 @@ func TestFilterServicesWithMissingSecrets(t *testing.T) {
 	})
 }
 
-// TestParseServiceDependencies_ContextCancellation tests context cancellation.
-func TestParseServiceDependencies_ContextCancellation(t *testing.T) {
+// TestParseServiceExtensions_ContextCancellation tests context cancellation.
+func TestParseServiceExtensions_ContextCancellation(t *testing.T) {
 	project := &types.Project{
 		Name: "test",
 		Services: types.Services{
@@ -2296,7 +2215,7 @@ func TestParseServiceDependencies_ContextCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	err := parseServiceDependencies(ctx, project)
+	err := parseServiceExtensions(ctx, project)
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, context.Canceled)
