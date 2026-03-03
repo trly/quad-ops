@@ -12,6 +12,7 @@ Manages deployment state persistence for quad-ops, tracking current and previous
 - `UnitState` tracks per-unit content hashes (`ContentHash`) and bind mount file hashes (`BindMountHashes`) for change detection
 - `SetUnitState`/`GetUnitState`/`RemoveUnitState` manage per-unit state; keyed by unit filename
 - `ChangedUnits` compares new unit states against stored states, returning units whose content or bind mount hashes differ — new units (not previously tracked) are excluded since they only need start, not restart
+- `ImageDigests` tracks remote registry digests per image reference via `SetImageDigest`/`GetImageDigest`, enabling digest-based pull skipping without relying on podman's local image metadata
 - `CollectAllManagedUnits` returns a set of all unit filenames across all repositories — used to snapshot managed units before and after sync for stale detection
 - `DiffUnits` (package-level function) returns unit names present in the old set but not in the new set — identifies stale units to clean up
 - **Invariant: state must always reflect what is on disk.** `SetCommit`, `SetManagedUnits`, and `SetUnitState` must be called after unit generation regardless of partial failure, so that stale detection and change detection stay accurate

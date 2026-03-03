@@ -8,18 +8,15 @@ import (
 )
 
 func TestPullImagesEmptySlice(t *testing.T) {
-	err := PullImages(nil, false)
+	result, err := PullImages(nil, nil, false)
 	assert.NoError(t, err)
+	assert.Empty(t, result.UpdatedDigests)
 }
 
 func TestPullImagesEmptyList(t *testing.T) {
-	err := PullImages([]string{}, false)
+	result, err := PullImages([]string{}, nil, false)
 	assert.NoError(t, err)
-}
-
-func TestLocalDigestMissingImage(t *testing.T) {
-	digest := localDigest(context.Background(), "nonexistent-image-abc123xyz:latest")
-	assert.Empty(t, digest, "non-existent image should return empty digest")
+	assert.Empty(t, result.UpdatedDigests)
 }
 
 func TestRemoteDigestInvalidReference(t *testing.T) {
@@ -33,9 +30,4 @@ func TestRemoteDigestCancelledContext(t *testing.T) {
 
 	_, err := remoteDigest(ctx, "docker.io/library/alpine:latest")
 	assert.Error(t, err, "cancelled context should return an error")
-}
-
-func TestNeedsPullMissingLocalImage(t *testing.T) {
-	result := needsPull(context.Background(), "nonexistent-image-abc123xyz:latest", false)
-	assert.True(t, result, "non-existent local image should need pulling")
 }

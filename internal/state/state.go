@@ -28,6 +28,7 @@ type State struct {
 	Repositories map[string]RepoState `json:"repositories"`
 	ManagedUnits map[string][]string  `json:"managed_units,omitempty"`
 	UnitStates   map[string]UnitState `json:"unit_states,omitempty"`
+	ImageDigests map[string]string    `json:"image_digests,omitempty"`
 }
 
 // Load reads the state file from disk. Returns an empty state if the file does not exist.
@@ -39,6 +40,7 @@ func Load(path string) (*State, error) {
 				Repositories: make(map[string]RepoState),
 				ManagedUnits: make(map[string][]string),
 				UnitStates:   make(map[string]UnitState),
+				ImageDigests: make(map[string]string),
 			}, nil
 		}
 		return nil, fmt.Errorf("failed to read state file: %w", err)
@@ -59,6 +61,10 @@ func Load(path string) (*State, error) {
 
 	if s.UnitStates == nil {
 		s.UnitStates = make(map[string]UnitState)
+	}
+
+	if s.ImageDigests == nil {
+		s.ImageDigests = make(map[string]string)
 	}
 
 	return s, nil
@@ -183,4 +189,17 @@ func (s *State) ChangedUnits(newStates map[string]UnitState) []string {
 		}
 	}
 	return changed
+}
+
+// GetImageDigest returns the stored remote digest for an image.
+func (s *State) GetImageDigest(image string) string {
+	return s.ImageDigests[image]
+}
+
+// SetImageDigest records the remote digest for an image after a successful pull.
+func (s *State) SetImageDigest(image, digest string) {
+	if s.ImageDigests == nil {
+		s.ImageDigests = make(map[string]string)
+	}
+	s.ImageDigests[image] = digest
 }

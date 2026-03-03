@@ -6,23 +6,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
-
-// localDigest returns the digest of a locally-available podman image,
-// or an empty string when the image does not exist locally.
-func localDigest(ctx context.Context, image string) string {
-	cmd := exec.CommandContext(ctx, "podman", "inspect", "--format", "{{.Digest}}", image) //nolint:gosec // image names from validated compose files
-	out, err := cmd.Output()
-	if err != nil {
-		return ""
-	}
-	return strings.TrimSpace(string(out))
-}
 
 // remoteDigest returns the digest of an image in its remote registry
 // using a lightweight HEAD request (no layer data is downloaded).
@@ -40,45 +28,22 @@ func remoteDigest(ctx context.Context, image string) (string, error) {
 	return desc.Digest.String(), nil
 }
 
-// needsPull reports whether the image must be pulled. It compares the
-// local digest (from podman inspect) against the remote digest (from a
-// registry HEAD request). An image needs pulling when it doesn't exist
-// locally or when the digests differ.
-func needsPull(ctx context.Context, image string, verbose bool) bool {
-	local := localDigest(ctx, image)
-	if local == "" {
-		if verbose {
-			fmt.Printf("    Image not found locally, pull required\n")
-		}
-		return true
-	}
-
-	remoteDig, err := remoteDigest(ctx, image)
-	if err != nil {
-		if verbose {
-			fmt.Printf("    Could not check remote digest, pulling to be safe: %v\n", err)
-		}
-		return true
-	}
-
-	if local != remoteDig {
-		if verbose {
-			fmt.Printf("    Digest changed (local=%s, remote=%s)\n", local, remoteDig)
-		}
-		return true
-	}
-
-	if verbose {
-		fmt.Printf("    Up to date (%s)\n", local)
-	}
-	return false
+// PullResult reports which images were pulled and their new digests.
+type PullResult struct {
+	// UpdatedDigests maps image references to their new remote digests
+	// after a successful pull.
+	UpdatedDigests map[string]string
 }
 
 // PullImages pulls the given container images using podman, skipping
-// images whose local digest already matches the remote registry.
-func PullImages(images []string, verbose bool) error {
+// images whose stored digest already matches the remote registry.
+// The knownDigests map provides previously-stored remote digests keyed
+// by image reference.
+func PullImages(images []string, knownDigests map[string]string, verbose bool) (*PullResult, error) {
+	result := &PullResult{UpdatedDigests: make(map[string]string)}
+
 	if len(images) == 0 {
-		return nil
+		return result, nil
 	}
 
 	ctx := context.Background()
@@ -94,8 +59,23 @@ func PullImages(images []string, verbose bool) error {
 			fmt.Printf("  [%d/%d] Checking %s\n", i+1, total, image)
 		}
 
-		if !needsPull(ctx, image, verbose) {
+		remoteDig, err := remoteDigest(ctx, image)
+		if err != nil {
+			if verbose {
+				fmt.Printf("    Could not check remote digest, pulling to be safe: %v\n", err)
+			}
+		} else if knownDigests[image] == remoteDig {
+			if verbose {
+				fmt.Printf("    Up to date (%s)\n", remoteDig)
+			}
 			continue
+		} else if verbose {
+			local := knownDigests[image]
+			if local == "" {
+				fmt.Printf("    No stored digest, pull required\n")
+			} else {
+				fmt.Printf("    Digest changed (local=%s, remote=%s)\n", local, remoteDig)
+			}
 		}
 
 		if verbose {
@@ -107,20 +87,33 @@ func PullImages(images []string, verbose bool) error {
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("failed to pull image %s: %w", image, err)
+				return result, fmt.Errorf("failed to pull image %s: %w", image, err)
 			}
 		} else {
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				return fmt.Errorf("failed to pull image %s: %w\n%s", image, err, string(output))
+				return result, fmt.Errorf("failed to pull image %s: %w\n%s", image, err, string(output))
 			}
 		}
 		pulled++
+
+		// Record the digest after a successful pull. If we couldn't
+		// fetch the remote digest earlier, try again now.
+		if remoteDig == "" {
+			remoteDig, err = remoteDigest(ctx, image)
+			if err != nil {
+				if verbose {
+					fmt.Printf("    WARNING: could not determine digest after pull: %v\n", err)
+				}
+				continue
+			}
+		}
+		result.UpdatedDigests[image] = remoteDig
 	}
 
 	if verbose {
 		fmt.Printf("Pulled %d of %d image(s) (%d already up to date)\n", pulled, total, total-pulled)
 	}
 
-	return nil
+	return result, nil
 }

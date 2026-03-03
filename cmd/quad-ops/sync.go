@@ -233,8 +233,17 @@ func (s *SyncCmd) finalize(ctx context.Context, globals *Globals, deployState *s
 		fmt.Println("Reloaded systemd daemon")
 	}
 
-	if err := podman.PullImages(sr.images, globals.Verbose); err != nil {
+	pullResult, err := podman.PullImages(sr.images, deployState.ImageDigests, globals.Verbose)
+	if err != nil {
 		return fmt.Errorf("failed to pull images: %w", err)
+	}
+	for image, digest := range pullResult.UpdatedDigests {
+		deployState.SetImageDigest(image, digest)
+	}
+	if len(pullResult.UpdatedDigests) > 0 {
+		if err := deployState.Save(stateFilePath); err != nil {
+			return fmt.Errorf("failed to save state: %w", err)
+		}
 	}
 
 	// Restart services whose unit definitions or bind-mounted files changed

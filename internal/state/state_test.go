@@ -390,6 +390,60 @@ func TestPruneRemovedRepos(t *testing.T) {
 	assert.Equal(t, []string{"c-db.container"}, s.GetManagedUnits("repo-c"))
 }
 
+func TestSetAndGetImageDigest(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		ImageDigests: make(map[string]string),
+	}
+
+	assert.Empty(t, s.GetImageDigest("docker.io/library/nginx:latest"))
+
+	s.SetImageDigest("docker.io/library/nginx:latest", "sha256:abc123")
+	assert.Equal(t, "sha256:abc123", s.GetImageDigest("docker.io/library/nginx:latest"))
+
+	s.SetImageDigest("docker.io/library/nginx:latest", "sha256:def456")
+	assert.Equal(t, "sha256:def456", s.GetImageDigest("docker.io/library/nginx:latest"))
+}
+
+func TestSetImageDigestInitializesNilMap(t *testing.T) {
+	s := &State{Repositories: make(map[string]RepoState)}
+	s.SetImageDigest("docker.io/library/nginx:latest", "sha256:abc123")
+	assert.Equal(t, "sha256:abc123", s.GetImageDigest("docker.io/library/nginx:latest"))
+}
+
+func TestImageDigestsPersistence(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		ManagedUnits: make(map[string][]string),
+		UnitStates:   make(map[string]UnitState),
+		ImageDigests: make(map[string]string),
+	}
+	s.SetImageDigest("docker.io/library/caddy:latest", "sha256:abc123")
+	s.SetImageDigest("docker.io/traefik/whoami:latest", "sha256:def456")
+
+	require.NoError(t, s.Save(path))
+
+	loaded, err := Load(path)
+	require.NoError(t, err)
+	assert.Equal(t, "sha256:abc123", loaded.GetImageDigest("docker.io/library/caddy:latest"))
+	assert.Equal(t, "sha256:def456", loaded.GetImageDigest("docker.io/traefik/whoami:latest"))
+}
+
+func TestLoadInitializesImageDigests(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "state.json")
+
+	require.NoError(t, os.WriteFile(path, []byte(`{"repositories":{"r":{"current":"abc"}}}`), 0o644))
+
+	s, err := Load(path)
+	require.NoError(t, err)
+	assert.NotNil(t, s.ImageDigests)
+	assert.Empty(t, s.ImageDigests)
+}
+
 func TestSetUnitStateInitializesNilMap(t *testing.T) {
 	s := &State{Repositories: make(map[string]RepoState)}
 	s.SetUnitState("app.container", UnitState{ContentHash: "hash"})
