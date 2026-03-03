@@ -344,8 +344,12 @@ func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, composeDi
 			unitNames = append(unitNames, u.Name)
 
 			if strings.HasSuffix(u.Name, ".container") {
-				us := systemd.ComputeUnitState(u, lp.Project, repoPath)
-				unitStates[u.Name] = us
+				svcName := strings.TrimPrefix(u.Name, lp.Project.Name+"-")
+				svcName = strings.TrimSuffix(svcName, ".container")
+				if svc, ok := lp.Project.Services[svcName]; ok {
+					us := systemd.ComputeUnitState(u, &svc, lp.Project.WorkingDir, repoPath)
+					unitStates[u.Name] = us
+				}
 			}
 		}
 
