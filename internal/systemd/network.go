@@ -9,29 +9,32 @@ import (
 
 // BuildNetwork converts a compose network into a network unit file.
 func BuildNetwork(projectName, netName string, net *types.NetworkConfig) Unit {
+	unitBaseName := fmt.Sprintf("%s-%s", projectName, netName)
 	file := ini.Empty(ini.LoadOptions{AllowShadows: true})
 	section, _ := file.NewSection("Network")
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string) // For keys with repeated values
-	buildNetworkSection(netName, net, sectionMap, shadowMap)
+	buildNetworkSection(unitBaseName, net, sectionMap, shadowMap)
 	writeOrderedSection(section, sectionMap, shadowMap)
 
 	return Unit{
-		Name: fmt.Sprintf("%s-%s.network", projectName, netName),
+		Name: unitBaseName + ".network",
 		File: file,
 	}
 }
 
-func buildNetworkSection(_ string, net *types.NetworkConfig, section map[string]string, shadows map[string][]string) {
+func buildNetworkSection(unitBaseName string, net *types.NetworkConfig, section map[string]string, shadows map[string][]string) {
 	// Driver defaults to bridge if not specified
 	if net.Driver != "" {
 		section["Driver"] = net.Driver
 	}
 
-	// NetworkName: custom name or defaults to systemd-$name
-	if net.Name != "" {
-		section["NetworkName"] = net.Name
-	}
+	// NetworkName: always set to ensure the Podman network name matches
+	// the unit file name (minus extension). compose-go auto-generates names
+	// using underscores (project_network), but unit files use dashes
+	// (project-network.network). Setting NetworkName explicitly avoids
+	// mismatches when other projects reference this network externally.
+	section["NetworkName"] = unitBaseName
 
 	// Labels: map compose labels to systemd Label= directives
 	// Uses dot-notation for multi-value serialization: Label.key=value

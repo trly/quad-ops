@@ -36,6 +36,7 @@ func TestBuildNetwork_BasicNetwork(t *testing.T) {
 	unit := BuildNetwork("testproject", "mynetwork", net)
 
 	assert.Equal(t, "testproject-mynetwork.network", unit.Name)
+	assert.Equal(t, "testproject-mynetwork", getNetValue(unit, "NetworkName"))
 	assert.NotNil(t, unit.File)
 	assert.NotNil(t, unit.File.Section("Network"))
 	assert.Empty(t, getNetValue(unit, "DNS"), "DNS should not be set by default (Podman enables DNS resolution automatically)")
@@ -87,14 +88,15 @@ func TestBuildNetwork_WithDriver(t *testing.T) {
 	assert.Equal(t, "bridge", getNetValue(unit, "Driver"))
 }
 
-// TestBuildNetwork_WithCustomName tests that a custom network name is preserved.
-func TestBuildNetwork_WithCustomName(t *testing.T) {
+// TestBuildNetwork_NetworkNameMatchesUnitBaseName tests that NetworkName always
+// matches the unit base name (project-network) regardless of compose-go's auto-generated name.
+func TestBuildNetwork_NetworkNameMatchesUnitBaseName(t *testing.T) {
 	net := &types.NetworkConfig{
 		Name: "custom-network-name",
 	}
 	unit := BuildNetwork("testproject", "mynetwork", net)
 
-	assert.Equal(t, "custom-network-name", getNetValue(unit, "NetworkName"))
+	assert.Equal(t, "testproject-mynetwork", getNetValue(unit, "NetworkName"))
 }
 
 // TestBuildNetwork_WithLabels tests that labels are mapped with dot-notation.
@@ -472,7 +474,7 @@ func TestBuildNetwork_AllFieldsTogether(t *testing.T) {
 	unit := BuildNetwork("testproject", "mynetwork", net)
 
 	assert.Equal(t, "bridge", getNetValue(unit, "Driver"))
-	assert.Equal(t, "custom-network", getNetValue(unit, "NetworkName"))
+	assert.Equal(t, "testproject-mynetwork", getNetValue(unit, "NetworkName"))
 	assert.Equal(t, "admin", getNetValue(unit, "Label.owner"))
 	assert.Equal(t, "192.168.55.3", getNetValue(unit, "Gateway"))
 	assert.Equal(t, "192.5.0.0/16", getNetValue(unit, "Subnet"))
@@ -555,14 +557,15 @@ func TestBuildNetworkSection_NoDriver(t *testing.T) {
 	assert.Empty(t, getNetValue(unit, "Driver"))
 }
 
-// TestBuildNetworkSection_NoNetworkName tests that missing Name field doesn't add NetworkName.
-func TestBuildNetworkSection_NoNetworkName(t *testing.T) {
+// TestBuildNetworkSection_EmptyNameStillSetsNetworkName tests that NetworkName
+// is always set to the unit base name even when compose Name is empty.
+func TestBuildNetworkSection_EmptyNameStillSetsNetworkName(t *testing.T) {
 	net := &types.NetworkConfig{
 		Name: "",
 	}
 	unit := BuildNetwork("testproject", "net", net)
 
-	assert.Empty(t, getNetValue(unit, "NetworkName"))
+	assert.Equal(t, "testproject-net", getNetValue(unit, "NetworkName"))
 }
 
 // TestBuildNetwork_EmptyIPAMConfig tests that empty IPAM config is handled gracefully.
