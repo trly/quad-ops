@@ -1,6 +1,20 @@
 # systemd Package Agent Guidelines
 
-This directory converts Docker Compose YAML to systemd Quadlet unit files using `gopkg.in/ini.v1`.
+This directory converts Docker Compose YAML to systemd Quadlet unit files using `gopkg.in/ini.v1`, writes them to disk, and computes content hashes for change detection.
+
+## File Layout
+
+| File | Responsibility |
+|------|---------------|
+| `container.go` | Build `.container` unit from compose service |
+| `network.go` | Build `.network` unit from compose network |
+| `volume.go` | Build `.volume` unit from compose volume |
+| `convert.go` | Orchestrate conversion of a full compose project to units |
+| `write.go` | `WriteUnits()` — write `[]Unit` files to the quadlet directory |
+| `hash.go` | `ComputeUnitState()` / `CollectBindMountHashes()` — content and bind mount hashing for change detection (returns `state.UnitState`) |
+| `client.go` | Systemd D-Bus client (start/stop/reload/daemon-reload) |
+
+**Note:** This package imports `internal/state` for the `state.UnitState` type returned by `ComputeUnitState`. There is no circular dependency since `state` does not import `systemd`.
 
 ## Key Concept: AllowShadows for Repeated Keys
 

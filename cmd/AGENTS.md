@@ -66,8 +66,8 @@ All business logic must live in internal packages:
 | `config` | Configuration loading, path resolution, user/system mode detection |
 | `git` | Repository cloning, fetching, checkout, commit hash retrieval |
 | `compose` | Compose file loading, validation, secret checking, service filtering |
-| `systemd` | Quadlet unit generation, systemd D-Bus operations (start/stop/reload) |
-| `state` | Deployment state persistence (current/previous commit tracking for rollback) |
+| `systemd` | Quadlet unit generation, unit file writing, content/bind-mount hashing, systemd D-Bus operations (start/stop/reload) |
+| `state` | Deployment state persistence (current/previous commit tracking for rollback), managed unit tracking, stale unit diffing |
 
 ### Anti-patterns to avoid
 

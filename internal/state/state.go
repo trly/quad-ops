@@ -132,6 +132,38 @@ func (s *State) RemoveUnitState(unitName string) {
 	delete(s.UnitStates, unitName)
 }
 
+// CollectAllManagedUnits returns a set of all unit filenames across all repositories.
+func (s *State) CollectAllManagedUnits() map[string]struct{} {
+	result := make(map[string]struct{})
+	for _, units := range s.ManagedUnits {
+		for _, u := range units {
+			result[u] = struct{}{}
+		}
+	}
+	return result
+}
+
+// PruneRemovedRepos clears managed units for repositories no longer present
+// in the provided set of configured repository names.
+func (s *State) PruneRemovedRepos(configuredRepos map[string]struct{}) {
+	for repoName := range s.ManagedUnits {
+		if _, ok := configuredRepos[repoName]; !ok {
+			s.SetManagedUnits(repoName, nil)
+		}
+	}
+}
+
+// DiffUnits returns unit names present in oldUnits but not in newUnits.
+func DiffUnits(oldUnits, newUnits map[string]struct{}) []string {
+	var stale []string
+	for u := range oldUnits {
+		if _, ok := newUnits[u]; !ok {
+			stale = append(stale, u)
+		}
+	}
+	return stale
+}
+
 // ChangedUnits compares new unit states against stored states and returns
 // unit names that previously existed with different content or bind mount hashes.
 // New units (not previously tracked) are excluded — they only need start, not restart.

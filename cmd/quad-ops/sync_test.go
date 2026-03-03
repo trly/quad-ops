@@ -6,64 +6,25 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/trly/quad-ops/internal/config"
 	"github.com/trly/quad-ops/internal/state"
 	"github.com/trly/quad-ops/internal/systemd"
-	"gopkg.in/ini.v1"
 )
 
-// TestWriteUnitsToQuadletDir tests that units are written with correct file extensions.
-func TestWriteUnitsToQuadletDir(t *testing.T) {
-	tmpDir := t.TempDir()
-	sync := &SyncCmd{}
+// noopClient is a systemd.Client that does nothing, for unit tests
+// that exercise file cleanup without a real D-Bus connection.
+type noopClient struct{}
 
-	// Create test units with different types
-	units := []systemd.Unit{
-		{
-			Name: "my-container.container",
-			File: createTestIniFile("Container", map[string]string{"Image": "alpine:latest"}),
-		},
-		{
-			Name: "my-volume.volume",
-			File: createTestIniFile("Volume", map[string]string{"Driver": "local"}),
-		},
-		{
-			Name: "my-network.network",
-			File: createTestIniFile("Network", map[string]string{"Driver": "bridge"}),
-		},
-	}
+func (noopClient) Start(context.Context, ...string) error   { return nil }
+func (noopClient) Stop(context.Context, ...string) error    { return nil }
+func (noopClient) Restart(context.Context, ...string) error { return nil }
+func (noopClient) Reload(context.Context, ...string) error  { return nil }
+func (noopClient) DaemonReload(context.Context) error       { return nil }
+func (noopClient) Enable(context.Context, ...string) error  { return nil }
+func (noopClient) Disable(context.Context, ...string) error { return nil }
+func (noopClient) Close() error                             { return nil }
 
-	err := sync.writeUnits(units, tmpDir)
-	if err != nil {
-		t.Fatalf("writeUnits failed: %v", err)
-	}
-
-	// Verify files were created with correct extensions
-	tests := []struct {
-		name        string
-		expectedExt string
-	}{
-		{"my-container", ".container"},
-		{"my-volume", ".volume"},
-		{"my-network", ".network"},
-	}
-
-	for _, tt := range tests {
-		expectedPath := filepath.Join(tmpDir, tt.name+tt.expectedExt)
-		if _, err := os.Stat(expectedPath); os.IsNotExist(err) {
-			t.Errorf("expected file %s not found", expectedPath)
-		}
-
-		// Verify file content starts with a section header
-		content, _ := os.ReadFile(expectedPath)
-		if len(content) == 0 {
-			t.Errorf("file %s is empty", expectedPath)
-		}
-	}
-}
+var _ systemd.Client = noopClient{}
 
 // TestRunWithNoConfig tests that Run returns error when config is not loaded.
 func TestRunWithNoConfig(t *testing.T) {
@@ -130,7 +91,7 @@ func TestCleanupStaleUnitsRemovesFiles(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	sync.cleanupStaleUnits(ctx, globals, deployState, staleFiles)
+	sync.cleanupStaleUnits(ctx, globals, deployState, noopClient{}, staleFiles)
 
 	// Verify unit state was cleaned up for stale container
 	_, ok := deployState.GetUnitState("app-old.container")
@@ -150,198 +111,4 @@ func TestCleanupStaleUnitsRemovesFiles(t *testing.T) {
 	if _, err := os.Stat(keepFile); os.IsNotExist(err) {
 		t.Error("expected keep file to still exist")
 	}
-}
-
-// TestDiffUnits tests the set difference computation.
-func TestDiffUnits(t *testing.T) {
-	old := map[string]struct{}{
-		"app-web.container": {},
-		"app-db.container":  {},
-		"app-net.network":   {},
-	}
-	current := map[string]struct{}{
-		"app-web.container": {},
-	}
-
-	stale := diffUnits(old, current)
-	if len(stale) != 2 {
-		t.Fatalf("expected 2 stale units, got %d", len(stale))
-	}
-
-	staleSet := make(map[string]struct{})
-	for _, s := range stale {
-		staleSet[s] = struct{}{}
-	}
-	if _, ok := staleSet["app-db.container"]; !ok {
-		t.Error("expected app-db.container in stale units")
-	}
-	if _, ok := staleSet["app-net.network"]; !ok {
-		t.Error("expected app-net.network in stale units")
-	}
-}
-
-// TestDiffUnitsNoChanges tests that no stale units are returned when sets match.
-func TestDiffUnitsNoChanges(t *testing.T) {
-	units := map[string]struct{}{
-		"app-web.container": {},
-	}
-
-	stale := diffUnits(units, units)
-	if len(stale) != 0 {
-		t.Errorf("expected no stale units, got %d", len(stale))
-	}
-}
-
-// TestCollectAllManagedUnits tests aggregation across multiple repos.
-func TestCollectAllManagedUnits(t *testing.T) {
-	s := &state.State{
-		Repositories: make(map[string]state.RepoState),
-		ManagedUnits: map[string][]string{
-			"repo-a": {"a-web.container", "a-net.network"},
-			"repo-b": {"b-api.container"},
-		},
-	}
-
-	result := collectAllManagedUnits(s)
-	if len(result) != 3 {
-		t.Fatalf("expected 3 units, got %d", len(result))
-	}
-
-	for _, expected := range []string{"a-web.container", "a-net.network", "b-api.container"} {
-		if _, ok := result[expected]; !ok {
-			t.Errorf("expected %s in result", expected)
-		}
-	}
-}
-
-// createTestIniFile is a helper to create a test ini.File with a section and keys.
-func createTestIniFile(sectionName string, keys map[string]string) *ini.File {
-	file := ini.Empty()
-	section, _ := file.NewSection(sectionName)
-	for k, v := range keys {
-		_, _ = section.NewKey(k, v)
-	}
-	return file
-}
-
-func TestComputeUnitStateContentHash(t *testing.T) {
-	unit := systemd.Unit{
-		Name: "app-web.container",
-		File: createTestIniFile("Container", map[string]string{"Image": "nginx:latest"}),
-	}
-	project := &types.Project{
-		Name:       "app",
-		WorkingDir: t.TempDir(),
-	}
-
-	us := computeUnitState(unit, project, project.WorkingDir)
-	assert.NotEmpty(t, us.ContentHash)
-	assert.Empty(t, us.BindMountHashes)
-
-	// Same content produces same hash
-	us2 := computeUnitState(unit, project, project.WorkingDir)
-	assert.Equal(t, us.ContentHash, us2.ContentHash)
-}
-
-func TestComputeUnitStateDifferentContentDifferentHash(t *testing.T) {
-	unit1 := systemd.Unit{
-		Name: "app-web.container",
-		File: createTestIniFile("Container", map[string]string{"Image": "nginx:1.0"}),
-	}
-	unit2 := systemd.Unit{
-		Name: "app-web.container",
-		File: createTestIniFile("Container", map[string]string{"Image": "nginx:2.0"}),
-	}
-	project := &types.Project{
-		Name:       "app",
-		WorkingDir: t.TempDir(),
-	}
-
-	us1 := computeUnitState(unit1, project, project.WorkingDir)
-	us2 := computeUnitState(unit2, project, project.WorkingDir)
-	assert.NotEqual(t, us1.ContentHash, us2.ContentHash)
-}
-
-func TestCollectBindMountHashesInProjectDir(t *testing.T) {
-	repoDir := t.TempDir()
-	confFile := filepath.Join(repoDir, "nginx.conf")
-	require.NoError(t, os.WriteFile(confFile, []byte("server {}"), 0o644))
-
-	project := &types.Project{
-		Name:       "app",
-		WorkingDir: repoDir,
-		Services: types.Services{
-			"web": {
-				Image: "nginx:latest",
-				Volumes: []types.ServiceVolumeConfig{
-					{Type: types.VolumeTypeBind, Source: "nginx.conf", Target: "/etc/nginx/nginx.conf"},
-				},
-			},
-		},
-	}
-
-	hashes := collectBindMountHashes(project, repoDir)
-	assert.Len(t, hashes, 1)
-	assert.Contains(t, hashes, confFile)
-	assert.NotEmpty(t, hashes[confFile])
-}
-
-func TestCollectBindMountHashesSkipsExternalPaths(t *testing.T) {
-	repoDir := t.TempDir()
-	project := &types.Project{
-		Name:       "app",
-		WorkingDir: repoDir,
-		Services: types.Services{
-			"web": {
-				Image: "nginx:latest",
-				Volumes: []types.ServiceVolumeConfig{
-					{Type: types.VolumeTypeBind, Source: "/etc/timezone", Target: "/etc/timezone"},
-				},
-			},
-		},
-	}
-
-	hashes := collectBindMountHashes(project, repoDir)
-	assert.Empty(t, hashes)
-}
-
-func TestCollectBindMountHashesSkipsDirectories(t *testing.T) {
-	repoDir := t.TempDir()
-	subDir := filepath.Join(repoDir, "config")
-	require.NoError(t, os.MkdirAll(subDir, 0o755))
-
-	project := &types.Project{
-		Name:       "app",
-		WorkingDir: repoDir,
-		Services: types.Services{
-			"web": {
-				Image: "nginx:latest",
-				Volumes: []types.ServiceVolumeConfig{
-					{Type: types.VolumeTypeBind, Source: subDir, Target: "/config"},
-				},
-			},
-		},
-	}
-
-	hashes := collectBindMountHashes(project, repoDir)
-	assert.Empty(t, hashes)
-}
-
-func TestCollectBindMountHashesSkipsNamedVolumes(t *testing.T) {
-	repoDir := t.TempDir()
-	project := &types.Project{
-		Name:       "app",
-		WorkingDir: repoDir,
-		Services: types.Services{
-			"db": {
-				Image: "postgres:latest",
-				Volumes: []types.ServiceVolumeConfig{
-					{Type: types.VolumeTypeVolume, Source: "pgdata", Target: "/var/lib/postgresql/data"},
-				},
-			},
-		},
-	}
-
-	hashes := collectBindMountHashes(project, repoDir)
-	assert.Empty(t, hashes)
 }

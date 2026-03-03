@@ -308,6 +308,88 @@ func TestLoadInitializesUnitStates(t *testing.T) {
 	assert.Empty(t, s.UnitStates)
 }
 
+func TestCollectAllManagedUnits(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		ManagedUnits: map[string][]string{
+			"repo-a": {"a-web.container", "a-net.network"},
+			"repo-b": {"b-api.container"},
+		},
+	}
+
+	result := s.CollectAllManagedUnits()
+	assert.Len(t, result, 3)
+	for _, expected := range []string{"a-web.container", "a-net.network", "b-api.container"} {
+		assert.Contains(t, result, expected)
+	}
+}
+
+func TestCollectAllManagedUnitsEmpty(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		ManagedUnits: make(map[string][]string),
+	}
+
+	result := s.CollectAllManagedUnits()
+	assert.Empty(t, result)
+}
+
+func TestDiffUnits(t *testing.T) {
+	old := map[string]struct{}{
+		"app-web.container": {},
+		"app-db.container":  {},
+		"app-net.network":   {},
+	}
+	current := map[string]struct{}{
+		"app-web.container": {},
+	}
+
+	stale := DiffUnits(old, current)
+	assert.Len(t, stale, 2)
+
+	staleSet := make(map[string]struct{})
+	for _, s := range stale {
+		staleSet[s] = struct{}{}
+	}
+	assert.Contains(t, staleSet, "app-db.container")
+	assert.Contains(t, staleSet, "app-net.network")
+}
+
+func TestDiffUnitsNoChanges(t *testing.T) {
+	units := map[string]struct{}{
+		"app-web.container": {},
+	}
+
+	stale := DiffUnits(units, units)
+	assert.Empty(t, stale)
+}
+
+func TestDiffUnitsEmptySets(t *testing.T) {
+	stale := DiffUnits(map[string]struct{}{}, map[string]struct{}{})
+	assert.Empty(t, stale)
+}
+
+func TestPruneRemovedRepos(t *testing.T) {
+	s := &State{
+		Repositories: make(map[string]RepoState),
+		ManagedUnits: map[string][]string{
+			"repo-a": {"a-web.container"},
+			"repo-b": {"b-api.container"},
+			"repo-c": {"c-db.container"},
+		},
+	}
+
+	configured := map[string]struct{}{
+		"repo-a": {},
+		"repo-c": {},
+	}
+	s.PruneRemovedRepos(configured)
+
+	assert.Equal(t, []string{"a-web.container"}, s.GetManagedUnits("repo-a"))
+	assert.Nil(t, s.GetManagedUnits("repo-b"))
+	assert.Equal(t, []string{"c-db.container"}, s.GetManagedUnits("repo-c"))
+}
+
 func TestSetUnitStateInitializesNilMap(t *testing.T) {
 	s := &State{Repositories: make(map[string]RepoState)}
 	s.SetUnitState("app.container", UnitState{ContentHash: "hash"})
