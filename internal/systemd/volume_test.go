@@ -37,14 +37,15 @@ func TestBuildVolume_WithDriver(t *testing.T) {
 	assert.Equal(t, "local", getVolValue(unit, "Driver"))
 }
 
-// TestBuildVolume_WithCustomName tests that a custom volume name is preserved.
-func TestBuildVolume_WithCustomName(t *testing.T) {
+// TestBuildVolume_VolumeNameMatchesUnitBaseName tests that VolumeName always
+// matches the unit base name (project-volume) regardless of compose-go's auto-generated name.
+func TestBuildVolume_VolumeNameMatchesUnitBaseName(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Name: "custom-volume-name",
 	}
 	unit := BuildVolume("testproject", "myvolume", vol)
 
-	assert.Equal(t, "custom-volume-name", getVolValue(unit, "VolumeName"))
+	assert.Equal(t, "testproject-myvolume", getVolValue(unit, "VolumeName"))
 }
 
 // TestBuildVolume_WithLabels tests that labels are mapped with dot-notation.
@@ -385,7 +386,7 @@ func TestBuildVolume_AllFieldsTogether(t *testing.T) {
 	unit := BuildVolume("testproject", "myvolume", vol)
 
 	assert.Equal(t, "local", getVolValue(unit, "Driver"))
-	assert.Equal(t, "full-volume", getVolValue(unit, "VolumeName"))
+	assert.Equal(t, "testproject-myvolume", getVolValue(unit, "VolumeName"))
 	assert.Equal(t, "admin", getVolValue(unit, "Label.owner"))
 	assert.Equal(t, "/dev/sda1", getVolValue(unit, "Device"))
 	assert.Equal(t, "ext4", getVolValue(unit, "Type"))
@@ -451,14 +452,15 @@ func TestBuildVolumeSection_NoDriver(t *testing.T) {
 	assert.Empty(t, getVolValue(unit, "Driver"))
 }
 
-// TestBuildVolumeSection_NoVolumeName tests that missing Name field doesn't add VolumeName.
-func TestBuildVolumeSection_NoVolumeName(t *testing.T) {
+// TestBuildVolumeSection_EmptyNameStillSetsVolumeName tests that VolumeName
+// is always set to the unit base name even when compose Name is empty.
+func TestBuildVolumeSection_EmptyNameStillSetsVolumeName(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Name: "",
 	}
 	unit := BuildVolume("testproject", "vol", vol)
 
-	assert.Empty(t, getVolValue(unit, "VolumeName"))
+	assert.Equal(t, "testproject-vol", getVolValue(unit, "VolumeName"))
 }
 
 // TestBuildVolume_ExtensionWrongType tests that non-slice extensions are ignored.

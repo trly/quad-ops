@@ -9,28 +9,31 @@ import (
 
 // BuildVolume converts a compose volume into a volume unit file.
 func BuildVolume(projectName, volName string, vol *types.VolumeConfig) Unit {
+	unitBaseName := fmt.Sprintf("%s-%s", projectName, volName)
 	file := ini.Empty()
 	section, _ := file.NewSection("Volume")
 	sectionMap := make(map[string]string)
-	buildVolumeSection(volName, vol, sectionMap)
+	buildVolumeSection(unitBaseName, vol, sectionMap)
 	writeOrderedSection(section, sectionMap, nil)
 
 	return Unit{
-		Name: fmt.Sprintf("%s-%s.volume", projectName, volName),
+		Name: unitBaseName + ".volume",
 		File: file,
 	}
 }
 
-func buildVolumeSection(_ string, vol *types.VolumeConfig, section map[string]string) {
+func buildVolumeSection(unitBaseName string, vol *types.VolumeConfig, section map[string]string) {
 	// Driver mapping
 	if vol.Driver != "" {
 		section["Driver"] = vol.Driver
 	}
 
-	// VolumeName: custom name or defaults to systemd-$name
-	if vol.Name != "" {
-		section["VolumeName"] = vol.Name
-	}
+	// VolumeName: always set to ensure the Podman volume name matches
+	// the unit file name (minus extension). compose-go auto-generates names
+	// using underscores (project_volume), but unit files use dashes
+	// (project-volume.volume). Setting VolumeName explicitly avoids
+	// mismatches when containers reference this volume.
+	section["VolumeName"] = unitBaseName
 
 	// Labels: map compose labels to systemd Label= directives
 	// Uses dot-notation for multi-value serialization: Label.key=value
