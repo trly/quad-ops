@@ -53,17 +53,7 @@ func (s *SyncCmd) Run(globals *Globals) error {
 		return nil
 	}
 
-	stateFilePath := globals.AppCfg.GetStateFilePath()
-	deployState, err := state.Load(stateFilePath)
-	if err != nil {
-		return fmt.Errorf("failed to load state: %w", err)
-	}
-
-	if s.Rollback {
-		return s.runLoop(globals, deployState, stateFilePath, s.rollbackRepo, "rollback")
-	}
-
-	return s.runLoop(globals, deployState, stateFilePath, s.syncRepo, "sync")
+	return s.runLoop(globals)
 }
 
 // repoProcessor processes a single repository and returns its result.
@@ -81,8 +71,21 @@ type repoConfig struct {
 // runLoop is the shared loop for sync and rollback. It iterates over
 // configured repositories, calls the provided processor for each, then
 // finalizes (stale cleanup, daemon reload, service start/restart).
-func (s *SyncCmd) runLoop(globals *Globals, deployState *state.State, stateFilePath string, process repoProcessor, action string) error {
+func (s *SyncCmd) runLoop(globals *Globals) error {
 	ctx := context.Background()
+
+	stateFilePath := globals.AppCfg.GetStateFilePath()
+	deployState, err := state.Load(stateFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to load state: %w", err)
+	}
+
+	process := s.syncRepo
+	action := "sync"
+	if s.Rollback {
+		process = s.rollbackRepo
+		action = "rollback"
+	}
 
 	sr := &syncResult{
 		oldManagedUnits: deployState.CollectAllManagedUnits(),
