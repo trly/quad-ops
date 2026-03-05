@@ -53,7 +53,7 @@ func (s *SyncCmd) Run(globals *Globals) error {
 		return nil
 	}
 
-	return s.runLoop(globals)
+	return s.reconcile(globals)
 }
 
 // repoProcessor processes a single repository and returns its result.
@@ -68,10 +68,10 @@ type repoConfig struct {
 	ComposeDir string
 }
 
-// runLoop is the shared loop for sync and rollback. It iterates over
+// reconcile is the shared loop for sync and rollback. It iterates over
 // configured repositories, calls the provided processor for each, then
 // finalizes (stale cleanup, daemon reload, service start/restart).
-func (s *SyncCmd) runLoop(globals *Globals) error {
+func (s *SyncCmd) reconcile(globals *Globals) error {
 	ctx := context.Background()
 
 	stateFilePath := globals.AppCfg.GetStateFilePath()
