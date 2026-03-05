@@ -56,10 +56,6 @@ func (s *SyncCmd) Run(globals *Globals) error {
 	return s.reconcile(globals)
 }
 
-// repoProcessor processes a single repository and returns its result.
-// Returning a nil *repoResult signals the repo should be skipped (not counted as failure).
-type repoProcessor func(ctx context.Context, globals *Globals, deployState *state.State, repo repoConfig, repoPath string) (*repoResult, error)
-
 // repoConfig captures the per-repo fields needed by processors.
 type repoConfig struct {
 	Name       string
@@ -68,8 +64,8 @@ type repoConfig struct {
 	ComposeDir string
 }
 
-// reconcile is the shared loop for sync and rollback. It iterates over
-// configured repositories, calls the provided processor for each, then
+// reconcile iterates over configured repositories,
+// calls the provided processor for each, then
 // finalizes (stale cleanup, daemon reload, service start/restart).
 func (s *SyncCmd) reconcile(globals *Globals) error {
 	ctx := context.Background()

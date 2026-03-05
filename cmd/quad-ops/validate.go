@@ -28,7 +28,7 @@ func (v *ValidateCmd) checkSecrets(ctx context.Context, project *types.Project, 
 
 // processLoadedProject handles validation errors and secret checks for a loaded project
 // Returns 1 if there was an error, 0 otherwise.
-func (v *ValidateCmd) processLoadedProject(ctx context.Context, lp compose.LoadedProject, repoName string, _ bool) int {
+func (v *ValidateCmd) processLoadedProject(ctx context.Context, lp compose.LoadedProject, repoName string) int {
 	if lp.Error != nil {
 		if repoName != "" {
 			fmt.Printf("%s (%s): %v\n", repoName, lp.FilePath, lp.Error)
@@ -61,9 +61,9 @@ func (v *ValidateCmd) Run(globals *Globals) error {
 
 		pathFailures, err := func() (int, error) {
 			if pathInfo.IsDir() {
-				return v.validateDirectory(ctx, path, globals.Verbose)
+				return v.validateDirectory(ctx, path)
 			}
-			return v.validateFile(ctx, path, globals.Verbose)
+			return v.validateFile(ctx, path)
 		}()
 		if err != nil {
 			return err
@@ -118,14 +118,14 @@ func (v *ValidateCmd) validateRepositories(ctx context.Context, globals *Globals
 
 		// Check for validation errors in loaded projects
 		for _, lp := range projects {
-			failures += v.processLoadedProject(ctx, lp, repo.Name, globals.Verbose)
+			failures += v.processLoadedProject(ctx, lp, repo.Name)
 		}
 	}
 
 	return failures, nil
 }
 
-func (v *ValidateCmd) validateFile(ctx context.Context, path string, _ bool) (int, error) {
+func (v *ValidateCmd) validateFile(ctx context.Context, path string) (int, error) {
 	result, err := compose.Load(ctx, path, nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to load compose project: %w", err)
@@ -140,7 +140,7 @@ func (v *ValidateCmd) validateFile(ctx context.Context, path string, _ bool) (in
 	return 0, nil
 }
 
-func (v *ValidateCmd) validateDirectory(ctx context.Context, path string, verbose bool) (int, error) {
+func (v *ValidateCmd) validateDirectory(ctx context.Context, path string) (int, error) {
 	results, err := compose.LoadAll(ctx, path, nil)
 	if err != nil {
 		return 0, fmt.Errorf("failed to scan directory: %w", err)
@@ -152,7 +152,7 @@ func (v *ValidateCmd) validateDirectory(ctx context.Context, path string, verbos
 
 	var failures int
 	for _, lp := range results {
-		failures += v.processLoadedProject(ctx, lp, "", verbose)
+		failures += v.processLoadedProject(ctx, lp, "")
 	}
 
 	if failures > 0 {
