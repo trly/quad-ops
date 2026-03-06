@@ -16,9 +16,7 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X main.Version={{.Version}}
-      - -X main.Commit={{.Commit}}
-      - -X main.Date={{.Date}}
+      - -X github.com/trly/quad-ops/internal/buildinfo.Version={{.Version}}
     env:
       - CGO_ENABLED=0
       - GOAMD64=v1

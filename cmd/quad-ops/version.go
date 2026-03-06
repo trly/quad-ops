@@ -3,56 +3,38 @@ package main
 import (
 	"context"
 	"fmt"
-	"runtime"
-	"time"
 
-	"github.com/creativeprojects/go-selfupdate"
-)
-
-var (
-	Version = "dev"
-	Commit  = "none"
-	Date    = time.Now().Format(time.RFC3339)
+	"github.com/trly/quad-ops/internal/buildinfo"
 )
 
 type VersionCmd struct{}
 
 func (v *VersionCmd) Run() error {
-	fmt.Printf("quad-ops version %s\n", Version)
-	fmt.Printf("  commit: %s\n", Commit)
-	fmt.Printf("  built: %s\n", Date)
-	fmt.Printf("  go: %s\n", runtime.Version())
+	fmt.Printf("quad-ops version %s\n", buildinfo.Version)
+	fmt.Printf("  commit: %s\n", buildinfo.Commit)
+	fmt.Printf("  built: %s\n", buildinfo.Date)
+	fmt.Printf("  go: %s\n", buildinfo.GoVersion)
 
-	v.checkForUpdates()
-
-	return nil
-}
-
-func (v *VersionCmd) checkForUpdates() {
-	if Version == "dev" {
+	if buildinfo.IsDev() {
 		fmt.Println("\nSkipping update check for development build")
-		return
+		return nil
 	}
 
 	fmt.Println("\nChecking for updates...")
 
-	// Detect latest version
-	latest, found, err := selfupdate.DetectLatest(context.Background(), selfupdate.ParseSlug("trly/quad-ops"))
+	status, err := buildinfo.CheckForUpdates(context.Background())
 	if err != nil {
 		fmt.Printf("Failed to check for updates: %v\n", err)
-		return
+		return nil
 	}
 
-	if !found {
-		fmt.Println("No release found")
-		return
-	}
-
-	if latest.LessOrEqual(Version) {
+	if !status.Available {
 		fmt.Println("You are using the latest version.")
-		return
+		return nil
 	}
 
-	fmt.Printf("Update available! New version: %s\n", latest.Version())
+	fmt.Printf("Update available! New version: %s\n", status.NewVersion)
 	fmt.Println("Run 'quad-ops update' to update to the latest version.")
+
+	return nil
 }
