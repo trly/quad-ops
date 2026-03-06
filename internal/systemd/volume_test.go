@@ -17,10 +17,23 @@ func getVolValue(unit Unit, key string) string {
 	return section.Key(key).String()
 }
 
+// getVolValues is a helper to get all values (including shadows) for a key from the Volume section.
+func getVolValues(unit Unit, key string) []string {
+	section := unit.File.Section("Volume")
+	if section == nil {
+		return []string{}
+	}
+	k := section.Key(key)
+	if k == nil {
+		return []string{}
+	}
+	return k.ValueWithShadows()
+}
+
 // TestBuildVolume_BasicVolume tests that a simple volume creates the correct unit structure.
 func TestBuildVolume_BasicVolume(t *testing.T) {
 	vol := &types.VolumeConfig{}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "testproject-myvolume.volume", unit.Name)
 	assert.NotNil(t, unit.File)
@@ -32,7 +45,7 @@ func TestBuildVolume_WithDriver(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Driver: "local",
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "local", getVolValue(unit, "Driver"))
 }
@@ -43,12 +56,12 @@ func TestBuildVolume_VolumeNameMatchesUnitBaseName(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Name: "custom-volume-name",
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "testproject-myvolume", getVolValue(unit, "VolumeName"))
 }
 
-// TestBuildVolume_WithLabels tests that labels are mapped with dot-notation.
+// TestBuildVolume_WithLabels tests that labels are mapped as shadow keys.
 func TestBuildVolume_WithLabels(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Labels: types.Labels{
@@ -56,22 +69,23 @@ func TestBuildVolume_WithLabels(t *testing.T) {
 			"env": "production",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
-	assert.Equal(t, "myapp", getVolValue(unit, "Label.app"))
-	assert.Equal(t, "production", getVolValue(unit, "Label.env"))
+	vals := getVolValues(unit, "Label")
+	assert.Contains(t, vals, "app=myapp")
+	assert.Contains(t, vals, "env=production")
 }
 
-// TestBuildVolume_WithEmptyLabels tests that no Label keys are added when labels are empty.
+// TestBuildVolume_WithEmptyLabels tests that only base labels are added when compose labels are empty.
 func TestBuildVolume_WithEmptyLabels(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Labels: types.Labels{},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{Name: "myrepo", URL: "https://example.com/repo"})
 
-	section := unit.File.Section("Volume")
-	for _, key := range section.Keys() {
-		assert.False(t, len(key.Name()) > 6 && key.Name()[:6] == "Label.")
+	vals := getVolValues(unit, "Label")
+	for _, v := range vals {
+		assert.Contains(t, v, "com.github.trly.quad-ops")
 	}
 }
 
@@ -93,7 +107,7 @@ func TestBuildVolume_DriverOptsCopy(t *testing.T) {
 					"copy": tt.value,
 				},
 			}
-			unit := BuildVolume("testproject", "myvolume", vol)
+			unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 			if tt.expected {
 				assert.Equal(t, "true", getVolValue(unit, "Copy"))
@@ -111,7 +125,7 @@ func TestBuildVolume_DriverOptsDevice(t *testing.T) {
 			"device": "tmpfs",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "tmpfs", getVolValue(unit, "Device"))
 }
@@ -123,7 +137,7 @@ func TestBuildVolume_DriverOptsGroup(t *testing.T) {
 			"group": "192",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "192", getVolValue(unit, "Group"))
 }
@@ -135,7 +149,7 @@ func TestBuildVolume_DriverOptsImage(t *testing.T) {
 			"image": "quay.io/centos/centos:latest",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "quay.io/centos/centos:latest", getVolValue(unit, "Image"))
 }
@@ -158,7 +172,7 @@ func TestBuildVolume_DriverOptsOptionsAlias(t *testing.T) {
 					tt.key: tt.value,
 				},
 			}
-			unit := BuildVolume("testproject", "myvolume", vol)
+			unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 			assert.Equal(t, tt.value, getVolValue(unit, "Options"))
 		})
 	}
@@ -171,7 +185,7 @@ func TestBuildVolume_DriverOptsType(t *testing.T) {
 			"type": "nfs",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "nfs", getVolValue(unit, "Type"))
 }
@@ -194,7 +208,7 @@ func TestBuildVolume_DriverOptsUserAlias(t *testing.T) {
 					tt.key: tt.value,
 				},
 			}
-			unit := BuildVolume("testproject", "myvolume", vol)
+			unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 			assert.Equal(t, tt.value, getVolValue(unit, "User"))
 		})
 	}
@@ -207,7 +221,7 @@ func TestBuildVolume_DriverOptsPath(t *testing.T) {
 			"path": "/mnt/data",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "/mnt/data", getVolValue(unit, "Path"))
 }
@@ -219,7 +233,7 @@ func TestBuildVolume_DriverOptsPathEmpty(t *testing.T) {
 			"path": "",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Empty(t, getVolValue(unit, "Path"))
 }
@@ -231,7 +245,7 @@ func TestBuildVolume_DriverOptsContainersConfModule(t *testing.T) {
 			"containers-conf-module": "mymodule",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "mymodule", getVolValue(unit, "ContainersConfModule"))
 }
@@ -243,7 +257,7 @@ func TestBuildVolume_DriverOptsModule(t *testing.T) {
 			"module": "testmodule",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "testmodule", getVolValue(unit, "ContainersConfModule"))
 }
@@ -256,7 +270,7 @@ func TestBuildVolume_DriverOptsUnknown(t *testing.T) {
 			"another-unknown": "data",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Empty(t, getVolValue(unit, "unknown-option"))
 	assert.Empty(t, getVolValue(unit, "another-unknown"))
@@ -271,7 +285,7 @@ func TestBuildVolume_MultipleDriverOpts(t *testing.T) {
 			"options": "nodev,noexec",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "tmpfs", getVolValue(unit, "Device"))
 	assert.Equal(t, "tmpfs", getVolValue(unit, "Type"))
@@ -288,7 +302,7 @@ func TestBuildVolume_ExtensionGlobalArgs(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "--log-driver=json-file", getVolValue(unit, "GlobalArgs.0"))
 	assert.Equal(t, "--log-opt=max-size=10m", getVolValue(unit, "GlobalArgs.1"))
@@ -304,7 +318,7 @@ func TestBuildVolume_ExtensionVolumeArgs(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "--opt=custom-opt", getVolValue(unit, "PodmanArgs.0"))
 	assert.Equal(t, "--label=vol-specific", getVolValue(unit, "PodmanArgs.1"))
@@ -321,7 +335,7 @@ func TestBuildVolume_ExtensionGlobalArgsInvalid(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "--log-driver=json-file", getVolValue(unit, "GlobalArgs.0"))
 	// Non-string at index 1 means GlobalArgs.1 is not set
@@ -339,7 +353,7 @@ func TestBuildVolume_ExtensionVolumeArgsInvalid(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "--opt=first", getVolValue(unit, "PodmanArgs.0"))
 	// Non-string at index 1 means PodmanArgs.1 is not set
@@ -351,7 +365,7 @@ func TestBuildVolume_EmptyExtensions(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Extensions: map[string]interface{}{},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	section := unit.File.Section("Volume")
 	for _, key := range section.Keys() {
@@ -383,11 +397,11 @@ func TestBuildVolume_AllFieldsTogether(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	assert.Equal(t, "local", getVolValue(unit, "Driver"))
 	assert.Equal(t, "testproject-myvolume", getVolValue(unit, "VolumeName"))
-	assert.Equal(t, "admin", getVolValue(unit, "Label.owner"))
+	assert.Contains(t, getVolValues(unit, "Label"), "owner=admin")
 	assert.Equal(t, "/dev/sda1", getVolValue(unit, "Device"))
 	assert.Equal(t, "ext4", getVolValue(unit, "Type"))
 	assert.Equal(t, "rw,relatime", getVolValue(unit, "Options"))
@@ -405,11 +419,12 @@ func TestBuildVolume_MultipleLabels(t *testing.T) {
 			"version":   "v2",
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
-	assert.Equal(t, "database", getVolValue(unit, "Label.app"))
-	assert.Equal(t, "persistent-store", getVolValue(unit, "Label.component"))
-	assert.Equal(t, "v2", getVolValue(unit, "Label.version"))
+	vals := getVolValues(unit, "Label")
+	assert.Contains(t, vals, "app=database")
+	assert.Contains(t, vals, "component=persistent-store")
+	assert.Contains(t, vals, "version=v2")
 }
 
 // TestBuildVolume_NameDerivation tests that the unit name is derived from the project and volume name.
@@ -427,7 +442,7 @@ func TestBuildVolume_NameDerivation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.volume, func(t *testing.T) {
 			vol := &types.VolumeConfig{}
-			unit := BuildVolume(tt.project, tt.volume, vol)
+			unit := BuildVolume(tt.project, tt.volume, vol, RepositoryMeta{})
 			assert.Equal(t, tt.expectedUnit, unit.Name)
 		})
 	}
@@ -436,7 +451,7 @@ func TestBuildVolume_NameDerivation(t *testing.T) {
 // TestBuildVolume_SectionStructure tests that the unit always has a Volume section.
 func TestBuildVolume_SectionStructure(t *testing.T) {
 	vol := &types.VolumeConfig{}
-	unit := BuildVolume("testproject", "vol", vol)
+	unit := BuildVolume("testproject", "vol", vol, RepositoryMeta{})
 
 	require.NotNil(t, unit.File)
 	require.NotNil(t, unit.File.Section("Volume"))
@@ -447,7 +462,7 @@ func TestBuildVolumeSection_NoDriver(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Driver: "",
 	}
-	unit := BuildVolume("testproject", "vol", vol)
+	unit := BuildVolume("testproject", "vol", vol, RepositoryMeta{})
 
 	assert.Empty(t, getVolValue(unit, "Driver"))
 }
@@ -458,7 +473,7 @@ func TestBuildVolumeSection_EmptyNameStillSetsVolumeName(t *testing.T) {
 	vol := &types.VolumeConfig{
 		Name: "",
 	}
-	unit := BuildVolume("testproject", "vol", vol)
+	unit := BuildVolume("testproject", "vol", vol, RepositoryMeta{})
 
 	assert.Equal(t, "testproject-vol", getVolValue(unit, "VolumeName"))
 }
@@ -471,7 +486,7 @@ func TestBuildVolume_ExtensionWrongType(t *testing.T) {
 			"x-quad-ops-volume-args": map[string]string{},
 		},
 	}
-	unit := BuildVolume("testproject", "myvolume", vol)
+	unit := BuildVolume("testproject", "myvolume", vol, RepositoryMeta{})
 
 	section := unit.File.Section("Volume")
 	for _, key := range section.Keys() {

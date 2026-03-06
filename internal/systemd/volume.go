@@ -8,13 +8,15 @@ import (
 )
 
 // BuildVolume converts a compose volume into a volume unit file.
-func BuildVolume(projectName, volName string, vol *types.VolumeConfig) Unit {
+func BuildVolume(projectName, volName string, vol *types.VolumeConfig, repo RepositoryMeta) Unit {
 	unitBaseName := fmt.Sprintf("%s-%s", projectName, volName)
-	file := ini.Empty()
+	file := ini.Empty(ini.LoadOptions{AllowShadows: true})
 	section, _ := file.NewSection("Volume")
 	sectionMap := make(map[string]string)
-	buildVolumeSection(unitBaseName, vol, sectionMap)
-	writeOrderedSection(section, sectionMap, nil)
+	shadowMap := make(map[string][]string)
+	buildVolumeSection(unitBaseName, vol, sectionMap, shadowMap)
+	applyBaseLabels(shadowMap, repo)
+	writeOrderedSection(section, sectionMap, shadowMap)
 
 	return Unit{
 		Name: unitBaseName + ".volume",
@@ -22,7 +24,7 @@ func BuildVolume(projectName, volName string, vol *types.VolumeConfig) Unit {
 	}
 }
 
-func buildVolumeSection(unitBaseName string, vol *types.VolumeConfig, section map[string]string) {
+func buildVolumeSection(unitBaseName string, vol *types.VolumeConfig, section map[string]string, shadows map[string][]string) {
 	// Driver mapping
 	if vol.Driver != "" {
 		section["Driver"] = vol.Driver
@@ -35,10 +37,9 @@ func buildVolumeSection(unitBaseName string, vol *types.VolumeConfig, section ma
 	// mismatches when containers reference this volume.
 	section["VolumeName"] = unitBaseName
 
-	// Labels: map compose labels to systemd Label= directives
-	// Uses dot-notation for multi-value serialization: Label.key=value
+	// Labels: map compose labels to systemd Label=key=value shadow directives
 	for k, v := range vol.Labels {
-		section[fmt.Sprintf("Label.%s", k)] = v
+		shadows["Label"] = append(shadows["Label"], fmt.Sprintf("%s=%s", k, v))
 	}
 
 	// DriverOpts mapping to Podman systemd directives

@@ -15,12 +15,13 @@ import (
 // BuildContainer converts a compose service into a container unit file.
 // projectNetworks provides the project-level network configs so that external
 // networks can be referenced by name rather than as Quadlet unit files.
-func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig, projectNetworks types.Networks, projectVolumes types.Volumes) Unit {
+func BuildContainer(projectName, serviceName string, svc *types.ServiceConfig, projectNetworks types.Networks, projectVolumes types.Volumes, repo RepositoryMeta) Unit {
 	file := ini.Empty(ini.LoadOptions{AllowShadows: true})
 	section, _ := file.NewSection("Container")
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string) // For keys with repeated values
 	buildContainerSection(projectName, serviceName, svc, sectionMap, shadowMap, projectNetworks, projectVolumes)
+	applyBaseLabels(shadowMap, repo)
 
 	writeOrderedSection(section, sectionMap, shadowMap)
 
@@ -140,9 +141,9 @@ func buildContainerSection(projectName, serviceName string, svc *types.ServiceCo
 		section["Pull"] = svc.PullPolicy
 	}
 
-	// Labels: map compose labels to systemd Label= directives with dot-notation
+	// Labels: map compose labels to systemd Label=key=value shadow directives
 	for k, v := range svc.Labels {
-		section[fmt.Sprintf("Label.%s", k)] = v
+		shadows["Label"] = append(shadows["Label"], fmt.Sprintf("%s=%s", k, v))
 	}
 
 	// Annotations: OCI annotations (different from labels)
@@ -463,6 +464,7 @@ func buildContainerSection(projectName, serviceName string, svc *types.ServiceCo
 	slices.Sort(shadows["AddHost"])
 	slices.Sort(shadows["Annotation"])
 	slices.Sort(shadows["Environment"])
+	slices.Sort(shadows["Label"])
 	slices.Sort(shadows["Secret"])
 }
 

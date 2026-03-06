@@ -14,7 +14,8 @@ type Unit struct {
 }
 
 // Convert transforms a loaded compose project into systemd unit files.
-func Convert(project *types.Project) ([]Unit, error) {
+// The repo parameter provides repository metadata for fixed labels applied to all units.
+func Convert(project *types.Project, repo RepositoryMeta) ([]Unit, error) {
 	units := make([]Unit, 0)
 	projectName := project.Name
 
@@ -23,7 +24,7 @@ func Convert(project *types.Project) ([]Unit, error) {
 		if vol.External {
 			continue
 		}
-		units = append(units, BuildVolume(projectName, volName, &vol))
+		units = append(units, BuildVolume(projectName, volName, &vol, repo))
 	}
 
 	// Convert networks (skip external networks - they reference existing networks)
@@ -31,13 +32,13 @@ func Convert(project *types.Project) ([]Unit, error) {
 		if net.External {
 			continue
 		}
-		units = append(units, BuildNetwork(projectName, netName, &net))
+		units = append(units, BuildNetwork(projectName, netName, &net, repo))
 	}
 
 	// Convert services
 	for svcName, svc := range project.Services {
 		resolveBindMountPaths(&svc, project.WorkingDir)
-		units = append(units, BuildContainer(projectName, svcName, &svc, project.Networks, project.Volumes))
+		units = append(units, BuildContainer(projectName, svcName, &svc, project.Networks, project.Volumes, repo))
 	}
 
 	return units, nil

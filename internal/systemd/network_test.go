@@ -33,7 +33,7 @@ func getNetValues(unit Unit, key string) []string {
 // TestBuildNetwork_BasicNetwork tests that a simple network creates the correct unit structure.
 func TestBuildNetwork_BasicNetwork(t *testing.T) {
 	net := &types.NetworkConfig{}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "testproject-mynetwork.network", unit.Name)
 	assert.Equal(t, "testproject-mynetwork", getNetValue(unit, "NetworkName"))
@@ -71,7 +71,7 @@ func TestBuildNetwork_DNSNotSetByDefault(t *testing.T) {
 			net := &types.NetworkConfig{
 				DriverOpts: tt.driverOpts,
 			}
-			unit := BuildNetwork("testproject", "mynetwork", net)
+			unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 			assert.Equal(t, tt.expectedDNS, getNetValue(unit, "DNS"))
 		})
@@ -83,7 +83,7 @@ func TestBuildNetwork_WithDriver(t *testing.T) {
 	net := &types.NetworkConfig{
 		Driver: "bridge",
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "bridge", getNetValue(unit, "Driver"))
 }
@@ -94,12 +94,12 @@ func TestBuildNetwork_NetworkNameMatchesUnitBaseName(t *testing.T) {
 	net := &types.NetworkConfig{
 		Name: "custom-network-name",
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "testproject-mynetwork", getNetValue(unit, "NetworkName"))
 }
 
-// TestBuildNetwork_WithLabels tests that labels are mapped with dot-notation.
+// TestBuildNetwork_WithLabels tests that labels are mapped as shadow keys.
 func TestBuildNetwork_WithLabels(t *testing.T) {
 	net := &types.NetworkConfig{
 		Labels: types.Labels{
@@ -107,22 +107,23 @@ func TestBuildNetwork_WithLabels(t *testing.T) {
 			"env": "production",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
-	assert.Equal(t, "myapp", getNetValue(unit, "Label.app"))
-	assert.Equal(t, "production", getNetValue(unit, "Label.env"))
+	vals := getNetValues(unit, "Label")
+	assert.Contains(t, vals, "app=myapp")
+	assert.Contains(t, vals, "env=production")
 }
 
-// TestBuildNetwork_WithEmptyLabels tests that no Label keys are added when labels are empty.
+// TestBuildNetwork_WithEmptyLabels tests that only base labels are added when compose labels are empty.
 func TestBuildNetwork_WithEmptyLabels(t *testing.T) {
 	net := &types.NetworkConfig{
 		Labels: types.Labels{},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{Name: "myrepo", URL: "https://example.com/repo"})
 
-	section := unit.File.Section("Network")
-	for _, key := range section.Keys() {
-		assert.False(t, len(key.Name()) > 6 && key.Name()[:6] == "Label.")
+	vals := getNetValues(unit, "Label")
+	for _, v := range vals {
+		assert.Contains(t, v, "com.github.trly.quad-ops")
 	}
 }
 
@@ -144,7 +145,7 @@ func TestBuildNetwork_DriverOptsDisableDNS(t *testing.T) {
 					"disable_dns": tt.value,
 				},
 			}
-			unit := BuildNetwork("testproject", "mynetwork", net)
+			unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 			if tt.expected {
 				assert.Equal(t, "true", getNetValue(unit, "DisableDNS"))
@@ -162,7 +163,7 @@ func TestBuildNetwork_DriverOptsDNS(t *testing.T) {
 			"dns": "192.168.55.1",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "192.168.55.1", getNetValue(unit, "DNS"))
 }
@@ -174,7 +175,7 @@ func TestBuildNetwork_DriverOptsMultipleDNS(t *testing.T) {
 			"dns": "192.168.55.1",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	vals := getNetValues(unit, "DNS")
 	assert.Len(t, vals, 1)
@@ -188,7 +189,7 @@ func TestBuildNetwork_DriverOptsGateway(t *testing.T) {
 			"gateway": "192.168.55.3",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "192.168.55.3", getNetValue(unit, "Gateway"))
 }
@@ -200,7 +201,7 @@ func TestBuildNetwork_DriverOptsInterfaceName(t *testing.T) {
 			"interface_name": "enp1",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "enp1", getNetValue(unit, "InterfaceName"))
 }
@@ -223,7 +224,7 @@ func TestBuildNetwork_DriverOptsInternal(t *testing.T) {
 					"internal": tt.value,
 				},
 			}
-			unit := BuildNetwork("testproject", "mynetwork", net)
+			unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 			if tt.expected {
 				assert.Equal(t, "true", getNetValue(unit, "Internal"))
@@ -241,7 +242,7 @@ func TestBuildNetwork_DriverOptsIPAMDriver(t *testing.T) {
 			"ipam_driver": "dhcp",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "dhcp", getNetValue(unit, "IPAMDriver"))
 }
@@ -253,7 +254,7 @@ func TestBuildNetwork_DriverOptsIPRange(t *testing.T) {
 			"ip_range": "192.168.55.128/25",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	vals := getNetValues(unit, "IPRange")
 	assert.Len(t, vals, 1)
@@ -278,7 +279,7 @@ func TestBuildNetwork_DriverOptsIPv6(t *testing.T) {
 					"ipv6": tt.value,
 				},
 			}
-			unit := BuildNetwork("testproject", "mynetwork", net)
+			unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 			if tt.expected {
 				assert.Equal(t, "true", getNetValue(unit, "IPv6"))
@@ -307,7 +308,7 @@ func TestBuildNetwork_DriverOptsOptionsAlias(t *testing.T) {
 					tt.key: tt.value,
 				},
 			}
-			unit := BuildNetwork("testproject", "mynetwork", net)
+			unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 			assert.Equal(t, tt.value, getNetValue(unit, "Options"))
 		})
 	}
@@ -320,7 +321,7 @@ func TestBuildNetwork_DriverOptsSubnet(t *testing.T) {
 			"subnet": "192.5.0.0/16",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "192.5.0.0/16", getNetValue(unit, "Subnet"))
 }
@@ -343,7 +344,7 @@ func TestBuildNetwork_DriverOptsModule(t *testing.T) {
 					tt.key: tt.value,
 				},
 			}
-			unit := BuildNetwork("testproject", "mynetwork", net)
+			unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 			assert.Equal(t, tt.value, getNetValue(unit, "ContainersConfModule"))
 		})
 	}
@@ -367,7 +368,7 @@ func TestBuildNetwork_DriverOptsNetworkDeleteOnStop(t *testing.T) {
 					"network_delete_on_stop": tt.value,
 				},
 			}
-			unit := BuildNetwork("testproject", "mynetwork", net)
+			unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 			if tt.expected {
 				assert.Equal(t, "true", getNetValue(unit, "NetworkDeleteOnStop"))
@@ -391,7 +392,7 @@ func TestBuildNetwork_IPAMConfigSinglePool(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "192.168.1.0/24", getNetValue(unit, "Subnet.0"))
 	assert.Equal(t, "192.168.1.1", getNetValue(unit, "Gateway.0"))
@@ -414,7 +415,7 @@ func TestBuildNetwork_MultipleIPAMConfigs(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "192.168.1.0/24", getNetValue(unit, "Subnet.0"))
 	assert.Equal(t, "192.168.1.1", getNetValue(unit, "Gateway.0"))
@@ -434,7 +435,7 @@ func TestBuildNetwork_IPAMConfigPartial(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "192.168.1.0/24", getNetValue(unit, "Subnet.0"))
 	assert.Empty(t, getNetValue(unit, "Gateway.0"))
@@ -471,11 +472,11 @@ func TestBuildNetwork_AllFieldsTogether(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "bridge", getNetValue(unit, "Driver"))
 	assert.Equal(t, "testproject-mynetwork", getNetValue(unit, "NetworkName"))
-	assert.Equal(t, "admin", getNetValue(unit, "Label.owner"))
+	assert.Contains(t, getNetValues(unit, "Label"), "owner=admin")
 	assert.Equal(t, "192.168.55.3", getNetValue(unit, "Gateway"))
 	assert.Equal(t, "192.5.0.0/16", getNetValue(unit, "Subnet"))
 	assert.Equal(t, "true", getNetValue(unit, "IPv6"))
@@ -494,7 +495,7 @@ func TestBuildNetwork_DriverOptsIPRangeWithShadows(t *testing.T) {
 			"ip_range": "192.168.55.128/25",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	vals := getNetValues(unit, "IPRange")
 	assert.Len(t, vals, 1)
@@ -510,11 +511,12 @@ func TestBuildNetwork_MultipleLabels(t *testing.T) {
 			"version":   "v1",
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
-	assert.Equal(t, "myapp", getNetValue(unit, "Label.app"))
-	assert.Equal(t, "networking", getNetValue(unit, "Label.component"))
-	assert.Equal(t, "v1", getNetValue(unit, "Label.version"))
+	vals := getNetValues(unit, "Label")
+	assert.Contains(t, vals, "app=myapp")
+	assert.Contains(t, vals, "component=networking")
+	assert.Contains(t, vals, "version=v1")
 }
 
 // TestBuildNetwork_NameDerivation tests that the unit name is derived from the project and network name.
@@ -532,7 +534,7 @@ func TestBuildNetwork_NameDerivation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.network, func(t *testing.T) {
 			net := &types.NetworkConfig{}
-			unit := BuildNetwork(tt.project, tt.network, net)
+			unit := BuildNetwork(tt.project, tt.network, net, RepositoryMeta{})
 			assert.Equal(t, tt.expectedUnit, unit.Name)
 		})
 	}
@@ -541,7 +543,7 @@ func TestBuildNetwork_NameDerivation(t *testing.T) {
 // TestBuildNetwork_SectionStructure tests that the unit always has a Network section.
 func TestBuildNetwork_SectionStructure(t *testing.T) {
 	net := &types.NetworkConfig{}
-	unit := BuildNetwork("testproject", "net", net)
+	unit := BuildNetwork("testproject", "net", net, RepositoryMeta{})
 
 	require.NotNil(t, unit.File)
 	require.NotNil(t, unit.File.Section("Network"))
@@ -552,7 +554,7 @@ func TestBuildNetworkSection_NoDriver(t *testing.T) {
 	net := &types.NetworkConfig{
 		Driver: "",
 	}
-	unit := BuildNetwork("testproject", "net", net)
+	unit := BuildNetwork("testproject", "net", net, RepositoryMeta{})
 
 	assert.Empty(t, getNetValue(unit, "Driver"))
 }
@@ -563,7 +565,7 @@ func TestBuildNetworkSection_EmptyNameStillSetsNetworkName(t *testing.T) {
 	net := &types.NetworkConfig{
 		Name: "",
 	}
-	unit := BuildNetwork("testproject", "net", net)
+	unit := BuildNetwork("testproject", "net", net, RepositoryMeta{})
 
 	assert.Equal(t, "testproject-net", getNetValue(unit, "NetworkName"))
 }
@@ -575,7 +577,7 @@ func TestBuildNetwork_EmptyIPAMConfig(t *testing.T) {
 			Config: []*types.IPAMPool{},
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	section := unit.File.Section("Network")
 	for _, key := range section.Keys() {
@@ -594,7 +596,7 @@ func TestBuildNetwork_BridgeDriver(t *testing.T) {
 			"subnet":  "192.168.1.0/24",
 		},
 	}
-	unit := BuildNetwork("testproject", "bridge-net", net)
+	unit := BuildNetwork("testproject", "bridge-net", net, RepositoryMeta{})
 
 	assert.Equal(t, "bridge", getNetValue(unit, "Driver"))
 	assert.Equal(t, "192.168.1.1", getNetValue(unit, "Gateway"))
@@ -609,7 +611,7 @@ func TestBuildNetwork_MacvlanDriver(t *testing.T) {
 			"options": "parent=eth0",
 		},
 	}
-	unit := BuildNetwork("testproject", "macvlan-net", net)
+	unit := BuildNetwork("testproject", "macvlan-net", net, RepositoryMeta{})
 
 	assert.Equal(t, "macvlan", getNetValue(unit, "Driver"))
 	assert.Equal(t, "parent=eth0", getNetValue(unit, "Options"))
@@ -620,7 +622,7 @@ func TestBuildNetwork_InternalNetwork(t *testing.T) {
 	net := &types.NetworkConfig{
 		Internal: true,
 	}
-	unit := BuildNetwork("testproject", "internal-net", net)
+	unit := BuildNetwork("testproject", "internal-net", net, RepositoryMeta{})
 
 	assert.Equal(t, "true", getNetValue(unit, "Internal"))
 }
@@ -631,7 +633,7 @@ func TestBuildNetwork_EnableIPv6(t *testing.T) {
 	net := &types.NetworkConfig{
 		EnableIPv6: &enabled,
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "true", getNetValue(unit, "IPv6"))
 }
@@ -642,7 +644,7 @@ func TestBuildNetwork_EnableIPv6False(t *testing.T) {
 	net := &types.NetworkConfig{
 		EnableIPv6: &disabled,
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Empty(t, getNetValue(unit, "IPv6"))
 }
@@ -664,7 +666,7 @@ func TestBuildNetwork_IPAMConfigWithNilPool(t *testing.T) {
 			},
 		},
 	}
-	unit := BuildNetwork("testproject", "mynetwork", net)
+	unit := BuildNetwork("testproject", "mynetwork", net, RepositoryMeta{})
 
 	assert.Equal(t, "192.168.1.0/24", getNetValue(unit, "Subnet.0"))
 	assert.Equal(t, "192.168.1.1", getNetValue(unit, "Gateway.0"))

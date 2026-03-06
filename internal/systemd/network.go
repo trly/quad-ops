@@ -8,13 +8,14 @@ import (
 )
 
 // BuildNetwork converts a compose network into a network unit file.
-func BuildNetwork(projectName, netName string, net *types.NetworkConfig) Unit {
+func BuildNetwork(projectName, netName string, net *types.NetworkConfig, repo RepositoryMeta) Unit {
 	unitBaseName := fmt.Sprintf("%s-%s", projectName, netName)
 	file := ini.Empty(ini.LoadOptions{AllowShadows: true})
 	section, _ := file.NewSection("Network")
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string) // For keys with repeated values
 	buildNetworkSection(unitBaseName, net, sectionMap, shadowMap)
+	applyBaseLabels(shadowMap, repo)
 	writeOrderedSection(section, sectionMap, shadowMap)
 
 	return Unit{
@@ -36,10 +37,9 @@ func buildNetworkSection(unitBaseName string, net *types.NetworkConfig, section 
 	// mismatches when other projects reference this network externally.
 	section["NetworkName"] = unitBaseName
 
-	// Labels: map compose labels to systemd Label= directives
-	// Uses dot-notation for multi-value serialization: Label.key=value
+	// Labels: map compose labels to systemd Label=key=value shadow directives
 	for k, v := range net.Labels {
-		section[fmt.Sprintf("Label.%s", k)] = v
+		shadows["Label"] = append(shadows["Label"], fmt.Sprintf("%s=%s", k, v))
 	}
 
 	// Internal: restrict external access

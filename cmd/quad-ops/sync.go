@@ -147,7 +147,7 @@ func (s *SyncCmd) syncRepo(ctx context.Context, globals *Globals, deployState *s
 		fmt.Printf("  Current revision: %s\n", commitHash[:7])
 	}
 
-	unitNames, images, unitStates, genErr := s.generateUnits(ctx, globals, repo.ComposeDir, repoPath)
+	unitNames, images, unitStates, genErr := s.generateUnits(ctx, globals, repo, repoPath)
 
 	deployState.SetCommit(repo.Name, commitHash)
 	deployState.SetManagedUnits(repo.Name, unitNames)
@@ -180,7 +180,7 @@ func (s *SyncCmd) rollbackRepo(ctx context.Context, globals *Globals, deployStat
 		return nil, err
 	}
 
-	unitNames, images, unitStates, genErr := s.generateUnits(ctx, globals, repo.ComposeDir, repoPath)
+	unitNames, images, unitStates, genErr := s.generateUnits(ctx, globals, repo, repoPath)
 
 	deployState.SetCommit(repo.Name, prev)
 	deployState.SetManagedUnits(repo.Name, unitNames)
@@ -296,7 +296,8 @@ func (s *SyncCmd) finalize(ctx context.Context, globals *Globals, deployState *s
 // generateUnits loads compose files, writes the resulting quadlet units,
 // and returns the list of unit filenames written, images referenced, and
 // unit states for change detection.
-func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, composeDir, repoPath string) ([]string, []string, map[string]state.UnitState, error) {
+func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, repo repoConfig, repoPath string) ([]string, []string, map[string]state.UnitState, error) {
+	composeDir := repo.ComposeDir
 	composeSourceDir := repoPath
 	if composeDir != "" {
 		composeSourceDir = filepath.Join(repoPath, composeDir)
@@ -338,7 +339,12 @@ func (s *SyncCmd) generateUnits(ctx context.Context, globals *Globals, composeDi
 				lp.Project.Name, ms.ServiceName, ms.MissingSecrets)
 		}
 
-		units, err := systemd.Convert(lp.Project)
+		units, err := systemd.Convert(lp.Project, systemd.RepositoryMeta{
+			Name:       repo.Name,
+			URL:        repo.URL,
+			Ref:        repo.Ref,
+			ComposeDir: repo.ComposeDir,
+		})
 		if err != nil {
 			fmt.Printf("  WARNING: failed to convert %s: %v\n", lp.FilePath, err)
 			continue

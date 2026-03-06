@@ -22,7 +22,7 @@ func TestConvert_SkipsExternalNetworks(t *testing.T) {
 		},
 	}
 
-	units, err := Convert(project)
+	units, err := Convert(project, RepositoryMeta{})
 	require.NoError(t, err)
 
 	var networkUnits []Unit
@@ -50,7 +50,7 @@ func TestConvert_SkipsExternalVolumes(t *testing.T) {
 		},
 	}
 
-	units, err := Convert(project)
+	units, err := Convert(project, RepositoryMeta{})
 	require.NoError(t, err)
 
 	var volumeUnits []Unit
@@ -75,7 +75,7 @@ func TestConvert_AllExternalNetworksProducesNoNetworkUnits(t *testing.T) {
 		},
 	}
 
-	units, err := Convert(project)
+	units, err := Convert(project, RepositoryMeta{})
 	require.NoError(t, err)
 
 	for _, u := range units {
@@ -117,7 +117,7 @@ func TestConvert_ResolvesRelativeBindMountPaths(t *testing.T) {
 		},
 	}
 
-	units, err := Convert(project)
+	units, err := Convert(project, RepositoryMeta{})
 	require.NoError(t, err)
 
 	var containerUnit Unit
