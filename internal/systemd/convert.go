@@ -1,6 +1,7 @@
 package systemd
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/compose-spec/compose-go/v2/types"
@@ -42,6 +43,18 @@ func Convert(project *types.Project, repo RepositoryMeta) ([]Unit, error) {
 	}
 
 	return units, nil
+}
+
+// effectiveName returns the Podman resource name to use. If the compose config
+// has an explicit name that differs from compose-go's auto-generated
+// "{project}_{resource}" default, that explicit name takes priority. Otherwise
+// the dash-separated unitBaseName is used so the Podman name matches the
+// Quadlet unit file name.
+func effectiveName(composeName, projectName, resourceName, unitBaseName string) string {
+	if composeName != "" && composeName != fmt.Sprintf("%s_%s", projectName, resourceName) {
+		return composeName
+	}
+	return unitBaseName
 }
 
 // resolveBindMountPaths resolves relative source paths in bind mount volumes

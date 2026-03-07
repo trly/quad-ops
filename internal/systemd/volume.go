@@ -10,11 +10,17 @@ import (
 // BuildVolume converts a compose volume into a volume unit file.
 func BuildVolume(projectName, volName string, vol *types.VolumeConfig, repo RepositoryMeta) Unit {
 	unitBaseName := fmt.Sprintf("%s-%s", projectName, volName)
+
+	// Determine effective Podman volume name: prefer explicit name from
+	// compose if provided, otherwise use unitBaseName (dash-separated)
+	// to avoid compose-go's auto-generated underscore format.
+	volumeName := effectiveName(vol.Name, projectName, volName, unitBaseName)
+
 	file := ini.Empty(ini.LoadOptions{AllowShadows: true})
 	section, _ := file.NewSection("Volume")
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string)
-	buildVolumeSection(unitBaseName, vol, sectionMap, shadowMap)
+	buildVolumeSection(volumeName, vol, sectionMap, shadowMap)
 	applyBaseLabels(shadowMap, repo)
 	writeOrderedSection(section, sectionMap, shadowMap)
 

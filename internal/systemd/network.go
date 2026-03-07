@@ -10,11 +10,17 @@ import (
 // BuildNetwork converts a compose network into a network unit file.
 func BuildNetwork(projectName, netName string, net *types.NetworkConfig, repo RepositoryMeta) Unit {
 	unitBaseName := fmt.Sprintf("%s-%s", projectName, netName)
+
+	// Determine effective Podman network name: prefer explicit name from
+	// compose if provided, otherwise use unitBaseName (dash-separated)
+	// to avoid compose-go's auto-generated underscore format.
+	networkName := effectiveName(net.Name, projectName, netName, unitBaseName)
+
 	file := ini.Empty(ini.LoadOptions{AllowShadows: true})
 	section, _ := file.NewSection("Network")
 	sectionMap := make(map[string]string)
 	shadowMap := make(map[string][]string) // For keys with repeated values
-	buildNetworkSection(unitBaseName, net, sectionMap, shadowMap)
+	buildNetworkSection(networkName, net, sectionMap, shadowMap)
 	applyBaseLabels(shadowMap, repo)
 	writeOrderedSection(section, sectionMap, shadowMap)
 
