@@ -93,6 +93,9 @@ x86_64)
 aarch64 | arm64)
   ARCH="arm64"
   ;;
+armv7*)
+  ARCH="armv7"
+  ;;
 *)
   print_error "Unsupported architecture: $ARCH"
   exit 1

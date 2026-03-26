@@ -8,18 +8,17 @@ before:
 builds:
   - main: ./cmd/quad-ops
     binary: quad-ops
-    goos:
-      - linux
-      - darwin
-    goarch:
-      - amd64
-      - arm64
+    targets:
+      - linux_amd64_v1
+      - linux_arm64
+      - linux_arm_7
+      - darwin_amd64_v1
+      - darwin_arm64
     ldflags:
       - -s -w
       - -X github.com/trly/quad-ops/internal/buildinfo.Version={{.Version}}
     env:
       - CGO_ENABLED=0
-      - GOAMD64=v1
     tags:
       - exclude_graphdriver_btrfs
       - exclude_graphdriver_devicemapper
