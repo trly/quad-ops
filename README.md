@@ -124,4 +124,3 @@ task lint          # Run golangci-lint
 task fmt           # Format code
 go build -o quad-ops ./cmd/quad-ops  # Build binary only
 ```
-

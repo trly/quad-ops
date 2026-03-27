@@ -29,3 +29,10 @@ repos:
         language: system
         types: [go]
         pass_filenames: false
+
+      - id: govulncheck
+        name: govulncheck
+        entry: govulncheck ./...
+        language: system
+        types: [go]
+        pass_filenames: false

@@ -9,6 +9,7 @@ tasks:
     cmds:
       - task: fmt
       - task: lint
+      - task: vulncheck
       - task: test
       - go build -o {{.BINARY_NAME}} ./cmd/quad-ops
 
@@ -34,6 +35,11 @@ tasks:
     desc: Run linter
     cmds:
       - golangci-lint run
+
+  vulncheck:
+    desc: Run vulnerability check
+    cmds:
+      - govulncheck ./...
 
   fmt:
     desc: Format code
