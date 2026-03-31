@@ -8,7 +8,7 @@ require (
 	github.com/compose-spec/compose-go/v2 v2.10.1
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/creativeprojects/go-selfupdate v1.5.2
-	github.com/go-git/go-git/v5 v5.17.0
+	github.com/go-git/go-git/v5 v5.17.1
 	github.com/google/go-containerregistry v0.21.3
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/ini.v1 v1.67.1
