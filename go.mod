@@ -1,6 +1,6 @@
 module github.com/trly/quad-ops
 
-go 1.25.8
+go 1.25.9
 
 require (
 	github.com/alecthomas/kong v1.15.0
