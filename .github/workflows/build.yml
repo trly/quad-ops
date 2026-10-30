@@ -22,14 +22,14 @@ jobs:
           mkdir -p $HOME/go/pkg
           rm -rf $HOME/go/pkg/mod
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
           cache: false
       - name: Download Dependencies
         run: go mod download
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
           version: latest
           args: --timeout=5m --build-tags=exclude_graphdriver_btrfs,exclude_graphdriver_devicemapper,containers_image_openpgp
@@ -47,7 +47,7 @@ jobs:
           mkdir -p $HOME/go/pkg
           rm -rf $HOME/go/pkg/mod
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
           cache: false
@@ -65,7 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: 'go.mod'
           cache: true
@@ -74,7 +74,7 @@ jobs:
       - name: Run tests with coverage
         run: go test -v -race -covermode=atomic -coverprofile=coverage.out ./...
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.out
