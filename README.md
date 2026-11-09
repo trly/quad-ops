@@ -8,4 +8,4 @@ Quad-Ops is a lightweight GitOps framework for Podman containers managed by [Qua
 
 
 # NO LONGER MAINTAINED
-I am no longer maintaining this project. I've moved to using [doco-cd](https://doco.cd/latest/) as my CD solution for docker compose files as it better supports secret integrations and is maintained better than I do for this project.
+I am no longer maintaining this project. I've moved to using [doco-cd](https://doco.cd/latest/) as my CD solution for docker compose files as it better supports secret integrations and is maintained better than I can do for this project.
